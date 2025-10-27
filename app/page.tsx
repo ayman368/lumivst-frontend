@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 async function getStocks() {
   try {
-    const res = await fetch('https://lumivstbackend-naming000.up.railway.app/stocks', { 
+    const res = await fetch('lumivst-frontend.vercel.app/stocks', { 
       next: { revalidate: 3600 } 
     })
     if (!res.ok) throw new Error('Failed to fetch stocks')
