@@ -34,7 +34,7 @@ async function getAllStocks() {
     while (true) {
       console.log(`📄 جلب الصفحة ${currentPage}...`)
       // إضافة remove_duplicates=true لتفعيل التصفية من الخادم
-      const response = await fetch(`https://lumivst-frontend.vercel.app/stocks?page=${currentPage}&limit=100&remove_duplicates=true`, {
+      const response = await fetch(`lumivst-frontend-git-main-youssefs-projects-c6c3030a.vercel.app/stocks?page=${currentPage}&limit=100&remove_duplicates=true`, {
         cache: 'no-store'
       })
       
@@ -98,7 +98,7 @@ async function getStockData(symbol: string, period: string = "annual") {
     let stock = null
     
     try {
-      const directRes = await fetch(`https://lumivst-frontend.vercel.app/stocks/${cleanSym}`, {
+      const directRes = await fetch(`lumivst-frontend-git-main-youssefs-projects-c6c3030a.vercel.app/stocks/${cleanSym}`, {
         cache: 'no-store'
       })
       
@@ -126,9 +126,9 @@ async function getStockData(symbol: string, period: string = "annual") {
     // جلب البيانات المالية مع الفترة المحددة - 6 فترات
     console.log(`💰 جلب البيانات المالية لـ 6 ${period === 'annual' ? 'سنوات' : 'أرباع'}...`)
     const [incomeRes, balanceRes, cashflowRes] = await Promise.all([
-      fetch(`https://lumivst-frontend.vercel.app/financials/income_statement/${cleanSym}?period=${period}&limit=6`),
-      fetch(`https://lumivst-frontend.vercel.app/financials/balance_sheet/${cleanSym}?period=${period}&limit=6`),
-      fetch(`https://lumivst-frontend.vercel.app/financials/cash_flow/${cleanSym}?period=${period}&limit=6`)
+      fetch(`lumivst-frontend-git-main-youssefs-projects-c6c3030a.vercel.app/financials/income_statement/${cleanSym}?period=${period}&limit=6`),
+      fetch(`lumivst-frontend-git-main-youssefs-projects-c6c3030a.vercel.app/financials/balance_sheet/${cleanSym}?period=${period}&limit=6`),
+      fetch(`lumivst-frontend-git-main-youssefs-projects-c6c3030a.vercel.app/financials/cash_flow/${cleanSym}?period=${period}&limit=6`)
     ])
 
     // تحقق من الردود
