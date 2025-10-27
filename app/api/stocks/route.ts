@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const BASE_URL = 'http://127.0.0.1:8000'
+const BASE_URL = 'https://lumivstbackend-naming000.up.railway.app/'
 
 export async function GET() {
   try {

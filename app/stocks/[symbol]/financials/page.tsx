@@ -13,9 +13,9 @@ async function getFinancialData(symbol: string, period: string = "annual") {
   console.log(`💰 جلب البيانات المالية لـ ${symbol} - الفترة: ${period}`)
   
   const [incomeRes, balanceRes, cashflowRes] = await Promise.all([
-    fetch(`http://localhost:8000/financials/income_statement/${cleanSym}?period=${period}&limit=6`),
-    fetch(`http://localhost:8000/financials/balance_sheet/${cleanSym}?period=${period}&limit=6`),
-    fetch(`http://localhost:8000/financials/cash_flow/${cleanSym}?period=${period}&limit=6`)
+    fetch(`https://lumivstbackend-naming000.up.railway.app/financials/income_statement/${cleanSym}?period=${period}&limit=6`),
+    fetch(`https://lumivstbackend-naming000.up.railway.app/financials/balance_sheet/${cleanSym}?period=${period}&limit=6`),
+    fetch(`https://lumivstbackend-naming000.up.railway.app/financials/cash_flow/${cleanSym}?period=${period}&limit=6`)
   ])
 
   // Check if responses are ok
