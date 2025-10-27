@@ -8,9 +8,9 @@ async function getStockData(symbol: string) {
   const cleanSym = cleanSymbol(symbol)
   
   const [stockRes, incomeRes, balanceRes] = await Promise.all([
-    fetch(`lumivst-frontend-git-main-youssefs-projects-c6c3030a.vercel.app/stocks`),
-    fetch(`lumivst-frontend-git-main-youssefs-projects-c6c3030a.vercel.app/financials/income_statement/${cleanSym}`),
-    fetch(`lumivst-frontend-git-main-youssefs-projects-c6c3030a.vercel.app/financials/balance_sheet/${cleanSym}`)
+    fetch(`https://lumivstbackend-naming000.up.railway.app/stocks`),
+    fetch(`https://lumivstbackend-naming000.up.railway.app/financials/income_statement/${cleanSym}`),
+    fetch(`https://lumivstbackend-naming000.up.railway.app/financials/balance_sheet/${cleanSym}`)
   ])
 
   const stocksData = await stockRes.json()

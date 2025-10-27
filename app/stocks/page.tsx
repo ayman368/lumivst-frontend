@@ -19,7 +19,7 @@ function cleanSymbol(symbol: string): string {
 
 async function getStocks(page: number = 1, limit: number = 25) {
   // استخدام remove_duplicates=true علشان الخادم يصفى البيانات
-  const res = await fetch(`lumivst-frontend-git-main-youssefs-projects-c6c3030a.vercel.app/stocks?page=${page}&limit=${limit}&remove_duplicates=true`, { 
+  const res = await fetch(`https://lumivstbackend-naming000.up.railway.app/stocks?page=${page}&limit=${limit}&remove_duplicates=true`, { 
     cache: 'no-store' // لا تخزن علشان نحصل على أحدث البيانات
   })
   
