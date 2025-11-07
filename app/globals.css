@@ -1106,6 +1106,6 @@ body {
 
 /* استثناء للنصوص العربية إذا كنت تريدها */
 /* .arabic-text {
-  direction: rtl;
+  direction: ltr;
   text-align: right;
 } */
