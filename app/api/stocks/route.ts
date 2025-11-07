@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 
-const BASE_URL = 'https://lumivstbackendv2-production.up.railway.app'
+const BASE_URL = 'https://lumivstbackend-naming000.up.railway.app/'
 
 export async function GET() {
   try {
-    const response = await fetch(`${BASE_URL}/api/stocks/saudi/bulk?country=Saudi%20Arabia`)
+    const response = await fetch(`${BASE_URL}/stocks`)
     const data = await response.json()
     
     return NextResponse.json(data)
