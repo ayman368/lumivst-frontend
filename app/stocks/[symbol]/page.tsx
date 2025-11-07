@@ -34,7 +34,7 @@ async function getAllStocks() {
     while (true) {
       console.log(`📄 جلب الصفحة ${currentPage}...`)
       // إضافة remove_duplicates=true لتفعيل التصفية من الخادم
-      const response = await fetch(`https://lumivstbackend-naming000.up.railway.app/stocks?page=${currentPage}&limit=100&remove_duplicates=true`, {
+      const response = await fetch(`http://localhost:8000/stocks?page=${currentPage}&limit=100&remove_duplicates=true`, {
         cache: 'no-store'
       })
       
@@ -99,7 +99,7 @@ async function getStockData(symbol: string, period: string = "annual", country: 
     let stock = null
     
     try {
-      const directRes = await fetch(`https://lumivstbackend-naming000.up.railway.app/stocks/${cleanSym}?country=${encodeURIComponent(country)}`, {
+      const directRes = await fetch(`http://localhost:8000/stocks/${cleanSym}?country=${encodeURIComponent(country)}`, {
         cache: 'no-store'
       })
       
@@ -116,9 +116,9 @@ async function getStockData(symbol: string, period: string = "annual", country: 
     // جلب البيانات المالية مع الفترة المحددة والبلد - 6 فترات
     console.log(`💰 جلب البيانات المالية لـ 6 ${period === 'annual' ? 'سنوات' : 'أرباع'} في ${country}...`)
     const [incomeRes, balanceRes, cashflowRes] = await Promise.all([
-      fetch(`https://lumivstbackend-naming000.up.railway.app/financials/income_statement/${cleanSym}?country=${encodeURIComponent(country)}&period=${period}&limit=6`),
-      fetch(`https://lumivstbackend-naming000.up.railway.app/financials/balance_sheet/${cleanSym}?country=${encodeURIComponent(country)}&period=${period}&limit=6`),
-      fetch(`https://lumivstbackend-naming000.up.railway.app/financials/cash_flow/${cleanSym}?country=${encodeURIComponent(country)}&period=${period}&limit=6`)
+      fetch(`http://localhost:8000/financials/income_statement/${cleanSym}?country=${encodeURIComponent(country)}&period=${period}&limit=6`),
+      fetch(`http://localhost:8000/financials/balance_sheet/${cleanSym}?country=${encodeURIComponent(country)}&period=${period}&limit=6`),
+      fetch(`http://localhost:8000/financials/cash_flow/${cleanSym}?country=${encodeURIComponent(country)}&period=${period}&limit=6`)
     ])
 
     // تحقق من الردود
