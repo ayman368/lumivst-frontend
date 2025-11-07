@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 async function getStocks() {
   try {
-    const res = await fetch('http://localhost:8000/api/stocks', { 
+    const res = await fetch('lumivstbackendv2-production.up.railway.app/api/stocks', { 
       next: { revalidate: 3600 } 
     })
     if (!res.ok) throw new Error('Failed to fetch stocks')
