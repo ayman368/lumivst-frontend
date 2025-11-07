@@ -13,9 +13,9 @@ async function getFinancialData(symbol: string, period: string = "annual", count
   console.log(`💰 Fetching financial data for ${symbol} - Country: ${country} - Period: ${period}`)
   
   const [incomeRes, balanceRes, cashflowRes] = await Promise.all([
-    fetch(`http://web-production-e66c2.up.railway.app/financials/income_statement/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' }),
-    fetch(`http://web-production-e66c2.up.railway.app/financials/balance_sheet/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' }),
-    fetch(`http://web-production-e66c2.up.railway.app/financials/cash_flow/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' })
+    fetch(`https://web-production-e66c2.up.railway.app/financials/income_statement/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' }),
+    fetch(`https://web-production-e66c2.up.railway.app/financials/balance_sheet/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' }),
+    fetch(`https://web-production-e66c2.up.railway.app/financials/cash_flow/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' })
   ])
 
   if (!incomeRes.ok) throw new Error('Failed to fetch income statement')
@@ -684,9 +684,9 @@ export default async function FinancialsPage({
 //   console.log(`💰 Fetching financial data for ${symbol} - Country: ${country} - Period: ${period}`)
   
 //   const [incomeRes, balanceRes, cashflowRes] = await Promise.all([
-//     fetch(`http://web-production-e66c2.up.railway.app/financials/income_statement/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' }),
-//     fetch(`http://web-production-e66c2.up.railway.app/financials/balance_sheet/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' }),
-//     fetch(`http://web-production-e66c2.up.railway.app/financials/cash_flow/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' })
+//     fetch(`https://web-production-e66c2.up.railway.app/financials/income_statement/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' }),
+//     fetch(`https://web-production-e66c2.up.railway.app/financials/balance_sheet/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' }),
+//     fetch(`https://web-production-e66c2.up.railway.app/financials/cash_flow/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' })
 //   ])
 
 //   if (!incomeRes.ok) throw new Error('Failed to fetch income statement')
