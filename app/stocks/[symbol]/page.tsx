@@ -34,7 +34,7 @@ async function getAllStocks() {
     while (true) {
       console.log(`📄 جلب الصفحة ${currentPage}...`)
       // إضافة remove_duplicates=true لتفعيل التصفية من الخادم
-      const response = await fetch(`http://lumivst-frontend-v2-git-main-youssefs-projects-c6c3030a.vercel.app/stocks?page=${currentPage}&limit=100&remove_duplicates=true`, {
+      const response = await fetch(`http://web-production-e66c2.up.railway.app/stocks?page=${currentPage}&limit=100&remove_duplicates=true`, {
         cache: 'no-store'
       })
       

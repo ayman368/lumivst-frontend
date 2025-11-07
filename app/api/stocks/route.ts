@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const BASE_URL = 'http://lumivst-frontend-v2-git-main-youssefs-projects-c6c3030a.vercel.app/'
+const BASE_URL = 'http://web-production-e66c2.up.railway.app/'
 
 export async function GET() {
   try {
