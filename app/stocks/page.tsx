@@ -169,7 +169,7 @@ export default function StocksPage() {
     async function fetchStocks() {
       try {
         setLoading(true);
-        const res = await fetch(`http://localhost:8000/api/stocks/saudi/bulk?country=Saudi%20Arabia`, {
+        const res = await fetch(`https://web-production-e4c22.up.railway.app/api/stocks/saudi/bulk?country=Saudi%20Arabia`, {
           cache: 'no-store',
           headers: {
             'Content-Type': 'application/json',
