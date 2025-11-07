@@ -19,7 +19,7 @@ async function getStatisticsData(symbol: string, country: string = "Saudi Arabia
   console.log(`📊 Fetching statistics for ${symbol} - Country: ${country} - encoded: ${encodedCountry}`)
   
   const response = await fetch(
-    `http://localhost:8000/statistics/${cleanSym}?country=${encodedCountry}`,
+    `https://lumivstbackendv2-production.up.railway.app/statistics/${cleanSym}?country=${encodedCountry}`,
     { cache: 'no-store' }
   )
 
