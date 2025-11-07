@@ -1,212 +1,440 @@
+'use client'
 import Link from 'next/link'
-import LimitSelector from './LimitSelector'
+import styles from '../styles/Stocks.module.css'
+import { useState, useMemo, useEffect } from 'react'
 
-// دالة محسنة لتنظيف الرموز - تتعامل مع جميع الحالات
 function cleanSymbol(symbol: string): string {
   if (!symbol) return '';
-  
-  if (symbol.includes('.')) {
-    return symbol.split('.')[0].toUpperCase().trim();
-  }
-  
-  const match = symbol.match(/^\d+/);
-  if (match) {
-    return match[0];
-  }
-  
-  return symbol.toUpperCase().trim();
+  return symbol.replace(/\D/g, '');
 }
 
-async function getStocks(page: number = 1, limit: number = 25) {
-  // استخدام remove_duplicates=true علشان الخادم يصفى البيانات
-  const res = await fetch(`https://lumivstbackend-naming000.up.railway.app/stocks?page=${page}&limit=${limit}&remove_duplicates=true`, { 
-    cache: 'no-store' // لا تخزن علشان نحصل على أحدث البيانات
-  })
+function formatNumber(value: any): string {
+  if (!value || value === 'N/A') return 'N/A';
   
-  if (!res.ok) {
-    console.error(`❌ فشل جلب البيانات: ${res.status}`)
-    throw new Error('Failed to fetch stocks')
+  const num = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
+  
+  if (isNaN(num)) return 'N/A';
+  
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(2);
   }
   
-  return res.json()
+  if (num >= 1000) {
+    return (num / 1000).toFixed(2);
+  }
+  
+  return num.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 }
 
-export default async function StocksPage({
-  searchParams
-}: {
-  searchParams: Promise<{ page?: string, limit?: string }>
-}) {
-  const { page, limit } = await searchParams
-  const currentPage = parseInt(page || '1')
-  const currentLimit = parseInt(limit || '25')
+function formatPercent(value: any): string {
+  if (!value || value === 'N/A') return 'N/A';
   
-  // جلب البيانات المصفاة مباشرة من الخادم مع الـ pagination
-  const { data: stocks, pagination } = await getStocks(currentPage, currentLimit)
-  const { total_pages, total } = pagination
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  
+  if (isNaN(num)) return 'N/A';
+  
+  return num.toFixed(2) + '%';
+}
 
-  const startItem = (currentPage - 1) * currentLimit + 1
-  const endItem = Math.min(currentPage * currentLimit, total)
+function formatChange(value: any): string {
+  if (!value || value === 'N/A') return 'N/A';
+  
+  const num = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
+  
+  if (isNaN(num)) return 'N/A';
+  
+  if (num < 0) {
+    if (Math.abs(num) >= 1000000) {
+      return `(-${(Math.abs(num) / 1000000).toFixed(2)}M)`;
+    }
+    
+    if (Math.abs(num) >= 1000) {
+      return `(-${(Math.abs(num) / 1000).toFixed(2)}K)`;
+    }
+    
+    return `(-${Math.abs(num).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })})`;
+  }
+  
+  return formatNumber(value);
+}
 
-  return (
-    <div className="max-w-7xl mx-auto py-8 px-4">
-      <div className="card">
-        <div className="card-header">
-          {/* <div>
-            <h1 className="card-title">جميع الأسهم ({total})</h1>
-            <p className="text-muted mt-2">قائمة كاملة بالأسهم المدرجة في السوق السعودي</p>
-            <p className="text-xs text-green-600 mt-1">✅ تمت إزالة التكرار تلقائياً من الخادم</p>
-          </div> */}
-        </div>
+function formatChangePercent(value: any): string {
+  if (!value || value === 'N/A') return 'N/A';
+  
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  
+  if (isNaN(num)) return 'N/A';
+  
+  if (num < 0) {
+    return `(-${Math.abs(num).toFixed(2)}%)`;
+  }
+  
+  return formatPercent(value);
+}
 
-<div className="overflow-x-auto">
-  <table className="table">
-    <thead>
-      <tr>
-        <th>الرمز</th>
-        <th>اسم السهم</th>
-        <th>السوق</th>
-        {/* إخفاء الأعمدة */}
-        {/* <th>العملة</th> */}
-        {/* <th>النوع</th> */}
-        {/* <th>الإجراءات</th> */}
-      </tr>
-    </thead>
-    <tbody>
-      {stocks.map((stock: any) => {
-        const cleanSym = cleanSymbol(stock.symbol)
-        const displaySymbol = cleanSym
-        const hasOriginalSymbol = stock.original_symbol && stock.original_symbol !== cleanSym
-        
-        return (
-          <tr key={stock.symbol}>
-            <td className="font-semibold">
-              <Link href={`/stocks/${cleanSym}`} className="text-gray-900 hover:text-blue-600 hover:underline">
-                {displaySymbol}
-                {hasOriginalSymbol && (
-                  <div className="text-xs text-muted">(الرمز الأصلي: {stock.original_symbol})</div>
-                )}
-              </Link>
-            </td>
-            <td>
-              <Link href={`/stocks/${cleanSym}`} className="text-gray-900 hover:text-blue-600 hover:underline">
-                {stock.name}
-              </Link>
-            </td>
-            <td>{stock.exchange}</td>
-            {/* إخفاء الأعمدة */}
-            {/* <td>{stock.currency}</td> */}
-            {/* <td>
-              <span className="text-muted">{stock.type}</span>
-            </td> */}
-            {/* <td>
-              <Link 
-                href={`/stocks/${cleanSym}`}  
-                className="btn btn-outline btn-sm"
-              >
-                عرض التفاصيل
-              </Link>
-            </td> */}
-          </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+function formatText(value: any): string {
+  if (!value || value === 'N/A') return 'N/A';
+  return value.length > 20 ? value.substring(0, 20) + '...' : value;
+}
 
-        {/* Pagination */}
-        <div className="pagination-container">
-          {/* Left: Items per page */}
-          <div className="flex items-center gap-2">
-            <span className="pagination-info">عناصر في الصفحة</span>
-            <LimitSelector currentLimit={currentLimit} />
-          </div>
+// دالة لاستخراج أعلى 52 أسبوع كرقم للترتيب
+function get52WeekHighValue(stock: Stock): number {
+  if (stock.fifty_two_week?.high && stock.fifty_two_week.high !== 'N/A') {
+    return parseFloat(stock.fifty_two_week.high);
+  }
+  
+  if (stock.fifty_two_week_high && stock.fifty_two_week_high !== 'N/A') {
+    return parseFloat(stock.fifty_two_week_high);
+  }
+  
+  return 0;
+}
 
-          {/* Center: Items count */}
-          <div className="pagination-info">
-            {startItem}-{endItem} من {total} عنصر
-          </div>
+// دالة لاستخراج أدنى 52 أسبوع كرقم للترتيب
+function get52WeekLowValue(stock: Stock): number {
+  if (stock.fifty_two_week?.low && stock.fifty_two_week.low !== 'N/A') {
+    return parseFloat(stock.fifty_two_week.low);
+  }
+  
+  if (stock.fifty_two_week_low && stock.fifty_two_week_low !== 'N/A') {
+    return parseFloat(stock.fifty_two_week_low);
+  }
+  
+  return 0;
+}
 
-          {/* Right: Pagination */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1">
-              {currentPage > 1 && (
-                <Link 
-                  href={`/stocks?page=${currentPage - 1}&limit=${currentLimit}`}
-                  className="pagination-button"
-                >
-                  السابق
-                </Link>
-              )}
-              
-              <span className="pagination-current">
-                {currentPage} من {total_pages}
-              </span>
-              
-              {currentPage < total_pages && (
-                <Link 
-                  href={`/stocks?page=${currentPage + 1}&limit=${currentLimit}`}
-                  className="pagination-button"
-                >
-                  التالي
-                </Link>
-              )}
-            </div>
-          </div>
+// دالة لعرض أعلى 52 أسبوع
+function get52WeekHighDisplay(stock: Stock): string {
+  const value = get52WeekHighValue(stock);
+  return value > 0 ? formatNumber(value) : 'N/A';
+}
+
+// دالة لعرض أدنى 52 أسبوع
+function get52WeekLowDisplay(stock: Stock): string {
+  const value = get52WeekLowValue(stock);
+  return value > 0 ? formatNumber(value) : 'N/A';
+}
+
+interface Stock {
+  symbol: string;
+  name: string;
+  exchange: string;
+  sector: string;
+  industry: string;
+  employees: number | string;
+  website: string;
+  country: string;
+  state: string;
+  currency: string;
+  price: string | number;
+  change: string | number;
+  change_percent: string | number;
+  previous_close: string | number;
+  volume: string | number;
+  turnover: string | number;
+  open: string | number;
+  high: string | number;
+  low: string | number;
+  average_volume: string | number;
+  is_market_open: boolean;
+  fifty_two_week?: {
+    low: string;
+    high: string;
+    low_change: string;
+    high_change: string;
+    low_change_percent: string;
+    high_change_percent: string;
+    range: string;
+  };
+  fifty_two_week_range?: string;
+  fifty_two_week_low?: string;
+  fifty_two_week_high?: string;
+  last_updated: string;
+}
+
+export default function StocksPage() {
+  const [stocks, setStocks] = useState<Stock[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
+  useEffect(() => {
+    async function fetchStocks() {
+      try {
+        setLoading(true);
+        const res = await fetch(`http://localhost:8000/api/stocks/saudi/bulk?country=Saudi%20Arabia`, {
+          cache: 'no-store',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`فشل في جلب البيانات: ${res.status} ${res.statusText}`);
+        }
+
+        const data = await res.json();
+        setStocks(data.data || []);
+        setTotal(data.total || 0);
+      } catch (err) {
+        console.error('❌ خطأ في جلب البيانات:', err);
+        setError(err instanceof Error ? err.message : 'فشل في الاتصال بالخادم');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchStocks();
+  }, []);
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedStocks = useMemo(() => {
+    if (!sortConfig) return stocks;
+
+    return [...stocks].sort((a, b) => {
+      let aValue: any, bValue: any;
+
+      if (sortConfig.key === 'fifty_two_week_high') {
+        aValue = get52WeekHighValue(a);
+        bValue = get52WeekHighValue(b);
+      } else if (sortConfig.key === 'fifty_two_week_low') {
+        aValue = get52WeekLowValue(a);
+        bValue = get52WeekLowValue(b);
+      } else {
+        return 0;
+      }
+
+      if (aValue < bValue) {
+        return sortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+  }, [stocks, sortConfig]);
+
+  const getSortClass = (key: string) => {
+    if (!sortConfig || sortConfig.key !== key) return '';
+    return sortConfig.direction === 'asc' ? styles.sortAsc : styles.sortDesc;
+  };
+
+  if (loading) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.loading}>
+          <h2>جاري تحميل البيانات...</h2>
+          <p>يرجى الانتظار</p>
         </div>
       </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.error}>
+          <h2>خطأ في جلب البيانات</h2>
+          <p>{error}</p>
+          {/* <p>تأكد من تشغيل الخادم على localhost:8000</p> */}
+        </div>
+      </div>
+    );
+  }
+
+  if (stocks.length === 0) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.noData}>
+          <h2>لا توجد بيانات</h2>
+          <p>لم يتم العثور على أي بيانات للأسهم</p>
+        </div>
+      </div>
+    );
+  }
+
+  const activeStocks = stocks.filter((s: Stock) => s.is_market_open).length;
+
+
+
+  // دالة للاسم - بدون قص
+function formatName(value: any): string {
+  if (!value || value === 'N/A') return 'N/A';
+  return value;
+}
+
+// دالة للصناعة - بدون قص
+function formatIndustry(value: any): string {
+  if (!value || value === 'N/A') return 'N/A';
+  return value;
+}
+
+// دالة للقطاع - بدون قص
+function formatSector(value: any): string {
+  if (!value || value === 'N/A') return 'N/A';
+  return value;
+}
+
+  return (
+    <div className={styles.container}>
+      {/* Header
+      <div className={styles.header}>
+        <h1 className={styles.title}>أسهم Tadawul</h1>
+        <p className={styles.subtitle}>بيانات الأسهم السعودية المحدثة - Profile & Quote</p>
+        <div className={styles.countryBadge}>
+          🇸🇦 السعودية
+        </div>
+        <span className={styles.stockCount}>
+          {stocks.length} سهم من {total} رمز سعودي
+        </span>
+      </div>
+      
+      <div className={styles.statsGrid}>
+        <div className={styles.statCard}>
+          <div className={styles.statLabel}>إجمالي الأسهم</div>
+          <div className={styles.statValue}>{total}</div>
+        </div>
+        <div className={styles.statCard}>
+          <div className={styles.statLabel}>العناصر المعروضة</div>
+          <div className={styles.statValue}>{stocks.length}</div>
+        </div>
+        <div className={styles.statCard}>
+          <div className={styles.statLabel}>الأسهم النشطة</div>
+          <div className={styles.statValue}>{activeStocks}</div>
+        </div>
+        <div className={styles.statCard}>
+          <div className={styles.statLabel}>أحدث تحديث</div>
+          <div className={styles.statValue}>الآن</div>
+        </div>
+      </div>
+
+      <div className={styles.infoBox}>
+        <div className={styles.infoIcon}>⚠️</div>
+        <div className={styles.infoContent}>
+          <h3>عرض كل الأسهم السعودية مرة واحدة</h3>
+          <p>
+            يتم عرض جميع الأسهم السعودية ({total} سهم) مع بيانات Profile و Quote
+            <br />
+            <strong>البلد: السعودية 🇸🇦</strong>
+          </p>
+        </div>
+      </div> */}
+
+      {/* Stocks Table */}
+      <div className={styles.tableContainer}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Name</th>
+              <th>Sector</th>
+              <th>Industry</th>
+              <th>Price</th>
+              <th>Change</th>
+              <th>Change %</th>
+              <th>Volume</th>
+              <th>Turnover</th>
+              {/* أعمدة 52 أسبوع مع إمكانية الترتيب */}
+              <th 
+                className={`${getSortClass('fifty_two_week_high')} ${styles.sortable}`}
+                onClick={() => handleSort('fifty_two_week_high')}
+              >
+                52 week_high
+              </th>
+              <th 
+                className={`${getSortClass('fifty_two_week_low')} ${styles.sortable}`}
+                onClick={() => handleSort('fifty_two_week_low')}
+              >
+                52 week_low
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+  {sortedStocks.map((stock: Stock) => {
+    const cleanSym = cleanSymbol(stock.symbol)
+    const changeNum = typeof stock.change === 'string' ? parseFloat(stock.change) : stock.change
+    const changePercentNum = typeof stock.change_percent === 'string' ? parseFloat(stock.change_percent) : stock.change_percent
+    
+    const isChangeNegative = changeNum < 0
+    const isPercentNegative = changePercentNum < 0
+    
+    return (
+      <tr key={stock.symbol}>
+        <td>
+          <Link 
+            href={`/stocks/${cleanSym}/financials?period=annual&country=Saudi Arabia`} 
+            className={styles.stockLink}
+          >
+            {cleanSym}   
+          </Link>
+        </td>
+        
+        {/* ⭐ الاسم - متعدد الأسطر */}
+        <td>
+          <Link 
+            href={`/stocks/${cleanSym}/financials?period=annual&country=Saudi Arabia`} 
+            className={styles.stockLink}
+          >
+            {formatName(stock.name)}
+          </Link>
+        </td>
+        
+        {/* ⭐ القطاع - متعدد الأسطر */}
+        <td>
+          {formatSector(stock.sector)}
+        </td>
+        
+        {/* ⭐ الصناعة - متعددة الأسطر زي الاسم */}
+        <td>
+          {formatIndustry(stock.industry)}
+        </td>
+        
+        <td>
+          {formatNumber(stock.price)}
+        </td>
+        
+        <td className={isChangeNegative ? styles.negative : ''}>
+          {formatChange(stock.change)}
+        </td>
+
+        <td className={isPercentNegative ? styles.negative : ''}>
+          {formatChangePercent(stock.change_percent)}
+        </td>
+        
+        <td>{formatNumber(stock.volume)}</td>
+        <td>{formatNumber(stock.turnover)}</td>
+        
+        <td>{get52WeekHighDisplay(stock)}</td>
+        <td>{get52WeekLowDisplay(stock)}</td>
+      </tr>
+    )
+  })}
+</tbody>
+        </table>
+      </div>
+
+      {/* Summary */}
+      {/* <div className={styles.summary}>
+        <p>تم عرض جميع الأسهم السعودية ({total} سهم) في صفحة واحدة مع بيانات Profile و Quote</p>
+        <p>البلد: <strong>السعودية 🇸🇦</strong></p>
+        <p>آخر تحديث: {new Date().toLocaleString('ar-SA')}</p>
+        <p>API: <code>/api/stocks/saudi/bulk?country=Saudi Arabia</code></p>
+      </div> */}
     </div>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-        // <div className="overflow-x-auto">
-        //   <table className="table">
-        //     <thead>
-        //       <tr>
-        //         <th>الرمز</th>
-        //         <th>اسم السهم</th>
-        //         <th>السوق</th>
-        //         <th>العملة</th>
-        //         <th>النوع</th>
-        //         <th>الإجراءات</th>
-        //       </tr>
-        //     </thead>
-        //     <tbody>
-        //       {stocks.map((stock: any) => {
-        //         const cleanSym = cleanSymbol(stock.symbol)
-        //         const displaySymbol = cleanSym
-        //         const hasOriginalSymbol = stock.original_symbol && stock.original_symbol !== cleanSym
-                
-        //         return (
-        //           <tr key={stock.symbol}>
-        //             <td className="font-semibold">
-        //               {displaySymbol}
-        //               {hasOriginalSymbol && (
-        //                 <div className="text-xs text-muted">(الرمز الأصلي: {stock.original_symbol})</div>
-        //               )}
-        //             </td>
-        //             <td>{stock.name}</td>
-        //             <td>{stock.exchange}</td>
-        //             <td>{stock.currency}</td>
-        //             <td>
-        //               <span className="text-muted">{stock.type}</span>
-        //             </td>
-        //             <td>
-        //               <Link 
-        //                 href={`/stocks/${cleanSym}`}  
-        //                 className="btn btn-outline btn-sm"
-        //               >
-        //                 عرض التفاصيل
-        //               </Link>
-        //             </td>
-        //           </tr>

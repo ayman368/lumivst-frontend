@@ -1,6 +1,7 @@
 import './globals.css'
 import Layout from '../components/Layout'
 
+
 export const metadata = {
   title: ' LUMIVST ',
   description: 'المنصة الشاملة للتحليل المالي وتقييم الأسهم السعودية',
@@ -12,8 +13,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ar" dir="rtl">
-      <body>
+    <html lang="en" dir="ltr">
+      <body  style={{ direction: 'ltr' }}>
         <Layout>
           {children}
         </Layout>
@@ -21,7 +22,6 @@ export default function RootLayout({
     </html>
   )
 }
-
 
 
 
@@ -64,7 +64,7 @@ export default function RootLayout({
 //   children: React.ReactNode
 // }) {
 //   return (
-//     <html lang="ar" dir="rtl">
+//     <html lang="ar" dir="ltr">
 //       <body>
 //         {/* <AuthProvider> */}
 //           <Layout>

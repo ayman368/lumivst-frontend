@@ -2,67 +2,54 @@ import Link from 'next/link'
 
 export default function Footer() {
   return (
-    <footer className="footer">
+    <footer className="footer-gf">
       <div className="footer-container">
         <div className="footer-grid">
           
           {/* Navigation */}
           <div className="footer-column">
-            <h3>التنقل</h3>
+            <h3>Navigation</h3>
             <ul className="footer-links">
-              <li><Link href="/">الرئيسية</Link></li>
-              <li><Link href="/dashboard">لوحة التحكم</Link></li>
-              <li><Link href="/portfolios">المحافظ</Link></li>
-              <li><Link href="/membership">العضوية</Link></li>
-              <li><Link href="/about">من نحن</Link></li>
+              <li><Link href="/">Home</Link></li>
+              <li><Link href="/dashboard">Dashboard</Link></li>
+              <li><Link href="/portfolios">Portfolios</Link></li>
+              <li><Link href="/membership">Membership</Link></li>
+              <li><Link href="/about">About Us</Link></li>
             </ul>
           </div>
 
-          {/* News */}
+          {/* Screeners & Analysis */}
           <div className="footer-column">
-            <h3>الأخبار</h3>
+            <h3>Screeners & Analysis</h3>
             <ul className="footer-links">
-              <li><Link href="/news">الأخبار</Link></li>
-              <li><Link href="/all-news">جميع الأخبار</Link></li>
-              <li><Link href="/earning-reports">تقارير الأرباح</Link></li>
-              <li><Link href="/disclosures">الإفصاحات</Link></li>
-              <li><Link href="/analyst-reports">تقارير المحللين</Link></li>
+              <li><Link href="/screeners">Screeners</Link></li>
+              <li><Link href="/screeners/fundamental">Fundamental Analysis</Link></li>
+              <li><Link href="/screeners/technical">Technical Analysis</Link></li>
+              <li><Link href="/insiders">Insiders</Link></li>
             </ul>
           </div>
 
           {/* Market */}
           <div className="footer-column">
-            <h3>السوق</h3>
+            <h3>Market</h3>
             <ul className="footer-links">
-              <li><Link href="/market">السوق</Link></li>
-              <li><Link href="/economy">الاقتصاد</Link></li>
-              <li><Link href="/us-market">السوق الأمريكي</Link></li>
-              <li><Link href="/sa-market">السوق السعودي</Link></li>
-              <li><Link href="/sectors">القطاعات</Link></li>
+              <li><Link href="/market">Market</Link></li>
+              <li><Link href="/market/economy">Economy</Link></li>
+              <li><Link href="/market/us">US Market</Link></li>
+              <li><Link href="/market/saudi">Saudi Market</Link></li>
+              <li><Link href="/market/sectors">Sectors</Link></li>
             </ul>
           </div>
 
-          {/* Analysis */}
+          {/* News & Resources */}
           <div className="footer-column">
-            <h3>التحليل</h3>
+            <h3>News & Resources</h3>
             <ul className="footer-links">
-              <li><Link href="/analysis">التحليل</Link></li>
-              <li><Link href="/companies">الشركات</Link></li>
-              <li><Link href="/ipo">الاكتتابات</Link></li>
-              <li><Link href="/mutual-funds">الصناديق</Link></li>
-              <li><Link href="/analysts">المحللون</Link></li>
-            </ul>
-          </div>
-
-          {/* Screeners */}
-          <div className="footer-column">
-            <h3>المصافي</h3>
-            <ul className="footer-links">
-              <li><Link href="/screeners">المصافي</Link></li>
-              <li><Link href="/fundamental">الأساسيات</Link></li>
-              <li><Link href="/technical">الفني</Link></li>
-              <li><Link href="/top-traders">كبار المتداولين</Link></li>
-              <li><Link href="/my-screens">مصافيي</Link></li>
+              <li><Link href="/news">News</Link></li>
+              <li><Link href="/news/earnings">Earning Reports</Link></li>
+              <li><Link href="/news/disclosures">Disclosures</Link></li>
+              <li><Link href="/news/analyst">Analyst Reports</Link></li>
+              <li><Link href="/pricing">Pricing</Link></li>
             </ul>
           </div>
 
@@ -70,7 +57,7 @@ export default function Footer() {
 
         {/* Bottom Section */}
         <div className="footer-bottom">
-          <p>© 2024 سهم LUMIVST جميع الحقوق محفوظة.</p>
+          <p>© 2024 LUMIVST. All rights reserved.</p>
         </div>
       </div>
     </footer>

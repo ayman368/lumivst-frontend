@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 async function getStocks() {
   try {
-    const res = await fetch('https://lumivstbackend-naming000.up.railway.app/stocks', { 
+    const res = await fetch('http://localhost:8000/api/stocks', { 
       next: { revalidate: 3600 } 
     })
     if (!res.ok) throw new Error('Failed to fetch stocks')
@@ -12,8 +12,6 @@ async function getStocks() {
     return { data: [] }
   }
 }
-
-
 
 export default function Home() {
   return (
@@ -29,12 +27,7 @@ export default function Home() {
             وبناء نماذج خصم التدفقات النقدية بنفسك.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            {/* <Link 
-              href="/stocks/2222" 
-              className="btn btn-primary text-lg py-3 px-8"
-            >
-              اطلع على نماذج التقييم
-            </Link> */}
+            {/* ⭐⭐ التصحيح: تغيير الرابط إلى صفحة Next.js */}
             <Link 
               href="/stocks" 
               className="btn btn-outline text-lg py-3 px-8"
@@ -82,5 +75,3 @@ export default function Home() {
     </div>
   )
 }
-
-

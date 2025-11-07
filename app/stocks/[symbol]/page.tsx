@@ -88,17 +88,18 @@ async function getAllStocks() {
 }
 
 // دالة محسنة لجلب البيانات المالية مع اختيار الفترة
-async function getStockData(symbol: string, period: string = "annual") {
+// دالة محسنة لجلب البيانات المالية مع اختيار الفترة والبلد
+async function getStockData(symbol: string, period: string = "annual", country: string = "Saudi Arabia") {
   const cleanSym = cleanSymbol(symbol)
   
-  console.log('🔍 Frontend - Fetching data for symbol:', symbol, 'Clean:', cleanSym, 'Period:', period)
+  console.log('🔍 Frontend - Fetching data for symbol:', symbol, 'Clean:', cleanSym, 'Period:', period, 'Country:', country)
 
   try {
-    // استخدم الـ endpoint الجديد للبحث المباشر (البيانات ستكون مصفاة من الخادم)
+    // استخدم الـ endpoint الجديد للبحث المباشر مع البلد
     let stock = null
     
     try {
-      const directRes = await fetch(`https://lumivstbackend-naming000.up.railway.app/stocks/${cleanSym}`, {
+      const directRes = await fetch(`https://lumivstbackend-naming000.up.railway.app/stocks/${cleanSym}?country=${encodeURIComponent(country)}`, {
         cache: 'no-store'
       })
       
@@ -112,23 +113,12 @@ async function getStockData(symbol: string, period: string = "annual") {
       console.log('⚠️ البحث المباشر فشل:', directError)
     }
     
-    // إذا مفيش في البحث المباشر، جرب جميع الصفحات (البيانات ستكون مصفاة من الخادم)
-    if (!stock) {
-      console.log('🔍 البحث في جميع الصفحات...')
-      const allStocks = await getAllStocks()
-      stock = allStocks.find((s: any) => {
-        const sClean = cleanSymbol(s.symbol)
-        return sClean === cleanSym
-      })
-      console.log('✅ نتيجة البحث في الصفحات:', stock ? `تم العثور على ${stock.name}` : 'غير موجود')
-    }
-    
-    // جلب البيانات المالية مع الفترة المحددة - 6 فترات
-    console.log(`💰 جلب البيانات المالية لـ 6 ${period === 'annual' ? 'سنوات' : 'أرباع'}...`)
+    // جلب البيانات المالية مع الفترة المحددة والبلد - 6 فترات
+    console.log(`💰 جلب البيانات المالية لـ 6 ${period === 'annual' ? 'سنوات' : 'أرباع'} في ${country}...`)
     const [incomeRes, balanceRes, cashflowRes] = await Promise.all([
-      fetch(`https://lumivstbackend-naming000.up.railway.app/financials/income_statement/${cleanSym}?period=${period}&limit=6`),
-      fetch(`https://lumivstbackend-naming000.up.railway.app/financials/balance_sheet/${cleanSym}?period=${period}&limit=6`),
-      fetch(`https://lumivstbackend-naming000.up.railway.app/financials/cash_flow/${cleanSym}?period=${period}&limit=6`)
+      fetch(`https://lumivstbackend-naming000.up.railway.app/financials/income_statement/${cleanSym}?country=${encodeURIComponent(country)}&period=${period}&limit=6`),
+      fetch(`https://lumivstbackend-naming000.up.railway.app/financials/balance_sheet/${cleanSym}?country=${encodeURIComponent(country)}&period=${period}&limit=6`),
+      fetch(`https://lumivstbackend-naming000.up.railway.app/financials/cash_flow/${cleanSym}?country=${encodeURIComponent(country)}&period=${period}&limit=6`)
     ])
 
     // تحقق من الردود
@@ -136,7 +126,8 @@ async function getStockData(symbol: string, period: string = "annual") {
       income: incomeRes.status,
       balance: balanceRes.status, 
       cashflow: cashflowRes.status,
-      period: period
+      period: period,
+      country: country
     })
 
     const income = incomeRes.ok ? await incomeRes.json() : {}
@@ -148,6 +139,7 @@ async function getStockData(symbol: string, period: string = "annual") {
     console.log('   Balance periods:', balance.balance_sheet?.length || 0)
     console.log('   Cashflow periods:', cashflow.cash_flow?.length || 0)
     console.log('   Period type:', income.meta?.period || 'N/A')
+    console.log('   Country:', country)
 
     // إذا مفيش بيانات شركة لكن في بيانات مالية، استخدم البيانات من القوائم المالية
     if (!stock && income.meta) {
@@ -157,24 +149,26 @@ async function getStockData(symbol: string, period: string = "annual") {
         name: income.meta.name || 'Unknown',
         currency: income.meta.currency || 'USD',
         exchange: income.meta.exchange || 'Unknown',
-        type: 'Common Stock'
+        type: 'Common Stock',
+        country: country
       }
     }
 
-    return { stock, income, balance, cashflow, period }
+    return { stock, income, balance, cashflow, period, country }
   } catch (error) {
     console.error('❌ Frontend - Error fetching data:', error)
-    return { stock: null, income: {}, balance: {}, cashflow: {}, period: 'annual' }
+    return { stock: null, income: {}, balance: {}, cashflow: {}, period: 'annual', country: country }
   }
 }
 
 // مكون لاختيار الفترة
-function PeriodSelector({ currentPeriod, symbol }: { currentPeriod: string, symbol: string }) {
+// مكون لاختيار الفترة
+function PeriodSelector({ currentPeriod, symbol, country }: { currentPeriod: string, symbol: string, country: string }) {
   return (
     <div className="flex gap-2 items-center bg-gray-100 p-2 rounded-lg">
       <span className="text-sm font-medium text-gray-700">الفترة:</span>
       <Link 
-        href={`/stocks/${symbol}?period=annual`}
+        href={`/stocks/${symbol}?period=annual&country=${encodeURIComponent(country)}`}
         className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
           currentPeriod === 'annual' 
             ? 'bg-blue-600 text-white' 
@@ -184,7 +178,7 @@ function PeriodSelector({ currentPeriod, symbol }: { currentPeriod: string, symb
         سنوي
       </Link>
       <Link 
-        href={`/stocks/${symbol}?period=quarterly`}
+        href={`/stocks/${symbol}?period=quarterly&country=${encodeURIComponent(country)}`}
         className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
           currentPeriod === 'quarterly' 
             ? 'bg-blue-600 text-white' 
@@ -200,7 +194,8 @@ function PeriodSelector({ currentPeriod, symbol }: { currentPeriod: string, symb
 // دالة لاستخراج البارامترات من الـ URL
 function getSearchParams(searchParams: any) {
   return {
-    period: searchParams.period === 'quarterly' ? 'quarterly' : 'annual'
+    period: searchParams.period === 'quarterly' ? 'quarterly' : 'annual',
+    country: searchParams.country || 'Saudi Arabia' // ⭐ إضافة البلد
   }
 }
 
@@ -213,11 +208,12 @@ export default async function StockDetailPage({
 }) {
   const { symbol } = await params
   const resolvedSearchParams = await searchParams
-  const { period } = getSearchParams(resolvedSearchParams)
+  const { period, country } = getSearchParams(resolvedSearchParams) // ⭐ إضافة country
   
-  console.log('🚀 Frontend - Page loaded with symbol:', symbol, 'Period:', period)
+  console.log('🚀 Frontend - Page loaded with symbol:', symbol, 'Period:', period, 'Country:', country)
   
-  const { stock, income, balance, cashflow } = await getStockData(symbol, period)
+  const { stock, income, balance, cashflow } = await getStockData(symbol, period, country) // ⭐ إضافة country
+
 
   console.log('🎯 Frontend - After fetching:')
   console.log('   Stock:', stock)
@@ -291,7 +287,7 @@ export default async function StockDetailPage({
       </div> */}
 
       {/* Navigation Tabs - Modern GuruFocus Style */}
-      <FinancialHeader symbol={symbol} period={period} page="overview" />
+      <FinancialHeader symbol={symbol} period={period} country={country} page="overview" />
 
       {/* Debug Info */}
       {/* <div className="card mt-4 bg-blue-50">

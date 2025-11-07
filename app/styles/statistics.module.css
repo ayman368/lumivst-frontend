@@ -1,0 +1,1063 @@
+.container {
+  background: #f8fafc;
+  min-height: 100vh;
+  color: #334155;
+  padding: 0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* Header Styles - مشابه للتصميم الثاني */
+.header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin: 1rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.subtitle {
+  font-size: 0.95rem;
+  opacity: 0.9;
+  margin-bottom: 0.75rem;
+}
+
+.countryBadge {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-right: 1rem;
+  backdrop-filter: blur(10px);
+}
+
+.stockCount {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Statistics Grid - تصميم جديد */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.statCard {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.statCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+
+.statCard:nth-child(1) { 
+  border-top: 4px solid #3b82f6;
+}
+
+.statCard:nth-child(2) { 
+  border-top: 4px solid #10b981;
+}
+
+.statCard:nth-child(3) { 
+  border-top: 4px solid #f59e0b;
+}
+
+.statCard:nth-child(4) { 
+  border-top: 4px solid #8b5cf6;
+}
+
+.statLabel {
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.statValue {
+  color: #1e293b;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+/* Info Box - تصميم جديد */
+.infoBox {
+  background: linear-gradient(135deg, #fffbeb, #fed7aa);
+  border: 1px solid #fdba74;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin: 1rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.infoIcon {
+  color: #d97706;
+  font-size: 1.25rem;
+  margin-top: 0.1rem;
+  flex-shrink: 0;
+}
+
+.infoContent h3 {
+  color: #92400e;
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+}
+
+.infoContent p {
+  color: #78350f;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* Table Container - تصميم جديد مشابه للملف الثاني */
+.tableContainer {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 1rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.table th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  padding: 1rem;
+  text-align: center;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  text-align: center;
+}
+
+.table tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.table tr:nth-child(odd) {
+  background: white;
+}
+
+.table tr:hover {
+  background: #f1f5f9;
+}
+
+/* Link Styles - محسنة */
+.stockLink {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.2s;
+  padding: 0.25rem 0;
+  display: inline-block;
+}
+
+.stockLink:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+  transform: translateX(-2px);
+}
+
+/* Status Badges - محسنة */
+.statusBadge {
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  display: inline-block;
+}
+
+.statusOpen {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.statusClosed {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+/* ⭐⭐ Price Colors - معدلة */
+.positive {
+  color: #000000 !important;  /* ⭐ إلغاء اللون الأخضر - كل شيء أسود */
+  font-weight: 600;
+}
+
+.negative {
+  color: #dc2626 !important;  /* ⭐ الأحمر للسالب فقط */
+  font-weight: 600;
+}
+
+.neutral {
+  color: #000000 !important;  /* ⭐ إلغاء اللون الرمادي - كل شيء أسود */
+  font-weight: 500;
+}
+
+/* Summary - تصميم جديد */
+.summary {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  margin: 1rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.summary p {
+  color: #64748b;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.summary strong {
+  color: #1e293b;
+}
+
+.summary code {
+  background: #f1f5f9;
+  color: #475569;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-family: 'Courier New', monospace;
+  border: 1px solid #e2e8f0;
+}
+
+/* Loading and Error States - محسنة */
+.error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 2rem;
+  border-radius: 12px;
+  text-align: center;
+  margin: 1rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.noData {
+  background: #fffbeb;
+  border: 1px solid #fed7aa;
+  color: #d97706;
+  padding: 3rem;
+  border-radius: 12px;
+  text-align: center;
+  font-style: italic;
+  margin: 1rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .container {
+    padding: 0;
+  }
+  
+  .header {
+    margin: 0.75rem;
+    padding: 1.25rem;
+  }
+  
+  .statsGrid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    margin: 0.75rem;
+  }
+  
+  .statCard {
+    padding: 1.25rem;
+  }
+  
+  .tableContainer {
+    margin: 0.75rem;
+    border-radius: 8px;
+    overflow-x: auto;
+  }
+  
+  .table {
+    min-width: 1000px;
+    font-size: 0.85rem;
+  }
+  
+  .table th,
+  .table td {
+    padding: 0.75rem 0.5rem;
+  }
+  
+  .countryBadge {
+    display: block;
+    margin-right: 0;
+    margin-bottom: 0.75rem;
+    text-align: center;
+  }
+  
+  .infoBox {
+    margin: 0.75rem;
+    padding: 1rem;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .summary {
+    margin: 0.75rem;
+    padding: 1.25rem;
+  }
+}
+
+/* تحسينات إضافية للجداول */
+.table th:first-child,
+.table td:first-child {
+  text-align: right;
+  padding-right: 1.5rem;
+}
+
+.table th:last-child,
+.table td:last-child {
+  text-align: left;
+  padding-left: 1.5rem;
+}
+
+/* تأثيرات hover محسنة */
+.table tr {
+  transition: background-color 0.2s ease;
+}
+
+.table tr:hover {
+  background: #f8fafc;
+  transform: scale(1.002);
+}
+
+/* حدود وأنماط محسنة */
+.tableContainer {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.table th {
+  border-bottom: 2px solid #e2e8f0;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.85rem;
+}
+
+.table td {
+  border-bottom: 1px solid #f1f5f9;
+  font-weight: 500;
+}
+
+/* Financial Header Styles */
+.financialHeader {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.headerContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Period Dropdown */
+.periodDropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdownToggle {
+  background: white;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 140px;
+  justify-content: space-between;
+}
+
+.dropdownToggle:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  min-width: 160px;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all 0.3s ease;
+  padding: 0.5rem 0;
+}
+
+.dropdownMenu.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.dropdownItem {
+  display: block;
+  padding: 0.75rem 1rem;
+  color: #64748b;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dropdownItem:hover {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.dropdownItem.active {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
+  font-weight: 600;
+}
+
+/* Navigation Tabs */
+.navTabs {
+  display: flex;
+  gap: 0.5rem;
+  background: #f8fafc;
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.navTab {
+  padding: 0.5rem 1rem;
+  color: #64748b;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.navTab:hover {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.navTab.active {
+  color: #2563eb;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Card Styles */
+.card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.cardTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+/* Table Styles */
+.tableContainer {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #334155;
+  font-size: 14px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.table th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  padding: 1rem;
+  text-align: center;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  text-align: center;
+}
+
+.table tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.table tr:hover {
+  background: #f1f5f9;
+}
+
+/* ⭐⭐ Text Colors - معدلة */
+.textPositive {
+  color: #000000 !important;  /* ⭐ إلغاء اللون الأخضر - كل شيء أسود */
+  font-weight: 600;
+}
+
+.textNegative {
+  color: #dc2626 !important;  /* ⭐ الأحمر للسالب فقط */
+  font-weight: 600;
+}
+
+.textMuted {
+  color: #64748b;
+}
+
+/* Company Header */
+.companyHeader {
+  background: linear-gradient(135deg, #273c97 0%, #210838 100%);
+  color: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+}
+
+.companyName {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.companyInfo {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.price, .volume {
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+.bold {
+  font-weight: 700;
+}
+
+.sector {
+  font-size: 0.9rem;
+  opacity: 0.8;
+  margin-top: 0.5rem;
+}
+
+/* No Data State */
+.noData {
+  text-align: center;
+  padding: 3rem;
+  color: #64748b;
+  font-style: italic;
+  background: #f8fafc;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+/* Error State */
+.errorState {
+  text-align: center;
+  padding: 3rem;
+  color: #dc2626;
+  background: #fef2f2;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .headerContent {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  
+  .navTabs {
+    justify-content: center;
+  }
+  
+  .companyInfo {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .table {
+    font-size: 13px;
+  }
+  
+  .table th,
+  .table td {
+    padding: 0.75rem 0.5rem;
+  }
+}
+
+.container {
+  background: #f8fafc;
+  min-height: 100vh;
+  color: #334155;
+  padding: 1rem;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* في ملف Financials.module.css */
+.ttmCard {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-left: 4px solid #28a745;
+}
+
+.ttmTitle {
+  color: #28a745;
+  font-weight: 600;
+}
+
+
+
+
+
+
+
+
+
+/* TTM Styles */
+.ttmColumn {
+  background-color: #f0f9ff !important;
+  border-left: 2px solid #3b82f6 !important;
+  font-weight: bold;
+  color: #1e40af;
+}
+
+.ttmCell {
+  background-color: #f8fafc !important;
+  border-left: 2px solid #e2e8f0 !important;
+  font-weight: 600;
+}
+
+/* تمييز عمود TTM */
+.table th:last-child,
+.table td:last-child {
+  border-left: 2px solid #3b82f6;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* استخدم نفس ملف Financials.module.css مع إضافة هذه الأنماط الإضافية */
+
+.container {
+  background: #f8fafc;
+  min-height: 100vh;
+  color: #334155;
+  padding: 0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* Company Header - نفس تصميم Financials */
+.companyHeader {
+  background: linear-gradient(135deg, #273c97 0%, #210838 100%);
+  color: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin: 1rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.companyName {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.companyInfo {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.price, .volume {
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+.bold {
+  font-weight: 700;
+}
+
+.sector {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+/* Financial Header Styles */
+.financialHeader {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 0 1rem 1.5rem 1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.headerContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Navigation Tabs */
+.navTabs {
+  display: flex;
+  gap: 0.5rem;
+  background: #f8fafc;
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.navTab {
+  padding: 0.5rem 1rem;
+  color: #64748b;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.navTab:hover {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.navTab.active {
+  color: #2563eb;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Card Styles */
+.card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 0 1rem 1.5rem 1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.cardTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+/* Table Styles */
+.tableContainer {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #334155;
+  font-size: 14px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.table th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  padding: 1rem;
+  text-align: right;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  text-align: right;
+}
+
+.table tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.table tr:hover {
+  background: #f1f5f9;
+}
+
+/* Text Colors */
+.textPositive {
+  color: #000000 !important;
+  font-weight: 600;
+}
+
+.textNegative {
+  color: #dc2626 !important;
+  font-weight: 600;
+}
+
+.textMuted {
+  color: #64748b;
+}
+
+/* Highlight Rows for Statistics */
+.highlightRow {
+  background-color: #f0f9ff !important;
+  border-left: 3px solid #3b82f6;
+}
+
+.highlightRow td {
+  font-weight: 700 !important;
+}
+
+/* No Data State */
+.noData {
+  text-align: center;
+  padding: 3rem;
+  color: #64748b;
+  font-style: italic;
+  background: #f8fafc;
+  border-radius: 8px;
+  margin: 1rem;
+}
+
+/* Error State */
+.errorState {
+  text-align: center;
+  padding: 3rem;
+  color: #dc2626;
+  background: #fef2f2;
+  border-radius: 8px;
+  margin: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .container {
+    padding: 0;
+  }
+  
+  .companyHeader {
+    margin: 0.75rem;
+    padding: 1.25rem;
+  }
+  
+  .financialHeader {
+    margin: 0 0.75rem 1rem 0.75rem;
+    padding: 1.25rem;
+  }
+  
+  .headerContent {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  
+  .navTabs {
+    justify-content: center;
+  }
+  
+  .card {
+    margin: 0 0.75rem 1rem 0.75rem;
+    padding: 1.25rem;
+  }
+  
+  .table {
+    font-size: 13px;
+  }
+  
+  .table th,
+  .table td {
+    padding: 0.75rem 0.5rem;
+  }
+  
+  .companyInfo {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
+/* تحسينات إضافية للجداول */
+.table th:first-child,
+.table td:first-child {
+  text-align: right;
+  padding-right: 1.5rem;
+}
+
+.table th:last-child,
+.table td:last-child {
+  text-align: left;
+  padding-left: 1.5rem;
+}
+
+/* تأثيرات hover محسنة */
+.table tr {
+  transition: background-color 0.2s ease;
+}
+
+.table tr:hover {
+  background: #f8fafc;
+}
+
+/* حدود وأنماط محسنة */
+.tableContainer {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.table th {
+  border-bottom: 2px solid #e2e8f0;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.85rem;
+}
+
+.table td {
+  border-bottom: 1px solid #f1f5f9;
+  font-weight: 500;
+}
