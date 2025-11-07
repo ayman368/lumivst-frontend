@@ -4,7 +4,7 @@ const BASE_URL = 'https://lumivstbackendv2-production.up.railway.app'
 
 export async function GET() {
   try {
-    const response = await fetch(`${BASE_URL}/stocks`)
+    const response = await fetch(`${BASE_URL}/api/stocks/saudi/bulk?country=Saudi%20Arabia`)
     const data = await response.json()
     
     return NextResponse.json(data)
