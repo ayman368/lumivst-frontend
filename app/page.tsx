@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 async function getStocks() {
   try {
-    const res = await fetch('lumivstbackendv2-production.up.railway.app/api/stocks', { 
+    const res = await fetch('https://lumivstbackendv2-production.up.railway.app/api/stocks/saudi/bulk?country=Saudi%20Arabia', { 
       next: { revalidate: 3600 } 
     })
     if (!res.ok) throw new Error('Failed to fetch stocks')
