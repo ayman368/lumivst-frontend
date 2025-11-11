@@ -42,7 +42,7 @@ function formatNumber(value: any): string {
     const absoluteValue = Math.abs(num);
     // إذا كانت القيمة المطلقة كبيرة، ممكن نخليها بالآلاف
     if (absoluteValue >= 1000) {
-        return `(${(absoluteValue / 1000).toFixed(2)}K)`;
+        return `(${(absoluteValue / 1000).toFixed(2)})`;
     }
     return `(${absoluteValue.toFixed(2)})`;
   }
@@ -50,7 +50,7 @@ function formatNumber(value: any): string {
   // هنا ممكن نحدد عتبة للتحويل للآلاف إذا أردت
   // لكن للقيم الصغيرة، نرجعها كما هي مع تنسيق عشري
   if (Math.abs(num) >= 1000) {
-    return (num / 1000).toFixed(2) + 'K';
+    return (num / 1000).toFixed(2) ;
   }
 
   return num.toLocaleString('en-US', {
@@ -73,9 +73,9 @@ function formatLargeNumber(value: any): string {
   let formattedValue = '';
 
   if (absoluteValue >= 1000000000) { // مليار
-    formattedValue = (absoluteValue / 1000000000).toFixed(2) + 'B';
+    formattedValue = (absoluteValue / 1000000000).toFixed(2) ;
   } else if (absoluteValue >= 1000000) { // مليون
-    formattedValue = (absoluteValue / 1000000).toFixed(2) + 'M';
+    formattedValue = (absoluteValue / 1000000).toFixed(2) ;
   } else if (absoluteValue >= 1000) { // ألف
     // إذا كانت القيمة أكبر من ألف وأقل من مليون، نظهرها بالألف (أو يمكنك إرجاعها كرقم عادي إذا كانت هذه هي رغبتك)
     // بناءً على طلبك، إذا كانت الأرقام ليست "كبيرة" جدًا، فالأفضل عدم تحويلها للمليون
