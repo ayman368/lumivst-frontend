@@ -7,26 +7,46 @@ function cleanSymbol(symbol: string): string {
 }
 
 // Enhanced function to fetch financial data with period and country selection
+// Enhanced function to fetch financial data with period and country selection
 async function getFinancialData(symbol: string, period: string = "annual", country: string = "Saudi Arabia") {
   const cleanSym = cleanSymbol(symbol)
   
   console.log(`💰 Fetching financial data for ${symbol} - Country: ${country} - Period: ${period}`)
   
+  // جلب البيانات السنوية
   const [incomeRes, balanceRes, cashflowRes] = await Promise.all([
     fetch(`https://web-production-e66c2.up.railway.app/financials/income_statement/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' }),
     fetch(`https://web-production-e66c2.up.railway.app/financials/balance_sheet/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' }),
     fetch(`https://web-production-e66c2.up.railway.app/financials/cash_flow/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' })
   ])
 
+  // جلب بيانات ربع سنوية إضافية لحساب TTM
+  const [quarterlyIncomeRes, quarterlyCashflowRes] = await Promise.all([
+    fetch(`https://web-production-e66c2.up.railway.app/financials/income_statement/${cleanSym}?country=${country}&period=quarterly&limit=8`, { cache: 'no-store' }),
+    fetch(`https://web-production-e66c2.up.railway.app/financials/cash_flow/${cleanSym}?country=${country}&period=quarterly&limit=8`, { cache: 'no-store' })
+  ])
+
   if (!incomeRes.ok) throw new Error('Failed to fetch income statement')
-  if (!balanceRes.ok) throw new Error('Failed to fetch balance sheet')
+  if (!balanceRes.ok) throw new Error('Failed to balance sheet')
   if (!cashflowRes.ok) throw new Error('Failed to fetch cash flow')
+  if (!quarterlyIncomeRes.ok) throw new Error('Failed to fetch quarterly income')
+  if (!quarterlyCashflowRes.ok) throw new Error('Failed to fetch quarterly cash flow')
 
   const income = await incomeRes.json()
   const balance = await balanceRes.json()
   const cashflow = await cashflowRes.json()
+  const quarterlyIncome = await quarterlyIncomeRes.json()
+  const quarterlyCashflow = await quarterlyCashflowRes.json()
 
-  return { income, balance, cashflow, period, country }
+  return { 
+    income, 
+    balance, 
+    cashflow, 
+    quarterlyIncome, 
+    quarterlyCashflow,
+    period, 
+    country 
+  }
 }
 
 //  New function: Calculate TTM from last 4 quarters
@@ -59,15 +79,16 @@ function calculateTTM(data: any[], field: string, isNested: boolean = false) {
 }
 
 //  Function to calculate all TTM values for the three tables
-function calculateAllTTM(income: any, balance: any, cashflow: any) {
-  const incomeData = income.income_statement
-  const balanceData = balance.balance_sheet
-  const cashflowData = cashflow.cash_flow
+// ✅ تحديث الدالة لاستخدام البيانات الربعية
+function calculateAllTTM(quarterlyIncome: any, quarterlyCashflow: any, annualBalance: any) {
+  const incomeData = quarterlyIncome.income_statement
+  const cashflowData = quarterlyCashflow.cash_flow
+  const balanceData = annualBalance.balance_sheet
   
   if (!incomeData || incomeData.length < 4) return null
   
   return {
-    // Income Statement TTM
+    // Income Statement TTM (مجموع آخر 4 أرباع)
     sales: calculateTTM(incomeData, 'sales'),
     cost_of_goods: calculateTTM(incomeData, 'cost_of_goods'),
     gross_profit: calculateTTM(incomeData, 'gross_profit'),
@@ -76,7 +97,7 @@ function calculateAllTTM(income: any, balance: any, cashflow: any) {
     net_income: calculateTTM(incomeData, 'net_income'),
     ebitda: calculateTTM(incomeData, 'ebitda'),
     
-    // Balance Sheet TTM (latest value only, not sum)
+    // Balance Sheet TTM (آخر ربع سنوي فقط - من البيانات السنوية)
     cash_and_equivalents: balanceData?.[0]?.assets?.current_assets?.cash_and_cash_equivalents || 0,
     inventory: balanceData?.[0]?.assets?.current_assets?.inventory || 0,
     total_current_assets: balanceData?.[0]?.assets?.current_assets?.total_current_assets || 0,
@@ -88,7 +109,7 @@ function calculateAllTTM(income: any, balance: any, cashflow: any) {
     total_liabilities: balanceData?.[0]?.liabilities?.total_liabilities || 0,
     total_shareholders_equity: balanceData?.[0]?.shareholders_equity?.total_shareholders_equity || 0,
     
-    // Cash Flow TTM
+    // Cash Flow TTM (مجموع آخر 4 أرباع)
     operating_cash_flow: calculateTTM(cashflowData, 'operating_activities.operating_cash_flow', true),
     investing_cash_flow: calculateTTM(cashflowData, 'investing_activities.investing_cash_flow', true),
     financing_cash_flow: calculateTTM(cashflowData, 'financing_activities.financing_cash_flow', true),
@@ -107,14 +128,14 @@ function formatNumber(value: any): string {
     const absoluteValue = Math.abs(num);
     
     if (absoluteValue >= 1000000) {
-      return `(${(absoluteValue / 1000000).toFixed(2)}-)`;
+      return `(${(absoluteValue / 1000000).toFixed(2)})`;
     }
     
     if (absoluteValue >= 1000) {
-      return `(${(absoluteValue / 1000).toFixed(2)}-)`;
+      return `(${(absoluteValue / 1000).toFixed(2)})`;
     }
     
-    return `(${absoluteValue.toFixed(2)}-)`;
+    return `(${absoluteValue.toFixed(2)})`;
   }
   
   if (Math.abs(num) >= 1000000) {
@@ -204,11 +225,12 @@ export default async function FinancialsPage({
   const cleanSym = cleanSymbol(symbol)
 
   try {
-    const { income, balance, cashflow } = await getFinancialData(symbol, period, country)
+    // ✅ الآن ترجع بيانات إضافية ربع سنوية
+    const { income, balance, cashflow, quarterlyIncome, quarterlyCashflow } = await getFinancialData(symbol, period, country)
     
-    //  Calculate TTM only for quarterly period
-    const ttmData = period === 'quarterly' ? calculateAllTTM(income, balance, cashflow) : null
-    const showTTM = period === 'quarterly' && ttmData
+    // ✅ TTM يظهر في annual ويستخدم البيانات الربعية للحساب
+    const ttmData = period === 'annual' ? calculateAllTTM(quarterlyIncome, quarterlyCashflow, balance) : null
+    const showTTM = period === 'annual' && ttmData
 
     return (
       <div className={styles.container}>
@@ -227,7 +249,7 @@ export default async function FinancialsPage({
 
         <FinancialHeader symbol={symbol} period={period} country={country} />
 
-        {/*  Income Statement with TTM */}
+        {/* ✅ Income Statement مع TTM بعد الـ Item */}
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>Income Statement</h2>
           {income.income_statement && income.income_statement.length > 0 ? (
@@ -236,105 +258,105 @@ export default async function FinancialsPage({
                 <thead>
                   <tr>
                     <th>Item</th>
+                    {showTTM && <th>TTM</th>}
                     {income.income_statement.map((item: any) => (
                       <th key={item.fiscal_date}>
                         {getPeriodDisplay(item)}
                       </th>
                     ))}
-                    {showTTM && <th>TTM</th>}
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
                     <td className={styles.bold}>Revenues</td>
-                    {income.income_statement.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.sales, true)}>
-                        {formatNumber(item.sales)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td className={getColorClass(ttmData.sales, true)}>
                         {formatNumber(ttmData.sales)}
                       </td>
                     )}
+                    {income.income_statement.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.sales, true)}>
+                        {formatNumber(item.sales)}
+                      </td>
+                    ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Cost of Goods Sold</td>
-                    {income.income_statement.map((item: any) => (
-                      <td key={item.fiscal_date}>
-                        {formatNumber(item.cost_of_goods)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td>
                         {formatNumber(ttmData.cost_of_goods)}
                       </td>
                     )}
+                    {income.income_statement.map((item: any) => (
+                      <td key={item.fiscal_date}>
+                        {formatNumber(item.cost_of_goods)}
+                      </td>
+                    ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Gross Profit</td>
-                    {income.income_statement.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.gross_profit)}>
-                        {formatNumber(item.gross_profit)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td className={getColorClass(ttmData.gross_profit)}>
                         {formatNumber(ttmData.gross_profit)}
                       </td>
                     )}
+                    {income.income_statement.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.gross_profit)}>
+                        {formatNumber(item.gross_profit)}
+                      </td>
+                    ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Operating Expenses</td>
-                    {income.income_statement.map((item: any) => (
-                      <td key={item.fiscal_date}>
-                        {formatNumber(item.operating_expense?.selling_general_and_administrative || 0)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td>
                         {formatNumber(ttmData.operating_expense)}
                       </td>
                     )}
+                    {income.income_statement.map((item: any) => (
+                      <td key={item.fiscal_date}>
+                        {formatNumber(item.operating_expense?.selling_general_and_administrative || 0)}
+                      </td>
+                    ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Operating Income</td>
-                    {income.income_statement.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.operating_income)}>
-                        {formatNumber(item.operating_income)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td className={getColorClass(ttmData.operating_income)}>
                         {formatNumber(ttmData.operating_income)}
                       </td>
                     )}
+                    {income.income_statement.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.operating_income)}>
+                        {formatNumber(item.operating_income)}
+                      </td>
+                    ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Net Income</td>
-                    {income.income_statement.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.net_income)}>
-                        {formatNumber(item.net_income)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td className={getColorClass(ttmData.net_income)}>
                         {formatNumber(ttmData.net_income)}
                       </td>
                     )}
+                    {income.income_statement.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.net_income)}>
+                        {formatNumber(item.net_income)}
+                      </td>
+                    ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>EBITDA</td>
-                    {income.income_statement.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.ebitda)}>
-                        {formatNumber(item.ebitda)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td className={getColorClass(ttmData.ebitda)}>
                         {formatNumber(ttmData.ebitda)}
                       </td>
                     )}
+                    {income.income_statement.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.ebitda)}>
+                        {formatNumber(item.ebitda)}
+                      </td>
+                    ))}
                   </tr>
                 </tbody>
               </table>
@@ -346,7 +368,7 @@ export default async function FinancialsPage({
           )}
         </div>
 
-        {/*  Balance Sheet with TTM - Modified */}
+        {/* ✅ Balance Sheet مع TTM بعد الـ Item */}
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>Balance Sheet</h2>
           {balance.balance_sheet && balance.balance_sheet.length > 0 ? (
@@ -355,146 +377,146 @@ export default async function FinancialsPage({
                 <thead>
                   <tr>
                     <th>Item</th>
+                    {showTTM && <th>TTM</th>}
                     {balance.balance_sheet.map((item: any) => (
                       <th key={item.fiscal_date}>
                         {getPeriodDisplay(item)}
                       </th>
                     ))}
-                    {showTTM && <th>TTM</th>}
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
                     <td className={styles.bold}>Cash and Equivalents</td>
-                    {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.assets?.current_assets?.cash_and_cash_equivalents, true)}>
-                        {formatNumber(item.assets?.current_assets?.cash_and_cash_equivalents || 0)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td className={getColorClass(ttmData.cash_and_equivalents, true)}>
                         {formatNumber(ttmData.cash_and_equivalents)}
                       </td>
                     )}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.assets?.current_assets?.cash_and_cash_equivalents, true)}>
+                        {formatNumber(item.assets?.current_assets?.cash_and_cash_equivalents || 0)}
+                      </td>
+                    ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Inventory</td>
-                    {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.assets?.current_assets?.inventory, true)}>
-                        {formatNumber(item.assets?.current_assets?.inventory || 0)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td className={getColorClass(ttmData.inventory, true)}>
                         {formatNumber(ttmData.inventory)}
                       </td>
                     )}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.assets?.current_assets?.inventory, true)}>
+                        {formatNumber(item.assets?.current_assets?.inventory || 0)}
+                      </td>
+                    ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Total Current Assets</td>
-                    {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.assets?.current_assets?.total_current_assets, true)}>
-                        {formatNumber(item.assets?.current_assets?.total_current_assets || 0)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td className={getColorClass(ttmData.total_current_assets, true)}>
                         {formatNumber(ttmData.total_current_assets)}
                       </td>
                     )}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.assets?.current_assets?.total_current_assets, true)}>
+                        {formatNumber(item.assets?.current_assets?.total_current_assets || 0)}
+                      </td>
+                    ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Total Non-Current Assets</td>
-                    {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.assets?.non_current_assets?.total_non_current_assets, true)}>
-                        {formatNumber(item.assets?.non_current_assets?.total_non_current_assets || 0)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td className={getColorClass(ttmData.total_non_current_assets, true)}>
                         {formatNumber(ttmData.total_non_current_assets)}
                       </td>
                     )}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.assets?.non_current_assets?.total_non_current_assets, true)}>
+                        {formatNumber(item.assets?.non_current_assets?.total_non_current_assets || 0)}
+                      </td>
+                    ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Total Assets</td>
-                    {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.assets?.total_assets, true)}>
-                        {formatNumber(item.assets?.total_assets || 0)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td className={getColorClass(ttmData.total_assets, true)}>
                         {formatNumber(ttmData.total_assets)}
                       </td>
                     )}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.assets?.total_assets, true)}>
+                        {formatNumber(item.assets?.total_assets || 0)}
+                      </td>
+                    ))}
                   </tr>
                   
                   <tr>
                     <td className={styles.bold}>Short-term Debt</td>
-                    {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date}>
-                        {formatNumber(item.liabilities?.current_liabilities?.short_term_debt || 0)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td>
                         {formatNumber(ttmData.short_term_debt)}
                       </td>
                     )}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date}>
+                        {formatNumber(item.liabilities?.current_liabilities?.short_term_debt || 0)}
+                      </td>
+                    ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Total Current Liabilities</td>
-                    {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date}>
-                        {formatNumber(item.liabilities?.current_liabilities?.total_current_liabilities || 0)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td>
                         {formatNumber(ttmData.total_current_liabilities)}
                       </td>
                     )}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date}>
+                        {formatNumber(item.liabilities?.current_liabilities?.total_current_liabilities || 0)}
+                      </td>
+                    ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Long-term Debt</td>
-                    {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date}>
-                        {formatNumber(item.liabilities?.non_current_liabilities?.long_term_debt || 0)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td>
                         {formatNumber(ttmData.long_term_debt)}
                       </td>
                     )}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date}>
+                        {formatNumber(item.liabilities?.non_current_liabilities?.long_term_debt || 0)}
+                      </td>
+                    ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Total Liabilities</td>
-                    {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date}>
-                        {formatNumber(item.liabilities?.total_liabilities || 0)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td>
                         {formatNumber(ttmData.total_liabilities)}
                       </td>
                     )}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date}>
+                        {formatNumber(item.liabilities?.total_liabilities || 0)}
+                      </td>
+                    ))}
                   </tr>
                   
                   <tr>
                     <td className={styles.bold}>Shareholders Equity</td>
-                    {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.shareholders_equity?.total_shareholders_equity)}>
-                        {formatNumber(item.shareholders_equity?.total_shareholders_equity || 0)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td className={getColorClass(ttmData.total_shareholders_equity)}>
                         {formatNumber(ttmData.total_shareholders_equity)}
                       </td>
                     )}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.shareholders_equity?.total_shareholders_equity)}>
+                        {formatNumber(item.shareholders_equity?.total_shareholders_equity || 0)}
+                      </td>
+                    ))}
                   </tr>
                 </tbody>
               </table>
@@ -506,7 +528,7 @@ export default async function FinancialsPage({
           )}
         </div>
 
-        {/*  Cash Flow with TTM - Modified */}
+        {/* ✅ Cash Flow مع TTM بعد الـ Item */}
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>Cash Flow Statement</h2>
           {cashflow.cash_flow && cashflow.cash_flow.length > 0 ? (
@@ -515,67 +537,56 @@ export default async function FinancialsPage({
                 <thead>
                   <tr>
                     <th>Item</th>
+                    {showTTM && <th>TTM</th>}
                     {cashflow.cash_flow.map((item: any) => (
                       <th key={item.fiscal_date}>
                         {getPeriodDisplay(item)}
                       </th>
                     ))}
-                    {showTTM && <th>TTM</th>}
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
                     <td className={styles.bold}>Cash Flow from Operations</td>
-                    {cashflow.cash_flow.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.operating_activities?.operating_cash_flow)}>
-                        {formatNumber(item.operating_activities?.operating_cash_flow || 0)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td className={getColorClass(ttmData.operating_cash_flow)}>
                         {formatNumber(ttmData.operating_cash_flow)}
                       </td>
                     )}
+                    {cashflow.cash_flow.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.operating_activities?.operating_cash_flow)}>
+                        {formatNumber(item.operating_activities?.operating_cash_flow || 0)}
+                      </td>
+                    ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Cash Flow from Investing</td>
-                    {cashflow.cash_flow.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.investing_activities?.investing_cash_flow)}>
-                        {formatNumber(item.investing_activities?.investing_cash_flow || 0)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td className={getColorClass(ttmData.investing_cash_flow)}>
                         {formatNumber(ttmData.investing_cash_flow)}
                       </td>
                     )}
+                    {cashflow.cash_flow.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.investing_activities?.investing_cash_flow)}>
+                        {formatNumber(item.investing_activities?.investing_cash_flow || 0)}
+                      </td>
+                    ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Cash Flow from Financing</td>
-                    {cashflow.cash_flow.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.financing_activities?.financing_cash_flow)}>
-                        {formatNumber(item.financing_activities?.financing_cash_flow || 0)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td className={getColorClass(ttmData.financing_cash_flow)}>
                         {formatNumber(ttmData.financing_cash_flow)}
                       </td>
                     )}
+                    {cashflow.cash_flow.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.financing_activities?.financing_cash_flow)}>
+                        {formatNumber(item.financing_activities?.financing_cash_flow || 0)}
+                      </td>
+                    ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Net Change in Cash</td>
-                    {cashflow.cash_flow.map((item: any) => {
-                      const netChange = 
-                        (item.operating_activities?.operating_cash_flow || 0) +
-                        (item.investing_activities?.investing_cash_flow || 0) +
-                        (item.financing_activities?.financing_cash_flow || 0);
-                      return (
-                        <td key={item.fiscal_date} className={getColorClass(netChange)}>
-                          {formatNumber(netChange)}
-                        </td>
-                      );
-                    })}
                     {showTTM && (
                       <td className={getColorClass(
                         (ttmData.operating_cash_flow || 0) + 
@@ -589,19 +600,30 @@ export default async function FinancialsPage({
                         )}
                       </td>
                     )}
+                    {cashflow.cash_flow.map((item: any) => {
+                      const netChange = 
+                        (item.operating_activities?.operating_cash_flow || 0) +
+                        (item.investing_activities?.investing_cash_flow || 0) +
+                        (item.financing_activities?.financing_cash_flow || 0);
+                      return (
+                        <td key={item.fiscal_date} className={getColorClass(netChange)}>
+                          {formatNumber(netChange)}
+                        </td>
+                      );
+                    })}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Free Cash Flow</td>
-                    {cashflow.cash_flow.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.free_cash_flow)}>
-                        {formatNumber(item.free_cash_flow || 0)}
-                      </td>
-                    ))}
                     {showTTM && (
                       <td className={getColorClass(ttmData.free_cash_flow)}>
                         {formatNumber(ttmData.free_cash_flow)}
                       </td>
                     )}
+                    {cashflow.cash_flow.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.free_cash_flow)}>
+                        {formatNumber(item.free_cash_flow || 0)}
+                      </td>
+                    ))}
                   </tr>
                 </tbody>
               </table>

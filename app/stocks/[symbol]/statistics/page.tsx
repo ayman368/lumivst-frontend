@@ -2,9 +2,6 @@ import Link from 'next/link'
 import styles from '../../../styles/Financials.module.css'
 import { FinancialHeader } from '../../../../components/FinancialHeader'
 
-// import Link from 'next/link'
-// import styles from '../../../styles/Statistics.module.css'
-
 function cleanSymbol(symbol: string): string {
   return symbol.split('.')[0]
 }
@@ -33,9 +30,9 @@ async function getStatisticsData(symbol: string, country: string = "Saudi Arabia
   return data
 }
 
-// Function to format numbers - نفس دالة Financials
+// Function to format numbers - نفس دالة Financials (هتستخدم للقيم العادية)
 function formatNumber(value: any): string {
-  if (!value && value !== 0) return 'N/A';
+  if (value === null || value === undefined) return 'N/A'; // التعامل مع null و undefined بشكل أفضل
   
   const num = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
   
@@ -43,89 +40,75 @@ function formatNumber(value: any): string {
   
   if (num < 0) {
     const absoluteValue = Math.abs(num);
-    
-    if (absoluteValue >= 1000000) {
-      return `(${(absoluteValue / 1000000).toFixed(2)}-)`;
-    }
-    
+    // إذا كانت القيمة المطلقة كبيرة، ممكن نخليها بالآلاف
     if (absoluteValue >= 1000) {
-      return `(${(absoluteValue / 1000).toFixed(2)}-)`;
+        return `(${(absoluteValue / 1000).toFixed(2)}K)`;
     }
-    
-    return `(${absoluteValue.toFixed(2)}-)`;
+    return `(${absoluteValue.toFixed(2)})`;
   }
   
-  if (Math.abs(num) >= 1000000) {
-    return (num / 1000000).toFixed(2);
-  }
-  
+  // هنا ممكن نحدد عتبة للتحويل للآلاف إذا أردت
+  // لكن للقيم الصغيرة، نرجعها كما هي مع تنسيق عشري
   if (Math.abs(num) >= 1000) {
-    return (num / 1000).toFixed(2);
+    return (num / 1000).toFixed(2) + 'K';
   }
-  
+
   return num.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
 }
 
-// Function to format large numbers - محدثة
+// Function to format large numbers - محدثة لتركز على المليون فما فوق
 function formatLargeNumber(value: any): string {
-  if (!value && value !== 0) return 'N/A';
+  if (value === null || value === undefined) return 'N/A';
   
   const num = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
   
   if (isNaN(num)) return 'N/A';
-  
-  if (num < 0) {
-    const absoluteValue = Math.abs(num);
-    
-    if (absoluteValue >= 1000000000) {
-      return `(${(absoluteValue / 1000000000).toFixed(2)}-)`;
-    }
-    
-    if (absoluteValue >= 1000000) {
-      return `(${(absoluteValue / 1000000).toFixed(2)}-)`;
-    }
-    
-    if (absoluteValue >= 1000) {
-      return `(${(absoluteValue / 1000).toFixed(2)}-)`;
-    }
-    
-    return `(${absoluteValue.toFixed(2)}-)`;
+
+  // تحديد ما إذا كانت القيمة سلبية
+  const isNegative = num < 0;
+  const absoluteValue = Math.abs(num);
+  let formattedValue = '';
+
+  if (absoluteValue >= 1000000000) { // مليار
+    formattedValue = (absoluteValue / 1000000000).toFixed(2) + 'B';
+  } else if (absoluteValue >= 1000000) { // مليون
+    formattedValue = (absoluteValue / 1000000).toFixed(2) + 'M';
+  } else if (absoluteValue >= 1000) { // ألف
+    // إذا كانت القيمة أكبر من ألف وأقل من مليون، نظهرها بالألف (أو يمكنك إرجاعها كرقم عادي إذا كانت هذه هي رغبتك)
+    // بناءً على طلبك، إذا كانت الأرقام ليست "كبيرة" جدًا، فالأفضل عدم تحويلها للمليون
+    // لذلك، سنعيدها هنا بصيغة الأرقام العادية أو الألف فقط إذا كانت كبيرة نسبياً
+    return formatNumber(num); // نرجع لدالة formatNumber للتعامل مع الأرقام بين 1000 ومليون
+  } else {
+    // الأرقام الصغيرة جداً تظهر كما هي
+    return num.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
   }
   
-  if (Math.abs(num) >= 1000000000) {
-    return (num / 1000000000).toFixed(2) ;
-  }
-  
-  if (Math.abs(num) >= 1000000) {
-    return (num / 1000000).toFixed(2) ;
-  }
-  
-  if (Math.abs(num) >= 1000) {
-    return (num / 1000).toFixed(2) ;
-  }
-  
-  return num.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
+  return isNegative ? `(${formattedValue})` : formattedValue;
 }
 
 // Function to format percentages - محدثة
 function formatPercentage(value: any): string {
-  if (!value && value !== 0) return 'N/A';
+  if (value === null || value === undefined) return 'N/A';
   
   const num = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
   
   if (isNaN(num)) return 'N/A';
   
-  if (num < 0) {
-    return `(-${(Math.abs(num) * 100).toFixed(2)}%)`;
+  // إذا كانت النسبة بالفعل في شكل نسبة مئوية (مثلاً 50% بدلاً من 0.5)، فلا نضرب في 100 مرة أخرى
+  // ولكن بناءً على بيانات الـ API، هي أرقام عشرية تمثل نسب مئوية.
+  const percentage = num * 100;
+
+  if (percentage < 0) {
+    return `(${(Math.abs(percentage)).toFixed(2)}%)`;
   }
   
-  return (num * 100).toFixed(2) + '%';
+  return percentage.toFixed(2) + '%';
 }
 
 // Function to get color class - جديدة
@@ -170,7 +153,7 @@ function validateStatisticsData(data: any) {
   return true;
 }
 
-// Function to organize data into sections - محدثة
+// Function to organize data into sections - محدثة لتطبيق formatLargeNumber فقط على القيم الكبيرة حقًا
 function organizeStatisticsData(statistics: any): StatisticsSection[] {
   if (!statistics) {
     return [];
@@ -182,56 +165,56 @@ function organizeStatisticsData(statistics: any): StatisticsSection[] {
       data: [
         { 
           label: "Market Cap", 
-          value: formatLargeNumber(statistics.valuations_metrics?.market_capitalization), 
+          value: formatLargeNumber(statistics.valuations_metrics?.market_capitalization), // كبير، يستخدم formatLargeNumber
           rawValue: statistics.valuations_metrics?.market_capitalization,
           highlight: true,
           isAlwaysPositive: true
         },
         { 
           label: "Enterprise Value", 
-          value: formatLargeNumber(statistics.valuations_metrics?.enterprise_value), 
+          value: formatLargeNumber(statistics.valuations_metrics?.enterprise_value), // كبير، يستخدم formatLargeNumber
           rawValue: statistics.valuations_metrics?.enterprise_value,
           highlight: true,
           isAlwaysPositive: true
         },
         { 
           label: "P/E (Trailing)", 
-          value: formatNumber(statistics.valuations_metrics?.trailing_pe),
+          value: formatNumber(statistics.valuations_metrics?.trailing_pe), // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.valuations_metrics?.trailing_pe,
           isAlwaysPositive: true
         },
         { 
           label: "P/E (Forward)", 
-          value: formatNumber(statistics.valuations_metrics?.forward_pe),
+          value: formatNumber(statistics.valuations_metrics?.forward_pe), // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.valuations_metrics?.forward_pe,
           isAlwaysPositive: true
         },
         { 
           label: "PEG Ratio", 
-          value: formatNumber(statistics.valuations_metrics?.peg_ratio),
+          value: formatNumber(statistics.valuations_metrics?.peg_ratio), // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.valuations_metrics?.peg_ratio
         },
         { 
           label: "Price to Sales (TTM)", 
-          value: formatNumber(statistics.valuations_metrics?.price_to_sales_ttm),
+          value: formatNumber(statistics.valuations_metrics?.price_to_sales_ttm), // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.valuations_metrics?.price_to_sales_ttm,
           isAlwaysPositive: true
         },
         { 
           label: "Price to Book (MRQ)", 
-          value: formatNumber(statistics.valuations_metrics?.price_to_book_mrq),
+          value: formatNumber(statistics.valuations_metrics?.price_to_book_mrq), // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.valuations_metrics?.price_to_book_mrq,
           isAlwaysPositive: true
         },
         { 
           label: "Enterprise to Revenue", 
-          value: formatNumber(statistics.valuations_metrics?.enterprise_to_revenue),
+          value: formatNumber(statistics.valuations_metrics?.enterprise_to_revenue), // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.valuations_metrics?.enterprise_to_revenue,
           isAlwaysPositive: true
         },
         { 
           label: "Enterprise to EBITDA", 
-          value: formatNumber(statistics.valuations_metrics?.enterprise_to_ebitda) || 'N/A',
+          value: formatNumber(statistics.valuations_metrics?.enterprise_to_ebitda) || 'N/A', // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.valuations_metrics?.enterprise_to_ebitda,
           isAlwaysPositive: true
         }
@@ -252,32 +235,32 @@ function organizeStatisticsData(statistics: any): StatisticsSection[] {
         },
         { 
           label: "Gross Margin", 
-          value: formatPercentage(statistics.financials?.gross_margin),
+          value: formatPercentage(statistics.financials?.gross_margin), // نسبة مئوية، يستخدم formatPercentage
           rawValue: statistics.financials?.gross_margin,
           isPercentage: true,
           isAlwaysPositive: true
         },
         { 
           label: "Profit Margin", 
-          value: formatPercentage(statistics.financials?.profit_margin),
+          value: formatPercentage(statistics.financials?.profit_margin), // نسبة مئوية، يستخدم formatPercentage
           rawValue: statistics.financials?.profit_margin,
           isPercentage: true
         },
         { 
           label: "Operating Margin", 
-          value: formatPercentage(statistics.financials?.operating_margin),
+          value: formatPercentage(statistics.financials?.operating_margin), // نسبة مئوية، يستخدم formatPercentage
           rawValue: statistics.financials?.operating_margin,
           isPercentage: true
         },
         { 
           label: "Return on Assets (TTM)", 
-          value: formatPercentage(statistics.financials?.return_on_assets_ttm),
+          value: formatPercentage(statistics.financials?.return_on_assets_ttm), // نسبة مئوية، يستخدم formatPercentage
           rawValue: statistics.financials?.return_on_assets_ttm,
           isPercentage: true
         },
         { 
           label: "Return on Equity (TTM)", 
-          value: formatPercentage(statistics.financials?.return_on_equity_ttm),
+          value: formatPercentage(statistics.financials?.return_on_equity_ttm), // نسبة مئوية، يستخدم formatPercentage
           rawValue: statistics.financials?.return_on_equity_ttm,
           isPercentage: true
         }
@@ -288,48 +271,48 @@ function organizeStatisticsData(statistics: any): StatisticsSection[] {
       data: [
         { 
           label: "Revenue", 
-          value: formatLargeNumber(statistics.financials?.income_statement?.revenue_ttm), 
+          value: formatLargeNumber(statistics.financials?.income_statement?.revenue_ttm), // كبير، يستخدم formatLargeNumber
           rawValue: statistics.financials?.income_statement?.revenue_ttm,
           highlight: true,
           isAlwaysPositive: true
         },
         { 
           label: "Revenue Per Share", 
-          value: formatNumber(statistics.financials?.income_statement?.revenue_per_share_ttm),
+          value: formatNumber(statistics.financials?.income_statement?.revenue_per_share_ttm), // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.financials?.income_statement?.revenue_per_share_ttm,
           isAlwaysPositive: true
         },
         { 
           label: "Quarterly Revenue Growth", 
-          value: formatPercentage(statistics.financials?.income_statement?.quarterly_revenue_growth),
+          value: formatPercentage(statistics.financials?.income_statement?.quarterly_revenue_growth), // نسبة مئوية، يستخدم formatPercentage
           rawValue: statistics.financials?.income_statement?.quarterly_revenue_growth,
           isPercentage: true
         },
         { 
           label: "Gross Profit", 
-          value: formatLargeNumber(statistics.financials?.income_statement?.gross_profit_ttm), 
+          value: formatLargeNumber(statistics.financials?.income_statement?.gross_profit_ttm), // كبير، يستخدم formatLargeNumber
           rawValue: statistics.financials?.income_statement?.gross_profit_ttm,
           highlight: true
         },
         { 
           label: "EBITDA", 
-          value: formatLargeNumber(statistics.financials?.income_statement?.ebitda),
+          value: formatLargeNumber(statistics.financials?.income_statement?.ebitda), // كبير، يستخدم formatLargeNumber
           rawValue: statistics.financials?.income_statement?.ebitda
         },
         { 
           label: "Net Income", 
-          value: formatLargeNumber(statistics.financials?.income_statement?.net_income_to_common_ttm), 
+          value: formatLargeNumber(statistics.financials?.income_statement?.net_income_to_common_ttm), // كبير، يستخدم formatLargeNumber
           rawValue: statistics.financials?.income_statement?.net_income_to_common_ttm,
           highlight: true
         },
         { 
           label: "EPS (Diluted)", 
-          value: formatNumber(statistics.financials?.income_statement?.diluted_eps_ttm),
+          value: formatNumber(statistics.financials?.income_statement?.diluted_eps_ttm), // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.financials?.income_statement?.diluted_eps_ttm
         },
         { 
           label: "Quarterly Earnings Growth", 
-          value: formatPercentage(statistics.financials?.income_statement?.quarterly_earnings_growth_yoy),
+          value: formatPercentage(statistics.financials?.income_statement?.quarterly_earnings_growth_yoy), // نسبة مئوية، يستخدم formatPercentage
           rawValue: statistics.financials?.income_statement?.quarterly_earnings_growth_yoy,
           isPercentage: true
         }
@@ -340,40 +323,57 @@ function organizeStatisticsData(statistics: any): StatisticsSection[] {
       data: [
         { 
           label: "Total Cash", 
-          value: formatLargeNumber(statistics.financials?.balance_sheet?.total_cash_mrq), 
+          value: formatLargeNumber(statistics.financials?.balance_sheet?.total_cash_mrq), // كبير، يستخدم formatLargeNumber
           rawValue: statistics.financials?.balance_sheet?.total_cash_mrq,
           highlight: true,
           isAlwaysPositive: true
         },
         { 
           label: "Cash Per Share", 
-          value: formatNumber(statistics.financials?.balance_sheet?.total_cash_per_share_mrq),
+          value: formatNumber(statistics.financials?.balance_sheet?.total_cash_per_share_mrq), // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.financials?.balance_sheet?.total_cash_per_share_mrq,
           isAlwaysPositive: true
         },
         { 
           label: "Total Debt", 
-          value: formatLargeNumber(statistics.financials?.balance_sheet?.total_debt_mrq),
+          value: formatLargeNumber(statistics.financials?.balance_sheet?.total_debt_mrq), // كبير، يستخدم formatLargeNumber
           rawValue: statistics.financials?.balance_sheet?.total_debt_mrq,
           isAlwaysPositive: true
         },
         { 
           label: "Debt to Equity", 
-          value: formatNumber(statistics.financials?.balance_sheet?.total_debt_to_equity_mrq),
+          value: formatNumber(statistics.financials?.balance_sheet?.total_debt_to_equity_mrq), // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.financials?.balance_sheet?.total_debt_to_equity_mrq,
           isAlwaysPositive: true
         },
         { 
           label: "Current Ratio", 
-          value: formatNumber(statistics.financials?.balance_sheet?.current_ratio_mrq) || 'N/A',
+          value: formatNumber(statistics.financials?.balance_sheet?.current_ratio_mrq) || 'N/A', // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.financials?.balance_sheet?.current_ratio_mrq,
           isAlwaysPositive: true
         },
         { 
           label: "Book Value Per Share", 
-          value: formatNumber(statistics.financials?.balance_sheet?.book_value_per_share_mrq),
+          value: formatNumber(statistics.financials?.balance_sheet?.book_value_per_share_mrq), // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.financials?.balance_sheet?.book_value_per_share_mrq,
           isAlwaysPositive: true
+        }
+      ]
+    },
+    {
+      title: "Cash Flow (TTM)",
+      data: [
+        { 
+          label: "Operating Cash Flow", 
+          value: formatLargeNumber(statistics.financials?.cash_flow?.operating_cash_flow_ttm), // كبير، يستخدم formatLargeNumber
+          rawValue: statistics.financials?.cash_flow?.operating_cash_flow_ttm,
+          highlight: true
+        },
+        { 
+          label: "Levered Free Cash Flow", 
+          value: formatLargeNumber(statistics.financials?.cash_flow?.levered_free_cash_flow_ttm), // كبير، يستخدم formatLargeNumber
+          rawValue: statistics.financials?.cash_flow?.levered_free_cash_flow_ttm,
+          highlight: true
         }
       ]
     },
@@ -382,38 +382,38 @@ function organizeStatisticsData(statistics: any): StatisticsSection[] {
       data: [
         { 
           label: "Shares Outstanding", 
-          value: formatLargeNumber(statistics.stock_statistics?.shares_outstanding),
+          value: formatLargeNumber(statistics.stock_statistics?.shares_outstanding), // كبير، يستخدم formatLargeNumber
           rawValue: statistics.stock_statistics?.shares_outstanding,
           isAlwaysPositive: true
         },
         { 
           label: "Float Shares", 
-          value: formatLargeNumber(statistics.stock_statistics?.float_shares),
+          value: formatLargeNumber(statistics.stock_statistics?.float_shares), // كبير، يستخدم formatLargeNumber
           rawValue: statistics.stock_statistics?.float_shares,
           isAlwaysPositive: true
         },
         { 
           label: "Avg Volume (10 days)", 
-          value: formatLargeNumber(statistics.stock_statistics?.avg_10_volume),
+          value: formatLargeNumber(statistics.stock_statistics?.avg_10_volume), // كبير (بالآلاف)، يستخدم formatLargeNumber اللي هيرجع formatNumber في هذه الحالة
           rawValue: statistics.stock_statistics?.avg_10_volume,
           isAlwaysPositive: true
         },
         { 
           label: "Avg Volume (90 days)", 
-          value: formatLargeNumber(statistics.stock_statistics?.avg_90_volume),
+          value: formatLargeNumber(statistics.stock_statistics?.avg_90_volume), // كبير (بالآلاف)، يستخدم formatLargeNumber اللي هيرجع formatNumber في هذه الحالة
           rawValue: statistics.stock_statistics?.avg_90_volume,
           isAlwaysPositive: true
         },
         { 
           label: "Held by Insiders %", 
-          value: formatPercentage(statistics.stock_statistics?.percent_held_by_insiders),
+          value: formatPercentage(statistics.stock_statistics?.percent_held_by_insiders), // نسبة مئوية، يستخدم formatPercentage
           rawValue: statistics.stock_statistics?.percent_held_by_insiders,
           isPercentage: true,
           isAlwaysPositive: true
         },
         { 
           label: " Held by Institutions %", 
-          value: formatPercentage(statistics.stock_statistics?.percent_held_by_institutions),
+          value: formatPercentage(statistics.stock_statistics?.percent_held_by_institutions), // نسبة مئوية، يستخدم formatPercentage
           rawValue: statistics.stock_statistics?.percent_held_by_institutions,
           isPercentage: true,
           isAlwaysPositive: true
@@ -425,36 +425,36 @@ function organizeStatisticsData(statistics: any): StatisticsSection[] {
       data: [
         { 
           label: "52 Week Low", 
-          value: formatNumber(statistics.stock_price_summary?.fifty_two_week_low),
+          value: formatNumber(statistics.stock_price_summary?.fifty_two_week_low), // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.stock_price_summary?.fifty_two_week_low,
           isAlwaysPositive: true
         },
         { 
           label: "52 Week High", 
-          value: formatNumber(statistics.stock_price_summary?.fifty_two_week_high),
+          value: formatNumber(statistics.stock_price_summary?.fifty_two_week_high), // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.stock_price_summary?.fifty_two_week_high,
           isAlwaysPositive: true
         },
         { 
           label: "52 Week Change", 
-          value: formatPercentage(statistics.stock_price_summary?.fifty_two_week_change),
+          value: formatPercentage(statistics.stock_price_summary?.fifty_two_week_change), // نسبة مئوية، يستخدم formatPercentage
           rawValue: statistics.stock_price_summary?.fifty_two_week_change,
           isPercentage: true
         },
         { 
           label: "Beta", 
-          value: formatNumber(statistics.stock_price_summary?.beta),
+          value: formatNumber(statistics.stock_price_summary?.beta), // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.stock_price_summary?.beta
         },
         { 
           label: "50 Day Moving Average", 
-          value: formatNumber(statistics.stock_price_summary?.day_50_ma),
+          value: formatNumber(statistics.stock_price_summary?.day_50_ma), // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.stock_price_summary?.day_50_ma,
           isAlwaysPositive: true
         },
         { 
           label: "200 Day Moving Average", 
-          value: formatNumber(statistics.stock_price_summary?.day_200_ma),
+          value: formatNumber(statistics.stock_price_summary?.day_200_ma), // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.stock_price_summary?.day_200_ma,
           isAlwaysPositive: true
         }
@@ -465,40 +465,40 @@ function organizeStatisticsData(statistics: any): StatisticsSection[] {
       data: [
         { 
           label: "Forward Annual Dividend Rate", 
-          value: formatNumber(statistics.dividends_and_splits?.forward_annual_dividend_rate),
+          value: formatNumber(statistics.dividends_and_splits?.forward_annual_dividend_rate), // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.dividends_and_splits?.forward_annual_dividend_rate,
           isAlwaysPositive: true
         },
         { 
           label: "Forward Annual Dividend Yield", 
-          value: formatPercentage(statistics.dividends_and_splits?.forward_annual_dividend_yield),
+          value: formatPercentage(statistics.dividends_and_splits?.forward_annual_dividend_yield), // نسبة مئوية، يستخدم formatPercentage
           rawValue: statistics.dividends_and_splits?.forward_annual_dividend_yield,
           isPercentage: true,
           isAlwaysPositive: true
         },
         { 
           label: "Trailing Annual Dividend Rate", 
-          value: formatNumber(statistics.dividends_and_splits?.trailing_annual_dividend_rate),
+          value: formatNumber(statistics.dividends_and_splits?.trailing_annual_dividend_rate), // ليس بالمليون، يستخدم formatNumber
           rawValue: statistics.dividends_and_splits?.trailing_annual_dividend_rate,
           isAlwaysPositive: true
         },
         { 
           label: "Trailing Annual Dividend Yield", 
-          value: formatPercentage(statistics.dividends_and_splits?.trailing_annual_dividend_yield),
+          value: formatPercentage(statistics.dividends_and_splits?.trailing_annual_dividend_yield), // نسبة مئوية، يستخدم formatPercentage
           rawValue: statistics.dividends_and_splits?.trailing_annual_dividend_yield,
           isPercentage: true,
           isAlwaysPositive: true
         },
         { 
           label: "5 Year Average Dividend Yield", 
-          value: formatPercentage(statistics.dividends_and_splits?.five_year_average_dividend_yield),
-          rawValue: statistics.dividends_and_splits?.five_year_average_dividend_yield,
+          value: formatPercentage(statistics.dividends_and_splits?.['5_year_average_dividend_yield']), // نسبة مئوية، يستخدم formatPercentage (لاحظ تعديل اسم المفتاح لو كان 5_year_average_dividend_yield)
+          rawValue: statistics.dividends_and_splits?.['5_year_average_dividend_yield'],
           isPercentage: true,
           isAlwaysPositive: true
         },
         { 
           label: "Payout Ratio", 
-          value: formatPercentage(statistics.dividends_and_splits?.payout_ratio),
+          value: formatPercentage(statistics.dividends_and_splits?.payout_ratio), // نسبة مئوية، يستخدم formatPercentage
           rawValue: statistics.dividends_and_splits?.payout_ratio,
           isPercentage: true,
           isAlwaysPositive: true
@@ -648,21 +648,21 @@ export default async function StatisticsPage({
                       <th>Value</th>
                     </tr>
                   </thead>
-<tbody>
-  {section.data.map((item: StatisticsItem, itemIndex: number) => (
-    <tr 
-      key={itemIndex} 
-      className={item.highlight ? styles.highlightRow : ''}
-    >
-      <td className={item.highlight ? styles.bold : ''}>
-        {item.label}
-      </td>
-      <td className={`${getColorClass(item.rawValue, item.isAlwaysPositive)} ${item.highlight ? styles.bold : ''}`}>
-        {item.value}
-      </td>
-    </tr>
-  ))}
-</tbody>
+                  <tbody>
+                    {section.data.map((item: StatisticsItem, itemIndex: number) => (
+                      <tr 
+                        key={itemIndex} 
+                        className={item.highlight ? styles.highlightRow : ''}
+                      >
+                        <td className={item.highlight ? styles.bold : ''}>
+                          {item.label}
+                        </td>
+                        <td className={`${getColorClass(item.rawValue, item.isAlwaysPositive)} ${item.highlight ? styles.bold : ''}`}>
+                          {item.value}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
                 </table>
               </div>
             </div>

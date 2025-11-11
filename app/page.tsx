@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 async function getStocks() {
   try {
-    const res = await fetch('http://web-production-e66c2.up.railway.app/api/stocks', { 
+    const res = await fetch('https://web-production-e66c2.up.railway.app/api/stocks', { 
       next: { revalidate: 3600 } 
     })
     if (!res.ok) throw new Error('Failed to fetch stocks')
@@ -19,13 +19,13 @@ export default function Home() {
       {/* Hero Section */}
       <section className="max-w-7xl mx-auto py-20 px-4">
         <div className="text-center">
-          {/* <h1 className="text-5xl font-bold text-gray-900 mb-6">
+          <h1 className="text-5xl font-bold text-gray-900 mb-6">
             منصة الاستثمار بالقيمة الشاملة
           </h1>
           <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
             تقييم دقيق وآلي لجميع الأسهم السعودية. وفر ساعات لا حصر لها في تحليل الأسهم 
             وبناء نماذج خصم التدفقات النقدية بنفسك.
-          </p> */}
+          </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             {/* ⭐⭐ التصحيح: تغيير الرابط إلى صفحة Next.js */}
             <Link 

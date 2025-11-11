@@ -43,12 +43,6 @@ export default function RootLayout({
 
 
 
-
-
-
-
-
-
 // import './globals.css'
 // // import { AuthProvider } from './context/AuthContext'
 // import Layout from '../components/Layout'

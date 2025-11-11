@@ -2,7 +2,8 @@
   background: #f8fafc;
   min-height: 100vh;
   color: #334155;
-  padding: 20px;
+  /* padding: 20px; */
+  padding-top: 5px;
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   direction: ltr;
   text-align: left;
@@ -152,6 +153,7 @@
   overflow: hidden;
   margin-bottom: 24px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  overflow-x: auto;
 }
 
 .table {
@@ -159,43 +161,47 @@
   border-collapse: collapse;
   color: #334155;
   font-size: 14px;
-  table-layout: fixed;
+  min-width: 1200px; /* ⭐ زيادة العرض الأدنى */
 }
 
 .table th {
   background: #f8fafc;
   color: #475569;
   font-weight: 600;
-  padding: 16px;
+  padding: 16px 12px;
   border-bottom: 1px solid #e2e8f0;
   white-space: nowrap;
+  position: sticky;
+  top: 0;
 }
 
 .table td {
-  padding: 14px 16px;
+  padding: 14px 12px;
   border-bottom: 1px solid #f1f5f9;
   color: #000000;
   vertical-align: top;
 }
 
-/* ⭐ UPDATED: أعمدة النص - متعددة الأسطر */
+/* ⭐ UPDATED: توزيع الأعمدة الجديد */
+/* Symbol */
 .table th:nth-child(1),
 .table td:nth-child(1) {
   width: 80px;
   text-align: center;
 }
 
-/* ⭐ الاسم - متعدد الأسطر */
+/* Name */
 .table th:nth-child(2),
 .table td:nth-child(2) {
-  width: 200px;
+  width: 180px;
   text-align: left;
   white-space: normal;
   word-wrap: break-word;
   line-height: 1.4;
+  min-width: 150px;
 }
 
-/* ⭐ القطاع - متعدد الأسطر */
+/* Sector */
 .table th:nth-child(3),
 .table td:nth-child(3) {
   width: 120px;
@@ -203,33 +209,92 @@
   white-space: normal;
   word-wrap: break-word;
   line-height: 1.4;
+  min-width: 100px;
 }
 
-/* ⭐ الصناعة - متعددة الأسطر زي الاسم */
+/* Industry */
 .table th:nth-child(4),
 .table td:nth-child(4) {
-  width: 180px;
+  width: 160px;
+  text-align: left;
+  white-space: normal;
+  word-wrap: break-word;
+  line-height: 1.4;
+  min-width: 140px;
+}
+
+/* Price */
+.table th:nth-child(5),
+.table td:nth-child(5) {
+  width: 90px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+
+/* ⭐ Industry - نفس تنسيق Name بالضبط */
+.table th:nth-child(5),
+.table td:nth-child(5) {
+  width: 200px;
+  min-width: 180px;
+  max-width: 250px;
   text-align: left;
   white-space: normal;
   word-wrap: break-word;
   line-height: 1.4;
 }
 
-/* الأعمدة الرقمية */
-.table th:nth-child(5),
-.table td:nth-child(5),
+/* Change */
 .table th:nth-child(6),
-.table td:nth-child(6),
+.table td:nth-child(6) {
+  width: 100px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Change % */
 .table th:nth-child(7),
-.table td:nth-child(7),
+.table td:nth-child(7) {
+  width: 90px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Volume */
 .table th:nth-child(8),
-.table td:nth-child(8),
+.table td:nth-child(8) {
+  width: 100px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* ⭐ Exchange - العمود الجديد */
 .table th:nth-child(9),
-.table td:nth-child(9),
+.table td:nth-child(9) {
+  width: 80px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Turnover */
 .table th:nth-child(10),
-.table td:nth-child(10),
+.table td:nth-child(10) {
+  width: 100px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* 52Week High */
 .table th:nth-child(11),
 .table td:nth-child(11) {
+  width: 100px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* 52Week Low */
+.table th:nth-child(12),
+.table td:nth-child(12) {
   width: 100px;
   text-align: center;
   white-space: nowrap;
@@ -242,7 +307,8 @@
 .table td:nth-child(8),
 .table td:nth-child(9),
 .table td:nth-child(10),
-.table td:nth-child(11) {
+.table td:nth-child(11),
+.table td:nth-child(12) {
   text-align: center;
 }
 
@@ -252,7 +318,8 @@
 .table th:nth-child(8),
 .table th:nth-child(9),
 .table th:nth-child(10),
-.table th:nth-child(11) {
+.table th:nth-child(11),
+.table th:nth-child(12) {
   text-align: center;
 }
 
@@ -418,13 +485,13 @@
   }
   
   .table {
-    min-width: 1000px;
+    min-width: 1200px; /* ⭐ تحديث العرض الأدنى للجوال */
     font-size: 13px;
   }
   
   .table th,
   .table td {
-    padding: 12px;
+    padding: 12px 8px;
   }
   
   .countryBadge {
@@ -433,4 +500,69 @@
     margin-bottom: 12px;
     text-align: center;
   }
+}
+
+
+/* Filter Row Styles */
+.filterRow {
+  background: #f8f9fa;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.filterRow td {
+  padding: 8px 12px;
+  background: #f8f9fa;
+}
+
+.filterInput {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 12px;
+  background: white;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.filterInput:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.filterInput::placeholder {
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+.table th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  padding: 12px 12px 8px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+}
+
+/* إضافة عداد للنتائج */
+.resultsCount {
+  background: white;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.resultsCount strong {
+  color: #1e293b;
+}
+
+
+
+.filterActive {
+  color: #059669;
+  font-weight: 600;
 }
