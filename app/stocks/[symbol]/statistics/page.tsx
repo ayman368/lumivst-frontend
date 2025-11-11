@@ -102,7 +102,9 @@ function formatPercentage(value: any): string {
   
   // إذا كانت النسبة بالفعل في شكل نسبة مئوية (مثلاً 50% بدلاً من 0.5)، فلا نضرب في 100 مرة أخرى
   // ولكن بناءً على بيانات الـ API، هي أرقام عشرية تمثل نسب مئوية.
-  const percentage = num * 100;
+  const percentage = num ;
+  // const percentage = num * 100 ;
+
 
   if (percentage < 0) {
     return `(${(Math.abs(percentage)).toFixed(2)}%)`;
