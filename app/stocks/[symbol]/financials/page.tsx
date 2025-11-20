@@ -1,9 +1,27 @@
 import Link from 'next/link'
 import styles from '../../../styles/Financials.module.css'
 import PeriodDropdown from '../../../../components/PeriodDropdown'
+import { notFound } from 'next/navigation'
 
 function cleanSymbol(symbol: string): string {
   return symbol.split('.')[0]
+}
+
+// 🎯 جلب اسم الشركة من قاعدة البيانات
+async function getCompanyName(symbol: string, country: string): Promise<string> {
+  try {
+    const cleanSym = cleanSymbol(symbol);
+    const response = await fetch(
+      `https://web-production-e66c2.up.railway.app/stocks/${cleanSym}/name?country=${encodeURIComponent(country)}`,
+      { cache: 'no-store' }
+    );
+    if (!response.ok) throw new Error('Failed to fetch');
+    const data = await response.json();
+    return data.name || symbol;
+  } catch (error) {
+    console.error('Error fetching company name:', error);
+    return symbol;
+  }
 }
 
 // Enhanced function to fetch financial data with period and country selection
@@ -169,29 +187,47 @@ function getColorClass(value: any, isAlwaysPositive: boolean = false) {
   return num < 0 ? styles.textNegative : styles.textPositive;
 }
 
+// function NavigationTabs({ symbol, period, country }: { symbol: string, period: string, country: string }) {
+//   const tabs = [
+//     // { label: 'Overview', href: `/stocks/${symbol}?period=${period}&country=${country}` },
+//     { label: 'Financial ', href: `/stocks/${symbol}/financials?period=${period}&country=${country}`, active: true },
+//     // { label: 'Analysis', href: `/stocks/${symbol}/analysis?period=${period}&country=${country}` },
+//     { label: 'Statistics', href: `/stocks/${symbol}/statistics?country=${country}` }
+
+//   ]
+
+
+//   return (
+//     <div className={styles.navTabs}>
+//       {tabs.map((tab) => (
+//         <Link
+//           key={tab.label}
+//           href={tab.href}
+//           className={`${styles.navTab} ${tab.active ? styles.active : ''}`}
+//         >
+//           {tab.label}
+//         </Link>
+//       ))}
+//     </div>
+//   )
+// }
+
 function NavigationTabs({ symbol, period, country }: { symbol: string, period: string, country: string }) {
-  const tabs = [
-    // { label: 'Overview', href: `/stocks/${symbol}?period=${period}&country=${country}` },
-    { label: 'Financial ', href: `/stocks/${symbol}/financials?period=${period}&country=${country}`, active: true },
-    // { label: 'Analysis', href: `/stocks/${symbol}/analysis?period=${period}&country=${country}` },
-    { label: 'Statistics', href: `/stocks/${symbol}/statistics?country=${country}` }
-
-  ]
-
   return (
     <div className={styles.navTabs}>
-      {tabs.map((tab) => (
-        <Link
-          key={tab.label}
-          href={tab.href}
-          className={`${styles.navTab} ${tab.active ? styles.active : ''}`}
-        >
-          {tab.label}
-        </Link>
-      ))}
+      <Link href={`/stocks/${symbol}/financials?period=${period}&country=${country}`} 
+            className={`${styles.navTab} ${styles.active}`}>
+        Financial
+      </Link>
+      <Link href={`/stocks/${symbol}/statistics?country=${country}`} 
+            className={styles.navTab}>
+        Statistics
+      </Link>
     </div>
   )
 }
+
+
 
 function FinancialHeader({ symbol, period, country }: { symbol: string, period: string, country: string }) {
   return (
@@ -221,10 +257,11 @@ export default async function FinancialsPage({
   const { symbol } = await params
   const resolvedSearchParams = await searchParams
   const { period, country } = getSearchParams(resolvedSearchParams)
-  
   const cleanSym = cleanSymbol(symbol)
 
   try {
+        // جلب الاسم من قاعدة البيانات
+    const companyName = await getCompanyName(cleanSym, country);
     // ✅ الآن ترجع بيانات إضافية ربع سنوية
     const { income, balance, cashflow, quarterlyIncome, quarterlyCashflow } = await getFinancialData(symbol, period, country)
     
@@ -236,7 +273,7 @@ export default async function FinancialsPage({
       <div className={styles.container}>
         {/* Company Header */}
         <div className={styles.companyHeader}>
-          <span className={styles.companyName}>{income.meta?.name || symbol}</span>
+          <span className={styles.companyName}>{companyName.replace(/\.$/, '')}</span>
           <div className={styles.companyInfo}>
             <span className={styles.price}>Symbol: <span className={styles.bold}>{symbol}</span></span>
             <span className={styles.volume}>Country: <span className={styles.bold}>{country}</span></span>

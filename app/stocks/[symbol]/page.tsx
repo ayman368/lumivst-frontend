@@ -99,7 +99,7 @@ async function getStockData(symbol: string, period: string = "annual", country: 
     let stock = null
     
     try {
-      const directRes = await fetch(`https://localhost:8000/stocks/${cleanSym}?country=${encodeURIComponent(country)}`, {
+      const directRes = await fetch(`https://web-production-e66c2.up.railway.app/stocks/${cleanSym}?country=${encodeURIComponent(country)}`, {
         cache: 'no-store'
       })
       
@@ -116,9 +116,9 @@ async function getStockData(symbol: string, period: string = "annual", country: 
     // جلب البيانات المالية مع الفترة المحددة والبلد - 6 فترات
     console.log(`💰 جلب البيانات المالية لـ 6 ${period === 'annual' ? 'سنوات' : 'أرباع'} في ${country}...`)
     const [incomeRes, balanceRes, cashflowRes] = await Promise.all([
-      fetch(`https://localhost:8000/financials/income_statement/${cleanSym}?country=${encodeURIComponent(country)}&period=${period}&limit=6`),
-      fetch(`https://localhost:8000/financials/balance_sheet/${cleanSym}?country=${encodeURIComponent(country)}&period=${period}&limit=6`),
-      fetch(`https://localhost:8000/financials/cash_flow/${cleanSym}?country=${encodeURIComponent(country)}&period=${period}&limit=6`)
+      fetch(`https://web-production-e66c2.up.railway.app/financials/income_statement/${cleanSym}?country=${encodeURIComponent(country)}&period=${period}&limit=6`),
+      fetch(`https://web-production-e66c2.up.railway.app/financials/balance_sheet/${cleanSym}?country=${encodeURIComponent(country)}&period=${period}&limit=6`),
+      fetch(`https://web-production-e66c2.up.railway.app/financials/cash_flow/${cleanSym}?country=${encodeURIComponent(country)}&period=${period}&limit=6`)
     ])
 
     // تحقق من الردود

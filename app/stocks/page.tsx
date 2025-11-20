@@ -1,21 +1,43 @@
+'use client';
+import Link from 'next/link';
+import styles from '../styles/Stocks.module.css';
+import { useState, useMemo, useEffect } from 'react';
 
-
-'use client'
-import Link from 'next/link'
-import styles from '../styles/Stocks.module.css'
-import { useState, useMemo, useEffect } from 'react'
+// ==================== دوال المساعدة ====================
 
 function cleanSymbol(symbol: string): string {
   if (!symbol) return '';
   return symbol.replace(/\D/g, '');
 }
 
+function cleanName(value: any): string {
+  if (!value || value === 'N/A') return 'N/A';
+  return String(value).trim().replace(/\.$/, '');
+}
+
+function parseFormattedNumber(value: any, handleParentheses = false): number {
+  if (!value || value === 'N/A' || value === '') return 0;
+  
+  if (typeof value === 'number') return value;
+  
+  const strValue = value.toString().trim();
+  
+  if (handleParentheses && strValue.startsWith('(') && strValue.endsWith(')')) {
+    return -parseFloat(strValue.slice(1, -1).replace(/,/g, ''));
+  }
+  
+  if (strValue.includes('%')) {
+    return parseFloat(strValue.replace('%', ''));
+  }
+  
+  return parseFloat(strValue.replace(/,/g, '')) || 0;
+}
+
 function formatNumber(value: any): string {
   if (!value || value === 'N/A') return 'N/A';
   
-  const num = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
-  
-  if (isNaN(num)) return 'N/A';
+  const num = parseFormattedNumber(value);
+  if (isNaN(num) || num === 0) return 'N/A';
   
   if (num >= 1000000) {
     return (num / 1000000).toFixed(2);
@@ -31,97 +53,172 @@ function formatNumber(value: any): string {
   });
 }
 
-function formatPercent(value: any): string {
-  if (!value || value === 'N/A') return 'N/A';
-  
-  const num = typeof value === 'string' ? parseFloat(value) : value;
-  
-  if (isNaN(num)) return 'N/A';
-  
-  return num.toFixed(2) + '%';
-}
-
 function formatChange(value: any): string {
   if (!value || value === 'N/A') return 'N/A';
   
-  const num = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
+  const num = parseFormattedNumber(value, true);
+  if (isNaN(num) || num === 0) return 'N/A';
   
-  if (isNaN(num)) return 'N/A';
+  const absNum = Math.abs(num);
+  let formatted: string;
   
-  if (num < 0) {
-    if (Math.abs(num) >= 1000000) {
-      return `(${(Math.abs(num) / 1000000).toFixed(2)}M)`;
-    }
-    
-    if (Math.abs(num) >= 1000) {
-      return `(${(Math.abs(num) / 1000).toFixed(2)}K)`;
-    }
-    
-    return `(${Math.abs(num).toLocaleString('en-US', {
+  if (absNum >= 1000000) {
+    formatted = (absNum / 1000000).toFixed(2) + 'M';
+  } else if (absNum >= 1000) {
+    formatted = (absNum / 1000).toFixed(2) + 'K';
+  } else {
+    formatted = absNum.toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    })})`;
+    });
   }
   
-  return formatNumber(value);
+  return num < 0 ? `(${formatted})` : formatted;
 }
 
 function formatChangePercent(value: any): string {
   if (!value || value === 'N/A') return 'N/A';
   
-  const num = typeof value === 'string' ? parseFloat(value) : value;
+  const num = parseFormattedNumber(value);
+  if (isNaN(num) || num === 0) return 'N/A';
   
-  if (isNaN(num)) return 'N/A';
-  
-  if (num < 0) {
-    return `(${Math.abs(num).toFixed(2)}%)`;
-  }
-  
-  return formatPercent(value);
+  const absNum = Math.abs(num);
+  return num < 0 ? `(${absNum.toFixed(2)}%)` : `${absNum.toFixed(2)}%`;
 }
 
 function formatText(value: any): string {
   if (!value || value === 'N/A') return 'N/A';
-  return value.length > 20 ? value.substring(0, 20) + '...' : value;
+  return String(value);
 }
 
-// دالة لاستخراج أعلى 52 أسبوع كرقم للترتيب
 function get52WeekHighValue(stock: Stock): number {
   if (stock.fifty_two_week?.high && stock.fifty_two_week.high !== 'N/A') {
-    return parseFloat(stock.fifty_two_week.high);
+    return parseFormattedNumber(stock.fifty_two_week.high);
   }
-  
   if (stock.fifty_two_week_high && stock.fifty_two_week_high !== 'N/A') {
-    return parseFloat(stock.fifty_two_week_high);
+    return parseFormattedNumber(stock.fifty_two_week_high);
   }
-  
   return 0;
 }
 
-// دالة لاستخراج أدنى 52 أسبوع كرقم للترتيب
 function get52WeekLowValue(stock: Stock): number {
   if (stock.fifty_two_week?.low && stock.fifty_two_week.low !== 'N/A') {
-    return parseFloat(stock.fifty_two_week.low);
+    return parseFormattedNumber(stock.fifty_two_week.low);
   }
-  
   if (stock.fifty_two_week_low && stock.fifty_two_week_low !== 'N/A') {
-    return parseFloat(stock.fifty_two_week_low);
+    return parseFormattedNumber(stock.fifty_two_week_low);
   }
-  
   return 0;
 }
 
-// دالة لعرض أعلى 52 أسبوع
 function get52WeekHighDisplay(stock: Stock): string {
   const value = get52WeekHighValue(stock);
   return value > 0 ? formatNumber(value) : 'N/A';
 }
 
-// دالة لعرض أدنى 52 أسبوع
 function get52WeekLowDisplay(stock: Stock): string {
   const value = get52WeekLowValue(stock);
   return value > 0 ? formatNumber(value) : 'N/A';
 }
+
+// ==================== دوال RS و Change ====================
+
+// ✅ دالة محدثة بدون أخطاء TypeScript
+function formatRSCell(rsValue: number | string | null | undefined): string {
+  if (rsValue === null || rsValue === undefined) return 'N/A';
+  
+  const numValue = typeof rsValue === 'string' 
+    ? parseFloat(rsValue) 
+    : rsValue;
+  
+  if (isNaN(numValue)) return 'N/A';
+  
+  const rounded = Math.round(numValue);
+  const finalValue = Math.min(rounded, 99);
+  
+  return `<span>${finalValue}</span>`;
+}
+
+function formatChangePeriod(value: number | null | undefined): string {
+  if (value === null || value === undefined || isNaN(value)) return 'N/A';
+  
+  const formatted = `${value.toFixed(2)}%`;
+  const className = value < 0 ? styles.changeNegative : styles.changePositive;
+  
+  return `<span class="${className}">${formatted}</span>`;
+}
+
+function getRSValueForSorting(stock: Stock, period: string): number {
+  switch(period) {
+    case 'rs_12m': return stock.rs_12m ? parseFloat(String(stock.rs_12m)) : 0;
+    case 'rs_9m': return stock.rs_9m ? parseFloat(String(stock.rs_9m)) : 0;
+    case 'rs_6m': return stock.rs_6m ? parseFloat(String(stock.rs_6m)) : 0;
+    case 'rs_3m': return stock.rs_3m ? parseFloat(String(stock.rs_3m)) : 0;
+    case 'rs_1m': return stock.rs_1m ? parseFloat(String(stock.rs_1m)) : 0;
+    case 'rs_2w': return stock.rs_2w ? parseFloat(String(stock.rs_2w)) : 0;
+    case 'rs_1w': return stock.rs_1w ? parseFloat(String(stock.rs_1w)) : 0;
+    case 'rs_calculated': return stock.rs_calculated || 0;
+    default: return 0;
+  }
+}
+
+function getChangeValueForSorting(stock: Stock, period: string): number {
+  switch(period) {
+    case '12m': return stock.change_12m || 0;
+    case '9m': return stock.change_9m || 0;
+    case '6m': return stock.change_6m || 0;
+    case '3m': return stock.change_3m || 0;
+    case '1m': return stock.change_1m || 0;
+    case '2w': return stock.change_2w || 0;
+    case '1w': return stock.change_1w || 0;
+    default: return 0;
+  }
+}
+
+// ==================== دالة حساب RS المعدلة ====================
+
+function calculateCombinedRS(stock: Stock): number {
+  try {
+    const weights = {
+      rs_12m: 0.20,
+      rs_9m: 0.20, 
+      rs_6m: 0.20,
+      rs_3m: 0.40
+    };
+
+    let totalScore = 0;
+    let totalWeight = 0;
+
+    for (const [period, weight] of Object.entries(weights)) {
+      const rawValue = stock[period as keyof Stock];
+      
+      if (rawValue === null || rawValue === undefined) continue;
+      
+      const rsValue = typeof rawValue === 'string' 
+        ? parseFloat(rawValue) 
+        : Number(rawValue);
+      
+      if (isNaN(rsValue)) {
+        console.warn(`Invalid RS value for ${stock.symbol} ${period}:`, rawValue);
+        continue;
+      }
+
+      totalScore += rsValue * weight;
+      totalWeight += weight;
+    }
+
+    if (totalWeight === 0) return 0;
+
+    const finalScore = Math.ceil(totalScore);
+    return Math.min(finalScore, 99);
+    
+  } catch (error) {
+    console.error(`Error calculating combined RS for ${stock.symbol}:`, error);
+    return 0;
+  }
+}
+
+// ==================== الواجهات ====================
 
 interface Stock {
   symbol: string;
@@ -129,35 +226,32 @@ interface Stock {
   exchange: string;
   sector: string;
   industry: string;
-  employees: number | string;
-  website: string;
-  country: string;
-  state: string;
-  currency: string;
   price: string | number;
   change: string | number;
   change_percent: string | number;
-  previous_close: string | number;
   volume: string | number;
   turnover: string | number;
-  open: string | number;
-  high: string | number;
-  low: string | number;
-  average_volume: string | number;
-  is_market_open: boolean;
-  fifty_two_week?: {
-    low: string;
-    high: string;
-    low_change: string;
-    high_change: string;
-    low_change_percent: string;
-    high_change_percent: string;
-    range: string;
-  };
-  fifty_two_week_range?: string;
-  fifty_two_week_low?: string;
+  fifty_two_week?: { low: string; high: string };
   fifty_two_week_high?: string;
-  last_updated: string;
+  fifty_two_week_low?: string;
+  is_market_open: boolean;
+  
+  rs_12m?: number | string | null;
+  rs_9m?: number | string | null;
+  rs_6m?: number | string | null;
+  rs_3m?: number | string | null;
+  rs_1m?: number | string | null;
+  rs_2w?: number | string | null;
+  rs_1w?: number | string | null;
+  rs_calculated?: number | null;
+  
+  change_12m?: number | null;
+  change_9m?: number | null;
+  change_6m?: number | null;
+  change_3m?: number | null;
+  change_1m?: number | null;
+  change_2w?: number | null;
+  change_1w?: number | null;
 }
 
 interface FilterState {
@@ -173,15 +267,33 @@ interface FilterState {
   turnover: string;
   fifty_two_week_high: string;
   fifty_two_week_low: string;
+  
+  rs_12m: string;
+  rs_9m: string;
+  rs_6m: string;
+  rs_3m: string;
+  rs_1m: string;
+  rs_2w: string;
+  rs_1w: string;
+  rs_calculated: string;
+  
+  change_12m: string;
+  change_9m: string;
+  change_6m: string;
+  change_3m: string;
+  change_1m: string;
+  change_2w: string;
+  change_1w: string;
 }
+
+// ==================== المكون الرئيسي ====================
 
 export default function StocksPage() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
-
+  const [sortConfigs, setSortConfigs] = useState<Array<{ key: string; direction: 'asc' | 'desc' }>>([]);
 
   const [filters, setFilters] = useState<FilterState>({
     symbol: '',
@@ -195,27 +307,63 @@ export default function StocksPage() {
     volume: '',
     turnover: '',
     fifty_two_week_high: '',
-    fifty_two_week_low: ''
+    fifty_two_week_low: '',
+    
+    rs_12m: '',
+    rs_9m: '',
+    rs_6m: '',
+    rs_3m: '',
+    rs_1m: '',
+    rs_2w: '',
+    rs_1w: '',
+    rs_calculated: '',
+    
+    change_12m: '',
+    change_9m: '',
+    change_6m: '',
+    change_3m: '',
+    change_1m: '',
+    change_2w: '',
+    change_1w: '',
   });
 
   useEffect(() => {
     async function fetchStocks() {
       try {
         setLoading(true);
-        const res = await fetch(`https://web-production-e66c2.up.railway.app/api/stocks/saudi/bulk?country=Saudi%20Arabia`, {
+        const res = await fetch(`https://web-production-e66c2.up.railway.app/stocks/saudi/bulk?country=Saudi%20Arabia`, {
           cache: 'no-store',
-          headers: {
-            'Content-Type': 'application/json',
-          }
+          headers: { 'Content-Type': 'application/json' }
         });
 
         if (!res.ok) {
-          const errorText = await res.text();
           throw new Error(`فشل في جلب البيانات: ${res.status} ${res.statusText}`);
         }
 
         const data = await res.json();
-        setStocks(data.data || []);
+        
+        const stocksWithCalculatedRS = (data.data || []).map((stock: Stock) => {
+          const calculated = calculateCombinedRS(stock);
+          
+          if (stock.symbol === '8313') {
+            console.log('🔍 Verification 8313:', {
+              raw: {
+                rs_12m: stock.rs_12m,
+                rs_9m: stock.rs_9m,
+                rs_6m: stock.rs_6m,
+                rs_3m: stock.rs_3m
+              },
+              calculated: calculated,
+            });
+          }
+          
+          return {
+            ...stock,
+            rs_calculated: calculated
+          };
+        });
+        
+        setStocks(stocksWithCalculatedRS);
         setTotal(data.total || 0);
       } catch (err) {
         console.error('❌ خطأ في جلب البيانات:', err);
@@ -229,99 +377,148 @@ export default function StocksPage() {
   }, []);
 
   const handleSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
+    setSortConfigs(prev => {
+      const existingIndex = prev.findIndex(config => config.key === key);
+      
+      if (existingIndex === -1) {
+        return [...prev, { key, direction: 'asc' }];
+      }
+      
+      const existing = prev[existingIndex];
+      if (existing.direction === 'asc') {
+        const newConfigs = [...prev];
+        newConfigs[existingIndex] = { ...existing, direction: 'desc' };
+        return newConfigs;
+      }
+      
+      return prev.filter((_, index) => index !== existingIndex);
+    });
   };
 
-// ======================
+  const getSortPriorityNumber = (key: string): number => {
+    return sortConfigs.findIndex(config => config.key === key) + 1;
+  };
 
-  const handleFilterChange = (key: keyof FilterState, value: string) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value
-    }));
+  const getSortClass = (key: string): string => {
+    const index = sortConfigs.findIndex(config => config.key === key);
+    if (index === -1) return styles.sortable;
+    
+    const direction = sortConfigs[index].direction;
+    return `${styles.sortable} ${direction === 'asc' ? styles.sortAsc : styles.sortDesc} ${styles.sortPriority}`;
+  };
+
+  const getValueForSorting = (stock: Stock, key: string): any => {
+    switch(key) {
+      case 'symbol': return cleanSymbol(stock.symbol);
+      case 'name': return stock.name || '';
+      case 'exchange': return stock.exchange || '';
+      case 'sector': return stock.sector || '';
+      case 'industry': return stock.industry || '';
+      case 'price': return parseFormattedNumber(stock.price);
+      case 'change': return parseFormattedNumber(stock.change, true);
+      case 'change_percent': return parseFormattedNumber(stock.change_percent);
+      case 'volume': return parseFormattedNumber(stock.volume);
+      case 'turnover': return parseFormattedNumber(stock.turnover);
+      case 'fifty_two_week_high': return get52WeekHighValue(stock);
+      case 'fifty_two_week_low': return get52WeekLowValue(stock);
+      
+      case 'rs_12m': return getRSValueForSorting(stock, 'rs_12m');
+      case 'rs_9m': return getRSValueForSorting(stock, 'rs_9m');
+      case 'rs_6m': return getRSValueForSorting(stock, 'rs_6m');
+      case 'rs_3m': return getRSValueForSorting(stock, 'rs_3m');
+      case 'rs_1m': return getRSValueForSorting(stock, 'rs_1m');
+      case 'rs_2w': return getRSValueForSorting(stock, 'rs_2w');
+      case 'rs_1w': return getRSValueForSorting(stock, 'rs_1w');
+      case 'rs_calculated': return getRSValueForSorting(stock, 'rs_calculated');
+      
+      case 'change_12m': return getChangeValueForSorting(stock, '12m');
+      case 'change_9m': return getChangeValueForSorting(stock, '9m');
+      case 'change_6m': return getChangeValueForSorting(stock, '6m');
+      case 'change_3m': return getChangeValueForSorting(stock, '3m');
+      case 'change_1m': return getChangeValueForSorting(stock, '1m');
+      case 'change_2w': return getChangeValueForSorting(stock, '2w');
+      case 'change_1w': return getChangeValueForSorting(stock, '1w');
+      
+      default: return '';
+    }
   };
 
   const filteredAndSortedStocks = useMemo(() => {
-    // فلترة البيانات أولاً
     let filtered = stocks.filter(stock => {
-      return (
-        (!filters.symbol || stock.symbol.toLowerCase().includes(filters.symbol.toLowerCase())) &&
-        (!filters.name || stock.name.toLowerCase().includes(filters.name.toLowerCase())) &&
-        (!filters.exchange || stock.exchange.toLowerCase().includes(filters.exchange.toLowerCase())) &&
-        (!filters.sector || stock.sector.toLowerCase().includes(filters.sector.toLowerCase())) &&
-        (!filters.industry || stock.industry.toLowerCase().includes(filters.industry.toLowerCase())) &&
-        (!filters.price || formatNumber(stock.price).includes(filters.price)) &&
-        (!filters.change || formatChange(stock.change).includes(filters.change)) &&
-        (!filters.change_percent || formatChangePercent(stock.change_percent).includes(filters.change_percent)) &&
-        (!filters.volume || formatNumber(stock.volume).includes(filters.volume)) &&
-        (!filters.turnover || formatNumber(stock.turnover).includes(filters.turnover)) &&
-        (!filters.fifty_two_week_high || get52WeekHighDisplay(stock).includes(filters.fifty_two_week_high)) &&
-        (!filters.fifty_two_week_low || get52WeekLowDisplay(stock).includes(filters.fifty_two_week_low))
-      );
+      const symbolMatch = !filters.symbol || cleanSymbol(stock.symbol).includes(filters.symbol);
+      const nameMatch = !filters.name || (stock.name || '').toLowerCase().includes(filters.name.toLowerCase());
+      const exchangeMatch = !filters.exchange || (stock.exchange || '').toLowerCase().includes(filters.exchange.toLowerCase());
+      const sectorMatch = !filters.sector || (stock.sector || '').toLowerCase().includes(filters.sector.toLowerCase());
+      const industryMatch = !filters.industry || (stock.industry || '').toLowerCase().includes(filters.industry.toLowerCase());
+      const priceMatch = !filters.price || formatNumber(stock.price).includes(filters.price);
+      const changeMatch = !filters.change || formatChange(stock.change).includes(filters.change);
+      const changePercentMatch = !filters.change_percent || formatChangePercent(stock.change_percent).includes(filters.change_percent);
+      const volumeMatch = !filters.volume || formatNumber(stock.volume).includes(filters.volume);
+      const turnoverMatch = !filters.turnover || formatNumber(stock.turnover).includes(filters.turnover);
+      const highMatch = !filters.fifty_two_week_high || get52WeekHighDisplay(stock).includes(filters.fifty_two_week_high);
+      const lowMatch = !filters.fifty_two_week_low || get52WeekLowDisplay(stock).includes(filters.fifty_two_week_low);
+      
+      const rs12mMatch = !filters.rs_12m || formatRSCell(stock.rs_12m).includes(filters.rs_12m);
+      const rs9mMatch = !filters.rs_9m || formatRSCell(stock.rs_9m).includes(filters.rs_9m); // ✅ تصحيح typo
+      const rs6mMatch = !filters.rs_6m || formatRSCell(stock.rs_6m).includes(filters.rs_6m);
+      const rs3mMatch = !filters.rs_3m || formatRSCell(stock.rs_3m).includes(filters.rs_3m);
+      const rs1mMatch = !filters.rs_1m || formatRSCell(stock.rs_1m).includes(filters.rs_1m);
+      const rs2wMatch = !filters.rs_2w || formatRSCell(stock.rs_2w).includes(filters.rs_2w);
+      const rs1wMatch = !filters.rs_1w || formatRSCell(stock.rs_1w).includes(filters.rs_1w);
+      const rsCalculatedMatch = !filters.rs_calculated || formatRSCell(stock.rs_calculated).includes(filters.rs_calculated);
+      
+      const change12mMatch = !filters.change_12m || formatChangePeriod(stock.change_12m).includes(filters.change_12m);
+      const change9mMatch = !filters.change_9m || formatChangePeriod(stock.change_9m).includes(filters.change_9m);
+      const change6mMatch = !filters.change_6m || formatChangePeriod(stock.change_6m).includes(filters.change_6m);
+      const change3mMatch = !filters.change_3m || formatChangePeriod(stock.change_3m).includes(filters.change_3m);
+      const change1mMatch = !filters.change_1m || formatChangePeriod(stock.change_1m).includes(filters.change_1m);
+      const change2wMatch = !filters.change_2w || formatChangePeriod(stock.change_2w).includes(filters.change_2w);
+      const change1wMatch = !filters.change_1w || formatChangePeriod(stock.change_1w).includes(filters.change_1w);
+
+      return symbolMatch && nameMatch && exchangeMatch && sectorMatch && industryMatch &&
+             priceMatch && changeMatch && changePercentMatch && volumeMatch && turnoverMatch &&
+             highMatch && lowMatch && rs12mMatch && rs9mMatch && rs6mMatch && rs3mMatch && 
+             rs1mMatch && rs2wMatch && rs1wMatch && rsCalculatedMatch && change12mMatch && change9mMatch && change6mMatch &&
+             change3mMatch && change1mMatch && change2wMatch && change1wMatch;
     });
 
-    // ثم الترتيب
-    if (!sortConfig) return filtered;
+    if (sortConfigs.length === 0) return filtered;
 
     return [...filtered].sort((a, b) => {
-      let aValue: any, bValue: any;
+      for (const config of sortConfigs) {
+        const aValue = getValueForSorting(a, config.key);
+        const bValue = getValueForSorting(b, config.key);
 
-      if (sortConfig.key === 'fifty_two_week_high') {
-        aValue = get52WeekHighValue(a);
-        bValue = get52WeekHighValue(b);
-      } else if (sortConfig.key === 'fifty_two_week_low') {
-        aValue = get52WeekLowValue(a);
-        bValue = get52WeekLowValue(b);
-      } else {
-        return 0;
-      }
+        if (!aValue && !bValue) continue;
+        if (!aValue) return config.direction === 'asc' ? 1 : -1;
+        if (!bValue) return config.direction === 'asc' ? -1 : 1;
 
-      if (aValue < bValue) {
-        return sortConfig.direction === 'asc' ? -1 : 1;
-      }
-      if (aValue > bValue) {
-        return sortConfig.direction === 'asc' ? 1 : -1;
-      }
-      return 0;
-    });
-  }, [stocks, sortConfig, filters]);
+        let comparison = 0;
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          comparison = config.direction === 'asc' 
+            ? aValue.localeCompare(bValue, 'en')
+            : bValue.localeCompare(aValue, 'en');
+        } else {
+          const aNum = Number(aValue);
+          const bNum = Number(bValue);
+          
+          if (isNaN(aNum) && isNaN(bNum)) continue;
+          if (isNaN(aNum)) return config.direction === 'asc' ? 1 : -1;
+          if (isNaN(bNum)) return config.direction === 'asc' ? -1 : 1;
 
-
-// =================
-
-  const sortedStocks = useMemo(() => {
-    if (!sortConfig) return stocks;
-
-    return [...stocks].sort((a, b) => {
-      let aValue: any, bValue: any;
-
-      if (sortConfig.key === 'fifty_two_week_high') {
-        aValue = get52WeekHighValue(a);
-        bValue = get52WeekHighValue(b);
-      } else if (sortConfig.key === 'fifty_two_week_low') {
-        aValue = get52WeekLowValue(a);
-        bValue = get52WeekLowValue(b);
-      } else {
-        return 0;
-      }
-
-      if (aValue < bValue) {
-        return sortConfig.direction === 'asc' ? -1 : 1;
-      }
-      if (aValue > bValue) {
-        return sortConfig.direction === 'asc' ? 1 : -1;
+          if (aNum === bNum) continue;
+          
+          comparison = config.direction === 'asc' ? aNum - bNum : bNum - aNum;
+        }
+        
+        if (comparison !== 0) return comparison;
       }
       return 0;
     });
-  }, [stocks, sortConfig]);
+  }, [stocks, sortConfigs, filters]);
 
-  const getSortClass = (key: string) => {
-    if (!sortConfig || sortConfig.key !== key) return '';
-    return sortConfig.direction === 'asc' ? styles.sortAsc : styles.sortDesc;
+  const handleFilterChange = (key: keyof FilterState, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
   };
 
   if (loading) {
@@ -341,7 +538,6 @@ export default function StocksPage() {
         <div className={styles.error}>
           <h2>خطأ في جلب البيانات</h2>
           <p>{error}</p>
-          {/* <p>تأكد من تشغيل الخادم على localhost:8000</p> */}
         </div>
       </div>
     );
@@ -358,85 +554,9 @@ export default function StocksPage() {
     );
   }
 
-  const activeStocks = stocks.filter((s: Stock) => s.is_market_open).length;
-
-
-
-  // دالة للاسم - بدون قص
-function formatName(value: any): string {
-  if (!value || value === 'N/A') return 'N/A';
-  return value.replace(/\.$/,'');
-}
-
-// دالة للصناعة - بدون قص
-function formatIndustry(value: any): string {
-  if (!value || value === 'N/A') return 'N/A';
-  return value;
-}
-
-// دالة للقطاع - بدون قص
-function formatSector(value: any): string {
-  if (!value || value === 'N/A') return 'N/A';
-  return value;
-}
-
-
-// دالة لتنظيف وعرض Exchange
-function formatExchange(value: any): string {
-  if (!value || value === 'N/A') return 'N/A';
-  return value;
-}
-
   return (
     <div className={styles.container}>
-      {/* Header
-      <div className={styles.header}>
-        <h1 className={styles.title}>أسهم Tadawul</h1>
-        <p className={styles.subtitle}>بيانات الأسهم السعودية المحدثة - Profile & Quote</p>
-        <div className={styles.countryBadge}>
-          🇸🇦 السعودية
-        </div>
-        <span className={styles.stockCount}>
-          {stocks.length} سهم من {total} رمز سعودي
-        </span>
-      </div>
-      
-      <div className={styles.statsGrid}>
-        <div className={styles.statCard}>
-          <div className={styles.statLabel}>إجمالي الأسهم</div>
-          <div className={styles.statValue}>{total}</div>
-        </div>
-        <div className={styles.statCard}>
-          <div className={styles.statLabel}>العناصر المعروضة</div>
-          <div className={styles.statValue}>{stocks.length}</div>
-        </div>
-        <div className={styles.statCard}>
-          <div className={styles.statLabel}>الأسهم النشطة</div>
-          <div className={styles.statValue}>{activeStocks}</div>
-        </div>
-        <div className={styles.statCard}>
-          <div className={styles.statLabel}>أحدث تحديث</div>
-          <div className={styles.statValue}>الآن</div>
-        </div>
-      </div>
-
-      <div className={styles.infoBox}>
-        <div className={styles.infoIcon}>⚠️</div>
-        <div className={styles.infoContent}>
-          <h3>عرض كل الأسهم السعودية مرة واحدة</h3>
-          <p>
-            يتم عرض جميع الأسهم السعودية ({total} سهم) مع بيانات Profile و Quote
-            <br />
-            <strong>البلد: السعودية 🇸🇦</strong>
-          </p>
-        </div>
-      </div> */}
-
-      {/* Stocks Table */}
- 
-    <div className={styles.container}>
       <div className={styles.tableContainer}>
-        {/* ⭐ عداد النتائج */}
         <div className={styles.resultsCount}>
           Showing <strong>{filteredAndSortedStocks.length}</strong> of <strong>{stocks.length}</strong> stocks
           {Object.values(filters).some(filter => filter !== '') && (
@@ -447,220 +567,133 @@ function formatExchange(value: any): string {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>Symbol</th>
-              <th>Name</th>
-              <th>Exchange</th>
-              <th>Sector</th>
-              <th>Industry</th>
-              <th>Price</th>
-              <th>Change</th>
-              <th>Change %</th>
-              <th>Volume</th>
-              <th>Turnover</th>
-              <th 
-                className={`${getSortClass('fifty_two_week_high')} ${styles.sortable}`}
-                onClick={() => handleSort('fifty_two_week_high')}
-              >
-                52Week High
-              </th>
-              <th 
-                className={`${getSortClass('fifty_two_week_low')} ${styles.sortable}`}
-                onClick={() => handleSort('fifty_two_week_low')}
-              >
-                52Week Low
-              </th>
+              {[
+                { key: 'symbol', label: 'Symbol' },
+                { key: 'name', label: 'Name' },
+                { key: 'exchange', label: 'Exchange' },
+                { key: 'sector', label: 'Sector' },
+                { key: 'industry', label: 'Industry' },
+                { key: 'price', label: 'Price' },
+                { key: 'change', label: 'Change' },
+                { key: 'change_percent', label: 'Change %' },
+                { key: 'volume', label: 'Volume' },
+                { key: 'turnover', label: 'Turnover' },
+                { key: 'fifty_two_week_high', label: '52W High' },
+                { key: 'fifty_two_week_low', label: '52W Low' },
+                
+                { key: 'rs_12m', label: 'RS 12M' },
+                { key: 'rs_9m', label: 'RS 9M' },
+                { key: 'rs_6m', label: 'RS 6M' },
+                { key: 'rs_3m', label: 'RS 3M' },
+                { key: 'rs_1m', label: 'RS 1M' },
+                { key: 'rs_2w', label: 'RS 2W' },
+                { key: 'rs_1w', label: 'RS 1W' },
+                { key: 'rs_calculated', label: 'RS Weighted' },
+                
+                { key: 'change_12m', label: 'Change 12M' },
+                { key: 'change_9m', label: 'Change 9M' },
+                { key: 'change_6m', label: 'Change 6M' },
+                { key: 'change_3m', label: 'Change 3M' },
+                { key: 'change_1m', label: 'Change 1M' },
+                { key: 'change_2w', label: 'Change 2W' },
+                { key: 'change_1w', label: 'Change 1W' },
+              ].map(col => {
+                const priority = getSortPriorityNumber(col.key);
+                return (
+                  <th
+                    key={col.key}
+                    className={`${styles.sortable} ${getSortClass(col.key)}`}
+                    onClick={() => handleSort(col.key)}
+                    title={`Click to sort by ${col.label}`}
+                    data-priority={priority > 0 ? priority : undefined}
+                  >
+                    {col.label}
+                  </th>
+                );
+              })}
             </tr>
             
-            {/* ⭐ صف الفلترة الجديد */}
             <tr className={styles.filterRow}>
-              <td>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={filters.symbol}
-                  onChange={(e) => handleFilterChange('symbol', e.target.value)}
-                  className={styles.filterInput}
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={filters.name}
-                  onChange={(e) => handleFilterChange('name', e.target.value)}
-                  className={styles.filterInput}
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={filters.exchange}
-                  onChange={(e) => handleFilterChange('exchange', e.target.value)}
-                  className={styles.filterInput}
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={filters.sector}
-                  onChange={(e) => handleFilterChange('sector', e.target.value)}
-                  className={styles.filterInput}
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={filters.industry}
-                  onChange={(e) => handleFilterChange('industry', e.target.value)}
-                  className={styles.filterInput}
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={filters.price}
-                  onChange={(e) => handleFilterChange('price', e.target.value)}
-                  className={styles.filterInput}
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={filters.change}
-                  onChange={(e) => handleFilterChange('change', e.target.value)}
-                  className={styles.filterInput}
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={filters.change_percent}
-                  onChange={(e) => handleFilterChange('change_percent', e.target.value)}
-                  className={styles.filterInput}
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={filters.volume}
-                  onChange={(e) => handleFilterChange('volume', e.target.value)}
-                  className={styles.filterInput}
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={filters.turnover}
-                  onChange={(e) => handleFilterChange('turnover', e.target.value)}
-                  className={styles.filterInput}
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={filters.fifty_two_week_high}
-                  onChange={(e) => handleFilterChange('fifty_two_week_high', e.target.value)}
-                  className={styles.filterInput}
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  placeholder="Filter..."
-                  value={filters.fifty_two_week_low}
-                  onChange={(e) => handleFilterChange('fifty_two_week_low', e.target.value)}
-                  className={styles.filterInput}
-                />
-              </td>
+              <td><input type="text" placeholder="Filter..." value={filters.symbol} onChange={(e) => handleFilterChange('symbol', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.name} onChange={(e) => handleFilterChange('name', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.exchange} onChange={(e) => handleFilterChange('exchange', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.sector} onChange={(e) => handleFilterChange('sector', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.industry} onChange={(e) => handleFilterChange('industry', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.price} onChange={(e) => handleFilterChange('price', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.change} onChange={(e) => handleFilterChange('change', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.change_percent} onChange={(e) => handleFilterChange('change_percent', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.volume} onChange={(e) => handleFilterChange('volume', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.turnover} onChange={(e) => handleFilterChange('turnover', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.fifty_two_week_high} onChange={(e) => handleFilterChange('fifty_two_week_high', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.fifty_two_week_low} onChange={(e) => handleFilterChange('fifty_two_week_low', e.target.value)} className={styles.filterInput} /></td>
+              
+              <td><input type="text" placeholder="Filter..." value={filters.rs_12m} onChange={(e) => handleFilterChange('rs_12m', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.rs_9m} onChange={(e) => handleFilterChange('rs_9m', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.rs_6m} onChange={(e) => handleFilterChange('rs_6m', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.rs_3m} onChange={(e) => handleFilterChange('rs_3m', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.rs_1m} onChange={(e) => handleFilterChange('rs_1m', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.rs_2w} onChange={(e) => handleFilterChange('rs_2w', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.rs_1w} onChange={(e) => handleFilterChange('rs_1w', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.rs_calculated} onChange={(e) => handleFilterChange('rs_calculated', e.target.value)} className={styles.filterInput} /></td>
+              
+              <td><input type="text" placeholder="Filter..." value={filters.change_12m} onChange={(e) => handleFilterChange('change_12m', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.change_9m} onChange={(e) => handleFilterChange('change_9m', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.change_6m} onChange={(e) => handleFilterChange('change_6m', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.change_3m} onChange={(e) => handleFilterChange('change_3m', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.change_1m} onChange={(e) => handleFilterChange('change_1m', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.change_2w} onChange={(e) => handleFilterChange('change_2w', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.change_1w} onChange={(e) => handleFilterChange('change_1w', e.target.value)} className={styles.filterInput} /></td>
             </tr>
           </thead>
+          
           <tbody>
             {filteredAndSortedStocks.map((stock: Stock) => {
-              const cleanSym = cleanSymbol(stock.symbol)
-              const changeNum = typeof stock.change === 'string' ? parseFloat(stock.change) : stock.change
-              const changePercentNum = typeof stock.change_percent === 'string' ? parseFloat(stock.change_percent) : stock.change_percent
-              
-              const isChangeNegative = changeNum < 0
-              const isPercentNegative = changePercentNum < 0
+              const cleanSym = cleanSymbol(stock.symbol);
+              const changeNum = parseFormattedNumber(stock.change, true);
+              const changePercentNum = parseFormattedNumber(stock.change_percent);
+              const isChangeNegative = changeNum < 0;
+              const isPercentNegative = changePercentNum < 0;
               
               return (
                 <tr key={stock.symbol}>
-                  <td>
-                    <Link 
-                      href={`/stocks/${cleanSym}/financials?period=annual&country=Saudi Arabia`} 
-                      className={styles.stockLink}
-                    >
-                      {cleanSym}   
-                    </Link>
-                  </td>
-                  
-                  <td>
-                    <Link 
-                      href={`/stocks/${cleanSym}/financials?period=annual&country=Saudi Arabia`} 
-                      className={styles.stockLink}
-                    >
-                      {formatName(stock.name)}
-                    </Link>
-                  </td>
-                  
-                  <td>{formatExchange(stock.exchange)}</td>
-                  
-                  <td>
-                    {formatSector(stock.sector)}
-                  </td>
-                  
-                  <td>
-                    {formatIndustry(stock.industry)}
-                  </td>
-                  
-                  <td>
-                    {formatNumber(stock.price)}
-                  </td>
-                  
-                  <td className={isChangeNegative ? styles.negative : ''}>
-                    {formatChange(stock.change)}
-                  </td>
-
-                  <td className={isPercentNegative ? styles.negative : ''}>
-                    {formatChangePercent(stock.change_percent)}
-                  </td>
-                  
+                  <td><Link href={`/stocks/${cleanSym}/financials?period=annual&country=Saudi Arabia`} className={styles.stockLink}>{cleanSym}</Link></td>
+                  <td><Link href={`/stocks/${cleanSym}/financials?period=annual&country=Saudi Arabia`} className={styles.stockLink}>{cleanName(stock.name)}</Link></td>
+                  <td>{formatText(stock.exchange)}</td>
+                  <td>{formatText(stock.sector)}</td>
+                  <td>{formatText(stock.industry)}</td>
+                  <td>{formatNumber(stock.price)}</td>
+                  <td className={isChangeNegative ? styles.negative : ''}>{formatChange(stock.change)}</td>
+                  <td className={isPercentNegative ? styles.negative : ''}>{formatChangePercent(stock.change_percent)}</td>
                   <td>{formatNumber(stock.volume)}</td>
                   <td>{formatNumber(stock.turnover)}</td>
-                  
                   <td>{get52WeekHighDisplay(stock)}</td>
                   <td>{get52WeekLowDisplay(stock)}</td>
+                  
+                  <td className={styles.rsCell} dangerouslySetInnerHTML={{ __html: formatRSCell(stock.rs_12m) }} />
+                  <td className={styles.rsCell} dangerouslySetInnerHTML={{ __html: formatRSCell(stock.rs_9m) }} />
+                  <td className={styles.rsCell} dangerouslySetInnerHTML={{ __html: formatRSCell(stock.rs_6m) }} />
+                  <td className={styles.rsCell} dangerouslySetInnerHTML={{ __html: formatRSCell(stock.rs_3m) }} />
+                  <td className={styles.rsCell} dangerouslySetInnerHTML={{ __html: formatRSCell(stock.rs_1m) }} />
+                  <td className={styles.rsCell} dangerouslySetInnerHTML={{ __html: formatRSCell(stock.rs_2w) }} />
+                  <td className={styles.rsCell} dangerouslySetInnerHTML={{ __html: formatRSCell(stock.rs_1w) }} />
+                  <td className={styles.rsCell} dangerouslySetInnerHTML={{ __html: formatRSCell(stock.rs_calculated) }} />
+                  
+                  <td className={styles.changeCell} dangerouslySetInnerHTML={{ __html: formatChangePeriod(stock.change_12m) }} />
+                  <td className={styles.changeCell} dangerouslySetInnerHTML={{ __html: formatChangePeriod(stock.change_9m) }} />
+                  <td className={styles.changeCell} dangerouslySetInnerHTML={{ __html: formatChangePeriod(stock.change_6m) }} />
+                  <td className={styles.changeCell} dangerouslySetInnerHTML={{ __html: formatChangePeriod(stock.change_3m) }} />
+                  <td className={styles.changeCell} dangerouslySetInnerHTML={{ __html: formatChangePeriod(stock.change_1m) }} />
+                  <td className={styles.changeCell} dangerouslySetInnerHTML={{ __html: formatChangePeriod(stock.change_2w) }} />
+                  <td className={styles.changeCell} dangerouslySetInnerHTML={{ __html: formatChangePeriod(stock.change_1w) }} />
                 </tr>
-              )
+              );
             })}
           </tbody>
         </table>
       </div>
     </div>
-  )
-
-
-      {/* Summary */}
-      {/* <div className={styles.summary}>
-        <p>تم عرض جميع الأسهم السعودية ({total} سهم) في صفحة واحدة مع بيانات Profile و Quote</p>
-        <p>البلد: <strong>السعودية 🇸🇦</strong></p>
-        <p>آخر تحديث: {new Date().toLocaleString('ar-SA')}</p>
-        <p>API: <code>/api/stocks/saudi/bulk?country=Saudi Arabia</code></p>
-      </div> */}
-    </div>
-  )
+  );
 }
-
-
 
 
 

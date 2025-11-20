@@ -92,26 +92,44 @@ function formatLargeNumber(value: any): string {
   return isNegative ? `(${formattedValue})` : formattedValue;
 }
 
-// Function to format percentages - محدثة
 function formatPercentage(value: any): string {
   if (value === null || value === undefined) return 'N/A';
   
-  const num = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
+  let num = typeof value === 'string' ? parseFloat(value.replace(/,/g, '').replace('%', '')) : value;
   
   if (isNaN(num)) return 'N/A';
   
-  // إذا كانت النسبة بالفعل في شكل نسبة مئوية (مثلاً 50% بدلاً من 0.5)، فلا نضرب في 100 مرة أخرى
-  // ولكن بناءً على بيانات الـ API، هي أرقام عشرية تمثل نسب مئوية.
-  const percentage = num ;
-  // const percentage = num * 100 ;
-
-
-  if (percentage < 0) {
-    return `(${(Math.abs(percentage)).toFixed(2)}%)`;
+  // إذا كانت القيمة بين -1 و 1، نعتبرها عشرية ونضرب في 100
+  // إذا كانت خارج هذا النطاق، نعتبرها بالفعل نسبة مئوية
+  if (Math.abs(num) <= 1) {
+    num = num * 100;
   }
   
-  return percentage.toFixed(2) + '%';
+  if (num < 0) {
+    return `(${Math.abs(num).toFixed(2)}%)`;
+  }
+  
+  return num.toFixed(2) + '%';
+
 }
+// function formatPercentage(value: any): string {
+//   if (value === null || value === undefined) return 'N/A';
+  
+//   const num = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
+  
+//   if (isNaN(num)) return 'N/A';
+  
+
+//   // const percentage = num ;
+//   const percentage = num * 100 ;
+
+
+//   if (percentage < 0) {
+//     return `(${(Math.abs(percentage)).toFixed(2)}%)`;
+//   }
+  
+//   return percentage.toFixed(2) + '%';
+// }
 
 // Function to get color class - جديدة
 function getColorClass(value: any, isAlwaysPositive: boolean = false) {
@@ -407,6 +425,25 @@ function organizeStatisticsData(statistics: any): StatisticsSection[] {
           isAlwaysPositive: true
         },
         { 
+          label: "Shares Short", 
+          value: formatLargeNumber(statistics.stock_statistics?.shares_short),
+          rawValue: statistics.stock_statistics?.shares_short,
+          isAlwaysPositive: true
+        },
+        { 
+          label: "Short Ratio", 
+          value: formatNumber(statistics.stock_statistics?.short_ratio),
+          rawValue: statistics.stock_statistics?.short_ratio,
+          isAlwaysPositive: true
+        },
+        { 
+          label: "Short % of Shares Outstanding", 
+          value: formatPercentage(statistics.stock_statistics?.short_percent_of_shares_outstanding),
+          rawValue: statistics.stock_statistics?.short_percent_of_shares_outstanding,
+          isPercentage: true,
+          isAlwaysPositive: true
+        },
+        { 
           label: "Held by Insiders %", 
           value: formatPercentage(statistics.stock_statistics?.percent_held_by_insiders), // نسبة مئوية، يستخدم formatPercentage
           rawValue: statistics.stock_statistics?.percent_held_by_insiders,
@@ -509,6 +546,11 @@ function organizeStatisticsData(statistics: any): StatisticsSection[] {
           label: "Dividend Frequency", 
           value: statistics.dividends_and_splits?.dividend_frequency || 'N/A',
           isAlwaysPositive: true
+        },
+       { 
+        label: "Dividend Date", 
+        value: statistics.dividends_and_splits?.dividend_date || 'N/A',
+        isAlwaysPositive: true
         },
         { 
           label: "Ex-Dividend Date", 
@@ -623,7 +665,7 @@ export default async function StatisticsPage({
       <div className={styles.container}>
         {/* Company Header - نفس تصميم Financials */}
         <div className={styles.companyHeader}>
-          <span className={styles.companyName}>{meta.name || symbol}</span>
+          <span className={styles.companyName}>{(meta.name || symbol).replace(/\.$/,'')}</span>
           <div className={styles.companyInfo}>
             <span className={styles.price}>Symbol: <span className={styles.bold}>{symbol}</span></span>
             <span className={styles.volume}>Country: <span className={styles.bold}>{country}</span></span>
