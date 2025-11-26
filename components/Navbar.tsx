@@ -1,12 +1,15 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import { useAuth } from '../app/providers/AuthProvider'
+import styles from '../app/styles/Navbar.module.css'
 
 export default function Navbar() {
   const [activeMobile, setActiveMobile] = useState(false)
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
   const [isMounted, setIsMounted] = useState(false)
   const navbarRef = useRef<HTMLDivElement>(null)
+  const { user, logout } = useAuth()
 
   const menuItems = {
     home: {
@@ -29,7 +32,6 @@ export default function Navbar() {
         { en: 'My Screens', href: '/screeners/my-screens' },
       ],
     },
-
     market: {
       en: 'Market',
       href: '/market',
@@ -61,6 +63,14 @@ export default function Navbar() {
     setActiveDropdown(activeDropdown === key ? null : key)
   }
 
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch (error) {
+      console.error('Logout failed:', error)
+    }
+  }
+
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -72,7 +82,7 @@ export default function Navbar() {
 
     document.addEventListener('mousedown', handleClickOutside)
     setIsMounted(true)
-    
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
@@ -81,13 +91,13 @@ export default function Navbar() {
   // Prevent hydration mismatch by not rendering until mounted
   if (!isMounted) {
     return (
-      <nav className="navbar-gf" dir="ltr">
-        <div className="navbar-container">
-          <Link href="/" className="navbar-logo">
+      <nav className={styles['navbar-gf']} dir="ltr">
+        <div className={styles['navbar-container']}>
+          <Link href="/" className={styles['navbar-logo']}>
             LUMIVST
           </Link>
-          <div className="navbar-actions">
-            <button className="navbar-mobile-toggle">☰</button>
+          <div className={styles['navbar-actions']}>
+            <button className={styles['navbar-mobile-toggle']}>☰</button>
           </div>
         </div>
       </nav>
@@ -96,32 +106,32 @@ export default function Navbar() {
 
   return (
     <nav
-      className="navbar-gf"
+      className={styles['navbar-gf']}
       ref={navbarRef}
       dir="ltr"
     >
-      <div className="navbar-container">
+      <div className={styles['navbar-container']}>
         {/* Logo */}
-        <Link href="/" className="navbar-logo">
+        <Link href="/" className={styles['navbar-logo']}>
           LUMIVST
         </Link>
 
         {/* Main Menu */}
-        <div className={`navbar-menu ${activeMobile ? 'active' : ''}`}>
+        <div className={`${styles['navbar-menu']} ${activeMobile ? styles.active : ''}`}>
           {Object.entries(menuItems).map(([key, item]) => (
             <div
               key={key}
-              className={`navbar-item ${activeDropdown === key ? 'active' : ''}`}
+              className={`${styles['navbar-item']} ${activeDropdown === key ? styles.active : ''}`}
               onMouseEnter={() => !activeMobile && setActiveDropdown(key)}
               onMouseLeave={() => !activeMobile && setActiveDropdown(null)}
             >
               <button
-                className="navbar-link"
+                className={styles['navbar-link']}
                 onClick={() => activeMobile && toggleDropdown(key)}
               >
                 {item.en}
                 <svg
-                  className="navbar-arrow"
+                  className={styles['navbar-arrow']}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -136,12 +146,12 @@ export default function Navbar() {
               </button>
 
               {/* Dropdown Menu */}
-              <div className="navbar-dropdown">
+              <div className={styles['navbar-dropdown']}>
                 {item.items.map((subItem, index) => (
                   <Link
                     key={index}
                     href={subItem.href}
-                    className="navbar-dropdown-link"
+                    className={styles['navbar-dropdown-link']}
                     onClick={() => {
                       setActiveMobile(false)
                       setActiveDropdown(null)
@@ -156,22 +166,40 @@ export default function Navbar() {
         </div>
 
         {/* Auth Actions */}
-        <div className="navbar-actions">
-          <div className="navbar-auth">
-            {/* Pricing هنا جنب الـ Login */}
-            <Link href="/pricing" className="navbar-link">
+        <div className={styles['navbar-actions']}>
+          <div className={styles['navbar-auth']}>
+            <Link href="/stocks" className={styles['navbar-link']}>
+              Stocks
+            </Link>
+            <Link href="/pricing" className={styles['navbar-link']}>
               Pricing
             </Link>
-            <Link href="/login" className="navbar-auth-link login">
-              Login
+            <Link href="/contact" className={styles['navbar-link']}>
+              Contact Us
             </Link>
-            <Link href="/register" className="navbar-auth-link signup">
-              Sign Up
-            </Link>
+
+            {/* Conditional Rendering based on user login status */}
+            {user ? (
+              <button
+                onClick={handleLogout}
+                className={`${styles['navbar-auth-link']} ${styles.login}`}
+              >
+                Logout
+              </button>
+            ) : (
+              <>
+                <Link href="/login" className={`${styles['navbar-auth-link']} ${styles.login}`}>
+                  Login
+                </Link>
+                <Link href="/register" className={`${styles['navbar-auth-link']} ${styles.signup}`}>
+                  Sign Up
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Toggle */}
-          <button className="navbar-mobile-toggle" onClick={toggleMobile}>
+          <button className={styles['navbar-mobile-toggle']} onClick={toggleMobile}>
             ☰
           </button>
         </div>

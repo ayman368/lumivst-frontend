@@ -228,64 +228,87 @@
   margin: 20px 0;
 }
 
-/* Sorting Styles */
+/* ⭐⭐ Sorting Styles - محسن بشكل كبير ⭐⭐ */
 .sortable {
   cursor: pointer;
   position: relative;
   user-select: none;
-  padding-right: 30px !important;
+  padding-right: 35px !important;
+  padding-left: 32px !important;
+  transition: all 0.3s ease;
 }
 
 .sortable:hover {
   background-color: #e9ecef;
 }
 
-/* الحالة الافتراضية - بدون رقم */
+/* ⭐ السهمين الباهتين (▲▼) للأعمدة الغير مرتبة - محسن */
 .sortable::after {
-  content: '';
+  content: '▲▼';
   position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 10px;
-  color: #6b7280;
-  opacity: 0.4;
-}
-
-/* الترتيب التصاعدي */
-.sortAsc::after {
-  content: '▲';
-  color: #6b7280;
-  font-size: 12px;
-  opacity: 1;
-}
-
-/* الترتيب التنازلي */
-.sortDesc::after {
-  content: '▼';
-  color: #6b7280;
-  font-size: 12px;
-  opacity: 1;
-}
-
-/* عرض رقم الأولوية */
-.sortPriority::after {
-  content: attr(data-priority);
-  position: absolute;
-  right: 8px;
+  right: 12px;
   top: 50%;
   transform: translateY(-50%);
   font-size: 11px;
+  color: #6b7280;
+  opacity: 0.3;
+  letter-spacing: -2px;
+  transition: all 0.3s ease;
+}
+
+/* ⭐ الترتيب التصاعدي - محسن */
+.sortAsc::after {
+  content: '▲';
+  color: #3b82f6;
+  font-size: 14px;
+  opacity: 1;
+  letter-spacing: normal;
   font-weight: bold;
-  color: white;
+  right: 12px;
+}
+
+/* ⭐ الترتيب التنازلي - محسن */
+.sortDesc::after {
+  content: '▼';
+  color: #3b82f6;
+  font-size: 14px;
+  opacity: 1;
+  letter-spacing: normal;
+  font-weight: bold;
+  right: 12px;
+}
+
+/* ⭐⭐ عرض رقم الأولوية - محسن بشكل كبير ⭐⭐ */
+.sortPriority::before {
+  content: attr(data-priority);
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
   background: #3b82f6;
+  color: white;
   border-radius: 50%;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
   line-height: 1;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+  z-index: 2;
+}
+
+/* ⭐ تحسين التنسيق لما العمود يكون مفعل */
+.sortAsc, .sortDesc {
+  background: #eff6ff !important;
+  color: #1e40af !important;
+  border-bottom: 2px solid #3b82f6 !important;
+}
+
+.sortAsc:hover, .sortDesc:hover {
+  background: #dbeafe !important;
 }
 
 /* RS Cell Styles */
@@ -379,4 +402,339 @@
   .table td {
     padding: 12px 8px;
   }
+  
+  .sortable {
+    padding-right: 25px !important;
+    padding-left: 28px !important;
+  }
+  
+  .sortPriority::before {
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+  }
 }
+
+
+/* --------------------------------------------------------- */
+/* --------------------------------------------------------- */
+/* Add these styles to your existing Stocks.module.css */
+
+/* --------------------------------------------------------- */
+/* Add these styles to your existing Stocks.module.css */
+
+/* Metadata Bar Styles - Fixed to be above table */
+.metadataBar {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 100%; /* ⭐ عشان ياخد العرض الكامل */
+  box-sizing: border-box; /* ⭐ عشان الـ padding ميزودش العرض */
+}
+
+.metadataItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  backdrop-filter: blur(10px);
+}
+
+.metadataItem strong {
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+/* Container styles - Fixed layout */
+.container {
+  padding: 20px;
+  max-width: 100%;
+  margin: 0 auto;
+  display: flex; /* ⭐ استخدام flexbox */
+  flex-direction: column; /* ⭐ كل حاجة فوق بعض */
+  gap: 0; /* ⭐ بدون مسافة extra */
+}
+
+.tableContainer {
+  overflow-x: auto;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  width: 100%; /* ⭐ عشان ياخد العرض الكامل */
+}
+
+.resultsCount {
+  padding: 15px 20px;
+  border-bottom: 2px solid #e5e7eb;
+  font-size: 14px;
+  color: #6b7280;
+  background: #f9fafb;
+}
+
+.resultsCount strong {
+  color: #111827;
+  font-weight: 600;
+}
+
+.filterActive {
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+/* Table Styles */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table thead tr:first-child th {
+  background: #f3f4f6;
+  color: #374151;
+  font-weight: 600;
+  padding: 12px 8px;
+  text-align: left;
+  border-bottom: 2px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.table thead .filterRow td {
+  padding: 8px;
+  background: #fafafa;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.filterInput {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.filterInput:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.table tbody tr {
+  border-bottom: 1px solid #f3f4f6;
+  transition: background-color 0.15s;
+}
+
+.table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.table tbody td {
+  padding: 10px 8px;
+  color: #374151;
+}
+
+/* Link Styles */
+.stockLink {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+
+.stockLink:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+/* Sortable Column Styles - Fixed arrows positioning */
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-right: 30px !important; /* ⭐ زودنا المساحة عشان السهم */
+  padding-left: 28px !important; /* ⭐ مساحة أكبر للـ priority number */
+  transition: background-color 0.15s;
+}
+
+.sortable:hover {
+  background: #e5e7eb;
+}
+
+/* ⭐ السهمين الباهتين (▲▼) للأعمدة الغير مرتبة */
+.sortable::after {
+  content: '▲\A▼'; /* ⭐ \A = line break */
+  white-space: pre; /* ⭐ عشان الـ line break يشتغل */  position: absolute;
+  right: 10px; /* ⭐ بعدناه عن الحافة */
+  top: 50%;
+  transform: translateY(-50%);
+  line-height: 0.9; /* ⭐ المسافة بين السهمين */
+  opacity: 0.25;
+  font-size: 10px;
+  letter-spacing: -2px;
+  color: #6b7280;
+  z-index: 1; /* ⭐ فوق كل حاجة */
+  pointer-events: none; /* ⭐ عشان ميأثرش على الـ click */
+}
+
+/* ⭐ سهم تصاعدي واضح (▲) - لون أزرق */
+.sortAsc::after {
+  content: '▲';
+  opacity: 1;
+  color: #3b82f6; /* ⭐ لون أزرق */
+  font-size: 13px;
+  letter-spacing: normal;
+  right: 10px;
+  z-index: 1;
+  font-weight: bold;
+}
+
+/* ⭐ سهم تنازلي واضح (▼) - لون أزرق */
+.sortDesc::after {
+  content: '▼';
+  opacity: 1;
+  color: #3b82f6; /* ⭐ لون أزرق */
+  font-size: 13px;
+  letter-spacing: normal;
+  right: 10px;
+  z-index: 1;
+  font-weight: bold;
+}
+
+/* ⭐ Priority number - محسن ومفصول عن السهم */
+.sortPriority::before {
+  content: attr(data-priority);
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #3b82f6; /* ⭐ لون أزرق */
+  color: white;
+  border-radius: 50%;
+  width: 17px;
+  height: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+  z-index: 2; /* ⭐ فوق السهم */
+}
+
+/* ⭐ تحسين التنسيق لما العمود يكون مفعل */
+.sortAsc, .sortDesc {
+  background: #eff6ff !important; /* ⭐ خلفية زرقاء فاتحة */
+  color: #1e40af !important; /* ⭐ لون نص أزرق داكن */
+  border-bottom: 2px solid #3b82f6 !important; /* ⭐ خط أزرق سفلي */
+}
+
+.sortAsc:hover, .sortDesc:hover {
+  background: #dbeafe !important; /* ⭐ خلفية أزرق أفتح عند hover */
+}
+
+/* Negative Values */
+.negative {
+  color: #dc2626;
+}
+
+/* RS Cell Styles - Plain without colors */
+.rsCell {
+  font-weight: 600;
+  text-align: center;
+  /* ⭐ تم إزالة الخلفية الخضراء */
+}
+
+.rsCell span {
+  display: inline-block;
+  /* ⭐ تم إزالة كل الألوان والخلفيات */
+}
+
+/* Change Cell Styles */
+.changeCell {
+  text-align: center;
+  font-weight: 500;
+}
+
+
+
+/* Loading & Error States */
+.loading, .error, .noData {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.loading h2, .error h2, .noData h2 {
+  font-size: 24px;
+  margin-bottom: 10px;
+  color: #374151;
+}
+
+.loading p, .error p, .noData p {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.error {
+  color: #dc2626;
+}
+
+.error h2 {
+  color: #dc2626;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .metadataBar {
+    justify-content: flex-start;
+  }
+  
+  .metadataItem {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+  }
+  
+  .metadataBar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 10px 15px; /* ⭐ تقليل الـ padding على الموبايل */
+  }
+  
+  .metadataItem {
+    justify-content: space-between;
+    width: 100%; /* ⭐ كل item ياخد العرض الكامل */
+  }
+  
+  .table {
+    font-size: 11px;
+  }
+  
+  .table thead tr:first-child th,
+  .table tbody td {
+    padding: 8px 4px;
+  }
+  
+  .sortable {
+    padding-right: 20px !important;
+  }
+}
+
+/* ----------------------------------------------------------*/

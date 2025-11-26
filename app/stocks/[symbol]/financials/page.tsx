@@ -7,12 +7,18 @@ function cleanSymbol(symbol: string): string {
   return symbol.split('.')[0]
 }
 
-// 🎯 جلب اسم الشركة من قاعدة البيانات
+// دالة مساعدة للوصول للقيم المتداخلة بأمان
+function getNestedValue(obj: any, path: string): any {
+  if (!obj) return null;
+  return path.split('.').reduce((current, key) => current?.[key], obj);
+}
+
+// جلب اسم الشركة من قاعدة البيانات
 async function getCompanyName(symbol: string, country: string): Promise<string> {
   try {
     const cleanSym = cleanSymbol(symbol);
     const response = await fetch(
-      `https://web-production-e66c2.up.railway.app/stocks/${cleanSym}/name?country=${encodeURIComponent(country)}`,
+      `http://localhost:8000/stocks/${cleanSym}/name?country=${encodeURIComponent(country)}`,
       { cache: 'no-store' }
     );
     if (!response.ok) throw new Error('Failed to fetch');
@@ -24,24 +30,21 @@ async function getCompanyName(symbol: string, country: string): Promise<string> 
   }
 }
 
-// Enhanced function to fetch financial data with period and country selection
-// Enhanced function to fetch financial data with period and country selection
+// جلب البيانات المالية
 async function getFinancialData(symbol: string, period: string = "annual", country: string = "Saudi Arabia") {
   const cleanSym = cleanSymbol(symbol)
   
   console.log(`💰 Fetching financial data for ${symbol} - Country: ${country} - Period: ${period}`)
   
-  // جلب البيانات السنوية
   const [incomeRes, balanceRes, cashflowRes] = await Promise.all([
-    fetch(`https://web-production-e66c2.up.railway.app/financials/income_statement/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' }),
-    fetch(`https://web-production-e66c2.up.railway.app/financials/balance_sheet/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' }),
-    fetch(`https://web-production-e66c2.up.railway.app/financials/cash_flow/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' })
+    fetch(`http://localhost:8000/financials/income_statement/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' }),
+    fetch(`http://localhost:8000/financials/balance_sheet/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' }),
+    fetch(`http://localhost:8000/financials/cash_flow/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' })
   ])
 
-  // جلب بيانات ربع سنوية إضافية لحساب TTM
   const [quarterlyIncomeRes, quarterlyCashflowRes] = await Promise.all([
-    fetch(`https://web-production-e66c2.up.railway.app/financials/income_statement/${cleanSym}?country=${country}&period=quarterly&limit=8`, { cache: 'no-store' }),
-    fetch(`https://web-production-e66c2.up.railway.app/financials/cash_flow/${cleanSym}?country=${country}&period=quarterly&limit=8`, { cache: 'no-store' })
+    fetch(`http://localhost:8000/financials/income_statement/${cleanSym}?country=${country}&period=quarterly&limit=8`, { cache: 'no-store' }),
+    fetch(`http://localhost:8000/financials/cash_flow/${cleanSym}?country=${country}&period=quarterly&limit=8`, { cache: 'no-store' })
   ])
 
   if (!incomeRes.ok) throw new Error('Failed to fetch income statement')
@@ -67,107 +70,129 @@ async function getFinancialData(symbol: string, period: string = "annual", count
   }
 }
 
-//  New function: Calculate TTM from last 4 quarters
-function calculateTTM(data: any[], field: string, isNested: boolean = false) {
-  if (!data || data.length < 4) return null
+// حساب TTM باستخدام المسارات المتداخلة
+function calculateTTM(data: any[], path: string) {
+  if (!data || data.length < 4) return null;
   
-  const last4Quarters = data.slice(0, 4)
+  const last4Quarters = data.slice(0, 4);
+  const sum = last4Quarters.reduce((acc, item) => {
+    const value = getNestedValue(item, path) || 0;
+    return acc + value;
+  }, 0);
   
-  let sum = 0
-  for (const quarter of last4Quarters) {
-    let value = 0
-    
-    if (isNested) {
-      // For nested values like operating_activities.operating_cash_flow
-      const fields = field.split('.')
-      let temp = quarter
-      for (const f of fields) {
-        temp = temp?.[f]
-        if (temp === undefined || temp === null) break
-      }
-      value = temp || 0
-    } else {
-      value = quarter[field] || 0
-    }
-    
-    sum += value
-  }
-  
-  return sum
+  return sum;
 }
 
-//  Function to calculate all TTM values for the three tables
-// ✅ تحديث الدالة لاستخدام البيانات الربعية
+// حساب جميع قيم TTM
 function calculateAllTTM(quarterlyIncome: any, quarterlyCashflow: any, annualBalance: any) {
-  const incomeData = quarterlyIncome.income_statement
-  const cashflowData = quarterlyCashflow.cash_flow
-  const balanceData = annualBalance.balance_sheet
+  const incomeData = quarterlyIncome.income_statement;
+  const cashflowData = quarterlyCashflow.cash_flow;
   
-  if (!incomeData || incomeData.length < 4) return null
+  if (!incomeData || incomeData.length < 4) return null;
   
   return {
-    // Income Statement TTM (مجموع آخر 4 أرباع)
+    // Income Statement TTM
     sales: calculateTTM(incomeData, 'sales'),
     cost_of_goods: calculateTTM(incomeData, 'cost_of_goods'),
     gross_profit: calculateTTM(incomeData, 'gross_profit'),
-    operating_expense: calculateTTM(incomeData, 'operating_expense.selling_general_and_administrative', true),
+    operating_expense: calculateTTM(incomeData, 'operating_expense.selling_general_and_administrative'),
     operating_income: calculateTTM(incomeData, 'operating_income'),
+    non_operating_interest: calculateTTM(incomeData, 'non_operating_interest.expense'),
+    other_income_expense: calculateTTM(incomeData, 'other_income_expense'),
+    pretax_income: calculateTTM(incomeData, 'pretax_income'),
+    income_tax: calculateTTM(incomeData, 'income_tax'),
     net_income: calculateTTM(incomeData, 'net_income'),
+    net_income_continuous_operations: calculateTTM(incomeData, 'net_income_continuous_operations'),
+    minority_interests: calculateTTM(incomeData, 'minority_interests'),
+    preferred_stock_dividends: calculateTTM(incomeData, 'preferred_stock_dividends'),
+    eps_basic: calculateTTM(incomeData, 'eps_basic'),
+    eps_diluted: calculateTTM(incomeData, 'eps_diluted'),
+    basic_shares_outstanding: calculateTTM(incomeData, 'basic_shares_outstanding'),
+    diluted_shares_outstanding: calculateTTM(incomeData, 'diluted_shares_outstanding'),
+    ebit: calculateTTM(incomeData, 'ebit'),
     ebitda: calculateTTM(incomeData, 'ebitda'),
     
-    // Balance Sheet TTM (آخر ربع سنوي فقط - من البيانات السنوية)
-    cash_and_equivalents: balanceData?.[0]?.assets?.current_assets?.cash_and_cash_equivalents || 0,
-    inventory: balanceData?.[0]?.assets?.current_assets?.inventory || 0,
-    total_current_assets: balanceData?.[0]?.assets?.current_assets?.total_current_assets || 0,
-    total_non_current_assets: balanceData?.[0]?.assets?.non_current_assets?.total_non_current_assets || 0,
-    total_assets: balanceData?.[0]?.assets?.total_assets || 0,
-    short_term_debt: balanceData?.[0]?.liabilities?.current_liabilities?.short_term_debt || 0,
-    total_current_liabilities: balanceData?.[0]?.liabilities?.current_liabilities?.total_current_liabilities || 0,
-    long_term_debt: balanceData?.[0]?.liabilities?.non_current_liabilities?.long_term_debt || 0,
-    total_liabilities: balanceData?.[0]?.liabilities?.total_liabilities || 0,
-    total_shareholders_equity: balanceData?.[0]?.shareholders_equity?.total_shareholders_equity || 0,
+    // Balance Sheet (آخر فترة فقط)
+    cash_and_equivalents: getNestedValue(annualBalance.balance_sheet?.[0], 'assets.current_assets.cash_and_cash_equivalents') || 0,
+    accounts_receivable: getNestedValue(annualBalance.balance_sheet?.[0], 'assets.current_assets.accounts_receivable') || 0,
+    inventory: getNestedValue(annualBalance.balance_sheet?.[0], 'assets.current_assets.inventory') || 0,
+    prepaid_assets: getNestedValue(annualBalance.balance_sheet?.[0], 'assets.current_assets.prepaid_assets') || 0,
+    other_current_assets: getNestedValue(annualBalance.balance_sheet?.[0], 'assets.current_assets.other_current_assets') || 0,
+    total_current_assets: getNestedValue(annualBalance.balance_sheet?.[0], 'assets.current_assets.total_current_assets') || 0,
     
-    // Cash Flow TTM (مجموع آخر 4 أرباع)
-    operating_cash_flow: calculateTTM(cashflowData, 'operating_activities.operating_cash_flow', true),
-    investing_cash_flow: calculateTTM(cashflowData, 'investing_activities.investing_cash_flow', true),
-    financing_cash_flow: calculateTTM(cashflowData, 'financing_activities.financing_cash_flow', true),
-    free_cash_flow: calculateTTM(cashflowData, 'free_cash_flow')
-  }
+    properties: getNestedValue(annualBalance.balance_sheet?.[0], 'assets.non_current_assets.properties') || 0,
+    machinery_furniture_equipment: getNestedValue(annualBalance.balance_sheet?.[0], 'assets.non_current_assets.machinery_furniture_equipment') || 0,
+    goodwill: getNestedValue(annualBalance.balance_sheet?.[0], 'assets.non_current_assets.goodwill') || 0,
+    other_non_current_assets: getNestedValue(annualBalance.balance_sheet?.[0], 'assets.non_current_assets.other_non_current_assets') || 0,
+    total_non_current_assets: getNestedValue(annualBalance.balance_sheet?.[0], 'assets.non_current_assets.total_non_current_assets') || 0,
+    total_assets: getNestedValue(annualBalance.balance_sheet?.[0], 'assets.total_assets') || 0,
+    
+    accounts_payable: getNestedValue(annualBalance.balance_sheet?.[0], 'liabilities.current_liabilities.accounts_payable') || 0,
+    short_term_debt: getNestedValue(annualBalance.balance_sheet?.[0], 'liabilities.current_liabilities.short_term_debt') || 0,
+    deferred_revenue: getNestedValue(annualBalance.balance_sheet?.[0], 'liabilities.current_liabilities.deferred_revenue') || 0,
+    other_current_liabilities: getNestedValue(annualBalance.balance_sheet?.[0], 'liabilities.current_liabilities.other_current_liabilities') || 0,
+    total_current_liabilities: getNestedValue(annualBalance.balance_sheet?.[0], 'liabilities.current_liabilities.total_current_liabilities') || 0,
+    
+    long_term_debt: getNestedValue(annualBalance.balance_sheet?.[0], 'liabilities.non_current_liabilities.long_term_debt') || 0,
+    other_non_current_liabilities: getNestedValue(annualBalance.balance_sheet?.[0], 'liabilities.non_current_liabilities.other_non_current_liabilities') || 0,
+    total_non_current_liabilities: getNestedValue(annualBalance.balance_sheet?.[0], 'liabilities.non_current_liabilities.total_non_current_liabilities') || 0,
+    total_liabilities: getNestedValue(annualBalance.balance_sheet?.[0], 'liabilities.total_liabilities') || 0,
+    
+    common_stock: getNestedValue(annualBalance.balance_sheet?.[0], 'shareholders_equity.common_stock') || 0,
+    retained_earnings: getNestedValue(annualBalance.balance_sheet?.[0], 'shareholders_equity.retained_earnings') || 0,
+    minority_interest: getNestedValue(annualBalance.balance_sheet?.[0], 'shareholders_equity.minority_interest') || 0,
+    total_shareholders_equity: getNestedValue(annualBalance.balance_sheet?.[0], 'shareholders_equity.total_shareholders_equity') || 0,
+    
+    // Cash Flow TTM
+    operating_cash_flow: calculateTTM(cashflowData, 'operating_activities.operating_cash_flow'),
+    investing_cash_flow: calculateTTM(cashflowData, 'investing_activities.investing_cash_flow'),
+    financing_cash_flow: calculateTTM(cashflowData, 'financing_activities.financing_cash_flow'),
+    depreciation: calculateTTM(cashflowData, 'operating_activities.depreciation'),
+    stock_based_compensation: calculateTTM(cashflowData, 'operating_activities.stock_based_compensation'),
+    accounts_receivable_change: calculateTTM(cashflowData, 'operating_activities.accounts_receivable'),
+    accounts_payable_change: calculateTTM(cashflowData, 'operating_activities.accounts_payable'),
+    capital_expenditures: calculateTTM(cashflowData, 'investing_activities.capital_expenditures'),
+    net_acquisitions: calculateTTM(cashflowData, 'investing_activities.net_acquisitions'),
+    free_cash_flow: calculateTTM(cashflowData, 'free_cash_flow'),
+    income_tax_paid: calculateTTM(cashflowData, 'income_tax_paid'),
+    interest_paid: calculateTTM(cashflowData, 'interest_paid'),
+    end_cash_position: getNestedValue(cashflowData?.[0], 'end_cash_position') || 0,
+  };
 }
 
-function formatNumber(value: any): string {
-  if (!value && value !== 0) return 'N/A';
+// تنسيق الأرقام
+function formatNumber(value: any, isPercentage: boolean = false): string {
+  if (value === null || value === undefined || value === '') return 'N/A';
+  
+  // إذا كانت القيمة أصلاً نص تحتوي على % أو تم تحديدها كنسبة
+  if (isPercentage || (typeof value === 'string' && value.includes('%'))) {
+    if (typeof value === 'number') {
+      return `${(value * 100).toFixed(2)}%`;
+    }
+    return value;
+  }
   
   const num = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
   
-  if (isNaN(num)) return 'N/A';
+  if (isNaN(num) || num === 0) return num === 0 ? '0' : 'N/A';
   
-  if (num < 0) {
-    const absoluteValue = Math.abs(num);
-    
-    if (absoluteValue >= 1000000) {
-      return `(${(absoluteValue / 1000000).toFixed(2)})`;
-    }
-    
-    if (absoluteValue >= 1000) {
-      return `(${(absoluteValue / 1000).toFixed(2)})`;
-    }
-    
-    return `(${absoluteValue.toFixed(2)})`;
+  // تحويل إلى المليون
+  const millionValue = num / 1000000;
+  
+  // تقريب إلى أقرب عدد صحيح
+  const roundedValue = Math.round(millionValue);
+  
+  // تنسيق القيمة المطلقة مع فواصل آلاف
+  const absValue = Math.abs(roundedValue);
+  const formattedValue = absValue.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  
+  // إذا كانت القيمة سالبة
+  if (roundedValue < 0) {
+    return `(${formattedValue})`;
   }
   
-  if (Math.abs(num) >= 1000000) {
-    return (num / 1000000).toFixed(2);
-  }
-  
-  if (Math.abs(num) >= 1000) {
-    return (num / 1000).toFixed(2);
-  }
-  
-  return num.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
+  // القيم الموجبة
+  return `${formattedValue}`;
 }
 
 function getPeriodDisplay(item: any) {
@@ -179,38 +204,13 @@ function getPeriodDisplay(item: any) {
 }
 
 function getColorClass(value: any, isAlwaysPositive: boolean = false) {
-  if (isAlwaysPositive) return styles.textPositive;
+  if (value === null || value === undefined) return '';
   
   const num = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
   if (isNaN(num)) return '';
   
   return num < 0 ? styles.textNegative : styles.textPositive;
 }
-
-// function NavigationTabs({ symbol, period, country }: { symbol: string, period: string, country: string }) {
-//   const tabs = [
-//     // { label: 'Overview', href: `/stocks/${symbol}?period=${period}&country=${country}` },
-//     { label: 'Financial ', href: `/stocks/${symbol}/financials?period=${period}&country=${country}`, active: true },
-//     // { label: 'Analysis', href: `/stocks/${symbol}/analysis?period=${period}&country=${country}` },
-//     { label: 'Statistics', href: `/stocks/${symbol}/statistics?country=${country}` }
-
-//   ]
-
-
-//   return (
-//     <div className={styles.navTabs}>
-//       {tabs.map((tab) => (
-//         <Link
-//           key={tab.label}
-//           href={tab.href}
-//           className={`${styles.navTab} ${tab.active ? styles.active : ''}`}
-//         >
-//           {tab.label}
-//         </Link>
-//       ))}
-//     </div>
-//   )
-// }
 
 function NavigationTabs({ symbol, period, country }: { symbol: string, period: string, country: string }) {
   return (
@@ -226,8 +226,6 @@ function NavigationTabs({ symbol, period, country }: { symbol: string, period: s
     </div>
   )
 }
-
-
 
 function FinancialHeader({ symbol, period, country }: { symbol: string, period: string, country: string }) {
   return (
@@ -260,12 +258,9 @@ export default async function FinancialsPage({
   const cleanSym = cleanSymbol(symbol)
 
   try {
-        // جلب الاسم من قاعدة البيانات
     const companyName = await getCompanyName(cleanSym, country);
-    // ✅ الآن ترجع بيانات إضافية ربع سنوية
     const { income, balance, cashflow, quarterlyIncome, quarterlyCashflow } = await getFinancialData(symbol, period, country)
     
-    // ✅ TTM يظهر في annual ويستخدم البيانات الربعية للحساب
     const ttmData = period === 'annual' ? calculateAllTTM(quarterlyIncome, quarterlyCashflow, balance) : null
     const showTTM = period === 'annual' && ttmData
 
@@ -286,7 +281,7 @@ export default async function FinancialsPage({
 
         <FinancialHeader symbol={symbol} period={period} country={country} />
 
-        {/* ✅ Income Statement مع TTM بعد الـ Item */}
+        {/* Income Statement - جميع الـ Parameters */}
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>Income Statement</h2>
           {income.income_statement && income.income_statement.length > 0 ? (
@@ -305,12 +300,8 @@ export default async function FinancialsPage({
                 </thead>
                 <tbody>
                   <tr>
-                    <td className={styles.bold}>Revenues</td>
-                    {showTTM && (
-                      <td className={getColorClass(ttmData.sales, true)}>
-                        {formatNumber(ttmData.sales)}
-                      </td>
-                    )}
+                    <td className={styles.bold}>Revenues / Sales</td>
+                    {showTTM && <td className={getColorClass(ttmData.sales, true)}>{formatNumber(ttmData.sales)}</td>}
                     {income.income_statement.map((item: any) => (
                       <td key={item.fiscal_date} className={getColorClass(item.sales, true)}>
                         {formatNumber(item.sales)}
@@ -318,25 +309,17 @@ export default async function FinancialsPage({
                     ))}
                   </tr>
                   <tr>
-                    <td className={styles.bold}>Cost of Goods Sold</td>
-                    {showTTM && (
-                      <td>
-                        {formatNumber(ttmData.cost_of_goods)}
-                      </td>
-                    )}
+                    <td>Cost of Goods Sold</td>
+                    {showTTM && <td className={getColorClass(ttmData.cost_of_goods)}>{formatNumber(ttmData.cost_of_goods)}</td>}
                     {income.income_statement.map((item: any) => (
-                      <td key={item.fiscal_date}>
+                      <td key={item.fiscal_date} className={getColorClass(item.cost_of_goods)}>
                         {formatNumber(item.cost_of_goods)}
                       </td>
                     ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Gross Profit</td>
-                    {showTTM && (
-                      <td className={getColorClass(ttmData.gross_profit)}>
-                        {formatNumber(ttmData.gross_profit)}
-                      </td>
-                    )}
+                    {showTTM && <td className={getColorClass(ttmData.gross_profit)}>{formatNumber(ttmData.gross_profit)}</td>}
                     {income.income_statement.map((item: any) => (
                       <td key={item.fiscal_date} className={getColorClass(item.gross_profit)}>
                         {formatNumber(item.gross_profit)}
@@ -344,25 +327,17 @@ export default async function FinancialsPage({
                     ))}
                   </tr>
                   <tr>
-                    <td className={styles.bold}>Operating Expenses</td>
-                    {showTTM && (
-                      <td>
-                        {formatNumber(ttmData.operating_expense)}
-                      </td>
-                    )}
+                    <td>Operating Expenses (SG&A)</td>
+                    {showTTM && <td className={getColorClass(ttmData.operating_expense)}>{formatNumber(ttmData.operating_expense)}</td>}
                     {income.income_statement.map((item: any) => (
-                      <td key={item.fiscal_date}>
-                        {formatNumber(item.operating_expense?.selling_general_and_administrative || 0)}
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'operating_expense.selling_general_and_administrative'))}>
+                        {formatNumber(getNestedValue(item, 'operating_expense.selling_general_and_administrative') || 0)}
                       </td>
                     ))}
                   </tr>
                   <tr>
-                    <td className={styles.bold}>Operating Income</td>
-                    {showTTM && (
-                      <td className={getColorClass(ttmData.operating_income)}>
-                        {formatNumber(ttmData.operating_income)}
-                      </td>
-                    )}
+                    <td className={styles.bold}>Operating Income (EBIT)</td>
+                    {showTTM && <td className={getColorClass(ttmData.operating_income)}>{formatNumber(ttmData.operating_income)}</td>}
                     {income.income_statement.map((item: any) => (
                       <td key={item.fiscal_date} className={getColorClass(item.operating_income)}>
                         {formatNumber(item.operating_income)}
@@ -370,12 +345,44 @@ export default async function FinancialsPage({
                     ))}
                   </tr>
                   <tr>
-                    <td className={styles.bold}>Net Income</td>
-                    {showTTM && (
-                      <td className={getColorClass(ttmData.net_income)}>
-                        {formatNumber(ttmData.net_income)}
+                    <td>Non-Operating Interest Expense</td>
+                    {showTTM && <td className={getColorClass(ttmData.non_operating_interest)}>{formatNumber(ttmData.non_operating_interest)}</td>}
+                    {income.income_statement.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'non_operating_interest.expense'))}>
+                        {formatNumber(getNestedValue(item, 'non_operating_interest.expense') || 0)}
                       </td>
-                    )}
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Other Income/Expense</td>
+                    {showTTM && <td className={getColorClass(ttmData.other_income_expense)}>{formatNumber(ttmData.other_income_expense)}</td>}
+                    {income.income_statement.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.other_income_expense)}>
+                        {formatNumber(item.other_income_expense)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className={styles.bold}>Pretax Income</td>
+                    {showTTM && <td className={getColorClass(ttmData.pretax_income)}>{formatNumber(ttmData.pretax_income)}</td>}
+                    {income.income_statement.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.pretax_income)}>
+                        {formatNumber(item.pretax_income)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Income Tax</td>
+                    {showTTM && <td className={getColorClass(ttmData.income_tax)}>{formatNumber(ttmData.income_tax)}</td>}
+                    {income.income_statement.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.income_tax)}>
+                        {formatNumber(item.income_tax)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className={styles.bold}>Net Income</td>
+                    {showTTM && <td className={getColorClass(ttmData.net_income)}>{formatNumber(ttmData.net_income)}</td>}
                     {income.income_statement.map((item: any) => (
                       <td key={item.fiscal_date} className={getColorClass(item.net_income)}>
                         {formatNumber(item.net_income)}
@@ -383,15 +390,83 @@ export default async function FinancialsPage({
                     ))}
                   </tr>
                   <tr>
-                    <td className={styles.bold}>EBITDA</td>
-                    {showTTM && (
-                      <td className={getColorClass(ttmData.ebitda)}>
-                        {formatNumber(ttmData.ebitda)}
+                    <td>Net Income (Continuous Operations)</td>
+                    {showTTM && <td className={getColorClass(ttmData.net_income_continuous_operations)}>{formatNumber(ttmData.net_income_continuous_operations)}</td>}
+                    {income.income_statement.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.net_income_continuous_operations)}>
+                        {formatNumber(item.net_income_continuous_operations)}
                       </td>
-                    )}
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Minority Interests</td>
+                    {showTTM && <td className={getColorClass(ttmData.minority_interests)}>{formatNumber(ttmData.minority_interests)}</td>}
+                    {income.income_statement.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.minority_interests)}>
+                        {formatNumber(item.minority_interests)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Preferred Stock Dividends</td>
+                    {showTTM && <td className={getColorClass(ttmData.preferred_stock_dividends)}>{formatNumber(ttmData.preferred_stock_dividends)}</td>}
+                    {income.income_statement.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.preferred_stock_dividends)}>
+                        {formatNumber(item.preferred_stock_dividends)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className={styles.bold}>EBIT</td>
+                    {showTTM && <td className={getColorClass(ttmData.ebit)}>{formatNumber(ttmData.ebit)}</td>}
+                    {income.income_statement.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.ebit)}>
+                        {formatNumber(item.ebit)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className={styles.bold}>EBITDA</td>
+                    {showTTM && <td className={getColorClass(ttmData.ebitda)}>{formatNumber(ttmData.ebitda)}</td>}
                     {income.income_statement.map((item: any) => (
                       <td key={item.fiscal_date} className={getColorClass(item.ebitda)}>
                         {formatNumber(item.ebitda)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className={styles.bold}>Basic EPS</td>
+                    {showTTM && <td className={getColorClass(ttmData.eps_basic, true)}>{formatNumber(ttmData.eps_basic)}</td>}
+                    {income.income_statement.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.eps_basic, true)}>
+                        {formatNumber(item.eps_basic)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Diluted EPS</td>
+                    {showTTM && <td className={getColorClass(ttmData.eps_diluted, true)}>{formatNumber(ttmData.eps_diluted)}</td>}
+                    {income.income_statement.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.eps_diluted, true)}>
+                        {formatNumber(item.eps_diluted)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Basic Shares Outstanding</td>
+                    {showTTM && <td className={getColorClass(ttmData.basic_shares_outstanding, true)}>{formatNumber(ttmData.basic_shares_outstanding)}</td>}
+                    {income.income_statement.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.basic_shares_outstanding, true)}>
+                        {formatNumber(item.basic_shares_outstanding)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Diluted Shares Outstanding</td>
+                    {showTTM && <td className={getColorClass(ttmData.diluted_shares_outstanding, true)}>{formatNumber(ttmData.diluted_shares_outstanding)}</td>}
+                    {income.income_statement.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.diluted_shares_outstanding, true)}>
+                        {formatNumber(item.diluted_shares_outstanding)}
                       </td>
                     ))}
                   </tr>
@@ -405,7 +480,7 @@ export default async function FinancialsPage({
           )}
         </div>
 
-        {/* ✅ Balance Sheet مع TTM بعد الـ Item */}
+        {/* Balance Sheet - جميع الـ Parameters */}
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>Balance Sheet</h2>
           {balance.balance_sheet && balance.balance_sheet.length > 0 ? (
@@ -423,135 +498,246 @@ export default async function FinancialsPage({
                   </tr>
                 </thead>
                 <tbody>
+                  {/* Current Assets */}
+                  <tr><td colSpan={showTTM ? balance.balance_sheet.length + 2 : balance.balance_sheet.length + 1} className={`${styles.sectionHeader} ${styles.bold}`}>Current Assets</td></tr>
                   <tr>
-                    <td className={styles.bold}>Cash and Equivalents</td>
-                    {showTTM && (
-                      <td className={getColorClass(ttmData.cash_and_equivalents, true)}>
-                        {formatNumber(ttmData.cash_and_equivalents)}
-                      </td>
-                    )}
+                    <td>Cash & Equivalents</td>
+                    {showTTM && <td className={getColorClass(ttmData.cash_and_equivalents, true)}>{formatNumber(ttmData.cash_and_equivalents)}</td>}
                     {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.assets?.current_assets?.cash_and_cash_equivalents, true)}>
-                        {formatNumber(item.assets?.current_assets?.cash_and_cash_equivalents || 0)}
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'assets.current_assets.cash_and_cash_equivalents'), true)}>
+                        {formatNumber(getNestedValue(item, 'assets.current_assets.cash_and_cash_equivalents') || 0)}
                       </td>
                     ))}
                   </tr>
                   <tr>
-                    <td className={styles.bold}>Inventory</td>
-                    {showTTM && (
-                      <td className={getColorClass(ttmData.inventory, true)}>
-                        {formatNumber(ttmData.inventory)}
-                      </td>
-                    )}
+                    <td>Accounts Receivable</td>
+                    {showTTM && <td className={getColorClass(ttmData.accounts_receivable, true)}>{formatNumber(ttmData.accounts_receivable)}</td>}
                     {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.assets?.current_assets?.inventory, true)}>
-                        {formatNumber(item.assets?.current_assets?.inventory || 0)}
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'assets.current_assets.accounts_receivable'), true)}>
+                        {formatNumber(getNestedValue(item, 'assets.current_assets.accounts_receivable') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Inventory</td>
+                    {showTTM && <td className={getColorClass(ttmData.inventory, true)}>{formatNumber(ttmData.inventory)}</td>}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'assets.current_assets.inventory'), true)}>
+                        {formatNumber(getNestedValue(item, 'assets.current_assets.inventory') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Prepaid Assets</td>
+                    {showTTM && <td className={getColorClass(ttmData.prepaid_assets, true)}>{formatNumber(ttmData.prepaid_assets)}</td>}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'assets.current_assets.prepaid_assets'), true)}>
+                        {formatNumber(getNestedValue(item, 'assets.current_assets.prepaid_assets') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Other Current Assets</td>
+                    {showTTM && <td className={getColorClass(ttmData.other_current_assets, true)}>{formatNumber(ttmData.other_current_assets)}</td>}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'assets.current_assets.other_current_assets'), true)}>
+                        {formatNumber(getNestedValue(item, 'assets.current_assets.other_current_assets') || 0)}
                       </td>
                     ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Total Current Assets</td>
-                    {showTTM && (
-                      <td className={getColorClass(ttmData.total_current_assets, true)}>
-                        {formatNumber(ttmData.total_current_assets)}
-                      </td>
-                    )}
+                    {showTTM && <td className={getColorClass(ttmData.total_current_assets, true)}>{formatNumber(ttmData.total_current_assets)}</td>}
                     {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.assets?.current_assets?.total_current_assets, true)}>
-                        {formatNumber(item.assets?.current_assets?.total_current_assets || 0)}
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'assets.current_assets.total_current_assets'), true)}>
+                        {formatNumber(getNestedValue(item, 'assets.current_assets.total_current_assets') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  
+                  {/* Non-Current Assets */}
+                  <tr><td colSpan={showTTM ? balance.balance_sheet.length + 2 : balance.balance_sheet.length + 1} className={`${styles.sectionHeader} ${styles.bold}`}>Non-Current Assets</td></tr>
+                  <tr>
+                    <td>Properties</td>
+                    {showTTM && <td className={getColorClass(ttmData.properties, true)}>{formatNumber(ttmData.properties)}</td>}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'assets.non_current_assets.properties'), true)}>
+                        {formatNumber(getNestedValue(item, 'assets.non_current_assets.properties') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Machinery & Equipment</td>
+                    {showTTM && <td className={getColorClass(ttmData.machinery_furniture_equipment, true)}>{formatNumber(ttmData.machinery_furniture_equipment)}</td>}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'assets.non_current_assets.machinery_furniture_equipment'), true)}>
+                        {formatNumber(getNestedValue(item, 'assets.non_current_assets.machinery_furniture_equipment') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Goodwill</td>
+                    {showTTM && <td className={getColorClass(ttmData.goodwill, true)}>{formatNumber(ttmData.goodwill)}</td>}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'assets.non_current_assets.goodwill'), true)}>
+                        {formatNumber(getNestedValue(item, 'assets.non_current_assets.goodwill') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Other Non-Current Assets</td>
+                    {showTTM && <td className={getColorClass(ttmData.other_non_current_assets, true)}>{formatNumber(ttmData.other_non_current_assets)}</td>}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'assets.non_current_assets.other_non_current_assets'), true)}>
+                        {formatNumber(getNestedValue(item, 'assets.non_current_assets.other_non_current_assets') || 0)}
                       </td>
                     ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Total Non-Current Assets</td>
-                    {showTTM && (
-                      <td className={getColorClass(ttmData.total_non_current_assets, true)}>
-                        {formatNumber(ttmData.total_non_current_assets)}
-                      </td>
-                    )}
+                    {showTTM && <td className={getColorClass(ttmData.total_non_current_assets, true)}>{formatNumber(ttmData.total_non_current_assets)}</td>}
                     {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.assets?.non_current_assets?.total_non_current_assets, true)}>
-                        {formatNumber(item.assets?.non_current_assets?.total_non_current_assets || 0)}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className={styles.bold}>Total Assets</td>
-                    {showTTM && (
-                      <td className={getColorClass(ttmData.total_assets, true)}>
-                        {formatNumber(ttmData.total_assets)}
-                      </td>
-                    )}
-                    {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.assets?.total_assets, true)}>
-                        {formatNumber(item.assets?.total_assets || 0)}
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'assets.non_current_assets.total_non_current_assets'), true)}>
+                        {formatNumber(getNestedValue(item, 'assets.non_current_assets.total_non_current_assets') || 0)}
                       </td>
                     ))}
                   </tr>
                   
+                  {/* Total Assets */}
                   <tr>
-                    <td className={styles.bold}>Short-term Debt</td>
-                    {showTTM && (
-                      <td>
-                        {formatNumber(ttmData.short_term_debt)}
-                      </td>
-                    )}
+                    <td className={styles.bold}>Total Assets</td>
+                    {showTTM && <td className={getColorClass(ttmData.total_assets, true)}>{formatNumber(ttmData.total_assets)}</td>}
                     {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date}>
-                        {formatNumber(item.liabilities?.current_liabilities?.short_term_debt || 0)}
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'assets.total_assets'), true)}>
+                        {formatNumber(getNestedValue(item, 'assets.total_assets') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  
+                  {/* Current Liabilities */}
+                  <tr><td colSpan={showTTM ? balance.balance_sheet.length + 2 : balance.balance_sheet.length + 1} className={`${styles.sectionHeader} ${styles.bold}`}>Current Liabilities</td></tr>
+                  <tr>
+                    <td>Accounts Payable</td>
+                    {showTTM && <td className={getColorClass(ttmData.accounts_payable)}>{formatNumber(ttmData.accounts_payable)}</td>}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'liabilities.current_liabilities.accounts_payable'))}>
+                        {formatNumber(getNestedValue(item, 'liabilities.current_liabilities.accounts_payable') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Short-term Debt</td>
+                    {showTTM && <td className={getColorClass(ttmData.short_term_debt)}>{formatNumber(ttmData.short_term_debt)}</td>}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'liabilities.current_liabilities.short_term_debt'))}>
+                        {formatNumber(getNestedValue(item, 'liabilities.current_liabilities.short_term_debt') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Deferred Revenue</td>
+                    {showTTM && <td className={getColorClass(ttmData.deferred_revenue)}>{formatNumber(ttmData.deferred_revenue)}</td>}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'liabilities.current_liabilities.deferred_revenue'))}>
+                        {formatNumber(getNestedValue(item, 'liabilities.current_liabilities.deferred_revenue') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Other Current Liabilities</td>
+                    {showTTM && <td className={getColorClass(ttmData.other_current_liabilities)}>{formatNumber(ttmData.other_current_liabilities)}</td>}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'liabilities.current_liabilities.other_current_liabilities'))}>
+                        {formatNumber(getNestedValue(item, 'liabilities.current_liabilities.other_current_liabilities') || 0)}
                       </td>
                     ))}
                   </tr>
                   <tr>
                     <td className={styles.bold}>Total Current Liabilities</td>
-                    {showTTM && (
-                      <td>
-                        {formatNumber(ttmData.total_current_liabilities)}
-                      </td>
-                    )}
+                    {showTTM && <td className={getColorClass(ttmData.total_current_liabilities)}>{formatNumber(ttmData.total_current_liabilities)}</td>}
                     {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date}>
-                        {formatNumber(item.liabilities?.current_liabilities?.total_current_liabilities || 0)}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className={styles.bold}>Long-term Debt</td>
-                    {showTTM && (
-                      <td>
-                        {formatNumber(ttmData.long_term_debt)}
-                      </td>
-                    )}
-                    {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date}>
-                        {formatNumber(item.liabilities?.non_current_liabilities?.long_term_debt || 0)}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className={styles.bold}>Total Liabilities</td>
-                    {showTTM && (
-                      <td>
-                        {formatNumber(ttmData.total_liabilities)}
-                      </td>
-                    )}
-                    {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date}>
-                        {formatNumber(item.liabilities?.total_liabilities || 0)}
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'liabilities.current_liabilities.total_current_liabilities'))}>
+                        {formatNumber(getNestedValue(item, 'liabilities.current_liabilities.total_current_liabilities') || 0)}
                       </td>
                     ))}
                   </tr>
                   
+                  {/* Non-Current Liabilities */}
+                  <tr><td colSpan={showTTM ? balance.balance_sheet.length + 2 : balance.balance_sheet.length + 1} className={`${styles.sectionHeader} ${styles.bold}`}>Non-Current Liabilities</td></tr>
                   <tr>
-                    <td className={styles.bold}>Shareholders Equity</td>
-                    {showTTM && (
-                      <td className={getColorClass(ttmData.total_shareholders_equity)}>
-                        {formatNumber(ttmData.total_shareholders_equity)}
-                      </td>
-                    )}
+                    <td>Long-term Debt</td>
+                    {showTTM && <td className={getColorClass(ttmData.long_term_debt)}>{formatNumber(ttmData.long_term_debt)}</td>}
                     {balance.balance_sheet.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.shareholders_equity?.total_shareholders_equity)}>
-                        {formatNumber(item.shareholders_equity?.total_shareholders_equity || 0)}
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'liabilities.non_current_liabilities.long_term_debt'))}>
+                        {formatNumber(getNestedValue(item, 'liabilities.non_current_liabilities.long_term_debt') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Other Non-Current Liabilities</td>
+                    {showTTM && <td className={getColorClass(ttmData.other_non_current_liabilities)}>{formatNumber(ttmData.other_non_current_liabilities)}</td>}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'liabilities.non_current_liabilities.other_non_current_liabilities'))}>
+                        {formatNumber(getNestedValue(item, 'liabilities.non_current_liabilities.other_non_current_liabilities') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className={styles.bold}>Total Non-Current Liabilities</td>
+                    {showTTM && <td className={getColorClass(ttmData.total_non_current_liabilities)}>{formatNumber(ttmData.total_non_current_liabilities)}</td>}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'liabilities.non_current_liabilities.total_non_current_liabilities'))}>
+                        {formatNumber(getNestedValue(item, 'liabilities.non_current_liabilities.total_non_current_liabilities') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  
+                  {/* Total Liabilities */}
+                  <tr>
+                    <td className={styles.bold}>Total Liabilities</td>
+                    {showTTM && <td className={getColorClass(ttmData.total_liabilities)}>{formatNumber(ttmData.total_liabilities)}</td>}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'liabilities.total_liabilities'))}>
+                        {formatNumber(getNestedValue(item, 'liabilities.total_liabilities') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  
+                  {/* Shareholders Equity */}
+                  <tr><td colSpan={showTTM ? balance.balance_sheet.length + 2 : balance.balance_sheet.length + 1} className={`${styles.sectionHeader} ${styles.bold}`}>Shareholders' Equity</td></tr>
+                  <tr>
+                    <td>Common Stock</td>
+                    {showTTM && <td className={getColorClass(ttmData.common_stock, true)}>{formatNumber(ttmData.common_stock)}</td>}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'shareholders_equity.common_stock'), true)}>
+                        {formatNumber(getNestedValue(item, 'shareholders_equity.common_stock') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Retained Earnings</td>
+                    {showTTM && <td className={getColorClass(ttmData.retained_earnings)}>{formatNumber(ttmData.retained_earnings)}</td>}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'shareholders_equity.retained_earnings'))}>
+                        {formatNumber(getNestedValue(item, 'shareholders_equity.retained_earnings') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Minority Interest</td>
+                    {showTTM && <td className={getColorClass(ttmData.minority_interest)}>{formatNumber(ttmData.minority_interest)}</td>}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'shareholders_equity.minority_interest'))}>
+                        {formatNumber(getNestedValue(item, 'shareholders_equity.minority_interest') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className={styles.bold}>Total Shareholders Equity</td>
+                    {showTTM && <td className={getColorClass(ttmData.total_shareholders_equity)}>{formatNumber(ttmData.total_shareholders_equity)}</td>}
+                    {balance.balance_sheet.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'shareholders_equity.total_shareholders_equity'))}>
+                        {formatNumber(getNestedValue(item, 'shareholders_equity.total_shareholders_equity') || 0)}
                       </td>
                     ))}
                   </tr>
@@ -565,7 +751,7 @@ export default async function FinancialsPage({
           )}
         </div>
 
-        {/* ✅ Cash Flow مع TTM بعد الـ Item */}
+        {/* Cash Flow Statement - جميع الـ Parameters */}
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>Cash Flow Statement</h2>
           {cashflow.cash_flow && cashflow.cash_flow.length > 0 ? (
@@ -583,45 +769,107 @@ export default async function FinancialsPage({
                   </tr>
                 </thead>
                 <tbody>
+                  {/* Operating Activities */}
+                  <tr><td colSpan={showTTM ? cashflow.cash_flow.length + 2 : cashflow.cash_flow.length + 1} className={`${styles.sectionHeader} ${styles.bold}`}>Operating Activities</td></tr>
                   <tr>
-                    <td className={styles.bold}>Cash Flow from Operations</td>
-                    {showTTM && (
-                      <td className={getColorClass(ttmData.operating_cash_flow)}>
-                        {formatNumber(ttmData.operating_cash_flow)}
-                      </td>
-                    )}
+                    <td>Net Income</td>
+                    {showTTM && <td className={getColorClass(ttmData.net_income)}>{formatNumber(ttmData.net_income)}</td>}
                     {cashflow.cash_flow.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.operating_activities?.operating_cash_flow)}>
-                        {formatNumber(item.operating_activities?.operating_cash_flow || 0)}
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'operating_activities.net_income'))}>
+                        {formatNumber(getNestedValue(item, 'operating_activities.net_income') || 0)}
                       </td>
                     ))}
                   </tr>
                   <tr>
-                    <td className={styles.bold}>Cash Flow from Investing</td>
-                    {showTTM && (
-                      <td className={getColorClass(ttmData.investing_cash_flow)}>
-                        {formatNumber(ttmData.investing_cash_flow)}
-                      </td>
-                    )}
+                    <td>Depreciation</td>
+                    {showTTM && <td className={getColorClass(ttmData.depreciation, true)}>{formatNumber(ttmData.depreciation)}</td>}
                     {cashflow.cash_flow.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.investing_activities?.investing_cash_flow)}>
-                        {formatNumber(item.investing_activities?.investing_cash_flow || 0)}
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'operating_activities.depreciation'), true)}>
+                        {formatNumber(getNestedValue(item, 'operating_activities.depreciation') || 0)}
                       </td>
                     ))}
                   </tr>
                   <tr>
-                    <td className={styles.bold}>Cash Flow from Financing</td>
-                    {showTTM && (
-                      <td className={getColorClass(ttmData.financing_cash_flow)}>
-                        {formatNumber(ttmData.financing_cash_flow)}
-                      </td>
-                    )}
+                    <td>Stock-Based Compensation</td>
+                    {showTTM && <td className={getColorClass(ttmData.stock_based_compensation, true)}>{formatNumber(ttmData.stock_based_compensation)}</td>}
                     {cashflow.cash_flow.map((item: any) => (
-                      <td key={item.fiscal_date} className={getColorClass(item.financing_activities?.financing_cash_flow)}>
-                        {formatNumber(item.financing_activities?.financing_cash_flow || 0)}
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'operating_activities.stock_based_compensation'), true)}>
+                        {formatNumber(getNestedValue(item, 'operating_activities.stock_based_compensation') || 0)}
                       </td>
                     ))}
                   </tr>
+                  <tr>
+                    <td>Accounts Receivable Change</td>
+                    {showTTM && <td className={getColorClass(ttmData.accounts_receivable_change)}>{formatNumber(ttmData.accounts_receivable_change)}</td>}
+                    {cashflow.cash_flow.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'operating_activities.accounts_receivable'))}>
+                        {formatNumber(getNestedValue(item, 'operating_activities.accounts_receivable') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Accounts Payable Change</td>
+                    {showTTM && <td className={getColorClass(ttmData.accounts_payable_change)}>{formatNumber(ttmData.accounts_payable_change)}</td>}
+                    {cashflow.cash_flow.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'operating_activities.accounts_payable'))}>
+                        {formatNumber(getNestedValue(item, 'operating_activities.accounts_payable') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className={styles.bold}>Operating Cash Flow</td>
+                    {showTTM && <td className={getColorClass(ttmData.operating_cash_flow)}>{formatNumber(ttmData.operating_cash_flow)}</td>}
+                    {cashflow.cash_flow.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'operating_activities.operating_cash_flow'))}>
+                        {formatNumber(getNestedValue(item, 'operating_activities.operating_cash_flow') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  
+                  {/* Investing Activities */}
+                  <tr><td colSpan={showTTM ? cashflow.cash_flow.length + 2 : cashflow.cash_flow.length + 1} className={`${styles.sectionHeader} ${styles.bold}`}>Investing Activities</td></tr>
+                  <tr>
+                    <td>Capital Expenditures</td>
+                    {showTTM && <td className={getColorClass(ttmData.capital_expenditures)}>{formatNumber(ttmData.capital_expenditures)}</td>}
+                    {cashflow.cash_flow.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'investing_activities.capital_expenditures'))}>
+                        {formatNumber(getNestedValue(item, 'investing_activities.capital_expenditures') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Net Acquisitions</td>
+                    {showTTM && <td className={getColorClass(ttmData.net_acquisitions)}>{formatNumber(ttmData.net_acquisitions)}</td>}
+                    {cashflow.cash_flow.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'investing_activities.net_acquisitions'))}>
+                        {formatNumber(getNestedValue(item, 'investing_activities.net_acquisitions') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className={styles.bold}>Investing Cash Flow</td>
+                    {showTTM && <td className={getColorClass(ttmData.investing_cash_flow)}>{formatNumber(ttmData.investing_cash_flow)}</td>}
+                    {cashflow.cash_flow.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'investing_activities.investing_cash_flow'))}>
+                        {formatNumber(getNestedValue(item, 'investing_activities.investing_cash_flow') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  
+                  {/* Financing Activities */}
+                  <tr><td colSpan={showTTM ? cashflow.cash_flow.length + 2 : cashflow.cash_flow.length + 1} className={`${styles.sectionHeader} ${styles.bold}`}>Financing Activities</td></tr>
+                  <tr>
+                    <td className={styles.bold}>Financing Cash Flow</td>
+                    {showTTM && <td className={getColorClass(ttmData.financing_cash_flow)}>{formatNumber(ttmData.financing_cash_flow)}</td>}
+                    {cashflow.cash_flow.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(getNestedValue(item, 'financing_activities.financing_cash_flow'))}>
+                        {formatNumber(getNestedValue(item, 'financing_activities.financing_cash_flow') || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  
+                  {/* Net Change & End Position */}
+                  <tr><td colSpan={showTTM ? cashflow.cash_flow.length + 2 : cashflow.cash_flow.length + 1} className={`${styles.sectionHeader} ${styles.bold}`}>Summary</td></tr>
                   <tr>
                     <td className={styles.bold}>Net Change in Cash</td>
                     {showTTM && (
@@ -639,9 +887,9 @@ export default async function FinancialsPage({
                     )}
                     {cashflow.cash_flow.map((item: any) => {
                       const netChange = 
-                        (item.operating_activities?.operating_cash_flow || 0) +
-                        (item.investing_activities?.investing_cash_flow || 0) +
-                        (item.financing_activities?.financing_cash_flow || 0);
+                        (getNestedValue(item, 'operating_activities.operating_cash_flow') || 0) +
+                        (getNestedValue(item, 'investing_activities.investing_cash_flow') || 0) +
+                        (getNestedValue(item, 'financing_activities.financing_cash_flow') || 0);
                       return (
                         <td key={item.fiscal_date} className={getColorClass(netChange)}>
                           {formatNumber(netChange)}
@@ -651,14 +899,37 @@ export default async function FinancialsPage({
                   </tr>
                   <tr>
                     <td className={styles.bold}>Free Cash Flow</td>
-                    {showTTM && (
-                      <td className={getColorClass(ttmData.free_cash_flow)}>
-                        {formatNumber(ttmData.free_cash_flow)}
-                      </td>
-                    )}
+                    {showTTM && <td className={getColorClass(ttmData.free_cash_flow)}>{formatNumber(ttmData.free_cash_flow)}</td>}
                     {cashflow.cash_flow.map((item: any) => (
                       <td key={item.fiscal_date} className={getColorClass(item.free_cash_flow)}>
                         {formatNumber(item.free_cash_flow || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>End Cash Position</td>
+                    {showTTM && <td className={getColorClass(ttmData.end_cash_position, true)}>{formatNumber(ttmData.end_cash_position)}</td>}
+                    {cashflow.cash_flow.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.end_cash_position, true)}>
+                        {formatNumber(item.end_cash_position || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Income Tax Paid</td>
+                    {showTTM && <td className={getColorClass(ttmData.income_tax_paid)}>{formatNumber(ttmData.income_tax_paid)}</td>}
+                    {cashflow.cash_flow.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.income_tax_paid)}>
+                        {formatNumber(item.income_tax_paid || 0)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td>Interest Paid</td>
+                    {showTTM && <td className={getColorClass(ttmData.interest_paid)}>{formatNumber(ttmData.interest_paid)}</td>}
+                    {cashflow.cash_flow.map((item: any) => (
+                      <td key={item.fiscal_date} className={getColorClass(item.interest_paid)}>
+                        {formatNumber(item.interest_paid || 0)}
                       </td>
                     ))}
                   </tr>
@@ -743,9 +1014,9 @@ export default async function FinancialsPage({
 //   console.log(`💰 Fetching financial data for ${symbol} - Country: ${country} - Period: ${period}`)
   
 //   const [incomeRes, balanceRes, cashflowRes] = await Promise.all([
-//     fetch(`https://web-production-e66c2.up.railway.app/financials/income_statement/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' }),
-//     fetch(`https://web-production-e66c2.up.railway.app/financials/balance_sheet/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' }),
-//     fetch(`https://web-production-e66c2.up.railway.app/financials/cash_flow/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' })
+//     fetch(`http://localhost:8000/financials/income_statement/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' }),
+//     fetch(`http://localhost:8000/financials/balance_sheet/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' }),
+//     fetch(`http://localhost:8000/financials/cash_flow/${cleanSym}?country=${country}&period=${period}&limit=6`, { cache: 'no-store' })
 //   ])
 
 //   if (!incomeRes.ok) throw new Error('Failed to fetch income statement')

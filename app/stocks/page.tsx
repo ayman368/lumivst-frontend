@@ -1,7 +1,108 @@
 'use client';
+
 import Link from 'next/link';
 import styles from '../styles/Stocks.module.css';
 import { useState, useMemo, useEffect } from 'react';
+
+// ==================== الواجهات ====================
+
+interface StockMetadata {
+  exchange: string;
+  mic_code: string;
+  currency: string;
+  datetime: string;
+  timestamp: number;
+  timezone: string;
+}
+
+interface Stock {
+  symbol: string;
+  name: string;
+  exchange: string;
+  sector: string;
+  industry: string;
+  
+  price: string | number;
+  change: string | number;
+  percent_change: string | number;
+  volume: string | number;
+  turnover: string | number;
+  
+  fifty_two_week?: { 
+    low: string; 
+    high: string;
+    low_change_percent?: string | number;
+    high_change_percent?: string | number;
+  };
+  fifty_two_week_high?: string;
+  fifty_two_week_low?: string;
+  fifty_two_week_low_change_percent?: string | number;
+  fifty_two_week_high_change_percent?: string | number;
+  
+  is_market_open: boolean;
+  datetime?: string;
+  timestamp?: number;
+  timezone?: string;
+  
+  rs_12m?: number | string | null;
+  rs_9m?: number | string | null;
+  rs_6m?: number | string | null;
+  rs_3m?: number | string | null;
+  rs_1m?: number | string | null;
+  rs_2w?: number | string | null;
+  rs_1w?: number | string | null;
+  rs_calculated?: number | null;
+  
+  change_12m?: number | null;
+  change_9m?: number | null;
+  change_6m?: number | null;
+  change_3m?: number | null;
+  change_1m?: number | null;
+  change_2w?: number | null;
+  change_1w?: number | null;
+}
+
+interface ApiResponse {
+  data: Stock[];
+  total: number;
+  metadata?: StockMetadata;
+  timestamp?: string;
+  country?: string;
+}
+
+interface FilterState {
+  symbol: string;
+  name: string;
+  exchange: string;
+  sector: string;
+  industry: string;
+  price: string;
+  change: string;
+  percent_change: string;
+  volume: string;
+  turnover: string;
+  fifty_two_week_high: string;
+  fifty_two_week_low: string;
+  fifty_two_week_high_change_percent: string;
+  fifty_two_week_low_change_percent: string;
+  
+  rs_12m: string;
+  rs_9m: string;
+  rs_6m: string;
+  rs_3m: string;
+  rs_1m: string;
+  rs_2w: string;
+  rs_1w: string;
+  rs_calculated: string;
+  
+  change_12m: string;
+  change_9m: string;
+  change_6m: string;
+  change_3m: string;
+  change_1m: string;
+  change_2w: string;
+  change_1w: string;
+}
 
 // ==================== دوال المساعدة ====================
 
@@ -33,6 +134,32 @@ function parseFormattedNumber(value: any, handleParentheses = false): number {
   return parseFloat(strValue.replace(/,/g, '')) || 0;
 }
 
+// دالة لعرض القيم كما هي من الـ API
+function displayRawValue(value: any): string {
+  if (value === null || value === undefined || value === '') return 'N/A';
+  
+  if (typeof value === 'number') {
+    return value.toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    });
+  }
+  
+  const strValue = String(value).trim();
+  if (strValue === 'N/A') return 'N/A';
+  
+  // محاولة تحويل إلى رقم وعرضه بدون كسور
+  const num = parseFloat(strValue.replace(/,/g, ''));
+  if (!isNaN(num)) {
+    return num.toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    });
+  }
+  
+  return strValue;
+}
+
 function formatNumber(value: any): string {
   if (!value || value === 'N/A') return 'N/A';
   
@@ -40,11 +167,11 @@ function formatNumber(value: any): string {
   if (isNaN(num) || num === 0) return 'N/A';
   
   if (num >= 1000000) {
-    return (num / 1000000).toFixed(2);
+    return (num / 1000000).toFixed(2) + 'M';
   }
   
   if (num >= 1000) {
-    return (num / 1000).toFixed(2);
+    return (num / 1000).toFixed(2) + 'K';
   }
   
   return num.toLocaleString('en-US', {
@@ -111,6 +238,26 @@ function get52WeekLowValue(stock: Stock): number {
   return 0;
 }
 
+function get52WeekLowChangePercentValue(stock: Stock): number {
+  if (stock.fifty_two_week?.low_change_percent && stock.fifty_two_week.low_change_percent !== 'N/A') {
+    return parseFormattedNumber(stock.fifty_two_week.low_change_percent);
+  }
+  if (stock.fifty_two_week_low_change_percent && stock.fifty_two_week_low_change_percent !== 'N/A') {
+    return parseFormattedNumber(stock.fifty_two_week_low_change_percent);
+  }
+  return 0;
+}
+
+function get52WeekHighChangePercentValue(stock: Stock): number {
+  if (stock.fifty_two_week?.high_change_percent && stock.fifty_two_week.high_change_percent !== 'N/A') {
+    return parseFormattedNumber(stock.fifty_two_week.high_change_percent);
+  }
+  if (stock.fifty_two_week_high_change_percent && stock.fifty_two_week_high_change_percent !== 'N/A') {
+    return parseFormattedNumber(stock.fifty_two_week_high_change_percent);
+  }
+  return 0;
+}
+
 function get52WeekHighDisplay(stock: Stock): string {
   const value = get52WeekHighValue(stock);
   return value > 0 ? formatNumber(value) : 'N/A';
@@ -121,9 +268,16 @@ function get52WeekLowDisplay(stock: Stock): string {
   return value > 0 ? formatNumber(value) : 'N/A';
 }
 
-// ==================== دوال RS و Change ====================
+function get52WeekLowChangePercentDisplay(stock: Stock): string {
+  const value = get52WeekLowChangePercentValue(stock);
+  return value !== 0 ? formatChangePercent(value) : 'N/A';
+}
 
-// ✅ دالة محدثة بدون أخطاء TypeScript
+function get52WeekHighChangePercentDisplay(stock: Stock): string {
+  const value = get52WeekHighChangePercentValue(stock);
+  return value !== 0 ? formatChangePercent(value) : 'N/A';
+}
+
 function formatRSCell(rsValue: number | string | null | undefined): string {
   if (rsValue === null || rsValue === undefined) return 'N/A';
   
@@ -175,8 +329,6 @@ function getChangeValueForSorting(stock: Stock, period: string): number {
   }
 }
 
-// ==================== دالة حساب RS المعدلة ====================
-
 function calculateCombinedRS(stock: Stock): number {
   try {
     const weights = {
@@ -198,10 +350,7 @@ function calculateCombinedRS(stock: Stock): number {
         ? parseFloat(rawValue) 
         : Number(rawValue);
       
-      if (isNaN(rsValue)) {
-        console.warn(`Invalid RS value for ${stock.symbol} ${period}:`, rawValue);
-        continue;
-      }
+      if (isNaN(rsValue)) continue;
 
       totalScore += rsValue * weight;
       totalWeight += weight;
@@ -218,78 +367,11 @@ function calculateCombinedRS(stock: Stock): number {
   }
 }
 
-// ==================== الواجهات ====================
-
-interface Stock {
-  symbol: string;
-  name: string;
-  exchange: string;
-  sector: string;
-  industry: string;
-  price: string | number;
-  change: string | number;
-  change_percent: string | number;
-  volume: string | number;
-  turnover: string | number;
-  fifty_two_week?: { low: string; high: string };
-  fifty_two_week_high?: string;
-  fifty_two_week_low?: string;
-  is_market_open: boolean;
-  
-  rs_12m?: number | string | null;
-  rs_9m?: number | string | null;
-  rs_6m?: number | string | null;
-  rs_3m?: number | string | null;
-  rs_1m?: number | string | null;
-  rs_2w?: number | string | null;
-  rs_1w?: number | string | null;
-  rs_calculated?: number | null;
-  
-  change_12m?: number | null;
-  change_9m?: number | null;
-  change_6m?: number | null;
-  change_3m?: number | null;
-  change_1m?: number | null;
-  change_2w?: number | null;
-  change_1w?: number | null;
-}
-
-interface FilterState {
-  symbol: string;
-  name: string;
-  exchange: string;
-  sector: string;
-  industry: string;
-  price: string;
-  change: string;
-  change_percent: string;
-  volume: string;
-  turnover: string;
-  fifty_two_week_high: string;
-  fifty_two_week_low: string;
-  
-  rs_12m: string;
-  rs_9m: string;
-  rs_6m: string;
-  rs_3m: string;
-  rs_1m: string;
-  rs_2w: string;
-  rs_1w: string;
-  rs_calculated: string;
-  
-  change_12m: string;
-  change_9m: string;
-  change_6m: string;
-  change_3m: string;
-  change_1m: string;
-  change_2w: string;
-  change_1w: string;
-}
-
 // ==================== المكون الرئيسي ====================
 
 export default function StocksPage() {
   const [stocks, setStocks] = useState<Stock[]>([]);
+  const [metadata, setMetadata] = useState<StockMetadata | null>(null);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -303,11 +385,13 @@ export default function StocksPage() {
     industry: '',
     price: '',
     change: '',
-    change_percent: '',
+    percent_change: '',
     volume: '',
     turnover: '',
     fifty_two_week_high: '',
     fifty_two_week_low: '',
+    fifty_two_week_high_change_percent: '',
+    fifty_two_week_low_change_percent: '',
     
     rs_12m: '',
     rs_9m: '',
@@ -331,7 +415,7 @@ export default function StocksPage() {
     async function fetchStocks() {
       try {
         setLoading(true);
-        const res = await fetch(`https://web-production-e66c2.up.railway.app/stocks/saudi/bulk?country=Saudi%20Arabia`, {
+        const res = await fetch(`http://localhost:8000/stocks/saudi/bulk?country=Saudi%20Arabia`, {
           cache: 'no-store',
           headers: { 'Content-Type': 'application/json' }
         });
@@ -340,28 +424,17 @@ export default function StocksPage() {
           throw new Error(`فشل في جلب البيانات: ${res.status} ${res.statusText}`);
         }
 
-        const data = await res.json();
+        const data: ApiResponse = await res.json();
         
-        const stocksWithCalculatedRS = (data.data || []).map((stock: Stock) => {
-          const calculated = calculateCombinedRS(stock);
-          
-          if (stock.symbol === '8313') {
-            console.log('🔍 Verification 8313:', {
-              raw: {
-                rs_12m: stock.rs_12m,
-                rs_9m: stock.rs_9m,
-                rs_6m: stock.rs_6m,
-                rs_3m: stock.rs_3m
-              },
-              calculated: calculated,
-            });
-          }
-          
-          return {
-            ...stock,
-            rs_calculated: calculated
-          };
-        });
+        if (data.metadata) {
+          setMetadata(data.metadata);
+          console.log('📊 Saudi Time Metadata:', data.metadata);
+        }
+        
+        const stocksWithCalculatedRS = (data.data || []).map((stock: Stock) => ({
+          ...stock,
+          rs_calculated: calculateCombinedRS(stock)
+        }));
         
         setStocks(stocksWithCalculatedRS);
         setTotal(data.total || 0);
@@ -416,11 +489,13 @@ export default function StocksPage() {
       case 'industry': return stock.industry || '';
       case 'price': return parseFormattedNumber(stock.price);
       case 'change': return parseFormattedNumber(stock.change, true);
-      case 'change_percent': return parseFormattedNumber(stock.change_percent);
+      case 'percent_change': return parseFormattedNumber(stock.percent_change);
       case 'volume': return parseFormattedNumber(stock.volume);
       case 'turnover': return parseFormattedNumber(stock.turnover);
       case 'fifty_two_week_high': return get52WeekHighValue(stock);
       case 'fifty_two_week_low': return get52WeekLowValue(stock);
+      case 'fifty_two_week_high_change_percent': return get52WeekHighChangePercentValue(stock);
+      case 'fifty_two_week_low_change_percent': return get52WeekLowChangePercentValue(stock);
       
       case 'rs_12m': return getRSValueForSorting(stock, 'rs_12m');
       case 'rs_9m': return getRSValueForSorting(stock, 'rs_9m');
@@ -450,36 +525,39 @@ export default function StocksPage() {
       const exchangeMatch = !filters.exchange || (stock.exchange || '').toLowerCase().includes(filters.exchange.toLowerCase());
       const sectorMatch = !filters.sector || (stock.sector || '').toLowerCase().includes(filters.sector.toLowerCase());
       const industryMatch = !filters.industry || (stock.industry || '').toLowerCase().includes(filters.industry.toLowerCase());
-      const priceMatch = !filters.price || formatNumber(stock.price).includes(filters.price);
-      const changeMatch = !filters.change || formatChange(stock.change).includes(filters.change);
-      const changePercentMatch = !filters.change_percent || formatChangePercent(stock.change_percent).includes(filters.change_percent);
-      const volumeMatch = !filters.volume || formatNumber(stock.volume).includes(filters.volume);
-      const turnoverMatch = !filters.turnover || formatNumber(stock.turnover).includes(filters.turnover);
-      const highMatch = !filters.fifty_two_week_high || get52WeekHighDisplay(stock).includes(filters.fifty_two_week_high);
-      const lowMatch = !filters.fifty_two_week_low || get52WeekLowDisplay(stock).includes(filters.fifty_two_week_low);
+      const priceMatch = !filters.price || displayRawValue(stock.price).includes(filters.price);
+      const changeMatch = !filters.change || displayRawValue(stock.change).includes(filters.change);
+      const changePercentMatch = !filters.percent_change || displayRawValue(stock.percent_change).includes(filters.percent_change);
+      const volumeMatch = !filters.volume || displayRawValue(stock.volume).includes(filters.volume);
+      const turnoverMatch = !filters.turnover || displayRawValue(stock.turnover).includes(filters.turnover);
+      const highMatch = !filters.fifty_two_week_high || displayRawValue(stock.fifty_two_week_high || stock.fifty_two_week?.high).includes(filters.fifty_two_week_high);
+      const lowMatch = !filters.fifty_two_week_low || displayRawValue(stock.fifty_two_week_low || stock.fifty_two_week?.low).includes(filters.fifty_two_week_low);
+      const highChangePercentMatch = !filters.fifty_two_week_high_change_percent || displayRawValue(stock.fifty_two_week_high_change_percent || stock.fifty_two_week?.high_change_percent).includes(filters.fifty_two_week_high_change_percent);
+      const lowChangePercentMatch = !filters.fifty_two_week_low_change_percent || displayRawValue(stock.fifty_two_week_low_change_percent || stock.fifty_two_week?.low_change_percent).includes(filters.fifty_two_week_low_change_percent);
       
-      const rs12mMatch = !filters.rs_12m || formatRSCell(stock.rs_12m).includes(filters.rs_12m);
-      const rs9mMatch = !filters.rs_9m || formatRSCell(stock.rs_9m).includes(filters.rs_9m); // ✅ تصحيح typo
-      const rs6mMatch = !filters.rs_6m || formatRSCell(stock.rs_6m).includes(filters.rs_6m);
-      const rs3mMatch = !filters.rs_3m || formatRSCell(stock.rs_3m).includes(filters.rs_3m);
-      const rs1mMatch = !filters.rs_1m || formatRSCell(stock.rs_1m).includes(filters.rs_1m);
-      const rs2wMatch = !filters.rs_2w || formatRSCell(stock.rs_2w).includes(filters.rs_2w);
-      const rs1wMatch = !filters.rs_1w || formatRSCell(stock.rs_1w).includes(filters.rs_1w);
-      const rsCalculatedMatch = !filters.rs_calculated || formatRSCell(stock.rs_calculated).includes(filters.rs_calculated);
+      const rs12mMatch = !filters.rs_12m || displayRawValue(stock.rs_12m).includes(filters.rs_12m);
+      const rs9mMatch = !filters.rs_9m || displayRawValue(stock.rs_9m).includes(filters.rs_9m);
+      const rs6mMatch = !filters.rs_6m || displayRawValue(stock.rs_6m).includes(filters.rs_6m);
+      const rs3mMatch = !filters.rs_3m || displayRawValue(stock.rs_3m).includes(filters.rs_3m);
+      const rs1mMatch = !filters.rs_1m || displayRawValue(stock.rs_1m).includes(filters.rs_1m);
+      const rs2wMatch = !filters.rs_2w || displayRawValue(stock.rs_2w).includes(filters.rs_2w);
+      const rs1wMatch = !filters.rs_1w || displayRawValue(stock.rs_1w).includes(filters.rs_1w);
+      const rsCalculatedMatch = !filters.rs_calculated || displayRawValue(stock.rs_calculated).includes(filters.rs_calculated);
       
-      const change12mMatch = !filters.change_12m || formatChangePeriod(stock.change_12m).includes(filters.change_12m);
-      const change9mMatch = !filters.change_9m || formatChangePeriod(stock.change_9m).includes(filters.change_9m);
-      const change6mMatch = !filters.change_6m || formatChangePeriod(stock.change_6m).includes(filters.change_6m);
-      const change3mMatch = !filters.change_3m || formatChangePeriod(stock.change_3m).includes(filters.change_3m);
-      const change1mMatch = !filters.change_1m || formatChangePeriod(stock.change_1m).includes(filters.change_1m);
-      const change2wMatch = !filters.change_2w || formatChangePeriod(stock.change_2w).includes(filters.change_2w);
-      const change1wMatch = !filters.change_1w || formatChangePeriod(stock.change_1w).includes(filters.change_1w);
+      const change12mMatch = !filters.change_12m || displayRawValue(stock.change_12m).includes(filters.change_12m);
+      const change9mMatch = !filters.change_9m || displayRawValue(stock.change_9m).includes(filters.change_9m);
+      const change6mMatch = !filters.change_6m || displayRawValue(stock.change_6m).includes(filters.change_6m);
+      const change3mMatch = !filters.change_3m || displayRawValue(stock.change_3m).includes(filters.change_3m);
+      const change1mMatch = !filters.change_1m || displayRawValue(stock.change_1m).includes(filters.change_1m);
+      const change2wMatch = !filters.change_2w || displayRawValue(stock.change_2w).includes(filters.change_2w);
+      const change1wMatch = !filters.change_1w || displayRawValue(stock.change_1w).includes(filters.change_1w);
 
       return symbolMatch && nameMatch && exchangeMatch && sectorMatch && industryMatch &&
              priceMatch && changeMatch && changePercentMatch && volumeMatch && turnoverMatch &&
-             highMatch && lowMatch && rs12mMatch && rs9mMatch && rs6mMatch && rs3mMatch && 
-             rs1mMatch && rs2wMatch && rs1wMatch && rsCalculatedMatch && change12mMatch && change9mMatch && change6mMatch &&
-             change3mMatch && change1mMatch && change2wMatch && change1wMatch;
+             highMatch && lowMatch && highChangePercentMatch && lowChangePercentMatch &&
+             rs12mMatch && rs9mMatch && rs6mMatch && rs3mMatch && 
+             rs1mMatch && rs2wMatch && rs1wMatch && rsCalculatedMatch && change12mMatch && 
+             change9mMatch && change6mMatch && change3mMatch && change1mMatch && change2wMatch && change1wMatch;
     });
 
     if (sortConfigs.length === 0) return filtered;
@@ -556,6 +634,24 @@ export default function StocksPage() {
 
   return (
     <div className={styles.container}>
+      {/* ⭐ عرض Metadata */}
+      {metadata && (
+        <div className={styles.metadataBar}>
+          <div className={styles.metadataItem}>
+            <strong>Exchange:</strong> {metadata.exchange}
+          </div>
+          <div className={styles.metadataItem}>
+            <strong>Currency:</strong> {metadata.currency}
+          </div>
+          <div className={styles.metadataItem}>
+            <strong>Time:</strong> {metadata.datetime}
+          </div>
+          <div className={styles.metadataItem}>
+            <strong>Timezone:</strong> {metadata.timezone}
+          </div>
+        </div>
+      )}
+      
       <div className={styles.tableContainer}>
         <div className={styles.resultsCount}>
           Showing <strong>{filteredAndSortedStocks.length}</strong> of <strong>{stocks.length}</strong> stocks
@@ -575,11 +671,13 @@ export default function StocksPage() {
                 { key: 'industry', label: 'Industry' },
                 { key: 'price', label: 'Price' },
                 { key: 'change', label: 'Change' },
-                { key: 'change_percent', label: 'Change %' },
+                { key: 'percent_change', label: 'Change %' },
                 { key: 'volume', label: 'Volume' },
                 { key: 'turnover', label: 'Turnover' },
                 { key: 'fifty_two_week_high', label: '52W High' },
                 { key: 'fifty_two_week_low', label: '52W Low' },
+                { key: 'fifty_two_week_high_change_percent', label: '52W High %' },
+                { key: 'fifty_two_week_low_change_percent', label: '52W Low %' },
                 
                 { key: 'rs_12m', label: 'RS 12M' },
                 { key: 'rs_9m', label: 'RS 9M' },
@@ -588,7 +686,7 @@ export default function StocksPage() {
                 { key: 'rs_1m', label: 'RS 1M' },
                 { key: 'rs_2w', label: 'RS 2W' },
                 { key: 'rs_1w', label: 'RS 1W' },
-                { key: 'rs_calculated', label: 'RS Weighted' },
+                { key: 'rs_calculated', label: 'RS' },
                 
                 { key: 'change_12m', label: 'Change 12M' },
                 { key: 'change_9m', label: 'Change 9M' },
@@ -613,6 +711,7 @@ export default function StocksPage() {
               })}
             </tr>
             
+            {/* ⭐ الـ Filter Row */}
             <tr className={styles.filterRow}>
               <td><input type="text" placeholder="Filter..." value={filters.symbol} onChange={(e) => handleFilterChange('symbol', e.target.value)} className={styles.filterInput} /></td>
               <td><input type="text" placeholder="Filter..." value={filters.name} onChange={(e) => handleFilterChange('name', e.target.value)} className={styles.filterInput} /></td>
@@ -621,11 +720,13 @@ export default function StocksPage() {
               <td><input type="text" placeholder="Filter..." value={filters.industry} onChange={(e) => handleFilterChange('industry', e.target.value)} className={styles.filterInput} /></td>
               <td><input type="text" placeholder="Filter..." value={filters.price} onChange={(e) => handleFilterChange('price', e.target.value)} className={styles.filterInput} /></td>
               <td><input type="text" placeholder="Filter..." value={filters.change} onChange={(e) => handleFilterChange('change', e.target.value)} className={styles.filterInput} /></td>
-              <td><input type="text" placeholder="Filter..." value={filters.change_percent} onChange={(e) => handleFilterChange('change_percent', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.percent_change} onChange={(e) => handleFilterChange('percent_change', e.target.value)} className={styles.filterInput} /></td>
               <td><input type="text" placeholder="Filter..." value={filters.volume} onChange={(e) => handleFilterChange('volume', e.target.value)} className={styles.filterInput} /></td>
               <td><input type="text" placeholder="Filter..." value={filters.turnover} onChange={(e) => handleFilterChange('turnover', e.target.value)} className={styles.filterInput} /></td>
               <td><input type="text" placeholder="Filter..." value={filters.fifty_two_week_high} onChange={(e) => handleFilterChange('fifty_two_week_high', e.target.value)} className={styles.filterInput} /></td>
               <td><input type="text" placeholder="Filter..." value={filters.fifty_two_week_low} onChange={(e) => handleFilterChange('fifty_two_week_low', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.fifty_two_week_high_change_percent} onChange={(e) => handleFilterChange('fifty_two_week_high_change_percent', e.target.value)} className={styles.filterInput} /></td>
+              <td><input type="text" placeholder="Filter..." value={filters.fifty_two_week_low_change_percent} onChange={(e) => handleFilterChange('fifty_two_week_low_change_percent', e.target.value)} className={styles.filterInput} /></td>
               
               <td><input type="text" placeholder="Filter..." value={filters.rs_12m} onChange={(e) => handleFilterChange('rs_12m', e.target.value)} className={styles.filterInput} /></td>
               <td><input type="text" placeholder="Filter..." value={filters.rs_9m} onChange={(e) => handleFilterChange('rs_9m', e.target.value)} className={styles.filterInput} /></td>
@@ -650,9 +751,14 @@ export default function StocksPage() {
             {filteredAndSortedStocks.map((stock: Stock) => {
               const cleanSym = cleanSymbol(stock.symbol);
               const changeNum = parseFormattedNumber(stock.change, true);
-              const changePercentNum = parseFormattedNumber(stock.change_percent);
+              const changePercentNum = parseFormattedNumber(stock.percent_change);
               const isChangeNegative = changeNum < 0;
               const isPercentNegative = changePercentNum < 0;
+              
+              const weekHighChangePercentNum = get52WeekHighChangePercentValue(stock);
+              const weekLowChangePercentNum = get52WeekLowChangePercentValue(stock);
+              const isWeekHighChangeNegative = weekHighChangePercentNum < 0;
+              const isWeekLowChangeNegative = weekLowChangePercentNum < 0;
               
               return (
                 <tr key={stock.symbol}>
@@ -663,11 +769,13 @@ export default function StocksPage() {
                   <td>{formatText(stock.industry)}</td>
                   <td>{formatNumber(stock.price)}</td>
                   <td className={isChangeNegative ? styles.negative : ''}>{formatChange(stock.change)}</td>
-                  <td className={isPercentNegative ? styles.negative : ''}>{formatChangePercent(stock.change_percent)}</td>
-                  <td>{formatNumber(stock.volume)}</td>
-                  <td>{formatNumber(stock.turnover)}</td>
+                  <td className={isPercentNegative ? styles.negative : ''}>{formatChangePercent(stock.percent_change)}</td>
+                  <td>{displayRawValue(stock.volume)}</td>
+                  <td>{displayRawValue(stock.turnover)}</td>
                   <td>{get52WeekHighDisplay(stock)}</td>
                   <td>{get52WeekLowDisplay(stock)}</td>
+                  <td className={isWeekHighChangeNegative ? styles.negative : ''}>{get52WeekHighChangePercentDisplay(stock)}</td>
+                  <td className={isWeekLowChangeNegative ? styles.negative : ''}>{get52WeekLowChangePercentDisplay(stock)}</td>
                   
                   <td className={styles.rsCell} dangerouslySetInnerHTML={{ __html: formatRSCell(stock.rs_12m) }} />
                   <td className={styles.rsCell} dangerouslySetInnerHTML={{ __html: formatRSCell(stock.rs_9m) }} />
@@ -694,7 +802,6 @@ export default function StocksPage() {
     </div>
   );
 }
-
 
 
 
@@ -890,7 +997,7 @@ export default function StocksPage() {
 //     async function fetchStocks() {
 //       try {
 //         setLoading(true);
-//         const res = await fetch(`https://web-production-e66c2.up.railway.app/api/stocks/saudi/bulk?country=Saudi%20Arabia`, {
+//         const res = await fetch(`http://localhost:8000/api/stocks/saudi/bulk?country=Saudi%20Arabia`, {
 //           cache: 'no-store',
 //           headers: {
 //             'Content-Type': 'application/json',

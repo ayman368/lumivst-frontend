@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 
-// const BASE_URL = 'https://web-production-e66c2.up.railway.app/'
-const BASE_URL = 'https://web-production-e66c2.up.railway.app'
+const BASE_URL = 'http://localhost:8000'
 
 
 export async function GET() {

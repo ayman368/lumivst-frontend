@@ -1,6 +1,8 @@
-/* Footer Styles - Matching Navbar Theme */
+/* footer.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 .footer-gf {
-  background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
+  background: linear-gradient(135deg, #273c97 0%, #210838 100%);
   color: white;
   padding: 3rem 0 1rem;
   margin-top: auto;
