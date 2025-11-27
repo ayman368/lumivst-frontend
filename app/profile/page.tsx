@@ -12,6 +12,8 @@ export default function ProfilePage() {
     const [message, setMessage] = useState({ type: '', text: '' });
     const [isSaving, setIsSaving] = useState(false);
 
+    console.log('📄 ProfilePage render, user:', user?.email || 'null', 'loading:', loading);
+
     useEffect(() => {
         if (user) {
             setFullName(user.full_name);
@@ -70,8 +72,11 @@ export default function ProfilePage() {
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
                 <div className="text-center p-8 bg-white rounded-xl shadow-lg max-w-md w-full">
                     <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">جاري التحويل...</h2>
-                    <p className="text-gray-600 mb-6">يتم تحويلك إلى صفحة تسجيل الدخول</p>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">يرجى تسجيل الدخول</h2>
+                    <p className="text-gray-600 mb-6">يجب عليك تسجيل الدخول للوصول إلى هذه الصفحة</p>
+                    <Link href="/login" className="inline-block w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+                        تسجيل الدخول
+                    </Link>
                 </div>
             </div>
         );
