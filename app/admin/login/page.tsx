@@ -26,6 +26,7 @@ export default function AdminLoginPage() {
 
             const { access_token } = response.data;
             localStorage.setItem('token', access_token);
+            document.cookie = `token=${access_token}; path=/; max-age=86400; SameSite=Lax`;
 
             // Check if user is admin (optional: you might want to decode token or fetch user profile)
             // For now, we assume if login works, we redirect to dashboard, 

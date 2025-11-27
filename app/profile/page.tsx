@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../providers/AuthProvider';
 import { User, Mail, Lock, Save, AlertCircle, Check } from 'lucide-react';
 import Link from 'next/link';
@@ -11,6 +11,7 @@ export default function ProfilePage() {
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState({ type: '', text: '' });
     const [isSaving, setIsSaving] = useState(false);
+    const messageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     console.log('📄 ProfilePage render, user:', user?.email || 'null', 'loading:', loading);
 
@@ -21,8 +22,23 @@ export default function ProfilePage() {
         }
     }, [user]);
 
+    // Cleanup timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (messageTimeoutRef.current) {
+                clearTimeout(messageTimeoutRef.current);
+            }
+        };
+    }, []);
+
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Clear any existing timeout
+        if (messageTimeoutRef.current) {
+            clearTimeout(messageTimeoutRef.current);
+        }
+
         setMessage({ type: '', text: '' });
         setIsSaving(true);
 
@@ -47,10 +63,26 @@ export default function ProfilePage() {
                 throw new Error(data.detail || 'فشل تحديث البيانات');
             }
 
-            setMessage({ type: 'success', text: 'تم تحديث البيانات بنجاح' });
+            const updatedUser = await res.json();
+
+            // Update local state with new user data
+            setFullName(updatedUser.full_name);
+            setEmail(updatedUser.email);
             setPassword('');
+
+            setMessage({ type: 'success', text: 'تم تحديث البيانات بنجاح' });
+
+            // Clear success message after 3 seconds
+            messageTimeoutRef.current = setTimeout(() => {
+                setMessage({ type: '', text: '' });
+            }, 3000);
+
         } catch (err: any) {
             setMessage({ type: 'error', text: err.message });
+            // Clear error message after 5 seconds
+            messageTimeoutRef.current = setTimeout(() => {
+                setMessage({ type: '', text: '' });
+            }, 5000);
         } finally {
             setIsSaving(false);
         }

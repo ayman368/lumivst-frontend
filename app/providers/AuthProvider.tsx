@@ -57,13 +57,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userData = await res.json();
           console.log('✅ User authenticated:', userData.email);
           setUser(userData);
+          // Refresh cookie just in case
+          document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax`;
         } else {
           console.warn('⚠️ Auth check failed, removing token');
           localStorage.removeItem('token');
+          document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
         }
       } catch (e) {
         console.error('❌ Auth check error:', e);
         localStorage.removeItem('token');
+        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
       }
     }
     setLoading(false);
@@ -99,13 +103,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const data = await res.json();
     localStorage.setItem('token', data.access_token);
+    // Set cookie for middleware
+    document.cookie = `token=${data.access_token}; path=/; max-age=86400; SameSite=Lax`;
 
     console.log('✅ Login successful, setting user data...');
 
     // Backend returns user object in login response
     if (data.user) {
       setUser(data.user);
-      console.log('✅ User state updated:', data.user.email);
+      console.log('✅ User state updated:', data.user.full_name || data.user.email);
     } else {
       // Fallback if backend doesn't return user
       await checkAuth();
@@ -118,12 +124,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (email: string, password: string, fullName: string) => {
     if (!AUTH_ENABLED) {
-      console.log('� Register skipped – auth disabled');
+      console.log('🔓 Register skipped – auth disabled');
       window.location.href = '/';
       return;
     }
 
-    console.log('�🔄 Attempting registration...');
+    console.log('🔄 Attempting registration...');
     const res = await fetch(`${API_URL}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -162,6 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
     localStorage.removeItem('token');
+    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
     setUser(null);
     window.location.href = '/login';
   };
