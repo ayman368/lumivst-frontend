@@ -1,6 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useState, FormEvent } from 'react';
 import { TrendingUp, Mail, Lock, User, AlertCircle, Check } from 'lucide-react';
+import { useAuth } from '../providers/AuthProvider';
+import Link from 'next/link';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -8,29 +10,30 @@ export default function RegisterPage() {
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { register } = useAuth();
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     setError('');
     setLoading(true);
-    
+
     try {
-      // await register(email, password, fullName);
-      setTimeout(() => setLoading(false), 1000);
-    } catch (err) {
-      setError('فشل إنشاء الحساب. ربما البريد مسجل بالفعل');
+      await register(email, password, fullName);
+    } catch (err: any) {
+      setError(err.message || 'فشل إنشاء الحساب');
       setLoading(false);
     }
   };
 
   const passwordStrength = password.length > 0 ? (
     password.length < 6 ? 'ضعيفة' :
-    password.length < 10 ? 'متوسطة' : 'قوية'
+      password.length < 10 ? 'متوسطة' : 'قوية'
   ) : '';
 
-  const strengthColor = 
+  const strengthColor =
     passwordStrength === 'ضعيفة' ? 'bg-red-500' :
-    passwordStrength === 'متوسطة' ? 'bg-yellow-500' :
-    'bg-green-500';
+      passwordStrength === 'متوسطة' ? 'bg-yellow-500' :
+        'bg-green-500';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
@@ -56,7 +59,7 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <div className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {/* Full Name Input */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -70,6 +73,7 @@ export default function RegisterPage() {
                   placeholder="أدخل اسمك الكامل"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
+                  required
                 />
               </div>
             </div>
@@ -87,6 +91,7 @@ export default function RegisterPage() {
                   placeholder="example@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  required
                 />
               </div>
             </div>
@@ -104,27 +109,27 @@ export default function RegisterPage() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  required
                 />
               </div>
-              
+
               {/* Password Strength Indicator */}
               {password.length > 0 && (
                 <div className="mt-2">
                   <div className="flex items-center gap-2 mb-1">
                     <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
+                      <div
                         className={`h-full ${strengthColor} transition-all duration-300`}
                         style={{
                           width: password.length < 6 ? '33%' :
-                                 password.length < 10 ? '66%' : '100%'
+                            password.length < 10 ? '66%' : '100%'
                         }}
                       ></div>
                     </div>
-                    <span className={`text-xs font-semibold ${
-                      passwordStrength === 'ضعيفة' ? 'text-red-600' :
-                      passwordStrength === 'متوسطة' ? 'text-yellow-600' :
-                      'text-green-600'
-                    }`}>
+                    <span className={`text-xs font-semibold ${passwordStrength === 'ضعيفة' ? 'text-red-600' :
+                        passwordStrength === 'متوسطة' ? 'text-yellow-600' :
+                          'text-green-600'
+                      }`}>
                       {passwordStrength}
                     </span>
                   </div>
@@ -141,6 +146,7 @@ export default function RegisterPage() {
                 type="checkbox"
                 id="terms"
                 className="mt-1 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
+                required
               />
               <label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
                 أوافق على{' '}
@@ -156,7 +162,7 @@ export default function RegisterPage() {
 
             {/* Submit Button */}
             <button
-              onClick={handleSubmit}
+              type="submit"
               disabled={loading}
               className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3.5 rounded-lg transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
@@ -172,7 +178,7 @@ export default function RegisterPage() {
                 </>
               )}
             </button>
-          </div>
+          </form>
 
           {/* Features List */}
           <div className="mt-6 pt-6 border-t border-gray-200">
@@ -206,9 +212,9 @@ export default function RegisterPage() {
           <div className="text-center">
             <p className="text-gray-600">
               لديك حساب بالفعل؟{' '}
-              <a href="/login" className="text-blue-600 hover:text-blue-700 font-bold transition">
+              <Link href="/login" className="text-blue-600 hover:text-blue-700 font-bold transition">
                 سجل دخول
-              </a>
+              </Link>
             </p>
           </div>
         </div>

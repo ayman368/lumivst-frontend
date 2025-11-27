@@ -3,12 +3,15 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from '../app/providers/AuthProvider'
 import styles from '../app/styles/Navbar.module.css'
+import { User } from 'lucide-react'
 
 export default function Navbar() {
   const [activeMobile, setActiveMobile] = useState(false)
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
+  const [showUserMenu, setShowUserMenu] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
   const navbarRef = useRef<HTMLDivElement>(null)
+  const userMenuRef = useRef<HTMLDivElement>(null)
   const { user, logout } = useAuth()
 
   const menuItems = {
@@ -66,6 +69,7 @@ export default function Navbar() {
   const handleLogout = async () => {
     try {
       await logout()
+      setShowUserMenu(false)
     } catch (error) {
       console.error('Logout failed:', error)
     }
@@ -77,6 +81,9 @@ export default function Navbar() {
       if (navbarRef.current && !navbarRef.current.contains(event.target as Node)) {
         setActiveDropdown(null)
         setActiveMobile(false)
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false)
       }
     }
 
@@ -180,12 +187,36 @@ export default function Navbar() {
 
             {/* Conditional Rendering based on user login status */}
             {user ? (
-              <button
-                onClick={handleLogout}
-                className={`${styles['navbar-auth-link']} ${styles.login}`}
-              >
-                Logout
-              </button>
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-50 hover:bg-blue-100 transition-colors border border-blue-200"
+                >
+                  <User size={20} className="text-blue-600" />
+                </button>
+
+                {showUserMenu && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl py-2 z-50 border border-gray-100 transform origin-top-right">
+                    <div className="px-4 py-2 border-b border-gray-100">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{user.full_name}</p>
+                      <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                    </div>
+                    <Link
+                      href="/profile"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      Profile
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
               <>
                 <Link href="/login" className={`${styles['navbar-auth-link']} ${styles.login}`}>

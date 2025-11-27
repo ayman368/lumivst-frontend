@@ -21,16 +21,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Read env variable to enable/disable auth (default enabled)
 const AUTH_ENABLED = process.env.NEXT_PUBLIC_AUTH_ENABLED !== 'false';
+const API_URL = 'http://127.0.0.1:8000';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  console.log('🔄 AuthProvider render, user:', user?.email || 'null', 'loading:', loading);
+
   // When auth is disabled we treat the user as not logged in (null)
   useEffect(() => {
     if (!AUTH_ENABLED) {
-      // No fake user – keep user as null so Logout button is hidden
       setUser(null);
       setLoading(false);
       return;
@@ -41,18 +43,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkAuth = async () => {
     const token = localStorage.getItem('token');
+    console.log('🔍 Checking auth with token:', token ? 'Present' : 'Missing');
+
     if (token) {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, {
+        const res = await fetch(`${API_URL}/api/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+
+        console.log('🔍 Auth check response:', res.status);
+
         if (res.ok) {
           const userData = await res.json();
+          console.log('✅ User authenticated:', userData.email);
           setUser(userData);
         } else {
+          console.warn('⚠️ Auth check failed, removing token');
           localStorage.removeItem('token');
         }
       } catch (e) {
+        console.error('❌ Auth check error:', e);
         localStorage.removeItem('token');
       }
     }
@@ -64,30 +74,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('🔓 Login skipped – auth disabled');
       return;
     }
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
+
+    console.log('🔄 Attempting login...');
+    const res = await fetch(`${API_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    if (!res.ok) throw new Error('فشل تسجيل الدخول');
+
+    if (res.status === 404) {
+      throw new Error('NOT_FOUND');
+    }
+
+    if (!res.ok) {
+      let errorMessage = 'فشل تسجيل الدخول';
+      try {
+        const errorData = await res.json();
+        errorMessage = errorData.detail || errorMessage;
+      } catch (e) {
+        // If json parsing fails, use default message
+      }
+      throw new Error(errorMessage);
+    }
+
     const data = await res.json();
     localStorage.setItem('token', data.access_token);
-    setUser(data.user);
-    router.push('/dashboard');
+
+    console.log('✅ Login successful, setting user data...');
+
+    // Backend returns user object in login response
+    if (data.user) {
+      setUser(data.user);
+      console.log('✅ User state updated:', data.user.email);
+    } else {
+      // Fallback if backend doesn't return user
+      await checkAuth();
+    }
+
+    console.log('🔄 Navigating to home...');
+    router.push('/');
   };
 
   const register = async (email: string, password: string, fullName: string) => {
     if (!AUTH_ENABLED) {
       console.log('🔓 Register skipped – auth disabled');
-      router.push('/dashboard');
+      router.push('/');
       return;
     }
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`, {
+
+    console.log('🔄 Attempting registration...');
+    const res = await fetch(`${API_URL}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, full_name: fullName }),
     });
-    if (!res.ok) throw new Error('فشل التسجيل');
+
+    if (!res.ok) {
+      let errorMessage = 'فشل التسجيل';
+      try {
+        const errorData = await res.json();
+        errorMessage = errorData.detail || errorMessage;
+      } catch (e) {
+        // If json parsing fails, use default message
+      }
+      throw new Error(errorMessage);
+    }
+
+    console.log('✅ Registration successful, navigating to login...');
     router.push('/login');
   };
 
@@ -98,10 +151,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const token = localStorage.getItem('token');
     if (token && user) {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout?user_id=${user.id}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      try {
+        await fetch(`${API_URL}/api/auth/logout?user_id=${user.id}`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch (e) {
+        console.error("Logout failed", e);
+      }
     }
     localStorage.removeItem('token');
     setUser(null);
