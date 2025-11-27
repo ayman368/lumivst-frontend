@@ -112,17 +112,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     console.log('🔄 Navigating to home...');
-    router.push('/');
+    // Use window.location.href for reliable full page navigation
+    window.location.href = '/';
   };
 
   const register = async (email: string, password: string, fullName: string) => {
     if (!AUTH_ENABLED) {
-      console.log('🔓 Register skipped – auth disabled');
-      router.push('/');
+      console.log('� Register skipped – auth disabled');
+      window.location.href = '/';
       return;
     }
 
-    console.log('🔄 Attempting registration...');
+    console.log('�🔄 Attempting registration...');
     const res = await fetch(`${API_URL}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -141,7 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     console.log('✅ Registration successful, navigating to login...');
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   const logout = async () => {
@@ -162,7 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     localStorage.removeItem('token');
     setUser(null);
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   return (
