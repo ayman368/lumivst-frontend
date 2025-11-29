@@ -1,12 +1,10 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../providers/AuthProvider';
 
-export default function GoogleCallbackPage() {
+function GoogleCallbackContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { setUser } = useAuth();
@@ -21,7 +19,7 @@ export default function GoogleCallbackPage() {
 
         const exchangeCode = async () => {
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/google/callback?code=${code}`, {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/auth/google/callback?code=${code}`, {
                     method: 'POST',
                 });
 
@@ -34,7 +32,7 @@ export default function GoogleCallbackPage() {
 
                 // Store token
                 localStorage.setItem('token', data.access_token);
-                document.cookie = `token=${data.access_token}; path=/; max-age=86400; SameSite=Lax`;
+                document.cookie = `token=${data.access_token}; path=/; max-age=2592000; SameSite=Lax`;
 
                 // Update user state
                 setUser(data.user);
@@ -73,5 +71,20 @@ export default function GoogleCallbackPage() {
                 <h1 className="text-xl font-semibold text-gray-900">Completing Secure Login...</h1>
             </div>
         </div>
+    );
+}
+
+export default function GoogleCallbackPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-white">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
+                    <h1 className="text-xl font-semibold text-gray-900">Loading...</h1>
+                </div>
+            </div>
+        }>
+            <GoogleCallbackContent />
+        </Suspense>
     );
 }
