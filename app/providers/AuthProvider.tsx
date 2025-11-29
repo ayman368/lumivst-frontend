@@ -11,8 +11,9 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
+  setUser: (user: User | null) => void;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, fullName: string) => Promise<void>;
+  register: (email: string, password: string, fullName?: string) => Promise<void>;
   logout: () => Promise<void>;
   loading: boolean;
 }
@@ -122,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.href = '/';
   };
 
-  const register = async (email: string, password: string, fullName: string) => {
+  const register = async (email: string, password: string, fullName?: string) => {
     if (!AUTH_ENABLED) {
       console.log('🔓 Register skipped – auth disabled');
       window.location.href = '/';
@@ -133,7 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await fetch(`${API_URL}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, full_name: fullName }),
+      body: JSON.stringify({ email, password, full_name: fullName || '' }),
     });
 
     if (!res.ok) {
@@ -147,8 +148,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(errorMessage);
     }
 
-    console.log('✅ Registration successful, navigating to login...');
-    window.location.href = '/login';
+    console.log('✅ Registration successful, logging in...');
+    const data = await res.json();
+    // data contains access_token
+    localStorage.setItem('token', data.access_token);
+    document.cookie = `token=${data.access_token}; path=/; max-age=86400; SameSite=Lax`;
+
+    // Fetch user data to update state
+    await checkAuth();
+
+    window.location.href = '/';
   };
 
   const logout = async () => {
@@ -174,7 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, setUser, login, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

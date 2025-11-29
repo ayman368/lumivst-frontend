@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from '../app/providers/AuthProvider'
 import styles from '../app/styles/Navbar.module.css'
-import { User } from 'lucide-react'
+import { User, LogOut } from 'lucide-react'
 
 export default function Navbar() {
   const [activeMobile, setActiveMobile] = useState(false)
@@ -218,14 +218,9 @@ export default function Navbar() {
                 )}
               </div>
             ) : (
-              <>
-                <Link href="/login" className={`${styles['navbar-auth-link']} ${styles.login}`}>
-                  Login
-                </Link>
-                <Link href="/register" className={`${styles['navbar-auth-link']} ${styles.signup}`}>
-                  Sign Up
-                </Link>
-              </>
+              <Link href="/login" className={`${styles['navbar-auth-link']} ${styles.login}`}>
+                Login
+              </Link>
             )}
           </div>
 

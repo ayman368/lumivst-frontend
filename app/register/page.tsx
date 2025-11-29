@@ -1,13 +1,208 @@
 'use client';
 import { useState, FormEvent } from 'react';
-import { TrendingUp, Mail, Lock, User, AlertCircle, Check } from 'lucide-react';
+import { Eye, EyeOff, Check, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../providers/AuthProvider';
 import Link from 'next/link';
+import { GoogleIcon, FacebookIcon } from '../components/ui/SocialIcons';
+import { motion, AnimatePresence } from 'framer-motion';
+
+interface LandingViewProps {
+  onEmailClick: () => void;
+  onSocialLogin: (provider: string) => void;
+}
+
+const LandingView = ({ onEmailClick, onSocialLogin }: LandingViewProps) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -20 }}
+    transition={{ duration: 0.3 }}
+    className="w-full max-w-[400px] space-y-8"
+  >
+    <div className="text-center space-y-4">
+      <h1 className="text-2xl font-bold text-gray-900 leading-tight">
+        Welcome to LUMIVST - <br />
+        the world's largest provider of <br />
+        investment analysis.
+      </h1>
+      <p className="text-gray-600 text-sm px-4">
+        Join now for unlimited access to ad-free investing news, portfolio tracking, and real-time alerts
+      </p>
+    </div>
+
+    <div className="space-y-3">
+      <button
+        onClick={onEmailClick}
+        className="w-full bg-black text-white font-bold py-3 rounded-lg hover:bg-gray-800 transition-colors"
+      >
+        Create Free Account
+      </button>
+
+      <button
+        onClick={() => onSocialLogin('Google')}
+        className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-lg py-2.5 px-4 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+      >
+        <GoogleIcon className="w-5 h-5" />
+        <span>Continue with Google</span>
+      </button>
+
+      <button
+        onClick={() => onSocialLogin('Facebook')}
+        className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-lg py-2.5 px-4 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+      >
+        <FacebookIcon className="w-5 h-5" />
+        <span>Continue with Facebook</span>
+      </button>
+    </div>
+
+    <div className="text-center">
+      <Link href="/login" className="text-blue-600 font-medium hover:underline">
+        Sign in with email
+      </Link>
+    </div>
+
+    <div className="text-center text-xs text-gray-500 px-4">
+      <p>
+        By creating an account using any of the options above, you agree to the{' '}
+        <Link href="/terms-of-service" className="text-blue-600 hover:underline">Terms of Use</Link>
+        {' '}&{' '}
+        <Link href="/privacy-policy" className="text-blue-600 hover:underline">Privacy Policy</Link>
+      </p>
+    </div>
+  </motion.div>
+);
+
+interface EmailFormViewProps {
+  onBack: () => void;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void;
+  loading: boolean;
+  error: string;
+  fullName: string;
+  setFullName: (val: string) => void;
+  email: string;
+  setEmail: (val: string) => void;
+  password: string;
+  setPassword: (val: string) => void;
+  showPassword: boolean;
+  setShowPassword: (val: boolean) => void;
+}
+
+const EmailFormView = ({
+  onBack,
+  onSubmit,
+  loading,
+  error,
+  fullName,
+  setFullName,
+  email,
+  setEmail,
+  password,
+  setPassword,
+  showPassword,
+  setShowPassword
+}: EmailFormViewProps) => (
+  <motion.div
+    initial={{ opacity: 0, x: 20 }}
+    animate={{ opacity: 1, x: 0 }}
+    exit={{ opacity: 0, x: -20 }}
+    transition={{ duration: 0.3 }}
+    className="w-full max-w-[400px] space-y-6"
+  >
+    <div className="flex items-center gap-2 mb-6">
+      <button
+        onClick={onBack}
+        className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+      >
+        <ArrowLeft className="w-5 h-5 text-gray-600" />
+      </button>
+      <h1 className="text-xl font-bold text-gray-900">Create Free Account</h1>
+    </div>
+
+    <form onSubmit={onSubmit} className="space-y-4">
+      {error && (
+        <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg">
+          {error}
+        </div>
+      )}
+
+      <div className="space-y-1">
+        <label className="block text-sm text-gray-600">Full Name</label>
+        <input
+          type="text"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
+          placeholder="John Doe"
+          required
+        />
+      </div>
+
+      <div className="space-y-1">
+        <label className="block text-sm text-gray-600">Email</label>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
+          placeholder="example@email.com"
+          required
+        />
+      </div>
+
+      <div className="space-y-1">
+        <label className="block text-sm text-gray-600">Password</label>
+        <div className="relative">
+          <input
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
+            placeholder="Min. 8 characters"
+            required
+            minLength={8}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          >
+            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-start gap-2 py-2">
+        <input
+          type="checkbox"
+          id="terms"
+          className="mt-1 w-4 h-4 rounded border-gray-300 text-black focus:ring-black"
+          required
+        />
+        <label htmlFor="terms" className="text-xs text-gray-600 leading-relaxed">
+          I agree to the{' '}
+          <Link href="/terms-of-service" className="text-blue-600 hover:underline">Terms of Use</Link>
+          {' '}and{' '}
+          <Link href="/privacy-policy" className="text-blue-600 hover:underline">Privacy Policy</Link>
+        </label>
+      </div>
+
+      <button
+        type="submit"
+        disabled={loading}
+        className="w-full bg-black text-white font-bold py-3 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {loading ? 'Creating Account...' : 'Create Account'}
+      </button>
+    </form>
+  </motion.div>
+);
 
 export default function RegisterPage() {
+  const [view, setView] = useState<'landing' | 'email-form'>('landing');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
@@ -20,210 +215,83 @@ export default function RegisterPage() {
     try {
       await register(email, password, fullName);
     } catch (err: any) {
-      setError(err.message || 'فشل إنشاء الحساب');
+      setError(err.message || 'Failed to create account');
       setLoading(false);
     }
   };
 
-  const passwordStrength = password.length > 0 ? (
-    password.length < 6 ? 'ضعيفة' :
-      password.length < 10 ? 'متوسطة' : 'قوية'
-  ) : '';
+  const handleSocialLogin = async (provider: string) => {
+    if (provider === 'Google') {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/google/login`);
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+        }
+      } catch (error) {
+        console.error('Google login error:', error);
+        alert('Failed to initialize Google Login');
+      }
+      return;
+    }
 
-  const strengthColor =
-    passwordStrength === 'ضعيفة' ? 'bg-red-500' :
-      passwordStrength === 'متوسطة' ? 'bg-yellow-500' :
-        'bg-green-500';
+    if (provider === 'Facebook') {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/facebook/login`);
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+        }
+      } catch (error) {
+        console.error('Facebook login error:', error);
+        alert('Failed to initialize Facebook Login');
+      }
+      return;
+    }
+
+    console.log(`Register with ${provider}`);
+    alert(`Register with ${provider} is coming soon!`);
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center p-4">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNiIgc3Ryb2tlPSIjMzMzIiBzdHJva2Utd2lkdGg9IjEiIG9wYWNpdHk9Ii4wNSIvPjwvZz48L3N2Zz4=')] opacity-40"></div>
-
-      <div className="relative w-full max-w-md">
-        {/* Logo Section */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl mb-4 shadow-lg shadow-blue-500/30">
-            <TrendingUp className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">إنشاء حساب جديد</h1>
-          <p className="text-gray-600">انضم إلينا وابدأ رحلتك الاستثمارية</p>
-        </div>
-
-        {/* Register Card */}
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-xl p-8">
-          {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <p className="text-red-700 text-sm">{error}</p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Full Name Input */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                الاسم الكامل
-              </label>
-              <div className="relative">
-                <User className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  className="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-11 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all placeholder:text-gray-400"
-                  placeholder="أدخل اسمك الكامل"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Email Input */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                البريد الإلكتروني
-              </label>
-              <div className="relative">
-                <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="email"
-                  className="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-11 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all placeholder:text-gray-400"
-                  placeholder="example@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Password Input */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                كلمة المرور
-              </label>
-              <div className="relative">
-                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="password"
-                  className="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg px-11 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all placeholder:text-gray-400"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-
-              {/* Password Strength Indicator */}
-              {password.length > 0 && (
-                <div className="mt-2">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${strengthColor} transition-all duration-300`}
-                        style={{
-                          width: password.length < 6 ? '33%' :
-                            password.length < 10 ? '66%' : '100%'
-                        }}
-                      ></div>
-                    </div>
-                    <span className={`text-xs font-semibold ${passwordStrength === 'ضعيفة' ? 'text-red-600' :
-                        passwordStrength === 'متوسطة' ? 'text-yellow-600' :
-                          'text-green-600'
-                      }`}>
-                      {passwordStrength}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    استخدم 10 أحرف على الأقل مع مزيج من الأحرف والأرقام
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Terms Checkbox */}
-            <div className="flex items-start gap-3 py-2">
-              <input
-                type="checkbox"
-                id="terms"
-                className="mt-1 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
-                required
-              />
-              <label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
-                أوافق على{' '}
-                <a href="#" className="text-blue-600 hover:text-blue-700 font-semibold transition">
-                  الشروط والأحكام
-                </a>
-                {' '}و{' '}
-                <a href="#" className="text-blue-600 hover:text-blue-700 font-semibold transition">
-                  سياسة الخصوصية
-                </a>
-              </label>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3.5 rounded-lg transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  جاري إنشاء الحساب...
-                </>
-              ) : (
-                <>
-                  <Check className="w-5 h-5" />
-                  إنشاء حساب
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Features List */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <div className="space-y-3">
-              {[
-                'تحليلات مالية متقدمة',
-                'متابعة المحفظة الاستثمارية',
-                'تنبيهات فورية للأسواق'
-              ].map((feature, i) => (
-                <div key={i} className="flex items-center gap-3 text-sm">
-                  <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                    <Check className="w-3 h-3 text-blue-600" />
-                  </div>
-                  <span className="text-gray-600 font-medium">{feature}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-gray-500">أو</span>
-            </div>
-          </div>
-
-          {/* Login Link */}
-          <div className="text-center">
-            <p className="text-gray-600">
-              لديك حساب بالفعل؟{' '}
-              <Link href="/login" className="text-blue-600 hover:text-blue-700 font-bold transition">
-                سجل دخول
-              </Link>
-            </p>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-8 text-center text-sm text-gray-500">
-          <p>بياناتك آمنة ومحمية بأعلى معايير الأمان</p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-b from-orange-50/50 via-white to-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      {/* Background Chart Effect (Subtle) */}
+      <div className="absolute bottom-0 left-0 right-0 h-64 opacity-10 pointer-events-none">
+        <svg viewBox="0 0 1440 320" className="w-full h-full" preserveAspectRatio="none">
+          <path fill="#f97316" fillOpacity="1" d="M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,224C672,245,768,267,864,261.3C960,256,1056,224,1152,197.3C1248,171,1344,149,1392,138.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
+        </svg>
       </div>
+
+      {/* Logo (Optional, if needed above) */}
+      <div className="absolute top-8 left-0 right-0 flex justify-center">
+        {/* <span className="text-2xl font-bold text-orange-600">LUMIVST</span> */}
+      </div>
+
+      <AnimatePresence mode="wait">
+        {view === 'landing' ? (
+          <LandingView
+            key="landing"
+            onEmailClick={() => setView('email-form')}
+            onSocialLogin={handleSocialLogin}
+          />
+        ) : (
+          <EmailFormView
+            key="email-form"
+            onBack={() => setView('landing')}
+            onSubmit={handleSubmit}
+            loading={loading}
+            error={error}
+            fullName={fullName}
+            setFullName={setFullName}
+            email={email}
+            setEmail={setEmail}
+            password={password}
+            setPassword={setPassword}
+            showPassword={showPassword}
+            setShowPassword={setShowPassword}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

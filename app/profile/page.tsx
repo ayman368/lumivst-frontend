@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../providers/AuthProvider';
-import { User, Mail, Lock, Save, AlertCircle, Check } from 'lucide-react';
+import { User, Mail, Lock, AlertCircle, Check, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ProfilePage() {
@@ -13,32 +13,23 @@ export default function ProfilePage() {
     const [isSaving, setIsSaving] = useState(false);
     const messageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    console.log('📄 ProfilePage render, user:', user?.email || 'null', 'loading:', loading);
-
     useEffect(() => {
         if (user) {
-            setFullName(user.full_name);
-            setEmail(user.email);
+            setFullName(user.full_name || '');
+            setEmail(user.email || '');
         }
     }, [user]);
 
-    // Cleanup timeout on unmount
+    // Cleanup timeout
     useEffect(() => {
         return () => {
-            if (messageTimeoutRef.current) {
-                clearTimeout(messageTimeoutRef.current);
-            }
+            if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
         };
     }, []);
 
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
-
-        // Clear any existing timeout
-        if (messageTimeoutRef.current) {
-            clearTimeout(messageTimeoutRef.current);
-        }
-
+        if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
         setMessage({ type: '', text: '' });
         setIsSaving(true);
 
@@ -60,26 +51,21 @@ export default function ProfilePage() {
 
             if (!res.ok) {
                 const data = await res.json();
-                throw new Error(data.detail || 'فشل تحديث البيانات');
+                throw new Error(data.detail || 'Failed to update profile');
             }
 
             const updatedUser = await res.json();
-
-            // Update local state with new user data
             setFullName(updatedUser.full_name);
             setEmail(updatedUser.email);
             setPassword('');
+            setMessage({ type: 'success', text: 'Profile updated successfully' });
 
-            setMessage({ type: 'success', text: 'تم تحديث البيانات بنجاح' });
-
-            // Clear success message after 3 seconds
             messageTimeoutRef.current = setTimeout(() => {
                 setMessage({ type: '', text: '' });
             }, 3000);
 
         } catch (err: any) {
             setMessage({ type: 'error', text: err.message });
-            // Clear error message after 5 seconds
             messageTimeoutRef.current = setTimeout(() => {
                 setMessage({ type: '', text: '' });
             }, 5000);
@@ -90,24 +76,20 @@ export default function ProfilePage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="text-center">
-                    <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-gray-600">جاري تحميل البيانات...</p>
-                </div>
+            <div className="min-h-screen flex items-center justify-center bg-white">
+                <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
             </div>
         );
     }
 
     if (!user) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="text-center p-8 bg-white rounded-xl shadow-lg max-w-md w-full">
-                    <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">يرجى تسجيل الدخول</h2>
-                    <p className="text-gray-600 mb-6">يجب عليك تسجيل الدخول للوصول إلى هذه الصفحة</p>
-                    <Link href="/login" className="inline-block w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
-                        تسجيل الدخول
+            <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+                <div className="text-center max-w-md w-full">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Sign in required</h2>
+                    <p className="text-gray-600 mb-6">Please sign in to view your profile.</p>
+                    <Link href="/login" className="inline-block bg-black text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors">
+                        Sign In
                     </Link>
                 </div>
             </div>
@@ -116,83 +98,125 @@ export default function ProfilePage() {
 
     return (
         <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl mx-auto">
-                <div className="bg-white shadow rounded-lg overflow-hidden">
-                    <div className="px-6 py-5 border-b border-gray-200 bg-gray-50">
-                        <h3 className="text-lg font-medium leading-6 text-gray-900">الملف الشخصي</h3>
-                        <p className="mt-1 text-sm text-gray-500">قم بتحديث معلوماتك الشخصية</p>
+            <div className="max-w-xl mx-auto">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                    {/* Header */}
+                    <div className="text-center mb-8">
+                        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <User className="w-10 h-10 text-gray-400" />
+                        </div>
+                        <h1 className="text-2xl font-bold text-gray-900">{user.full_name || 'User'}</h1>
+                        <p className="text-gray-500">{user.email}</p>
                     </div>
 
-                    <div className="p-6">
-                        {message.text && (
-                            <div className={`mb-4 p-4 rounded-md flex items-center gap-2 ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                                {message.type === 'success' ? <Check size={20} /> : <AlertCircle size={20} />}
-                                {message.text}
-                            </div>
-                        )}
+                    {/* Messages */}
+                    {message.text && (
+                        <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                            }`}>
+                            {message.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
+                            {message.text}
+                        </div>
+                    )}
 
-                        <form onSubmit={handleUpdate} className="space-y-6">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">الاسم الكامل</label>
-                                <div className="mt-1 relative rounded-md shadow-sm">
-                                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                        <User className="h-5 w-5 text-gray-400" />
-                                    </div>
-                                    <input
-                                        type="text"
-                                        value={fullName}
-                                        onChange={(e) => setFullName(e.target.value)}
-                                        className="focus:ring-blue-500 focus:border-blue-500 block w-full pr-10 sm:text-sm border-gray-300 rounded-md py-2"
-                                    />
-                                </div>
+                    {/* Form */}
+                    <form onSubmit={handleUpdate} className="space-y-5">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label>
+                            <div className="relative">
+                                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                <input
+                                    type="text"
+                                    value={fullName}
+                                    onChange={(e) => setFullName(e.target.value)}
+                                    className="block w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all"
+                                    placeholder="Your full name"
+                                />
                             </div>
+                        </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">البريد الإلكتروني</label>
-                                <div className="mt-1 relative rounded-md shadow-sm">
-                                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                        <Mail className="h-5 w-5 text-gray-400" />
-                                    </div>
-                                    <input
-                                        type="email"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        className="focus:ring-blue-500 focus:border-blue-500 block w-full pr-10 sm:text-sm border-gray-300 rounded-md py-2"
-                                    />
-                                </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
+                            <div className="relative">
+                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                <input
+                                    type="email"
+                                    value={email}
+                                    disabled
+                                    className="block w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                                />
+                                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             </div>
+                            <p className="mt-1 text-xs text-gray-500">Email cannot be changed.</p>
+                        </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">كلمة المرور الجديدة (اختياري)</label>
-                                <div className="mt-1 relative rounded-md shadow-sm">
-                                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                        <Lock className="h-5 w-5 text-gray-400" />
-                                    </div>
-                                    <input
-                                        type="password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        placeholder="اتركها فارغة إذا لم ترد تغييرها"
-                                        className="focus:ring-blue-500 focus:border-blue-500 block w-full pr-10 sm:text-sm border-gray-300 rounded-md py-2"
-                                    />
-                                </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">New Password</label>
+                            <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="block w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all"
+                                    placeholder="Leave blank to keep current"
+                                />
                             </div>
+                        </div>
 
-                            <div className="flex justify-end">
-                                <button
-                                    type="submit"
-                                    disabled={isSaving}
-                                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                                >
-                                    {isSaving ? 'جاري الحفظ...' : (
-                                        <>
-                                            <Save className="ml-2 -mr-1 h-5 w-5" />
-                                            حفظ التغييرات
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </form>
+                        <div className="pt-4">
+                            <button
+                                type="submit"
+                                disabled={isSaving}
+                                className="w-full bg-black text-white font-medium py-3 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
+                            >
+                                {isSaving ? (
+                                    <>
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    'Save Changes'
+                                )}
+                            </button>
+                        </div>
+                    </form>
+
+                    {/* Delete Account Section */}
+                    <div className="mt-8 pt-8 border-t border-gray-200">
+                        <h2 className="text-lg font-semibold text-gray-900 mb-2">Delete Account</h2>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Once you delete your account, there is no going back. Please be certain.
+                        </p>
+                        <button
+                            onClick={async () => {
+                                if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+                                    try {
+                                        const token = localStorage.getItem('token');
+                                        const API_URL = 'http://127.0.0.1:8000';
+                                        const res = await fetch(`${API_URL}/api/auth/delete-account`, {
+                                            method: 'DELETE',
+                                            headers: {
+                                                'Authorization': `Bearer ${token}`
+                                            }
+                                        });
+
+                                        if (!res.ok) {
+                                            throw new Error('Failed to delete account');
+                                        }
+
+                                        // Clear local storage and redirect
+                                        localStorage.removeItem('token');
+                                        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+                                        window.location.href = '/';
+                                    } catch (error) {
+                                        alert('Failed to delete account. Please try again.');
+                                    }
+                                }
+                            }}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                        >
+                            Delete My Account
+                        </button>
                     </div>
                 </div>
             </div>

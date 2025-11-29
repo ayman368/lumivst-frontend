@@ -17,7 +17,7 @@ export default function ForgetPasswordPage() {
         setMessage(null);
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/auth/forget-password`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/auth/forget-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email }),
@@ -26,10 +26,10 @@ export default function ForgetPasswordPage() {
             const data = await res.json();
 
             if (!res.ok) {
-                throw new Error(data.detail || 'حدث خطأ ما');
+                throw new Error(data.detail || 'Something went wrong');
             }
 
-            setMessage({ type: 'success', text: data.message || 'تم إرسال رابط الاستعادة إلى بريدك الإلكتروني' });
+            setMessage({ type: 'success', text: data.message || 'Reset link sent to your email' });
         } catch (error: any) {
             setMessage({ type: 'error', text: error.message });
         } finally {
@@ -38,63 +38,62 @@ export default function ForgetPasswordPage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-            <div className="w-full max-w-md bg-slate-800/60 backdrop-blur-md border border-slate-700 rounded-2xl p-8 shadow-xl">
-                <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-white mb-2">نسيت كلمة المرور؟</h1>
-                    <p className="text-slate-400">أدخل بريدك الإلكتروني لاستعادة حسابك</p>
+        <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
+            <div className="w-full max-w-[400px] space-y-6">
+                <div className="text-center space-y-2">
+                    <h1 className="text-2xl font-bold text-gray-900">Reset Password</h1>
+                    <p className="text-gray-600 text-sm">Enter your email to receive reset instructions</p>
                 </div>
 
                 {message && (
-                    <div className={`p-4 rounded-lg mb-6 text-sm ${message.type === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    <div className={`p-3 rounded-lg text-sm ${message.type === 'success'
+                        ? 'bg-green-50 text-green-700'
+                        : 'bg-red-50 text-red-700'
                         }`}>
                         {message.text}
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="space-y-2">
-                        <label htmlFor="email" className="text-sm font-medium text-slate-300">
-                            البريد الإلكتروني
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-1">
+                        <label htmlFor="email" className="block text-sm text-gray-600">
+                            Email Address
                         </label>
-                        <div className="relative">
-                            <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
-                            <input
-                                id="email"
-                                type="email"
-                                required
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full bg-slate-900/50 border border-slate-700 rounded-lg py-2.5 pr-10 pl-4 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
-                                placeholder="name@example.com"
-                                dir="ltr"
-                            />
-                        </div>
+                        <input
+                            id="email"
+                            type="email"
+                            required
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
+                            placeholder="name@example.com"
+                        />
                     </div>
 
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-lg transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full bg-black text-white font-bold py-3 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                     >
                         {isLoading ? (
                             <Loader2 className="h-5 w-5 animate-spin" />
                         ) : (
-                            'إرسال رابط الاستعادة'
+                            'Send Reset Link'
                         )}
                     </button>
                 </form>
 
-                <div className="mt-8 text-center">
+                <div className="text-center">
                     <Link
                         href="/login"
-                        className="inline-flex items-center text-sm text-slate-400 hover:text-white transition-colors"
+                        className="inline-flex items-center text-sm text-gray-600 hover:text-black transition-colors font-medium"
                     >
-                        <ArrowLeft className="h-4 w-4 ml-2" />
-                        العودة إلى تسجيل الدخول
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Back to Sign In
                     </Link>
                 </div>
             </div>
         </div>
     );
 }
+

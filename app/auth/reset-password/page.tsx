@@ -17,7 +17,7 @@ function ResetPasswordForm() {
 
     useEffect(() => {
         if (!token) {
-            setMessage({ type: 'error', text: 'رابط غير صالح أو منتهي الصلاحية' });
+            setMessage({ type: 'error', text: 'Invalid or expired link' });
         }
     }, [token]);
 
@@ -25,12 +25,12 @@ function ResetPasswordForm() {
         e.preventDefault();
 
         if (password !== confirmPassword) {
-            setMessage({ type: 'error', text: 'كلمات المرور غير متطابقة' });
+            setMessage({ type: 'error', text: 'Passwords do not match' });
             return;
         }
 
         if (!token) {
-            setMessage({ type: 'error', text: 'رمز التحقق مفقود' });
+            setMessage({ type: 'error', text: 'Missing verification token' });
             return;
         }
 
@@ -38,7 +38,7 @@ function ResetPasswordForm() {
         setMessage(null);
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/auth/reset-password`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/auth/reset-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token, password }),
@@ -47,10 +47,10 @@ function ResetPasswordForm() {
             const data = await res.json();
 
             if (!res.ok) {
-                throw new Error(data.detail || 'حدث خطأ ما');
+                throw new Error(data.detail || 'Something went wrong');
             }
 
-            setMessage({ type: 'success', text: 'تم تغيير كلمة المرور بنجاح' });
+            setMessage({ type: 'success', text: 'Password changed successfully' });
             setTimeout(() => {
                 router.push('/login');
             }, 2000);
@@ -63,71 +63,71 @@ function ResetPasswordForm() {
 
     if (!token) {
         return (
-            <div className="text-center text-red-400">
-                <p>رابط غير صالح. يرجى طلب رابط جديد.</p>
-                <Link href="/auth/forget-password" className="text-blue-400 hover:underline mt-4 block">
-                    طلب رابط جديد
+            <div className="text-center text-red-500 space-y-4">
+                <p>Invalid link. Please request a new one.</p>
+                <Link href="/auth/forget-password" className="text-black font-semibold hover:underline block">
+                    Request New Link
                 </Link>
             </div>
         );
     }
 
     return (
-        <>
-            <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold text-white mb-2">تعيين كلمة المرور</h1>
-                <p className="text-slate-400">أدخل كلمة المرور الجديدة لحسابك</p>
+        <div className="w-full max-w-[400px] space-y-6">
+            <div className="text-center space-y-2">
+                <h1 className="text-2xl font-bold text-gray-900">Set New Password</h1>
+                <p className="text-gray-600 text-sm">Enter your new password below</p>
             </div>
 
             {message && (
-                <div className={`p-4 rounded-lg mb-6 text-sm ${message.type === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${message.type === 'success'
+                    ? 'bg-green-50 text-green-700'
+                    : 'bg-red-50 text-red-700'
                     }`}>
-                    {message.type === 'success' && <CheckCircle className="inline-block w-4 h-4 ml-2" />}
+                    {message.type === 'success' && <CheckCircle className="w-4 h-4" />}
                     {message.text}
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-2">
-                    <label htmlFor="password" className="text-sm font-medium text-slate-300">
-                        كلمة المرور الجديدة
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-1">
+                    <label htmlFor="password" className="block text-sm text-gray-600">
+                        New Password
                     </label>
                     <div className="relative">
-                        <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
                         <input
                             id="password"
                             type={showPassword ? 'text' : 'password'}
                             required
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full bg-slate-900/50 border border-slate-700 rounded-lg py-2.5 pr-10 pl-10 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
-                            placeholder="••••••••"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
+                            placeholder="Min. 8 characters"
                             minLength={8}
                         />
                         <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                         >
                             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                     </div>
                 </div>
 
-                <div className="space-y-2">
-                    <label htmlFor="confirmPassword" className="text-sm font-medium text-slate-300">
-                        تأكيد كلمة المرور
+                <div className="space-y-1">
+                    <label htmlFor="confirmPassword" className="block text-sm text-gray-600">
+                        Confirm Password
                     </label>
                     <div className="relative">
-                        <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
                         <input
                             id="confirmPassword"
                             type={showPassword ? 'text' : 'password'}
                             required
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
-                            className="w-full bg-slate-900/50 border border-slate-700 rounded-lg py-2.5 pr-10 pl-10 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
-                            placeholder="••••••••"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
+                            placeholder="Confirm new password"
                         />
                     </div>
                 </div>
@@ -135,27 +135,26 @@ function ResetPasswordForm() {
                 <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-lg transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-black text-white font-bold py-3 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                 >
                     {isLoading ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
-                        'تغيير كلمة المرور'
+                        'Change Password'
                     )}
                 </button>
             </form>
-        </>
+        </div>
     );
 }
 
 export default function ResetPasswordPage() {
     return (
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-            <div className="w-full max-w-md bg-slate-800/60 backdrop-blur-md border border-slate-700 rounded-2xl p-8 shadow-xl">
-                <Suspense fallback={<div className="flex justify-center"><Loader2 className="animate-spin text-white" /></div>}>
-                    <ResetPasswordForm />
-                </Suspense>
-            </div>
+        <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
+            <Suspense fallback={<div className="flex justify-center"><Loader2 className="animate-spin text-black" /></div>}>
+                <ResetPasswordForm />
+            </Suspense>
         </div>
     );
 }
+

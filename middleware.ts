@@ -19,7 +19,7 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('token')?.value ||
     request.headers.get('authorization')?.replace('Bearer ', '');
 
-  const protectedPaths = ['/dashboard', '/profile', '/stocks', '/auth/reset-password'];
+  const protectedPaths = ['/dashboard', '/profile', '/stocks'];
   const isProtectedPath = protectedPaths.some(path =>
     request.nextUrl.pathname.startsWith(path)
   );
@@ -32,5 +32,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/profile/:path*', '/stocks/:path*', '/auth/reset-password']
+  matcher: ['/dashboard/:path*', '/profile/:path*', '/stocks/:path*']
 };

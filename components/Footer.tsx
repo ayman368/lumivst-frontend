@@ -1,84 +1,125 @@
-import Link from 'next/link'
-import { Mail, Globe, MapPin } from 'lucide-react'
+'use client';
+
+import Link from 'next/link';
+import { Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin, ArrowRight } from 'lucide-react';
 
 export default function Footer() {
   return (
-    <footer className="bg-slate-950 border-t border-slate-800 py-12 text-slate-300">
+    <footer className="bg-slate-900 text-white pt-16 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid md:grid-cols-4 gap-8 mb-12">
-
-          {/* Brand & Contact */}
-          <div className="space-y-4">
-            <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
+          {/* Brand Column */}
+          <div>
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-6">
               LUMIVST
-            </h3>
-            <p className="text-slate-400 text-sm">
-              شركة لومي للاستثمار والتمويل الرقمي
+            </h2>
+            <p className="text-slate-400 mb-6 leading-relaxed">
+              شريكك الذكي في عالم المال والأعمال. نقدم حلولاً مبتكرة تعتمد على الذكاء الاصطناعي لتعزيز قراراتك الاستثمارية.
             </p>
-            <ul className="space-y-3 mt-4">
-              <li className="flex items-center gap-2 text-slate-400 text-sm">
-                <Mail className="w-4 h-4" />
-                info@lumivst.com
-              </li>
-              <li className="flex items-center gap-2 text-slate-400 text-sm">
-                <Globe className="w-4 h-4" />
-                www.lumivst.com
-              </li>
-              <li className="flex items-center gap-2 text-slate-400 text-sm">
-                <MapPin className="w-4 h-4" />
-                المنصورة، جمهورية مصر العربية
-              </li>
-            </ul>
+            <div className="flex gap-4">
+              <a href="#" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center hover:bg-blue-600 transition-colors">
+                <Twitter className="w-5 h-5" />
+              </a>
+              <a href="#" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center hover:bg-blue-600 transition-colors">
+                <Linkedin className="w-5 h-5" />
+              </a>
+              <a href="#" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center hover:bg-blue-600 transition-colors">
+                <Facebook className="w-5 h-5" />
+              </a>
+              <a href="#" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center hover:bg-blue-600 transition-colors">
+                <Instagram className="w-5 h-5" />
+              </a>
+            </div>
           </div>
 
-          {/* Navigation */}
+          {/* Quick Links */}
           <div>
-            <h3 className="text-white font-semibold mb-4">Navigation</h3>
-            <ul className="space-y-2 text-sm">
-              <li><Link href="/" className="hover:text-blue-400 transition-colors">Home</Link></li>
-              <li><Link href="/dashboard" className="hover:text-blue-400 transition-colors">Dashboard</Link></li>
-              <li><Link href="/portfolios" className="hover:text-blue-400 transition-colors">Portfolios</Link></li>
-              <li><Link href="/membership" className="hover:text-blue-400 transition-colors">Membership</Link></li>
-              <li><Link href="/about" className="hover:text-blue-400 transition-colors">About Us</Link></li>
+            <h3 className="text-lg font-semibold mb-6">روابط سريعة</h3>
+            <ul className="space-y-4">
+              <li>
+                <Link href="/about" className="text-slate-400 hover:text-blue-400 transition-colors flex items-center gap-2 group">
+                  <ArrowRight className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                  من نحن
+                </Link>
+              </li>
+              <li>
+                <Link href="/services" className="text-slate-400 hover:text-blue-400 transition-colors flex items-center gap-2 group">
+                  <ArrowRight className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                  خدماتنا
+                </Link>
+              </li>
+              <li>
+                <Link href="/blog" className="text-slate-400 hover:text-blue-400 transition-colors flex items-center gap-2 group">
+                  <ArrowRight className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                  المدونة
+                </Link>
+              </li>
+              <li>
+                <Link href="/contact" className="text-slate-400 hover:text-blue-400 transition-colors flex items-center gap-2 group">
+                  <ArrowRight className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                  تواصل معنا
+                </Link>
+              </li>
             </ul>
           </div>
 
-          {/* Market & Screeners */}
+          {/* Services */}
           <div>
-            <h3 className="text-white font-semibold mb-4">Market & Tools</h3>
-            <ul className="space-y-2 text-sm">
-              <li><Link href="/market" className="hover:text-blue-400 transition-colors">Market Overview</Link></li>
-              <li><Link href="/screeners" className="hover:text-blue-400 transition-colors">Stock Screeners</Link></li>
-              <li><Link href="/screeners/technical" className="hover:text-blue-400 transition-colors">Technical Analysis</Link></li>
-              <li><Link href="/market/saudi" className="hover:text-blue-400 transition-colors">Saudi Market</Link></li>
-              <li><Link href="/market/us" className="hover:text-blue-400 transition-colors">US Market</Link></li>
+            <h3 className="text-lg font-semibold mb-6">خدماتنا</h3>
+            <ul className="space-y-4">
+              <li>
+                <Link href="#" className="text-slate-400 hover:text-blue-400 transition-colors">
+                  التحليل المالي الذكي
+                </Link>
+              </li>
+              <li>
+                <Link href="#" className="text-slate-400 hover:text-blue-400 transition-colors">
+                  استشارات الأعمال
+                </Link>
+              </li>
+              <li>
+                <Link href="#" className="text-slate-400 hover:text-blue-400 transition-colors">
+                  التسويق الرقمي
+                </Link>
+              </li>
+              <li>
+                <Link href="#" className="text-slate-400 hover:text-blue-400 transition-colors">
+                  التكنولوجيا العقارية
+                </Link>
+              </li>
             </ul>
           </div>
 
-          {/* Resources */}
+          {/* Contact Info */}
           <div>
-            <h3 className="text-white font-semibold mb-4">Resources</h3>
-            <ul className="space-y-2 text-sm">
-              <li><Link href="/news" className="hover:text-blue-400 transition-colors">News</Link></li>
-              <li><Link href="/news/earnings" className="hover:text-blue-400 transition-colors">Earnings</Link></li>
-              <li><Link href="/pricing" className="hover:text-blue-400 transition-colors">Pricing</Link></li>
-              <li><Link href="/login" className="hover:text-blue-400 transition-colors">Login</Link></li>
-              <li><Link href="/register" className="hover:text-blue-400 transition-colors">Sign Up</Link></li>
+            <h3 className="text-lg font-semibold mb-6">معلومات التواصل</h3>
+            <ul className="space-y-4">
+              <li className="flex items-start gap-3 text-slate-400">
+                <MapPin className="w-5 h-5 text-blue-500 flex-shrink-0 mt-1" />
+                <span>القاهرة، مصر - التجمع الخامس</span>
+              </li>
+              <li className="flex items-center gap-3 text-slate-400">
+                <Phone className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                <span dir="ltr">+20 100 000 0000</span>
+              </li>
+              <li className="flex items-center gap-3 text-slate-400">
+                <Mail className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                <span>info@lumivst.com</span>
+              </li>
             </ul>
           </div>
-
         </div>
 
-        {/* Bottom Section */}
-        <div className="border-t border-slate-800 pt-8 text-center">
-          <p className="text-slate-500 text-sm mb-2">
-            © 2025 LUMI. جميع الحقوق محفوظة.
+        <div className="border-t border-slate-800 pt-8 mt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-slate-500 text-sm">
+            © {new Date().getFullYear()} LUMIVST. جميع الحقوق محفوظة.
           </p>
-          <p className="text-slate-600 text-xs">
-            جميع خدماتنا الحالية هي خدمات استشارية وتسويقية وتعليمية وتحليلية، ولا نقدم أي خدمات مالية مرخصة حالياً.
-          </p>
+          <div className="flex gap-6 text-sm text-slate-500">
+            <Link href="/privacy" className="hover:text-white transition-colors">سياسة الخصوصية</Link>
+            <Link href="/terms" className="hover:text-white transition-colors">الشروط والأحكام</Link>
+          </div>
         </div>
       </div>
     </footer>
-  )
+  );
 }
