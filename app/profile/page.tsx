@@ -35,7 +35,7 @@ export default function ProfilePage() {
 
         try {
             const token = localStorage.getItem('token');
-            const API_URL = 'http://127.0.0.1:8000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
             const res = await fetch(`${API_URL}/api/auth/profile`, {
                 method: 'PUT',
                 headers: {
@@ -192,7 +192,7 @@ export default function ProfilePage() {
                                 if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
                                     try {
                                         const token = localStorage.getItem('token');
-                                        const API_URL = 'http://127.0.0.1:8000';
+                                        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
                                         const res = await fetch(`${API_URL}/api/auth/delete-account`, {
                                             method: 'DELETE',
                                             headers: {
