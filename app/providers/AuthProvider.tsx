@@ -120,14 +120,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     console.log('🔄 Navigating to home...');
-    // Use window.location.href for reliable full page navigation
-    window.location.href = '/';
+    router.push('/');
   };
 
   const register = async (email: string, password: string, fullName?: string) => {
     if (!AUTH_ENABLED) {
       console.log('🔓 Register skipped – auth disabled');
-      window.location.href = '/';
+      router.push('/');
       return;
     }
 
@@ -158,7 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Fetch user data to update state
     await checkAuth();
 
-    window.location.href = '/';
+    router.push('/');
   };
 
   const logout = async () => {
@@ -180,7 +179,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('token');
     document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
     setUser(null);
-    window.location.href = '/login';
+    router.push('/login');
   };
 
   return (

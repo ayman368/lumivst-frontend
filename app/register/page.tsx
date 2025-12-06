@@ -146,6 +146,7 @@ const EmailFormView = ({
           className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-colors"
           placeholder="example@email.com"
           required
+          autoComplete="off"
         />
       </div>
 
@@ -160,6 +161,7 @@ const EmailFormView = ({
             placeholder="Min. 8 characters"
             required
             minLength={8}
+            autoComplete="new-password"
           />
           <button
             type="button"
