@@ -32,7 +32,7 @@ export default function Navbar() {
         { en: 'Fundamental', href: '/screeners/fundamental' },
         { en: 'Technical', href: '/screeners/technical' },
         { en: 'Top Traders', href: '/screeners/top-traders' },
-        { en: 'My Screens', href: '/screeners/my-screens' },
+        { en: 'Screeners', href: '/screeners/my-screens' },
       ],
     },
     market: {
@@ -95,21 +95,7 @@ export default function Navbar() {
     }
   }, [])
 
-  // Prevent hydration mismatch by not rendering until mounted
-  if (!isMounted) {
-    return (
-      <nav className={styles['navbar-gf']} dir="ltr">
-        <div className={styles['navbar-container']}>
-          <Link href="/" className={styles['navbar-logo']}>
-            LUMIVST
-          </Link>
-          <div className={styles['navbar-actions']}>
-            <button className={styles['navbar-mobile-toggle']}>☰</button>
-          </div>
-        </div>
-      </nav>
-    )
-  }
+
 
   return (
     <nav

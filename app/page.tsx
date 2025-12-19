@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowUpRight,
@@ -13,6 +14,7 @@ import {
   Zap,
   Briefcase
 } from 'lucide-react';
+import { StocksTopBar } from './stocks/_components/StocksTopBar';
 
 // --- Mock Data ---
 
@@ -106,6 +108,7 @@ const EARNINGS_DATA = {
 };
 
 export default function HomePage() {
+  const router = useRouter();
   const [chartRange, setChartRange] = useState('1D');
 
   const renderWatchTable = (title: string, data: typeof DAY_WATCH_DATA.topGainers) => (
@@ -137,43 +140,39 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-slate-900 font-sans text-sm pb-16">
 
-      {/* --- Institutional Market Strip --- */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-[1400px] mx-auto px-6">
-          <div className="flex items-center overflow-x-auto no-scrollbar py-2 gap-8">
-            {MARKET_DATA.map((item, i) => (
-              <div key={i} className="flex items-center gap-3 py-1 flex-shrink-0 border-r border-slate-100 pr-8 last:border-0 hover:bg-slate-50 cursor-pointer transition-colors px-2 rounded">
-                <span className="font-bold text-slate-700 text-xs uppercase tracking-tight">{item.name}</span>
-                <span className="font-mono text-slate-900 font-medium">{item.value}</span>
-                <span className={`font-mono text-xs font-bold px-1.5 py-0.5 rounded ${item.isUp ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
-                  {item.pct}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <StocksTopBar />
 
-      <div className="max-w-[1400px] mx-auto px-6 space-y-8 mt-8">
+      <div className="max-w-[1600px] mx-auto px-4 md:px-6 space-y-4 mt-6">
 
-        {/* --- Hero Section: Market Overview & News --- */}
+        {/* Main Dashboard Container */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-          {/* Chart Container */}
-          <div className="lg:col-span-8 bg-white border border-slate-200 rounded-lg shadow-sm p-6">
-            <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-4">
-                <h1 className="text-xl font-bold text-slate-900">S&P 500 Information Technology Sector</h1>
-                <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">XLK</span>
+          {/* Left Main Section (Indices + Chart) */}
+          <div className="lg:col-span-9 bg-white border border-gray-200 rounded-sm shadow-sm">
+
+            {/* Controls Header */}
+            <div className="flex flex-col md:flex-row items-center justify-between px-4 py-2 border-b border-gray-100">
+              <div className="flex bg-transparent items-center text-sm font-medium text-gray-500 overflow-x-auto no-scrollbar">
+                {['US', 'World', 'Commodities', 'Futures', 'Treasuries'].map((tab, i, arr) => (
+                  <div key={tab} className="flex items-center shrink-0">
+                    <button className={`relative pb-1 hover:text-gray-900 transition-colors ${i === 0 ? 'text-gray-900 font-bold' : ''}`}>
+                      {tab}
+                      {i === 0 && (
+                        <span className="absolute bottom-0 left-0 w-full h-[3px] bg-orange-500 rounded-t-sm"></span>
+                      )}
+                    </button>
+                    {i < arr.length - 1 && <span className="mx-3 text-gray-300 text-xs">|</span>}
+                  </div>
+                ))}
               </div>
-              <div className="flex bg-slate-100 p-0.5 rounded-md">
-                {['1D', '5D', '1M', '6M', 'YTD', '1Y', '5Y'].map((r) => (
+              <div className="flex bg-slate-50 p-1 rounded-md overflow-x-auto">
+                {['1D', '5D', '1M', '6M', 'YTD', '1Y', '5Y', '10Y', 'MAX'].map((r) => (
                   <button
                     key={r}
                     onClick={() => setChartRange(r)}
-                    className={`px-3 py-1 text-xs font-semibold rounded-sm transition-all ${chartRange === r
-                        ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
-                        : 'text-slate-500 hover:text-slate-900'
+                    className={`px-3 py-1 text-[11px] font-bold rounded-[3px] transition-all whitespace-nowrap ${chartRange === r
+                      ? 'bg-slate-700 text-white shadow-sm'
+                      : 'text-gray-500 hover:text-gray-900 hover:bg-white/50'
                       }`}
                   >
                     {r}
@@ -182,57 +181,89 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Professional Line Chart Placeholder */}
-            <div className="h-[320px] w-full relative border border-slate-50 bg-slate-50/20 rounded">
-              <svg className="w-full h-full p-4" preserveAspectRatio="none">
-                {/* Grid Lines */}
-                <line x1="0" y1="25%" x2="100%" y2="25%" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="4 4" />
-                <line x1="0" y1="50%" x2="100%" y2="50%" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="4 4" />
-                <line x1="0" y1="75%" x2="100%" y2="75%" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="4 4" />
+            {/* Content: Indices list & Chart */}
+            <div className="grid grid-cols-12 min-h-[350px]">
+              {/* Indices List */}
+              <div className="col-span-12 lg:col-span-5 border-r border-gray-100 p-0">
+                <table className="w-full text-xs">
+                  <tbody className="divide-y divide-gray-50">
+                    {MARKET_DATA.map((item, i) => (
+                      <tr key={i} className={`group cursor-pointer hover:bg-gray-50 transition-colors ${i === 0 ? 'bg-white' : ''} ${i === 0 ? 'border-l-[4px] border-l-orange-500' : 'border-l-[4px] border-l-transparent'}`}>
+                        <td className="py-3 pl-3 pr-2 font-bold text-blue-600 truncate max-w-[100px]">{item.name}</td>
+                        <td className="py-3 px-2 text-right font-bold text-gray-900 whitespace-nowrap">{item.value}</td>
+                        <td className={`py-3 px-2 text-right font-medium whitespace-nowrap ${item.change.startsWith('-') ? 'text-red-500' : 'text-green-500'}`}>
+                          {item.change}
+                        </td>
+                        <td className={`py-3 pl-2 pr-4 text-right font-medium whitespace-nowrap ${item.pct.startsWith('-') ? 'text-red-500' : 'text-green-500'}`}>
+                          {item.pct}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-                {/* Data Line */}
-                <path
-                  d="M0,280 C150,260 300,300 450,150 C600,100 750,180 900,80 L1200,40"
-                  fill="none"
-                  stroke="#0f172a"
-                  strokeWidth="2"
-                />
-              </svg>
-              <div className="absolute top-4 left-4 font-mono text-xs text-slate-500">224.50 USD</div>
-              <div className="absolute bottom-2 left-2 right-2 flex justify-between font-mono text-xs text-slate-400">
-                <span>09:30</span>
-                <span>12:00</span>
-                <span>16:00</span>
+              {/* Chart Area */}
+              <div className="col-span-12 lg:col-span-7 bg-white relative">
+                <div className="h-full w-full p-4 relative">
+                  {/* SVG Chart */}
+                  <svg className="w-full h-full text-slate-300" preserveAspectRatio="none" viewBox="0 0 600 300">
+                    {/* Grid Lines Horizontal Only */}
+                    <line x1="0" y1="0" x2="600" y2="0" stroke="currentColor" strokeWidth="0.5" strokeOpacity="0.5" />
+                    <line x1="0" y1="75" x2="600" y2="75" stroke="currentColor" strokeWidth="0.5" strokeOpacity="0.5" />
+                    <line x1="0" y1="150" x2="600" y2="150" stroke="currentColor" strokeWidth="0.5" strokeOpacity="0.5" />
+                    <line x1="0" y1="225" x2="600" y2="225" stroke="currentColor" strokeWidth="0.5" strokeOpacity="0.5" />
+                    <line x1="0" y1="300" x2="600" y2="300" stroke="currentColor" strokeWidth="0.5" strokeOpacity="0.5" />
+
+                    <defs>
+                      <linearGradient id="chartIndGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#f97316" stopOpacity="0.6" />
+                        <stop offset="100%" stopColor="#f97316" stopOpacity="0.0" />
+                      </linearGradient>
+                    </defs>
+                    <path d="M0,300 L0,150 C50,140 100,160 150,130 C200,100 250,110 300,90 C350,70 400,150 450,180 C500,200 550,220 600,240 L600,300 Z" fill="url(#chartIndGradient)" />
+                    <path d="M0,150 C50,140 100,160 150,130 C200,100 250,110 300,90 C350,70 400,150 450,180 C500,200 550,220 600,240" fill="none" stroke="#f97316" strokeWidth="2" />
+                  </svg>
+
+                  {/* Right Axis Labels */}
+                  <div className="absolute right-2 top-4 flex flex-col justify-between h-[80%] text-[10px] text-gray-400 font-mono text-right pointer-events-none">
+                    <div>48,000</div>
+                    <div>47,800</div>
+                    <div>47,600</div>
+                    <div>47,400</div>
+                  </div>
+
+                  {/* Bottom Axis Labels */}
+                  <div className="absolute bottom-2 left-0 w-full flex justify-around text-[10px] text-gray-400 font-sans px-8">
+                    <span>10 AM</span>
+                    <span>12 PM</span>
+                    <span>2 PM</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Latest Headlines */}
-          <div className="lg:col-span-4 bg-white border border-slate-200 rounded-lg shadow-sm flex flex-col">
-            <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-              <h2 className="font-bold text-slate-800 flex items-center gap-2">
-                <Newspaper className="w-4 h-4 text-slate-600" />
-                Market Pulse
-              </h2>
-              <Link href="/news" className="text-blue-700 text-xs font-medium hover:underline">All News</Link>
+          {/* Right Section: Latest News */}
+          <div className="lg:col-span-3 bg-white border border-gray-200 rounded-sm shadow-sm h-fit">
+            <div className="flex justify-between items-center px-4 py-3 border-b border-gray-200 bg-gray-50/50">
+              <h3 className="font-bold text-gray-800 text-sm">Latest News</h3>
+              <Link href="/news" className="text-[11px] text-gray-500 hover:text-blue-600 flex items-center gap-1">See All News <span className="text-[9px]">»</span></Link>
             </div>
-            <div className="divide-y divide-slate-100 flex-1 overflow-auto">
+            <div className="divide-y divide-gray-100">
               {LATEST_NEWS_HEADLINES.map((news, i) => (
-                <div key={i} className="p-4 hover:bg-blue-50/30 cursor-pointer group transition-colors">
-                  <div className="flex justify-between items-start mb-1">
-                    <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wide">{news.source}</span>
-                    <span className="text-slate-400 text-xs font-mono">{news.time}</span>
+                <div key={i} className="p-3 hover:bg-blue-50/20 cursor-pointer group flex gap-3 items-start">
+                  <div className="text-[11px] text-gray-500 font-mono pt-0.5 whitespace-nowrap min-w-[24px]">
+                    {i === 0 ? <span className="text-orange-600 font-bold">New!</span> : `${(i * 3) + 1}m`}
                   </div>
-                  <h3 className="text-sm font-medium text-slate-900 group-hover:text-blue-700 leading-snug">
+                  <h4 className="text-[13px] font-medium text-blue-600 leading-snug group-hover:underline">
                     {news.title}
-                  </h3>
+                  </h4>
                 </div>
               ))}
             </div>
-            <div className="p-3 bg-slate-50 border-t border-slate-200 text-center">
-              <span className="text-xs text-slate-500">Real-time updates auto-refresh</span>
-            </div>
           </div>
+
         </div>
 
         {/* --- Day Watch Grid --- */}
@@ -402,6 +433,6 @@ export default function HomePage() {
         </div>
 
       </div>
-    </div>
+    </div >
   );
 }

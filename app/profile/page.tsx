@@ -9,6 +9,7 @@ export default function ProfilePage() {
     const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [currentPassword, setCurrentPassword] = useState('');
     const [message, setMessage] = useState({ type: '', text: '' });
     const [isSaving, setIsSaving] = useState(false);
     const messageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -45,7 +46,8 @@ export default function ProfilePage() {
                 body: JSON.stringify({
                     full_name: fullName,
                     email: email,
-                    password: password.length > 0 ? password : undefined
+                    password: password.length > 0 ? password : undefined,
+                    current_password: currentPassword.length > 0 ? currentPassword : undefined
                 })
             });
 
@@ -58,6 +60,7 @@ export default function ProfilePage() {
             setFullName(updatedUser.full_name);
             setEmail(updatedUser.email);
             setPassword('');
+            setCurrentPassword(''); // Clear sensitive data
             setMessage({ type: 'success', text: 'Profile updated successfully' });
 
             messageTimeoutRef.current = setTimeout(() => {
@@ -141,16 +144,29 @@ export default function ProfilePage() {
                                 <input
                                     type="email"
                                     value={email}
-                                    disabled
-                                    className="block w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="block w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all"
+                                    placeholder="your@email.com"
                                 />
-                                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             </div>
-                            <p className="mt-1 text-xs text-gray-500">Email cannot be changed.</p>
+                        </div>
+
+                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                            <label className="block text-sm font-medium text-blue-900 mb-1.5">Current Password (Required for Email Change)</label>
+                            <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-400" />
+                                <input
+                                    type="password"
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    className="block w-full pl-10 pr-4 py-2.5 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
+                                    placeholder="Enter current password to save changes"
+                                />
+                            </div>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">New Password</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">New Password (Optional)</label>
                             <div className="relative">
                                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                                 <input

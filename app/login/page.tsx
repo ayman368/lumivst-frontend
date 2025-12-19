@@ -3,7 +3,7 @@ import { useState, FormEvent } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../providers/AuthProvider';
 import Link from 'next/link';
-import { GoogleIcon, FacebookIcon } from '../components/ui/SocialIcons';
+import { GoogleIcon, FacebookIcon } from '../_components/ui/SocialIcons';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -130,7 +130,7 @@ export default function LoginPage() {
               </button>
             </div>
             <div className="flex justify-end pt-1">
-              <Link href="/auth/forget-password" className="text-sm text-blue-600 hover:underline">
+              <Link href="/auth/forgot-password" className="text-sm text-blue-600 hover:underline">
                 Forgot Password?
               </Link>
             </div>

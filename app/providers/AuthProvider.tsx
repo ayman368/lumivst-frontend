@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('✅ User authenticated:', userData.email);
           setUser(userData);
           // Refresh cookie just in case
-          document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax`;
+          document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax; Secure`;
         } else {
           console.warn('⚠️ Auth check failed, removing token');
           localStorage.removeItem('token');
@@ -106,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const data = await res.json();
     localStorage.setItem('token', data.access_token);
     // Set cookie for middleware
-    document.cookie = `token=${data.access_token}; path=/; max-age=86400; SameSite=Lax`;
+    document.cookie = `token=${data.access_token}; path=/; max-age=86400; SameSite=Lax; Secure`;
 
     console.log('✅ Login successful, setting user data...');
 
@@ -152,7 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const data = await res.json();
     // data contains access_token
     localStorage.setItem('token', data.access_token);
-    document.cookie = `token=${data.access_token}; path=/; max-age=86400; SameSite=Lax`;
+    document.cookie = `token=${data.access_token}; path=/; max-age=86400; SameSite=Lax; Secure`;
 
     // Fetch user data to update state
     await checkAuth();

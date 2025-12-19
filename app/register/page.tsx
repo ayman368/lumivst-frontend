@@ -3,7 +3,7 @@ import { useState, FormEvent } from 'react';
 import { Eye, EyeOff, Check, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../providers/AuthProvider';
 import Link from 'next/link';
-import { GoogleIcon, FacebookIcon } from '../components/ui/SocialIcons';
+import { GoogleIcon, FacebookIcon } from '../_components/ui/SocialIcons';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface LandingViewProps {
@@ -256,13 +256,8 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-50/50 via-white to-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Chart Effect (Subtle) */}
-      <div className="absolute bottom-0 left-0 right-0 h-64 opacity-10 pointer-events-none">
-        <svg viewBox="0 0 1440 320" className="w-full h-full" preserveAspectRatio="none">
-          <path fill="#f97316" fillOpacity="1" d="M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,224C672,245,768,267,864,261.3C960,256,1056,224,1152,197.3C1248,171,1344,149,1392,138.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
-        </svg>
-      </div>
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      {/* Background Chart Effect Removed */}
 
       {/* Logo (Optional, if needed above) */}
       <div className="absolute top-8 left-0 right-0 flex justify-center">

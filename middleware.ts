@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // ✅ قراءة متغير البيئة
-const AUTH_ENABLED = process.env.NEXT_PUBLIC_AUTH_ENABLED !== 'false';
+const AUTH_ENABLED = false; // process.env.NEXT_PUBLIC_AUTH_ENABLED !== 'false';
 
 // لو Auth معطل، رجّع كل الطلبات بدون تحقق
 if (!AUTH_ENABLED) {
