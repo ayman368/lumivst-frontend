@@ -3,8 +3,6 @@
 import { use, useEffect, useState } from 'react';
 import { MOCK_STOCK_DATA } from '../../data/mockData';
 import { StockSubTabs } from '../../_components/StockSubTabs';
-import { RatingsSummary } from '../../_components/RatingsSummary';
-import { FactorGrades } from '../../_components/FactorGrades';
 import { Lightbulb, FileText, Bookmark, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -26,8 +24,8 @@ export default function TranscriptsPage() {
             <StockSubTabs symbol={symbol} activeTab="Transcripts & Insights" />
 
             {/* Main Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div className="lg:col-span-9 space-y-8">
+            <div className="space-y-6">
+                <div className="space-y-8">
 
                     {/* Insights Section */}
                     {transcriptsData.insights.length > 0 && (
@@ -131,10 +129,7 @@ export default function TranscriptsPage() {
 
                 {/* Sidebar (Optional - using placeholders to match layout) */}
                 {/* Sidebar */}
-                <div className="lg:col-span-3 space-y-5">
-                    <RatingsSummary data={MOCK_STOCK_DATA.ratings} />
-                    <FactorGrades data={MOCK_STOCK_DATA.factorGrades} />
-                </div>
+
             </div>
         </div>
     );

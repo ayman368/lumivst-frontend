@@ -33,7 +33,7 @@ export function StockTabs() {
         if (path === "/income-statement") {
             return pathname?.includes("/income-statement") || pathname?.includes("/balance-sheet") || pathname?.includes("/cash-flow");
         }
-        return pathname?.includes(path);
+        return pathname?.startsWith(`/stocks/${symbol}${path}`);
     };
 
     return (

@@ -1,7 +1,6 @@
 import { StockTabs } from '../../_components/StockTabs';
 import { StockSubTabs } from '../../_components/StockSubTabs';
-import { RatingsSummary } from '../../_components/RatingsSummary';
-import { FactorGrades } from '../../_components/FactorGrades';
+
 import { MOCK_STOCK_DATA } from '../../data/mockData';
 import { Filter, Calendar, MessageSquare, Bookmark } from 'lucide-react';
 import Link from 'next/link';
@@ -21,10 +20,10 @@ export default async function AnalysisPage({
             {/* Secondary Navigation & Action Header */}
             <StockSubTabs symbol={symbol} activeTab="Analysis" />
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="space-y-8">
 
                 {/* Main Content: Analysis List */}
-                <div className="lg:col-span-8">
+                <div className="w-full">
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-[600px]">
 
                         {/* Header & Filters */}
@@ -96,13 +95,7 @@ export default async function AnalysisPage({
                     </div>
                 </div>
 
-                {/* Sidebar */}
-                <div className="lg:col-span-4 space-y-6">
 
-
-                    <RatingsSummary data={data.ratings} />
-                    <FactorGrades data={data.factorGrades} />
-                </div>
 
             </div>
         </div>

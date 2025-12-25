@@ -1,9 +1,5 @@
 import { StockHeader } from '../_components/StockHeader';
 import { StockChart } from '../_components/StockChart';
-import { RatingsSummary } from '../_components/RatingsSummary';
-import { FactorGrades } from '../_components/FactorGrades';
-import { QuantRanking } from '../_components/QuantRanking';
-import { DividendGrades } from '../_components/DividendGrades';
 import { AnalysisList } from '../_components/AnalysisList';
 import { NewsList } from '../_components/NewsList';
 import { Seasonality } from '../_components/Seasonality';
@@ -31,10 +27,8 @@ export default async function StockDetailPage({
       {/* Secondary Navigation & Action Header */}
       <StockSubTabs symbol={symbol} activeTab="All" />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-        {/* Main Content Column */}
-        <div className="lg:col-span-9 space-y-5">
+      <div className="space-y-5">
+        <div className="space-y-5">
           <StockChart />
 
           {/* Analysis & News Grid */}
@@ -65,18 +59,6 @@ export default async function StockDetailPage({
 
 
 
-        </div>
-
-        {/* Sidebar Column */}
-        <div className="lg:col-span-3 space-y-5">
-          {/* Action Button - Removed from here */}
-
-
-
-          <RatingsSummary data={data.ratings} />
-          <FactorGrades data={data.factorGrades} />
-          <QuantRanking data={data.quantRanking} />
-          <DividendGrades data={data.dividendGrades} />
         </div>
 
       </div>
