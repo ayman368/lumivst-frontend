@@ -27,7 +27,8 @@ export default function RSChartPage({ params }: { params: Promise<{ symbol: stri
     const fetchRSData = async () => {
         setLoading(true);
         try {
-            const url = `http://localhost:8000/api/rs/${symbol}?from_date=${dateRange.from}&to_date=${dateRange.to}`;
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const url = `${API_URL}/api/rs/${symbol}?from_date=${dateRange.from}&to_date=${dateRange.to}`;
             const res = await fetch(url);
 
             if (!res.ok) throw new Error('Failed to fetch');

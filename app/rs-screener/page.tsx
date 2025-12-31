@@ -57,9 +57,11 @@ export default function RSScreenerPage() {
         }
     }, [selectedStock, viewMode]);
 
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
     const fetchLatestRS = async () => {
         try {
-            const res = await fetch('http://localhost:8000/api/rs/latest?limit=500'); // Get all
+            const res = await fetch(`${API_URL}/api/rs/latest?limit=500`); // Get all
             const data = await res.json();
             if (data.data) {
                 setStocks(data.data);
@@ -75,7 +77,7 @@ export default function RSScreenerPage() {
     const fetchHistory = async (symbol: string, range: '1Y' | 'ALL' = 'ALL') => {
         setHistoryLoading(true);
         try {
-            let url = `http://localhost:8000/api/rs/${symbol}`;
+            let url = `${API_URL}/api/rs/${symbol}`;
             if (range === '1Y') {
                 const date = new Date();
                 date.setFullYear(date.getFullYear() - 1);
