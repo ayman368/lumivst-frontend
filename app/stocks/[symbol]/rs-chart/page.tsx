@@ -59,9 +59,9 @@ export default function RSChartPage({ params }: { params: Promise<{ symbol: stri
                         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
                             Relative Strength (RS) Rating
                             <span className={`px-3 py-1 rounded-full text-base ${currentRS >= 90 ? 'bg-green-100 text-green-700' :
-                                    currentRS >= 70 ? 'bg-blue-100 text-blue-700' :
-                                        currentRS >= 50 ? 'bg-yellow-100 text-yellow-700' :
-                                            'bg-red-100 text-red-700'
+                                currentRS >= 70 ? 'bg-blue-100 text-blue-700' :
+                                    currentRS >= 50 ? 'bg-yellow-100 text-yellow-700' :
+                                        'bg-red-100 text-red-700'
                                 }`}>
                                 {loading ? '...' : currentRS.toFixed(0)}
                             </span>
@@ -119,7 +119,7 @@ export default function RSChartPage({ params }: { params: Promise<{ symbol: stri
                                 <Tooltip
                                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                     labelFormatter={(date) => format(new Date(date), 'MMM dd, yyyy')}
-                                    formatter={(value: number) => [value.toFixed(2), 'RS Rating']}
+                                    formatter={(value: any) => [Number(value || 0).toFixed(2), 'RS Rating']}
                                 />
                                 <ReferenceLine y={90} stroke="#22c55e" strokeDasharray="3 3" label={{ value: 'Strong (90)', fill: '#22c55e', fontSize: 12 }} />
                                 <ReferenceLine y={70} stroke="#3b82f6" strokeDasharray="3 3" label={{ value: 'Good (70)', fill: '#3b82f6', fontSize: 12 }} />
