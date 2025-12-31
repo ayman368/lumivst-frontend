@@ -672,5 +672,120 @@ export const MOCK_STOCK_DATA = {
                 comments: 385,
             }
         ]
-    }
+    },
+    momentum: {
+        grade: "B+",
+        underlyingMetrics: [
+            { metric: "3M Price Performance", grade: "B+", value: "6.58%", sectorMedian: "-4.26%", diffToSector: "NM", fiveYearAvg: "17.78%", diffToFiveYear: "-63.00%" },
+            { metric: "6M Price Performance", grade: "B+", value: "27.53%", sectorMedian: "4.41%", diffToSector: "524.47%", fiveYearAvg: "40.49%", diffToFiveYear: "-32.02%" },
+            { metric: "9M Price Performance", grade: "B+", value: "55.35%", sectorMedian: "10.44%", diffToSector: "430.04%", fiveYearAvg: "65.88%", diffToFiveYear: "-15.98%" },
+            { metric: "1Y Price Performance", grade: "B+", value: "34.51%", sectorMedian: "-0.38%", diffToSector: "NM", fiveYearAvg: "96.20%", diffToFiveYear: "-64.13%" },
+        ],
+        pricePerformance: {
+            headers: ["1W", "1M", "6M", "YTD", "1Y", "3Y", "5Y", "10Y"],
+            rows: [
+                { label: "Price Return", values: ["10.34%", "3.32%", "27.53%", "40.45%", "34.51%", "1,140.37%", "1,351.54%", "22,644.65%"] },
+                { label: "S&P 500", values: ["3.13%", "3.39%", "13.79%", "17.86%", "14.77%", "80.30%", "87.20%", "236.35%"] },
+                { label: "Total Return", values: ["10.34%", "3.33%", "27.54%", "40.49%", "34.55%", "1,141.61%", "1,355.63%", "23,211.12%"] },
+                { label: "S&P 500 Total Return", values: ["3.14%", "3.49%", "14.48%", "19.35%", "16.25%", "88.22%", "101.48%", "300.01%"] },
+            ]
+        },
+        charts: {
+            priceReturnVsSp500: {
+                title: "Price Return vs S&P 500",
+                summary: [
+                    { label: "NVDA", value: "34.51%", color: "#f97316", sub: "Performance" }, // Orange
+                    { label: "SP500", value: "14.77%", color: "#3b82f6", sub: "Performance" }  // Blue
+                ]
+            },
+            totalReturnVsSp500: {
+                title: "Total Return vs S&P 500 Total Return",
+                summary: [
+                    { label: "NVDA", value: "34.55%", color: "#f97316", sub: "Total return" },
+                    { label: "SP500TR", value: "16.25%", color: "#3b82f6", sub: "Total return" }
+                ]
+            },
+            relativeStrength: {
+                title: "Relative Strength",
+                summary: [
+                    { label: "PRICE", value: "189.92", color: "#f97316", sub: "NVDA" },
+                    { label: "RSI", value: "-", color: "#3b82f6", sub: "NVDA" }
+                ]
+            },
+            priceReturnVsTotalReturn: {
+                title: "Price Return vs Total Return",
+                summary: [
+                    { label: "Price", value: "34.51%", color: "#f97316", sub: "Return" },
+                    { label: "Total", value: "34.55%", color: "#3b82f6", sub: "Return" }
+                ]
+            },
+            movingAverages: {
+                title: "Moving Averages",
+                summary: [
+                    { label: "PRICE", value: "187.94", color: "#f97316", sub: "NVDA" },
+                    { label: "10D SMA", value: "-", color: "#3b82f6", sub: "NVDA" },
+                    { label: "50D SMA", value: "-", color: "#d946ef", sub: "NVDA" },
+                    { label: "100D SMA", value: "-", color: "#22c55e", sub: "NVDA" },
+                    { label: "200D SMA", value: "-", color: "#ef4444", sub: "NVDA" },
+                ],
+                table: {
+                    headers: ["10D SMA", "50D SMA", "100D SMA", "200D SMA"],
+                    rows: [
+                        { label: "Simple Moving Average", values: ["179.75", "185.85", "182.65", "158.73"] },
+                        { label: "Last Price vs SMA", values: ["+4.93%", "+1.48%", "+3.26%", "+18.83%"], isGreen: true }
+                    ]
+                }
+            }
+        }
+    },
+    options: {
+        expirationDates: [
+            "Jan 02, 2026", "Jan 09, 2026", "Jan 16, 2026", "Jan 23, 2026",
+            "Jan 30, 2026", "Feb 20, 2026", "Mar 20, 2026", "Apr 17, 2026",
+            "May 15, 2026", "Jun 18, 2026"
+        ],
+        calls: [
+            { strike: "50.00", price: "142.00", change: "3.60", changePercent: "2.60%", bid: "139.00", ask: "142.15", volume: "7", openInt: "6", lastTrade: "1:51 PM 12/26/25" },
+            { strike: "55.00", price: "136.01", change: "3.82", changePercent: "2.89%", bid: "134.05", ask: "137.15", volume: "5", openInt: "8", lastTrade: "12:06 PM 12/26/25" },
+            { strike: "60.00", price: "131.84", change: "15.10", changePercent: "12.93%", bid: "129.05", ask: "132.15", volume: "10", openInt: "5", lastTrade: "11:04 AM 12/26/25" },
+            { strike: "65.00", price: "125.95", change: "4.88", changePercent: "4.03%", bid: "124.05", ask: "127.20", volume: "1", openInt: "1", lastTrade: "12:37 PM 12/26/25" },
+            { strike: "70.00", price: "121.70", change: "4.07", changePercent: "3.46%", bid: "119.20", ask: "122.15", volume: "20", openInt: "4", lastTrade: "1:31 PM 12/26/25" },
+            { strike: "75.00", price: "113.71", change: "7.85", changePercent: "7.42%", bid: "114.05", ask: "117.20", volume: "9", openInt: "7", lastTrade: "3:12 PM 12/23/25" },
+            { strike: "80.00", price: "107.80", change: "-0.63", changePercent: "-0.58%", bid: "109.05", ask: "112.20", volume: "1", openInt: "4", lastTrade: "9:32 AM 12/24/25" },
+            { strike: "85.00", price: "103.43", change: "13.11", changePercent: "14.52%", bid: "104.05", ask: "107.20", volume: "4", openInt: "0", lastTrade: "1:53 PM 12/23/25" },
+            { strike: "90.00", price: "101.50", change: "3.67", changePercent: "3.75%", bid: "99.05", ask: "102.20", volume: "3", openInt: "28", lastTrade: "3:31 PM 12/26/25" },
+            { strike: "95.00", price: "92.28", change: "6.48", changePercent: "7.55%", bid: "94.05", ask: "97.20", volume: "3", openInt: "25", lastTrade: "10:49 AM 12/24/25" },
+            { strike: "100.00", price: "90.50", change: "2.33", changePercent: "2.64%", bid: "89.85", ask: "91.20", volume: "4", openInt: "190", lastTrade: "11:50 AM 12/26/25" },
+            { strike: "105.00", price: "87.25", change: "4.03", changePercent: "4.84%", bid: "85.00", ask: "86.00", volume: "86", openInt: "41", lastTrade: "2:40 PM 12/26/25" },
+            { strike: "110.00", price: "81.53", change: "3.51", changePercent: "4.50%", bid: "79.85", ask: "81.50", volume: "29", openInt: "220", lastTrade: "3:39 PM 12/26/25" },
+            { strike: "115.00", price: "76.13", change: "2.66", changePercent: "3.62%", bid: "74.95", ask: "76.20", volume: "8", openInt: "145", lastTrade: "12:00 PM 12/26/25" },
+            { strike: "120.00", price: "71.05", change: "4.31", changePercent: "6.46%", bid: "70.05", ask: "71.00", volume: "8", openInt: "265", lastTrade: "2:27 PM 12/26/25" },
+        ],
+        puts: [
+            // Mirroring some data but making it look like puts (lower prices typically for ITM puts on high strike, etc. but just randomizing slightly for mock)
+            { strike: "50.00", price: "0.05", change: "0.01", changePercent: "25.00%", bid: "0.00", ask: "0.10", volume: "100", openInt: "500", lastTrade: "1:00 PM 12/26/25" },
+            { strike: "55.00", price: "0.08", change: "-0.02", changePercent: "-20.00%", bid: "0.05", ask: "0.15", volume: "50", openInt: "200", lastTrade: "12:00 PM 12/26/25" },
+        ]
+    },
+    historicalPrice: [
+        { date: "Dec. 26, 2025", open: "189.92", high: "192.69", low: "188.00", close: "190.53", change: "1.02%", volume: "139,740,292" },
+        { date: "Dec. 24, 2025", open: "187.94", high: "188.91", low: "186.59", close: "188.61", change: "-0.32%", volume: "65,528,545" },
+        { date: "Dec. 23, 2025", open: "182.97", high: "189.33", low: "182.90", close: "189.21", change: "3.01%", volume: "174,873,621" },
+        { date: "Dec. 22, 2025", open: "183.92", high: "184.16", low: "182.35", close: "183.69", change: "1.49%", volume: "129,064,369" },
+        { date: "Dec. 19, 2025", open: "176.67", high: "181.45", low: "176.34", close: "180.99", change: "3.93%", volume: "324,925,927" },
+        { date: "Dec. 18, 2025", open: "174.53", high: "176.15", low: "171.82", "close": "174.14", change: "1.87%", volume: "176,096,001" },
+        { date: "Dec. 17, 2025", open: "176.10", high: "176.13", low: "170.31", close: "170.94", change: "-3.81%", volume: "222,775,464" },
+        { date: "Dec. 16, 2025", open: "176.26", high: "178.49", low: "174.90", close: "177.72", change: "0.81%", volume: "148,588,098" },
+        { date: "Dec. 15, 2025", open: "177.94", high: "178.42", low: "175.03", close: "176.29", change: "0.73%", volume: "164,775,636" },
+        { date: "Dec. 12, 2025", open: "181.11", high: "182.82", low: "174.62", close: "175.02", change: "-3.27%", volume: "204,274,918" },
+        { date: "Dec. 11, 2025", open: "180.28", high: "181.32", low: "176.62", close: "180.93", change: "-1.55%", volume: "182,136,641" },
+    ],
+    splits: [
+        { date: "Jun. 10, 2024", ratio: "10:1" },
+        { date: "Jul. 20, 2021", ratio: "4:1" },
+        { date: "Sep. 11, 2007", ratio: "1.5:1" },
+        { date: "Apr. 07, 2006", ratio: "2:1" },
+        { date: "Sep. 12, 2001", ratio: "2:1" },
+        { date: "Jun. 27, 2000", ratio: "2:1" }
+    ]
 };

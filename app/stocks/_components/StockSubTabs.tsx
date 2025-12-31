@@ -10,12 +10,12 @@ export function StockSubTabs({ symbol, activeTab }: StockSubTabsProps) {
     const tabs = [
         { name: 'All', path: '' }, // Summary page
         { name: 'Analysis', path: '/analysis' },
-        { name: 'Comments', path: '/comments' }, // Placeholder paths
+        // { name: 'Comments', path: '/comments' }, // Placeholder paths
         { name: 'News', path: '/news' }, // Placeholder
         { name: 'Transcripts & Insights', path: '/transcripts' },
         { name: 'SEC Filings', path: '/sec-filings' }, // Placeholder
-        { name: 'Press Releases', path: '/press-releases' }, // Placeholder
-        { name: 'Related Analysis', path: '/related-analysis' } // Placeholder
+        // { name: 'Press Releases', path: '/press-releases' }, // Placeholder
+        // { name: 'Related Analysis', path: '/related-analysis' } // Placeholder
     ];
 
     return (

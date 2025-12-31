@@ -14,7 +14,8 @@ const TABS = [
     { name: "Momentum", path: "/momentum" },
     { name: "Peers", path: "/peers" },
     { name: "Options", path: "/options" },
-    { name: "Charting", path: "/charting" }
+    { name: "Charting", path: "/charting" },
+    { name: "RS Chart", path: "/rs-chart" }
 ];
 
 export function StockTabs() {

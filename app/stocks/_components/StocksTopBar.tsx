@@ -2,6 +2,7 @@
 import { Search, Bell, HelpCircle, User } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export function StocksTopBar() {
     const router = useRouter();
@@ -31,6 +32,13 @@ export function StocksTopBar() {
                 >
                     <Search className="h-4 w-4" />
                 </button>
+            </div>
+
+            {/* Navigation Links */}
+            <div className="flex items-center gap-4"> {/* Added a div to group links */}
+                <Link href="/" className="text-sm font-medium text-gray-600 hover:text-gray-900">Dashboard</Link>
+                <Link href="/rs-screener" className="text-sm font-medium text-gray-600 hover:text-gray-900">RS Matrix</Link>
+                <Link href="/screener" className="text-sm font-medium text-gray-600 hover:text-gray-900">Stock Screener</Link>
             </div>
 
             {/* Actions */}
