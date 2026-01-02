@@ -7,11 +7,11 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 interface StockRS {
     symbol: string;
     company_name?: string;
-    rs_percentile: number;
-    rs_3m: number;
-    rs_6m: number;
-    rs_9m: number;
-    rs_12m: number;
+    rs_rating: number;      // Changed from rs_percentile
+    rank_3m: number;        // Changed from rs_3m
+    rank_6m: number;
+    rank_9m: number;
+    rank_12m: number;
 }
 
 export default function RSScreenerPage() {
@@ -34,7 +34,7 @@ export default function RSScreenerPage() {
         let result = stocks;
 
         // Apply range filter
-        result = result.filter(s => s.rs_percentile >= filterRange[0] && s.rs_percentile <= filterRange[1]);
+        result = result.filter(s => s.rs_rating >= filterRange[0] && s.rs_rating <= filterRange[1]);
 
         // Apply search
         if (searchQuery) {
@@ -104,11 +104,11 @@ export default function RSScreenerPage() {
     };
 
     const getChartData = (stock: StockRS) => [
-        { name: '1Y', value: stock.rs_12m || 0 },
-        { name: '9M', value: stock.rs_9m || 0 },
-        { name: '6M', value: stock.rs_6m || 0 },
-        { name: '3M', value: stock.rs_3m || 0 },
-        { name: 'Now', value: stock.rs_percentile }
+        { name: '1Y', value: stock.rank_12m || 0 },
+        { name: '9M', value: stock.rank_9m || 0 },
+        { name: '6M', value: stock.rank_6m || 0 },
+        { name: '3M', value: stock.rank_3m || 0 },
+        { name: 'Now', value: stock.rs_rating }
     ];
 
     return (
@@ -153,8 +153,8 @@ export default function RSScreenerPage() {
                                 <div className="font-bold text-white text-sm">{stock.company_name || stock.symbol}</div>
                                 <div className="text-xs text-[#787b86]">{stock.symbol}</div>
                             </div>
-                            <div className={`px-2 py-1 rounded text-xs font-bold text-white text-center min-w-[32px] ${getRSColor(stock.rs_percentile)}`}>
-                                {stock.rs_percentile}
+                            <div className={`px-2 py-1 rounded text-xs font-bold text-white text-center min-w-[32px] ${getRSColor(stock.rs_rating)}`}>
+                                {stock.rs_rating}
                             </div>
                         </div>
                     ))}
@@ -191,8 +191,8 @@ export default function RSScreenerPage() {
                                         All Time
                                     </button>
                                 </div>
-                                <div className={`text-4xl font-bold px-6 py-3 rounded-lg text-white ${getRSColor(selectedStock.rs_percentile)}`}>
-                                    {selectedStock.rs_percentile}
+                                <div className={`text-4xl font-bold px-6 py-3 rounded-lg text-white ${getRSColor(selectedStock.rs_rating)}`}>
+                                    {selectedStock.rs_rating}
                                 </div>
                             </div>
                         </div>
@@ -270,7 +270,7 @@ export default function RSScreenerPage() {
                                             />
                                             <Line
                                                 type="monotone"
-                                                dataKey="rs_percentile"
+                                                dataKey="rs_rating"
                                                 name="RS Rating"
                                                 stroke="#2962ff"
                                                 strokeWidth={2}
@@ -285,19 +285,19 @@ export default function RSScreenerPage() {
                             <div className="grid grid-cols-4 gap-4 mt-8 pt-6 border-t border-[#2a2e39]">
                                 <div className="text-center p-4 bg-[#2a2e39] rounded-lg">
                                     <div className="text-[#787b86] text-xs font-bold mb-1">3 MONTHS</div>
-                                    <div className="text-xl font-bold text-white">{selectedStock.rs_3m || '-'}</div>
+                                    <div className="text-xl font-bold text-white">{selectedStock.rank_3m || '-'}</div>
                                 </div>
                                 <div className="text-center p-4 bg-[#2a2e39] rounded-lg">
                                     <div className="text-[#787b86] text-xs font-bold mb-1">6 MONTHS</div>
-                                    <div className="text-xl font-bold text-white">{selectedStock.rs_6m || '-'}</div>
+                                    <div className="text-xl font-bold text-white">{selectedStock.rank_6m || '-'}</div>
                                 </div>
                                 <div className="text-center p-4 bg-[#2a2e39] rounded-lg">
                                     <div className="text-[#787b86] text-xs font-bold mb-1">9 MONTHS</div>
-                                    <div className="text-xl font-bold text-white">{selectedStock.rs_9m || '-'}</div>
+                                    <div className="text-xl font-bold text-white">{selectedStock.rank_9m || '-'}</div>
                                 </div>
                                 <div className="text-center p-4 bg-[#2a2e39] rounded-lg">
                                     <div className="text-[#787b86] text-xs font-bold mb-1">12 MONTHS</div>
-                                    <div className="text-xl font-bold text-white">{selectedStock.rs_12m || '-'}</div>
+                                    <div className="text-xl font-bold text-white">{selectedStock.rank_12m || '-'}</div>
                                 </div>
                             </div>
                         </div>

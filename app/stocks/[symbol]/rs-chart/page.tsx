@@ -6,7 +6,7 @@ import { format } from 'date-fns';
 
 interface RSData {
     date: string;
-    rs_percentile: number;
+    rs_rating: number;      // Changed from rs_percentile
     rs_raw: number;
     symbol: string;
 }
@@ -50,7 +50,7 @@ export default function RSChartPage({ params }: { params: Promise<{ symbol: stri
         return '#ef4444'; // Red
     };
 
-    const currentRS = data.length > 0 ? data[data.length - 1].rs_percentile : 0;
+    const currentRS = data.length > 0 ? data[data.length - 1].rs_rating : 0;
 
     return (
         <div className="max-w-[1600px] mx-auto px-4 md:px-6 py-8">
@@ -128,7 +128,7 @@ export default function RSChartPage({ params }: { params: Promise<{ symbol: stri
 
                                 <Line
                                     type="monotone"
-                                    dataKey="rs_percentile"
+                                    dataKey="rs_rating"
                                     stroke="#2563eb"
                                     strokeWidth={2}
                                     dot={false}
