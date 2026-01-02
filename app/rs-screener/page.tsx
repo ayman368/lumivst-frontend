@@ -7,11 +7,16 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 interface StockRS {
     symbol: string;
     company_name?: string;
-    rs_rating: number;      // Changed from rs_percentile
-    rank_3m: number;        // Changed from rs_3m
+    rs_rating: number;
+    rank_3m: number;
     rank_6m: number;
     rank_9m: number;
     rank_12m: number;
+    // Add Returns
+    return_3m: number;
+    return_6m: number;
+    return_9m: number;
+    return_12m: number;
 }
 
 export default function RSScreenerPage() {
@@ -43,8 +48,6 @@ export default function RSScreenerPage() {
         }
 
         setFilteredStocks(result);
-
-        // Removed auto-selection logic to keep the current chart active even if filtered out from list
     }, [stocks, searchQuery, filterRange]);
 
     useEffect(() => {
@@ -61,7 +64,7 @@ export default function RSScreenerPage() {
 
     const fetchLatestRS = async () => {
         try {
-            const res = await fetch(`${API_URL}/api/rs/latest?limit=500`); // Get all
+            const res = await fetch(`${API_URL}/api/rs/latest?limit=500`);
             const data = await res.json();
             if (data.data) {
                 setStocks(data.data);
@@ -101,6 +104,20 @@ export default function RSScreenerPage() {
         if (val >= 50) return 'bg-yellow-500';
         if (val >= 30) return 'bg-orange-500';
         return 'bg-red-500';
+    };
+
+    // Helper to format return percentage
+    const formatReturn = (val: number | undefined) => {
+        if (val === undefined || val === null) return '-';
+        return `${(val * 100).toFixed(1)}%`;
+    };
+
+    // Helper to get color based on return value (Green(+), Red(-), Gray(0))
+    const getReturnColorClass = (val: number | undefined) => {
+        if (val === undefined || val === null) return 'text-white';
+        if (val > 0) return 'text-emerald-400';
+        if (val < 0) return 'text-red-400';
+        return 'text-gray-400';
     };
 
     const getChartData = (stock: StockRS) => [
@@ -285,19 +302,27 @@ export default function RSScreenerPage() {
                             <div className="grid grid-cols-4 gap-4 mt-8 pt-6 border-t border-[#2a2e39]">
                                 <div className="text-center p-4 bg-[#2a2e39] rounded-lg">
                                     <div className="text-[#787b86] text-xs font-bold mb-1">3 MONTHS</div>
-                                    <div className="text-xl font-bold text-white">{selectedStock.rank_3m || '-'}</div>
+                                    <div className={`text-xl font-bold ${getReturnColorClass(selectedStock.return_3m)}`}>
+                                        {formatReturn(selectedStock.return_3m)}
+                                    </div>
                                 </div>
                                 <div className="text-center p-4 bg-[#2a2e39] rounded-lg">
                                     <div className="text-[#787b86] text-xs font-bold mb-1">6 MONTHS</div>
-                                    <div className="text-xl font-bold text-white">{selectedStock.rank_6m || '-'}</div>
+                                    <div className={`text-xl font-bold ${getReturnColorClass(selectedStock.return_6m)}`}>
+                                        {formatReturn(selectedStock.return_6m)}
+                                    </div>
                                 </div>
                                 <div className="text-center p-4 bg-[#2a2e39] rounded-lg">
                                     <div className="text-[#787b86] text-xs font-bold mb-1">9 MONTHS</div>
-                                    <div className="text-xl font-bold text-white">{selectedStock.rank_9m || '-'}</div>
+                                    <div className={`text-xl font-bold ${getReturnColorClass(selectedStock.return_9m)}`}>
+                                        {formatReturn(selectedStock.return_9m)}
+                                    </div>
                                 </div>
                                 <div className="text-center p-4 bg-[#2a2e39] rounded-lg">
                                     <div className="text-[#787b86] text-xs font-bold mb-1">12 MONTHS</div>
-                                    <div className="text-xl font-bold text-white">{selectedStock.rank_12m || '-'}</div>
+                                    <div className={`text-xl font-bold ${getReturnColorClass(selectedStock.return_12m)}`}>
+                                        {formatReturn(selectedStock.return_12m)}
+                                    </div>
                                 </div>
                             </div>
                         </div>
