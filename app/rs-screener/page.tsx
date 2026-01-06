@@ -64,7 +64,22 @@ export default function RSScreenerPage() {
 
     const fetchLatestRS = async () => {
         try {
-            const res = await fetch(`${API_URL}/api/rs/latest?limit=500`);
+            const token = localStorage.getItem('token');
+            const headers: HeadersInit = {
+                'Content-Type': 'application/json'
+            };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            const res = await fetch(`${API_URL}/api/rs/latest?limit=500`, { headers });
+
+            if (res.status === 401 || res.status === 403) {
+                console.error("Authentication failed or forbidden");
+                // Optionally redirect to login or show error
+                return;
+            }
+
             const data = await res.json();
             if (data.data) {
                 setStocks(data.data);
@@ -88,7 +103,21 @@ export default function RSScreenerPage() {
                 url += `?from_date=${fromDate}`;
             }
 
-            const res = await fetch(url);
+            const token = localStorage.getItem('token');
+            const headers: HeadersInit = {
+                'Content-Type': 'application/json'
+            };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            const res = await fetch(url, { headers });
+
+            if (!res.ok) {
+                console.error("Failed to fetch history");
+                return;
+            }
+
             const data = await res.json();
             setHistoryData(data);
         } catch (err) {
