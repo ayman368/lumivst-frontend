@@ -134,9 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Navigate to home using full reload
     console.log('🔄 Navigating to home...');
-    if (window.location.pathname !== '/') {
-      window.location.href = '/';
-    }
+    window.location.href = '/';
   };
 
   const register = async (email: string, password: string, fullName?: string) => {
@@ -174,9 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Fetch user data to update state
     await checkAuth();
 
-    if (window.location.pathname !== '/') {
-      window.location.href = '/';
-    }
+    window.location.href = '/';
   };
 
   const logout = async () => {
