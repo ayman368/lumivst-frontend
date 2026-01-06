@@ -132,11 +132,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await checkAuth();
     }
 
-    // Navigate to home using router for smoother transition, but ensure state is robust
+    // Navigate to home using full reload
     console.log('🔄 Navigating to home...');
     if (window.location.pathname !== '/') {
-      router.push('/');
-      router.refresh();
+      window.location.href = '/';
     }
   };
 
@@ -176,8 +175,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await checkAuth();
 
     if (window.location.pathname !== '/') {
-      router.push('/');
-      router.refresh();
+      window.location.href = '/';
     }
   };
 
