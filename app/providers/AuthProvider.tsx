@@ -47,30 +47,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const token = localStorage.getItem('token');
     console.log('🔍 Checking auth with token:', token ? 'Present' : 'Missing');
 
-    if (token) {
-      try {
-        const res = await fetch(`${API_URL}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+    if (!token) {
+      setLoading(false);
+      return;
+    }
 
-        console.log('🔍 Auth check response:', res.status);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-        if (res.ok) {
-          const userData = await res.json();
-          console.log('✅ User authenticated:', userData.email);
-          setUser(userData);
-          // Refresh cookie just in case
-          document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax; Secure`;
-        } else {
-          console.warn('⚠️ Auth check failed, removing token');
+      console.log('🔍 Auth check response:', res.status);
+
+      if (res.ok) {
+        const userData = await res.json();
+        console.log('✅ User authenticated:', userData.email);
+        setUser(userData);
+        // Refresh cookie
+        const isSecure = window.location.protocol === 'https:';
+        document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax; ${isSecure ? 'Secure' : ''}`;
+      } else {
+        // Only log out if explicitly unauthorized (401)
+        if (res.status === 401) {
+          console.warn('⚠️ Auth check failed (401), removing token');
           localStorage.removeItem('token');
           document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+          setUser(null);
+        } else {
+          console.warn(`⚠️ Auth check returned ${res.status}, keeping token for now.`);
+          // Optionally we might want to keep the user as null but NOT clear the token,
+          // or assume they are logged in if we trust the token (risky).
+          // For now, let's NOT clear the token, allowing retry.
         }
-      } catch (e) {
-        console.error('❌ Auth check error:', e);
-        localStorage.removeItem('token');
-        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
       }
+    } catch (e) {
+      console.error('❌ Auth check error:', e);
+      // Network error? Do NOT log out.
     }
     setLoading(false);
   };
@@ -106,7 +118,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const data = await res.json();
     localStorage.setItem('token', data.access_token);
     // Set cookie for middleware
-    document.cookie = `token=${data.access_token}; path=/; max-age=86400; SameSite=Lax; Secure`;
+    const isSecure = window.location.protocol === 'https:';
+    document.cookie = `token=${data.access_token}; path=/; max-age=86400; SameSite=Lax; ${isSecure ? 'Secure' : ''}`;
 
     console.log('✅ Login successful, setting user data...');
 
@@ -157,7 +170,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const data = await res.json();
     // data contains access_token
     localStorage.setItem('token', data.access_token);
-    document.cookie = `token=${data.access_token}; path=/; max-age=86400; SameSite=Lax; Secure`;
+    const isSecure = window.location.protocol === 'https:';
+    document.cookie = `token=${data.access_token}; path=/; max-age=86400; SameSite=Lax; ${isSecure ? 'Secure' : ''}`;
 
     // Fetch user data to update state
     await checkAuth();
