@@ -119,8 +119,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await checkAuth();
     }
 
+    // Force router push to home
     console.log('🔄 Navigating to home...');
-    router.push('/');
+    window.location.href = '/';
+    // using window.location.href to ensure full reload and state clear if needed, 
+    // or router.push('/') if we trust client side. 
+    // Given the issues, window.location.href might be safer to ensure fresh start.
+    // router.push('/');
   };
 
   const register = async (email: string, password: string, fullName?: string) => {
@@ -157,7 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Fetch user data to update state
     await checkAuth();
 
-    router.push('/');
+    window.location.href = '/';
   };
 
   const logout = async () => {
