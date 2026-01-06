@@ -36,9 +36,7 @@ export function StocksTopBar() {
 
             {/* Navigation Links */}
             <div className="flex items-center gap-4"> {/* Added a div to group links */}
-                <Link href="/" className="text-sm font-medium text-gray-600 hover:text-gray-900">Dashboard</Link>
                 <Link href="/rs-screener" className="text-sm font-medium text-gray-600 hover:text-gray-900">RS Matrix</Link>
-                <Link href="/screener" className="text-sm font-medium text-gray-600 hover:text-gray-900">Stock Screener</Link>
             </div>
 
             {/* Actions */}
