@@ -35,6 +35,14 @@ export default function Navbar() {
         { en: 'Screeners', href: '/screeners/my-screens' },
       ],
     },
+    watchlist: {
+      en: 'Watchlist',
+      href: '/watchlist',
+      items: [
+        { en: 'My Watchlist', href: '/watchlist' },
+        { en: 'RS Screener', href: '/rs-screener' },
+      ],
+    },
     market: {
       en: 'Market',
       href: '/market',

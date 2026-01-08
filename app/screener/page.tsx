@@ -19,7 +19,7 @@ export default function ScreenerPage() {
     } = useScreener();
 
     return (
-        <div className="flex flex-col h-screen w-full overflow-hidden bg-white dark:bg-[#131722] text-[#131722] dark:text-[#d1d4dc]">
+        <div className="flex flex-col w-full bg-white dark:bg-[#131722] text-[#131722] dark:text-[#d1d4dc]">
             {/* 
           As requested: Filters & Search Panel *before* the Header
       */}

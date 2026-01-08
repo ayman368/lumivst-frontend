@@ -65,13 +65,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(userData);
         // Refresh cookie
         const isSecure = window.location.protocol === 'https:';
-        document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax; ${isSecure ? 'Secure' : ''}`;
+        document.cookie = `session_token=${token}; path=/; max-age=604800; SameSite=Lax; ${isSecure ? 'Secure' : ''}`;
       } else {
         // Only log out if explicitly unauthorized (401)
         if (res.status === 401) {
           console.warn('⚠️ Auth check failed (401), removing token');
           localStorage.removeItem('token');
-          document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+          document.cookie = 'session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
           setUser(null);
         } else {
           console.warn(`⚠️ Auth check returned ${res.status}, keeping token for now.`);
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('token', data.access_token);
     // Set cookie for middleware
     const isSecure = window.location.protocol === 'https:';
-    document.cookie = `token=${data.access_token}; path=/; max-age=86400; SameSite=Lax; ${isSecure ? 'Secure' : ''}`;
+    document.cookie = `session_token=${data.access_token}; path=/; max-age=604800; SameSite=Lax; ${isSecure ? 'Secure' : ''}`;
 
     console.log('✅ Login successful, setting user data...');
 
@@ -167,7 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // data contains access_token
     localStorage.setItem('token', data.access_token);
     const isSecure = window.location.protocol === 'https:';
-    document.cookie = `token=${data.access_token}; path=/; max-age=86400; SameSite=Lax; ${isSecure ? 'Secure' : ''}`;
+    document.cookie = `session_token=${data.access_token}; path=/; max-age=604800; SameSite=Lax; ${isSecure ? 'Secure' : ''}`;
 
     // Fetch user data to update state
     await checkAuth();
@@ -192,7 +192,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
     localStorage.removeItem('token');
-    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+    document.cookie = 'session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
     setUser(null);
     router.push('/login');
   };

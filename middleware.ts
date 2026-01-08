@@ -1,65 +1,94 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { jwtVerify } from 'jose';
 
-// ✅ Enable Authentication
-const AUTH_ENABLED = true;
+// Use same secret as backend
+const SECRET_KEY = process.env.JWT_SECRET || "tqsdlvy=jtead%x)jmn5@jl%ior3_5am)k%(6=q+myn0!!v%)i";
 
-export function middleware(request: NextRequest) {
-  // If Auth is disabled, allow all requests
-  if (!AUTH_ENABLED) {
-    return NextResponse.next();
-  }
+export async function middleware(request: NextRequest) {
+  const path = request.nextUrl.pathname;
 
-  const { pathname } = request.nextUrl;
-
-  // Define public paths that do not require authentication
+  // Define public paths (pages accessible without login)
   const publicPaths = [
     '/login',
     '/register',
-    '/signup', // Add if using signup
-    '/auth',   // For auth callbacks and verification
+    '/auth/',
+    '/terms',
+    '/terms-of-service',
+    '/privacy',
+    '/privacy-policy',
+    '/delete-account',
+    '/about',
+    '/contact'
   ];
 
-  // Logic to identify public paths
-  const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
+  const token = request.cookies.get('session_token')?.value;
 
-  // Check for token in cookies or headers
-  const token = request.cookies.get('token')?.value ||
-    request.headers.get('authorization')?.replace('Bearer ', '');
+  // 1. If NO TOKEN
+  if (!token) {
+    if (publicPaths.some(p => path.startsWith(p)) || path.startsWith('/api/public')) {
+      return NextResponse.next();
+    }
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('callbackUrl', encodeURIComponent(path));
+    return NextResponse.redirect(loginUrl);
+  }
 
-  // If the user is on a public path (like login)
-  if (isPublicPath) {
-    // If they are already logged in, redirect them to home/dashboard
-    if (token) {
-      // You might want to specificy where to go. Usually root '/' or '/dashboard'
-      // For now preventing login access if already logged in is good UX but optional.
-      // Let's keep it simple: if public path, allow access.
-      // If we want to redirect logged in users away from login:
-      if (pathname === '/login' || pathname === '/register' || pathname === '/signup') {
+  // 2. If HAS TOKEN
+  try {
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(SECRET_KEY));
+    console.log(`[Middleware] ${path} - User: ${payload.email} Approved: ${payload.is_approved} Admin: ${payload.is_admin}`);
+
+    // A. Check Approval Status
+    if (!payload.is_approved) {
+      // Allow access ONLY to pending-approval page
+      if (path.startsWith('/pending-approval')) {
+        return NextResponse.next();
+      }
+      // Block API calls if unapproved (optional, but good for security)
+      if (path.startsWith('/api/') && !path.startsWith('/api/auth/')) {
+        return new NextResponse(JSON.stringify({ message: 'Account pending approval' }), { status: 403, headers: { 'content-type': 'application/json' } });
+      }
+      // Redirect everything else to pending-approval
+      return NextResponse.redirect(new URL('/pending-approval', request.url));
+    }
+
+    // B. If User IS Approved
+    if (path.startsWith('/pending-approval')) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+
+    // Redirect away from auth pages if already logged in
+    if (path === '/login' || path === '/register') {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+
+    // C. Admin Route Protection
+    if (path.startsWith('/admin')) {
+      if (!payload.is_admin) { // Ensure boolean check
+        console.log(`[Middleware] Admin Access Denied for ${payload.email}`);
         return NextResponse.redirect(new URL('/', request.url));
       }
     }
+
     return NextResponse.next();
-  }
 
-  // Allow nextjs internals and static files
-  if (pathname.startsWith('/_next') || pathname.startsWith('/static') || pathname.startsWith('/favicon.ico') || pathname.match(/\.(png|jpg|jpeg|gif|ico)$/)) {
-    return NextResponse.next();
+  } catch (error) {
+    console.error(`[Middleware] Token Verification Error:`, error);
+    // Token invalid - Treat as No Token
+    // If public path, allow (logging out the invalid token happens on client or next request)
+    if (publicPaths.some(p => path.startsWith(p)) || path.startsWith('/api/public')) {
+      const response = NextResponse.next();
+      response.cookies.delete('session_token');
+      return response;
+    }
+    const loginUrl = new URL('/login', request.url);
+    const response = NextResponse.redirect(loginUrl);
+    response.cookies.delete('session_token');
+    return response;
   }
-
-  // For all other routes (protected), if no token, redirect to login
-  if (!token) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  return NextResponse.next();
 }
 
 export const config = {
-  // Match all request paths except for the ones starting with:
-  // - api (API routes)
-  // - _next/static (static files)
-  // - _next/image (image optimization files)
-  // - favicon.ico (favicon file)
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };
