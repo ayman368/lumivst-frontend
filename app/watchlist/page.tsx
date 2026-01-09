@@ -32,27 +32,27 @@ export default function WatchlistPage() {
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 relative">
+            <div className="flex-1">
                 {activeTab === 'Overview' && (
-                    <div className="h-full">
+                    <div>
                         <MarketOverview />
                     </div>
                 )}
 
                 {activeTab === 'RS Matrix' && (
-                    <div className="h-full">
+                    <div>
                         <RSMatrix />
                     </div>
                 )}
 
                 {activeTab === 'Matrix Chart' && (
-                    <div className="h-full">
+                    <div>
                         <MatrixChart />
                     </div>
                 )}
 
                 {activeTab === 'RS Screener' && (
-                    <div className="h-full">
+                    <div>
                         <RSScreener />
                     </div>
                 )}

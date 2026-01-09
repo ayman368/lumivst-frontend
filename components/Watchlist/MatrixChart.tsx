@@ -77,7 +77,7 @@ export default function MatrixChart() {
     };
 
     return (
-        <div className="h-full w-full bg-white text-black flex flex-col overflow-hidden">
+        <div className="w-full bg-white text-black flex flex-col" style={{ minHeight: '600px', maxHeight: '800px' }}>
             <div className="bg-[#1e222d] text-white p-3 px-6 flex justify-between items-center shrink-0 border-b border-[#2a2e39]">
                 <h1 className="text-lg font-bold">💠 RS Matrix Chart</h1>
                 <div className="text-xs text-[#787b86]">Dynamic Heatmap</div>

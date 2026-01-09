@@ -66,7 +66,7 @@ export default function MarketOverview() {
     if (loading) return <div className="p-8 text-center text-[#d1d4dc]">Loading Market Overview...</div>;
 
     return (
-        <div className="p-6 bg-[#131722] min-h-full">
+        <div className="p-6 bg-[#131722]" style={{ minHeight: '600px' }}>
             <div className="bg-[#1e222d] rounded-lg shadow-lg overflow-hidden flex flex-col h-full">
                 <div className="p-6 border-b border-[#2a2e39] flex justify-between items-center">
                     <div>

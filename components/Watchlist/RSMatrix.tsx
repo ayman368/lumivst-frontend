@@ -52,7 +52,7 @@ export default function RSMatrix() {
     const total = stocks.length;
 
     return (
-        <div className="p-6 bg-[#131722] h-full overflow-hidden flex flex-col">
+        <div className="p-6 bg-[#131722] flex flex-col" style={{ minHeight: '600px' }}>
             <div className="flex items-center justify-between mb-4 shrink-0">
                 <h2 className="text-xl font-bold text-white">💠 RS Matrix Cards</h2>
             </div>

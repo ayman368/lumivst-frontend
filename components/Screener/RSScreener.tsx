@@ -158,7 +158,7 @@ export default function RSScreener() {
     ];
 
     return (
-        <div className="flex h-full bg-[#131722] text-[#d1d4dc] font-sans overflow-hidden">
+        <div className="flex bg-[#131722] text-[#d1d4dc] font-sans">
             {/* Sidebar */}
             <div className="w-[300px] bg-[#1e222d] flex flex-col border-r border-[#2a2e39]">
                 <div className="p-4 border-b border-[#2a2e39]">
@@ -185,7 +185,7 @@ export default function RSScreener() {
                     />
                 </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className="overflow-y-auto custom-scrollbar" style={{ maxHeight: '480px' }}>
                     {loading ? (
                         <div className="p-4 text-center text-gray-500">Loading...</div>
                     ) : filteredStocks.map(stock => (
@@ -243,11 +243,11 @@ export default function RSScreener() {
                             </div>
                         </div>
 
-                        <div className="bg-[#1e222d] p-6 rounded-lg flex-1 shadow-lg flex flex-col">
+                        <div className="bg-[#1e222d] p-6 rounded-lg shadow-lg flex flex-col">
                             <h2 className="text-[#787b86] mb-4 text-sm font-semibold tracking-wider">
                                 {viewMode === 'term' ? 'RS TERM STRUCTURE' : viewMode === 'history' ? 'RS RATING HISTORY' : 'RS RATING ALL TIME'}
                             </h2>
-                            <div className="flex-1 min-h-[300px]">
+                            <div className="h-[350px]">
                                 <ResponsiveContainer width="100%" height="100%">
                                     {viewMode === 'term' ? (
                                         <LineChart data={getChartData(selectedStock)}>
