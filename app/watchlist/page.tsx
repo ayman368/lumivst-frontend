@@ -32,7 +32,7 @@ export default function WatchlistPage() {
             </div>
 
             {/* Content Area */}
-            <div className="flex-1">
+            <div className="flex-1 pb-12">
                 {activeTab === 'Overview' && (
                     <div>
                         <MarketOverview />
