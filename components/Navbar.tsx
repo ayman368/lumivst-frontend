@@ -114,7 +114,7 @@ export default function Navbar() {
       <div className={styles['navbar-container']}>
         {/* Logo */}
         <Link href="/" className={styles['navbar-logo']}>
-          LUMIVST
+          ZAKHM
         </Link>
 
         {/* Main Menu */}

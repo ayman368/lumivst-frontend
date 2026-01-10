@@ -11,7 +11,7 @@ export default function Footer() {
           {/* Brand Column */}
           <div>
             <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-6">
-              LUMIVST
+              ZAKHM
             </h2>
             <p className="text-slate-400 mb-6 leading-relaxed">
               شريكك الذكي في عالم المال والأعمال. نقدم حلولاً مبتكرة تعتمد على الذكاء الاصطناعي لتعزيز قراراتك الاستثمارية.
