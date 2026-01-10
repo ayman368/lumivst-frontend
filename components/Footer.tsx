@@ -100,11 +100,11 @@ export default function Footer() {
               </li>
               <li className="flex items-center gap-3 text-slate-400">
                 <Phone className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                <span dir="ltr">+20 100 000 0000</span>
+                <span dir="ltr">+201044330557</span>
               </li>
               <li className="flex items-center gap-3 text-slate-400">
                 <Mail className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                <span>info@lumivst.com</span>
+                <span>ayman@lumivst.com</span>
               </li>
             </ul>
           </div>
