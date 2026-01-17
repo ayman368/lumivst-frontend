@@ -10,6 +10,9 @@ import { InsiderTrading } from '../_components/InsiderTrading';
 import { MOCK_STOCK_DATA } from '../data/mockData';
 import Link from 'next/link';
 import { StockSubTabs } from '../_components/StockSubTabs';
+import FinancialReportsTable from '../_components/FinancialReportsTable';
+
+// ...
 
 export default async function StockDetailPage({
   params
@@ -53,6 +56,9 @@ export default async function StockDetailPage({
 
           {/* Detailed Financial Summary */}
           <StockFinancialSummary data={data} />
+
+          {/* Official Filings / Financial Reports */}
+          <FinancialReportsTable symbol={symbol} />
 
           {/* Insider Trading */}
           <InsiderTrading data={data.insiderTrading} />
