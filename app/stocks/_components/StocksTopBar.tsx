@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, FileSpreadsheet, FileText, LayoutGrid } from 'lucide-react';
+import { Search, FileSpreadsheet, FileText, LayoutGrid, Table } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -48,6 +48,14 @@ export function StocksTopBar() {
                 >
                     <FileText className="w-4 h-4" />
                     Reports
+                </Link>
+
+                <Link
+                    href={`/stocks/${currentSymbol || '4322'}/details`}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:text-green-600 hover:bg-green-50 transition-all"
+                >
+                    <Table className="w-4 h-4" />
+                    XBRL Data
                 </Link>
 
                 <Link

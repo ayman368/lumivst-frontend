@@ -92,9 +92,10 @@ export default function MarketOverview() {
                                 <th className="p-4 font-semibold border-b border-[#363c4e]">Company</th>
                                 <th className="p-4 font-semibold border-b border-[#363c4e]">Industry</th>
                                 <th className="p-4 font-semibold border-b border-[#363c4e] text-center cursor-pointer" title="Sort by RS">RS Rating</th>
-                                <th className="p-4 font-semibold border-b border-[#363c4e] text-center">3M Rank</th>
-                                <th className="p-4 font-semibold border-b border-[#363c4e] text-center">6M Rank</th>
-                                <th className="p-4 font-semibold border-b border-[#363c4e] text-center">12M Rank</th>
+                                <th className="p-4 font-semibold border-b border-[#363c4e] text-center">3M </th>
+                                <th className="p-4 font-semibold border-b border-[#363c4e] text-center">6M </th>
+                                <th className="p-4 font-semibold border-b border-[#363c4e] text-center">9M </th>
+                                <th className="p-4 font-semibold border-b border-[#363c4e] text-center">12M </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#2a2e39]">
@@ -110,6 +111,7 @@ export default function MarketOverview() {
                                     </td>
                                     <td className="p-4 text-center">{stock.rank_3m}</td>
                                     <td className="p-4 text-center">{stock.rank_6m}</td>
+                                    <td className="p-4 text-center">{stock.rank_9m}</td>
                                     <td className="p-4 text-center">{stock.rank_12m}</td>
                                 </tr>
                             ))}
