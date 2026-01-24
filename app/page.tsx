@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -140,7 +140,9 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-slate-900 font-sans text-sm pb-16">
 
-      <StocksTopBar />
+      <Suspense fallback={<div className="bg-white border-b border-gray-200 px-6 py-3 h-14 animate-pulse" />}>
+        <StocksTopBar />
+      </Suspense>
 
       <div className="max-w-[1600px] mx-auto px-4 md:px-6 space-y-4 mt-6">
 
