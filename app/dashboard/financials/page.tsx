@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ChevronDown, Search, Download, RefreshCcw, Loader2, FileSpreadsheet, Building2 } from 'lucide-react';
 import { StocksTopBar } from '../../stocks/_components/StocksTopBar';
@@ -34,7 +34,7 @@ interface Company {
 type ReportType = 'balance_sheets' | 'income_statements' | 'cash_flows';
 type PeriodType = 'Annually' | 'Quarterly';
 
-export default function DashboardFinancialsPage() {
+function DashboardFinancialsContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const urlSymbol = searchParams.get('symbol');
@@ -159,14 +159,16 @@ export default function DashboardFinancialsPage() {
         <div className="min-h-screen bg-gray-50">
             {/* Header Replacement */}
             <div>
-                <StocksTopBar />
+                <Suspense fallback={<div className="bg-white border-b border-gray-200 px-6 py-3 h-14 animate-pulse" />}>
+                    <StocksTopBar />
+                </Suspense>
                 {selectedSymbol && (
                     <StockHeader
                         symbol={selectedSymbol}
                         name={displayName}
-                        price={MOCK_STOCK_DATA.price} // Placeholder
-                        change={MOCK_STOCK_DATA.change} // Placeholder
-                        changePercent={MOCK_STOCK_DATA.changePercent} // Placeholder
+                        price={MOCK_STOCK_DATA.price}
+                        change={MOCK_STOCK_DATA.change}
+                        changePercent={MOCK_STOCK_DATA.changePercent}
                         marketTime={MOCK_STOCK_DATA.marketTime}
                         exchange={MOCK_STOCK_DATA.exchange}
                         currency={MOCK_STOCK_DATA.currency}
@@ -311,5 +313,17 @@ export default function DashboardFinancialsPage() {
                 )}
             </div>
         </div>
+    );
+}
+
+export default function DashboardFinancialsPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            </div>
+        }>
+            <DashboardFinancialsContent />
+        </Suspense>
     );
 }
