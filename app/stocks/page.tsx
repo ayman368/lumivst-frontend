@@ -231,7 +231,8 @@ export default function StocksPage() {
     async function fetchStocks() {
       try {
         setLoading(true);
-        const res = await fetch(`http://localhost:8000/api/prices/latest`, {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const res = await fetch(`${API_URL}/api/prices/latest`, {
           cache: 'no-store',
           headers: { 'Content-Type': 'application/json' }
         });

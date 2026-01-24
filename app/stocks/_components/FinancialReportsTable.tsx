@@ -39,8 +39,8 @@ export default function FinancialReportsTable({ symbol }: { symbol: string }) {
         setData({}); // Clear previous data strictly
         setYears([]); // Clear previous years
         try {
-            const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-            const res = await fetch(`${apiBase}/api/reports/${symbol}`);
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const res = await fetch(`${API_BASE_URL}/api/reports/${symbol}`);
 
             if (!res.ok) {
                 throw new Error('Failed to fetch reports');
