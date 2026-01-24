@@ -18,10 +18,10 @@ const TABS = [
     { name: "RS Chart", path: "/rs-chart" }
 ];
 
-export function StockTabs() {
+export function StockTabs({ symbol: propSymbol }: { symbol?: string }) {
     const pathname = usePathname();
     const params = useParams();
-    const symbol = params.symbol as string;
+    const symbol = propSymbol || (params?.symbol as string);
 
     // Helper to check if tab is active
     // Summary is active if pathname ends with symbol (e.g. /stocks/NVDA)

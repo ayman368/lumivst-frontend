@@ -41,7 +41,7 @@ export default function Navbar() {
       items: [
         { en: 'My Watchlist', href: '/watchlist' },
         { en: 'RS Screener', href: '/rs-screener' },
-        // { en: 'RS Analysis V2', href: '/rs-analysis' },
+        { en: 'RS Analysis', href: '/rs-analysis' },
       ],
     },
     market: {

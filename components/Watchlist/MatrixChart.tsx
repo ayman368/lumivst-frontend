@@ -1,16 +1,26 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import html2canvas from 'html2canvas'; // 1. استيراد المكتبة
 
 interface StockRS {
     symbol: string;
     company_name?: string;
+    Company?: string;
     rs_rating: number;
+    RS?: number;
 }
 
 export default function MatrixChart() {
     const [stocks, setStocks] = useState<StockRS[]>([]);
     const [loading, setLoading] = useState(true);
+    const [gridStyles, setGridStyles] = useState({ col1: '50%', col2: '50%', row1: '50%', row2: '50%' });
+    const [hoveredStock, setHoveredStock] = useState<{ stock: StockRS; x: number; y: number } | null>(null);
+    const [iscapturing, setIsCapturing] = useState(false); // لحالة الزر أثناء التصوير
+
+    const chartRef = useRef<HTMLDivElement>(null); // 2. مرجع للعنصر المراد تصويره
+    const router = useRouter();
 
     useEffect(() => {
         fetchData();
@@ -25,14 +35,17 @@ export default function MatrixChart() {
             const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
             const res = await fetch(`${API_URL}/api/rs/latest?limit=500`, { headers });
 
-            if (!res.ok) {
-                console.error(`Fetch error: ${res.status}`);
-                return;
-            }
+            if (!res.ok) return;
 
             const data = await res.json();
             if (data.data) {
-                setStocks(data.data);
+                const normalized = data.data.map((s: any) => ({
+                    ...s,
+                    rs_rating: s.rs_rating ?? s.RS ?? 0,
+                    company_name: s.company_name ?? s.Company ?? s.symbol
+                }));
+                setStocks(normalized);
+                calculateGridDimensions(normalized);
             }
         } catch (err) {
             console.error(err);
@@ -41,92 +54,206 @@ export default function MatrixChart() {
         }
     };
 
-    if (loading) return <div className="p-8 text-center text-[#d1d4dc]">Loading Chart...</div>;
+    // دالة التقاط الصورة
+    const captureImage = async () => {
+        if (!chartRef.current) return;
 
-    // Group stocks
+        setIsCapturing(true);
+        try {
+            // ننتظر قليلاً للتأكد من اختفاء أي Tooltip أو تأثيرات حركية
+            const canvas = await html2canvas(chartRef.current, {
+                useCORS: true, // للسماح بالصور من روابط خارجية إذا وجدت
+                backgroundColor: "#ffffff",
+                scale: 2, // جودة أعلى (Retina)
+            });
+
+            const link = document.createElement('a');
+            link.download = `RS_Matrix_${new Date().toISOString().slice(0, 10)}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        } catch (err) {
+            console.error("Failed to capture image:", err);
+        } finally {
+            setIsCapturing(false);
+        }
+    };
+
+    // تقسيم البيانات
     const strong = stocks.filter(s => s.rs_rating >= 90).sort((a, b) => b.rs_rating - a.rs_rating);
     const improve = stocks.filter(s => s.rs_rating >= 80 && s.rs_rating < 90).sort((a, b) => b.rs_rating - a.rs_rating);
     const neutral = stocks.filter(s => s.rs_rating >= 70 && s.rs_rating < 80).sort((a, b) => b.rs_rating - a.rs_rating);
     const weak = stocks.filter(s => s.rs_rating < 70).sort((a, b) => b.rs_rating - a.rs_rating);
 
-    // Dynamic Grid Sizing Calculation (Same logic as original JS)
-    const nStrong = strong.length;
-    const nImprove = improve.length;
-    const nNeutral = neutral.length;
-    const nWeak = weak.length;
-    const total = nStrong + nImprove + nNeutral + nWeak || 1;
+    const calculateGridDimensions = (allStocks: StockRS[]) => {
+        const nStrong = allStocks.filter(s => s.rs_rating >= 90).length;
+        const nImprove = allStocks.filter(s => s.rs_rating >= 80 && s.rs_rating < 90).length;
+        const nNeutral = allStocks.filter(s => s.rs_rating >= 70 && s.rs_rating < 80).length;
+        const nWeak = allStocks.filter(s => s.rs_rating < 70).length;
 
-    // Width Calculation (Left Col: Neutral+Weak, Right Col: Strong+Improve)
-    const col1Weight = nNeutral + nWeak;
-    let col1Pct = (col1Weight / total) * 100;
-    col1Pct = Math.max(15, Math.min(85, col1Pct));
-    col1Pct = col1Pct * 0.85; // Shift divider left
-    const col2Pct = 100 - col1Pct;
+        const total = nStrong + nImprove + nNeutral + nWeak || 1;
+        const leftCount = nNeutral + nWeak;
+        let col1Pct = (leftCount / total) * 100;
+        col1Pct = Math.max(20, Math.min(70, col1Pct)) * 0.85;
+        const col2Pct = 100 - col1Pct;
 
-    // Height Calculation (Top Row: Neutral+Strong, Bottom Row: Weak+Improve)
-    const row1Weight = nNeutral + nStrong;
-    let row1Pct = (row1Weight / total) * 100;
-    row1Pct = Math.max(15, Math.min(85, row1Pct));
-    row1Pct = row1Pct * 1.15; // Shift divider down
-    row1Pct = Math.min(85, row1Pct);
-    const row2Pct = 100 - row1Pct;
+        const topCount = nNeutral + nStrong;
+        let row1Pct = (topCount / total) * 100;
+        row1Pct = Math.max(25, Math.min(75, row1Pct * 1.15));
+        const row2Pct = 100 - row1Pct;
 
-    const gridStyle = {
-        gridTemplateColumns: `${col1Pct}% ${col2Pct}%`,
-        gridTemplateRows: `${row1Pct}% ${row2Pct}%`
+        setGridStyles({
+            col1: `${col1Pct}%`,
+            col2: `${col2Pct}%`,
+            row1: `${row1Pct}%`,
+            row2: `${row2Pct}%`
+        });
     };
 
+    if (loading) return <div className="h-screen flex items-center justify-center bg-white text-black">Loading Matrix Chart...</div>;
+
+    const totalCount = stocks.length || 1;
+    const getPct = (count: number) => ((count / totalCount) * 100).toFixed(1) + '%';
+
     return (
-        <div className="w-full bg-white text-black flex flex-col" style={{ minHeight: '600px', maxHeight: '800px' }}>
-            <div className="bg-[#1e222d] text-white p-3 px-6 flex justify-between items-center shrink-0 border-b border-[#2a2e39]">
-                <h1 className="text-lg font-bold">💠 RS Matrix Chart</h1>
-                <div className="text-xs text-[#787b86]">Dynamic Heatmap</div>
-            </div>
+        /* أضفنا الـ ref هنا ليشمل الهيدر والمصفوفة معاً */
+        <div ref={chartRef} className="h-screen flex flex-col bg-white overflow-hidden font-sans text-[#333]">
+            <header className="h-[60px] bg-[#1e222d] border-b border-[#2a2e39] flex items-center justify-between px-5 shrink-0 z-50">
+                <h1 className="text-white text-[1.3rem] font-bold"> RS Matrix Chart</h1>
+                <div className="flex gap-2 bg-white/5 p-1 rounded-lg">
 
-            <div className="flex-1 grid w-full h-full transition-all duration-500 ease-in-out" style={gridStyle}>
-                {/* Top Left: NEUTRAL */}
-                <Quadrant id="neutral" title="NEUTRAL (70-79)" bg="bg-orange-50" label="NEUTRAL" list={neutral} dotColor="bg-orange-600" />
+                    {/* زر حفظ الصورة الجديد */}
+                    <button
+                        onClick={captureImage}
+                        disabled={iscapturing}
+                        className="bg-[#4caf50] text-white px-4 py-2 rounded-md text-[0.9rem] font-medium shadow-lg hover:bg-[#43a047] transition-all flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                        {iscapturing ? ' Capturing...' : ' Save Image'}
+                    </button>
+                </div>
+            </header>
 
-                {/* Top Right: STRONG */}
-                <Quadrant id="strong" title="STRONG (>=90)" bg="bg-emerald-50" label="STRONG" list={strong} dotColor="bg-emerald-700" />
+            <main
+                className="flex-1 grid w-full bg-white transition-all duration-500 ease-in-out"
+                style={{
+                    gridTemplateColumns: `${gridStyles.col1} ${gridStyles.col2}`,
+                    gridTemplateRows: `${gridStyles.row1} ${gridStyles.row2}`
+                }}
+            >
+                <Quadrant
+                    id="q-neutral"
+                    title="NEUTRAL (70 - 79)"
+                    watermark="NEUTRAL"
+                    list={neutral}
+                    bgColor="#fff3e0"
+                    percentage={getPct(neutral.length)}
+                    dotColor="#e65100"
+                    onHover={setHoveredStock}
+                    onLeave={() => setHoveredStock(null)}
+                    router={router}
+                />
 
-                {/* Bottom Left: WEAK */}
-                <Quadrant id="weak" title="WEAK (<70)" bg="bg-red-50" label="WEAK" list={weak} dotColor="bg-red-700" />
+                <Quadrant
+                    id="q-strong"
+                    title="STRONG (>= 90)"
+                    watermark="STRONG"
+                    list={strong}
+                    bgColor="#e8f5e9"
+                    percentage={getPct(strong.length)}
+                    dotColor="#2e7d32"
+                    onHover={setHoveredStock}
+                    onLeave={() => setHoveredStock(null)}
+                    router={router}
+                />
 
-                {/* Bottom Right: IMPROVE */}
-                <Quadrant id="improve" title="IMPROVE (80-89)" bg="bg-blue-50" label="IMPROVE" list={improve} dotColor="bg-blue-600" />
-            </div>
+                <Quadrant
+                    id="q-weak"
+                    title="WEAK (< 70)"
+                    watermark="WEAK"
+                    list={weak}
+                    bgColor="#ffcdd2"
+                    percentage={getPct(weak.length)}
+                    dotColor="#c62828"
+                    onHover={setHoveredStock}
+                    onLeave={() => setHoveredStock(null)}
+                    router={router}
+                />
+
+                <Quadrant
+                    id="q-improve"
+                    title="IMPROVE (80 - 89)"
+                    watermark="IMPROVE"
+                    list={improve}
+                    bgColor="#e1f5fe"
+                    percentage={getPct(improve.length)}
+                    dotColor="#0277bd"
+                    onHover={setHoveredStock}
+                    onLeave={() => setHoveredStock(null)}
+                    router={router}
+                />
+            </main>
+
+            {/* Custom Tooltip - لن يظهر في الصورة لأنه خارج الـ chartRef أو يتم التقاطه بسرعة */}
+            {hoveredStock && !iscapturing && (
+                <div
+                    className="fixed z-[10000] bg-black/90 text-white px-2.5 py-1.5 rounded text-[0.8rem] pointer-events-none whitespace-nowrap"
+                    style={{
+                        left: hoveredStock.x + 15,
+                        top: hoveredStock.y + 15
+                    }}
+                >
+                    <div className="font-bold">{hoveredStock.stock.company_name} <span className="font-normal opacity-75">({hoveredStock.stock.symbol})</span></div>
+                    <div>RS: {hoveredStock.stock.rs_rating}</div>
+                </div>
+            )}
         </div>
     );
 }
 
-function Quadrant({ title, bg, label, list, dotColor }: any) {
-    const total = list.length;
+// ... كود مكون Quadrant يبقى كما هو ...
+interface QuadrantProps {
+    id: string;
+    title: string;
+    watermark: string;
+    list: StockRS[];
+    bgColor: string;
+    percentage: string;
+    dotColor: string;
+    onHover: (data: { stock: StockRS; x: number; y: number }) => void;
+    onLeave: () => void;
+    router: any;
+}
 
+function Quadrant({ id, title, watermark, list, bgColor, percentage, dotColor, onHover, onLeave, router }: QuadrantProps) {
     return (
-        <div className={`relative p-4 border border-gray-200 overflow-hidden flex flex-col ${bg}`}>
-            {/* Background Label */}
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-4xl lg:text-9xl font-black text-black/5 pointer-events-none select-none">
-                {label}
+        <div
+            id={id}
+            className="relative p-[25px_15px_15px_15px] overflow-y-auto overflow-x-hidden flex flex-wrap content-start border border-black/[0.08]"
+            style={{ backgroundColor: bgColor }}
+        >
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[3rem] font-[900] uppercase text-black/10 pointer-events-none z-0 text-center leading-[1.2]">
+                {watermark}
             </div>
 
-            {/* Info Badge */}
-            <div className="absolute top-2 left-2 bg-white/90 px-2 py-1 rounded text-xs font-bold shadow-sm z-10 text-gray-800 border border-gray-100">
-                {title} <span className="font-normal ml-1 text-gray-500">{total}</span>
+            <div className="absolute top-[5px] left-[8px] text-[0.85rem] opacity-80 font-bold z-10 bg-white/60 px-2 py-[2px] rounded text-black shadow-sm">
+                {title} <span className="font-normal ml-[5px]">{percentage}</span>
             </div>
 
-            {/* Content */}
-            <div className="mt-8 flex content-start flex-wrap gap-1 overflow-y-auto z-10 h-full w-full custom-scrollbar pr-2">
-                {list.map((s: any) => (
-                    <div key={s.symbol}
-                        className="inline-flex items-center px-1.5 py-0.5 bg-transparent hover:bg-white hover:shadow-md hover:scale-110 rounded transition-all cursor-pointer text-[10px] font-semibold text-gray-800 border border-transparent hover:border-gray-200 shrink-0 max-w-[120px]"
-                        title={`${s.company_name} (RS: ${s.rs_rating})`}
-                    >
-                        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${dotColor} shrink-0`}></span>
-                        <span className="truncate">{s.company_name || s.symbol}</span>
-                    </div>
-                ))}
-            </div>
+            {list.map((stock) => (
+                <div
+                    key={stock.symbol}
+                    className="inline-flex items-center bg-transparent px-2 py-1 m-[2px] text-[0.7rem] font-semibold text-[#222] cursor-pointer z-[5] transition-transform duration-100 hover:scale-110 hover:z-[100] hover:bg-white hover:shadow-md hover:rounded whitespace-nowrap max-w-[140px] overflow-hidden"
+                    onMouseEnter={(e) => onHover({ stock, x: e.clientX, y: e.clientY })}
+                    onMouseMove={(e) => onHover({ stock, x: e.clientX, y: e.clientY })}
+                    onMouseLeave={onLeave}
+                    onClick={() => router.push(`/charts?symbol=${stock.symbol}`)}
+                >
+                    <div
+                        className="w-[6px] h-[6px] rounded-full mr-[6px] shrink-0"
+                        style={{ backgroundColor: dotColor }}
+                    />
+                    {stock.company_name || stock.symbol}
+                </div>
+            ))}
         </div>
     );
 }

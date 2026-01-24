@@ -1,7 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { ChevronDown, Search, Download, RefreshCcw, Loader2, FileSpreadsheet, Building2 } from 'lucide-react';
+import { StocksTopBar } from '../../stocks/_components/StocksTopBar';
+import { StockHeader } from '../../stocks/_components/StockHeader';
+import { StockTabs } from '../../stocks/_components/StockTabs';
+import { MOCK_STOCK_DATA } from '../../stocks/data/mockData';
 
 interface FinancialPeriod {
     period_end_date: string;
@@ -30,8 +35,12 @@ type ReportType = 'balance_sheets' | 'income_statements' | 'cash_flows';
 type PeriodType = 'Annually' | 'Quarterly';
 
 export default function DashboardFinancialsPage() {
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const urlSymbol = searchParams.get('symbol');
+
     const [companies, setCompanies] = useState<Company[]>([]);
-    const [selectedSymbol, setSelectedSymbol] = useState<string>('');
+    const [selectedSymbol, setSelectedSymbol] = useState<string>(urlSymbol || '');
     const [financialData, setFinancialData] = useState<HistoricalFinancials | null>(null);
     const [activeReportType, setActiveReportType] = useState<ReportType>('income_statements');
     const [periodType, setPeriodType] = useState<PeriodType>('Annually');
@@ -41,6 +50,13 @@ export default function DashboardFinancialsPage() {
     const [searchQuery, setSearchQuery] = useState('');
 
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+    // Sync URL symbol with state
+    useEffect(() => {
+        if (urlSymbol) {
+            setSelectedSymbol(urlSymbol);
+        }
+    }, [urlSymbol]);
 
     // Fetch companies on mount
     useEffect(() => {
@@ -59,8 +75,12 @@ export default function DashboardFinancialsPage() {
             if (!res.ok) throw new Error('Failed to fetch companies');
             const data = await res.json();
             setCompanies(data);
-            if (data.length > 0 && !selectedSymbol) {
-                setSelectedSymbol(data[0].symbol);
+
+            // If no symbol in URL, default to first company
+            if (data.length > 0 && !urlSymbol && !selectedSymbol) {
+                const firstSym = data[0].symbol;
+                setSelectedSymbol(firstSym);
+                router.replace(`/dashboard/financials?symbol=${firstSym}`);
             }
         } catch (err: any) {
             setError(err.message);
@@ -131,58 +151,30 @@ export default function DashboardFinancialsPage() {
         { key: 'cash_flows', label: 'Cash Flows', labelAr: 'التدفقات النقدية' },
     ];
 
+    // Find current company name
+    const currentCompany = companies.find(c => c.symbol === selectedSymbol);
+    const displayName = currentCompany ? (currentCompany.name_en || currentCompany.name_ar || 'Unknown') : selectedSymbol;
+
     return (
         <div className="min-h-screen bg-gray-50">
-            {/* Header */}
-            <div className="bg-white border-b border-gray-200 shadow-sm">
-                <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                                <FileSpreadsheet className="w-7 h-7 text-blue-600" />
-                                Scraped Financials
-                            </h1>
-                            <p className="text-gray-500 mt-1">البيانات المالية المحفوظة من Saudi Exchange</p>
-                        </div>
-
-                        {/* Company Selector */}
-                        <div className="flex items-center gap-4">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Search company..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg w-48 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                            </div>
-
-                            <div className="relative">
-                                <select
-                                    value={selectedSymbol}
-                                    onChange={(e) => setSelectedSymbol(e.target.value)}
-                                    className="appearance-none bg-white border border-gray-200 rounded-lg px-4 py-2 pr-10 font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px]"
-                                >
-                                    {filteredCompanies.map(company => (
-                                        <option key={company.symbol} value={company.symbol}>
-                                            {company.symbol} - {company.name_en || company.name_ar || 'Unknown'}
-                                        </option>
-                                    ))}
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                            </div>
-
-                            <button
-                                onClick={() => selectedSymbol && fetchFinancials(selectedSymbol)}
-                                className="p-2 text-gray-500 hover:text-blue-600 bg-gray-100 hover:bg-blue-50 rounded-lg transition-colors"
-                                title="Refresh"
-                            >
-                                <RefreshCcw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            {/* Header Replacement */}
+            <div>
+                <StocksTopBar />
+                {selectedSymbol && (
+                    <StockHeader
+                        symbol={selectedSymbol}
+                        name={displayName}
+                        price={MOCK_STOCK_DATA.price} // Placeholder
+                        change={MOCK_STOCK_DATA.change} // Placeholder
+                        changePercent={MOCK_STOCK_DATA.changePercent} // Placeholder
+                        marketTime={MOCK_STOCK_DATA.marketTime}
+                        exchange={MOCK_STOCK_DATA.exchange}
+                        currency={MOCK_STOCK_DATA.currency}
+                    />
+                )}
+                {selectedSymbol && (
+                    <StockTabs symbol={selectedSymbol} />
+                )}
             </div>
 
             {/* Main Content */}
@@ -207,8 +199,8 @@ export default function DashboardFinancialsPage() {
                                         key={tab.key}
                                         onClick={() => setActiveReportType(tab.key as ReportType)}
                                         className={`px-6 py-4 text-sm font-medium transition-colors border-b-2 ${activeReportType === tab.key
-                                                ? 'border-blue-600 text-blue-600'
-                                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                            ? 'border-blue-600 text-blue-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700'
                                             }`}
                                     >
                                         {tab.label}
@@ -222,8 +214,8 @@ export default function DashboardFinancialsPage() {
                                         <button
                                             onClick={() => setPeriodType('Annually')}
                                             className={`px-3 py-1 text-sm rounded-md transition-colors ${periodType === 'Annually'
-                                                    ? 'bg-white shadow text-gray-900'
-                                                    : 'text-gray-500 hover:text-gray-700'
+                                                ? 'bg-white shadow text-gray-900'
+                                                : 'text-gray-500 hover:text-gray-700'
                                                 }`}
                                         >
                                             Annual
@@ -231,8 +223,8 @@ export default function DashboardFinancialsPage() {
                                         <button
                                             onClick={() => setPeriodType('Quarterly')}
                                             className={`px-3 py-1 text-sm rounded-md transition-colors ${periodType === 'Quarterly'
-                                                    ? 'bg-white shadow text-gray-900'
-                                                    : 'text-gray-500 hover:text-gray-700'
+                                                ? 'bg-white shadow text-gray-900'
+                                                : 'text-gray-500 hover:text-gray-700'
                                                 }`}
                                         >
                                             Quarterly

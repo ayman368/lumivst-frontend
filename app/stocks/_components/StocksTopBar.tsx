@@ -2,18 +2,36 @@
 
 import { Search, FileSpreadsheet, FileText, LayoutGrid, Table } from 'lucide-react';
 import { useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 export function StocksTopBar() {
     const router = useRouter();
     const params = useParams();
-    const currentSymbol = params?.symbol as string;
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+
+    // Get symbol from route params OR query string (for dashboard/financials)
+    const currentSymbol = (params?.symbol as string) || searchParams.get('symbol') || '4322';
     const [query, setQuery] = useState('');
 
     const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter' && query.trim()) {
-            router.push(`/stocks/${query.trim().toUpperCase()}`);
+            const symbol = query.trim().toUpperCase();
+
+            // Check if we are currently on a specific tab
+            // This allows switching stocks while staying on the same view (Reports, Details, etc.)
+            if (pathname?.includes('/dashboard/financials')) {
+                router.push(`/dashboard/financials?symbol=${symbol}`);
+            } else if (pathname?.includes('/reports')) {
+                router.push(`/stocks/${symbol}/reports`);
+            } else if (pathname?.includes('/details')) {
+                router.push(`/stocks/${symbol}/details`);
+            } else if (pathname?.includes('/financials')) {
+                router.push(`/stocks/${symbol}/financials`);
+            } else {
+                router.push(`/stocks/${symbol}`);
+            }
         }
     };
 
@@ -67,12 +85,7 @@ export function StocksTopBar() {
                 </Link>
             </div>
 
-            {/* User Actions (Placeholder) */}
-            <div className="w-[100px] flex justify-end">
-                <button className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors">
-                    <LayoutGrid className="w-5 h-5" />
-                </button>
-            </div>
+
         </div>
     );
 }
