@@ -10,13 +10,22 @@ interface StockRS {
     Company?: string;
     rs_rating: number;
     RS?: number;
+    prev_rs_rating?: number;
 }
+
+// Helper to get category
+const getCategory = (rs: number) => {
+    if (rs >= 90) return 'STRONG';
+    if (rs >= 80) return 'IMPROVE';
+    if (rs >= 70) return 'NEUTRAL';
+    return 'WEAK';
+};
 
 export default function MatrixChart() {
     const [stocks, setStocks] = useState<StockRS[]>([]);
     const [loading, setLoading] = useState(true);
     const [gridStyles, setGridStyles] = useState({ col1: '50%', col2: '50%', row1: '50%', row2: '50%' });
-    const [hoveredStock, setHoveredStock] = useState<{ stock: StockRS; x: number; y: number } | null>(null);
+    const [hoveredStock, setHoveredStock] = useState<{ stock: StockRS; x: number; y: number; movedFrom?: string } | null>(null);
     const [iscapturing, setIsCapturing] = useState(false); // لحالة الزر أثناء التصوير
 
     const chartRef = useRef<HTMLDivElement>(null); // 2. مرجع للعنصر المراد تصويره
@@ -42,6 +51,7 @@ export default function MatrixChart() {
                 const normalized = data.data.map((s: any) => ({
                     ...s,
                     rs_rating: s.rs_rating ?? s.RS ?? 0,
+                    prev_rs_rating: s.prev_rs_rating,
                     company_name: s.company_name ?? s.Company ?? s.symbol
                 }));
                 setStocks(normalized);
@@ -195,14 +205,19 @@ export default function MatrixChart() {
             {/* Custom Tooltip - لن يظهر في الصورة لأنه خارج الـ chartRef أو يتم التقاطه بسرعة */}
             {hoveredStock && !iscapturing && (
                 <div
-                    className="fixed z-[10000] bg-black/90 text-white px-2.5 py-1.5 rounded text-[0.8rem] pointer-events-none whitespace-nowrap"
+                    className="fixed z-[10000] bg-black/90 text-white px-3 py-2 rounded shadow-2xl text-[0.8rem] pointer-events-none whitespace-nowrap border border-white/20"
                     style={{
                         left: hoveredStock.x + 15,
                         top: hoveredStock.y + 15
                     }}
                 >
-                    <div className="font-bold">{hoveredStock.stock.company_name} <span className="font-normal opacity-75">({hoveredStock.stock.symbol})</span></div>
-                    <div>RS: {hoveredStock.stock.rs_rating}</div>
+                    <div className="font-bold border-b border-white/10 pb-1 mb-1">{hoveredStock.stock.company_name} <span className="font-normal opacity-75">({hoveredStock.stock.symbol})</span></div>
+                    <div>Current RS: <span className="font-bold text-yellow-400">{hoveredStock.stock.rs_rating}</span></div>
+                    {hoveredStock.movedFrom && (
+                        <div className="mt-1 flex items-center gap-1.5 font-bold text-blue-400 italic">
+                            <span>★</span> Moved From {hoveredStock.movedFrom}
+                        </div>
+                    )}
                 </div>
             )}
         </div>
@@ -218,7 +233,7 @@ interface QuadrantProps {
     bgColor: string;
     percentage: string;
     dotColor: string;
-    onHover: (data: { stock: StockRS; x: number; y: number }) => void;
+    onHover: (data: { stock: StockRS; x: number; y: number; movedFrom?: string }) => void;
     onLeave: () => void;
     router: any;
 }
@@ -238,22 +253,41 @@ function Quadrant({ id, title, watermark, list, bgColor, percentage, dotColor, o
                 {title} <span className="font-normal ml-[5px]">{percentage}</span>
             </div>
 
-            {list.map((stock) => (
-                <div
-                    key={stock.symbol}
-                    className="inline-flex items-center bg-transparent px-2 py-1 m-[2px] text-[0.7rem] font-semibold text-[#222] cursor-pointer z-[5] transition-transform duration-100 hover:scale-110 hover:z-[100] hover:bg-white hover:shadow-md hover:rounded whitespace-nowrap max-w-[140px] overflow-hidden"
-                    onMouseEnter={(e) => onHover({ stock, x: e.clientX, y: e.clientY })}
-                    onMouseMove={(e) => onHover({ stock, x: e.clientX, y: e.clientY })}
-                    onMouseLeave={onLeave}
-                    onClick={() => router.push(`/charts?symbol=${stock.symbol}`)}
-                >
+            {list.map((stock) => {
+                const currentCat = getCategory(stock.rs_rating);
+                const prevCat = stock.prev_rs_rating ? getCategory(stock.prev_rs_rating) : null;
+
+                const categories = ['WEAK', 'NEUTRAL', 'IMPROVE', 'STRONG'];
+                const currIdx = categories.indexOf(currentCat);
+                const prevIdx = prevCat ? categories.indexOf(prevCat) : -1;
+
+                let arrow = null;
+                if (prevCat && currentCat !== prevCat) {
+                    if (currIdx > prevIdx) {
+                        arrow = <span className="text-[0.75rem] ml-1 font-bold text-green-700">↑</span>;
+                    } else {
+                        arrow = <span className="text-[0.75rem] ml-1 font-bold text-red-700">↓</span>;
+                    }
+                }
+
+                return (
                     <div
-                        className="w-[6px] h-[6px] rounded-full mr-[6px] shrink-0"
-                        style={{ backgroundColor: dotColor }}
-                    />
-                    {stock.company_name || stock.symbol}
-                </div>
-            ))}
+                        key={stock.symbol}
+                        className={`inline-flex items-center bg-transparent px-2 py-1 m-[2px] text-[0.7rem] font-semibold cursor-pointer z-[5] transition-transform duration-100 hover:scale-110 hover:z-[100] hover:bg-white hover:shadow-md hover:rounded whitespace-nowrap max-w-[140px] overflow-hidden ${arrow ? (arrow.props.children === '↑' ? 'text-green-700' : 'text-red-700') : 'text-[#222]'}`}
+                        onMouseEnter={(e) => onHover({ stock, x: e.clientX, y: e.clientY, movedFrom: prevCat || undefined })}
+                        onMouseMove={(e) => onHover({ stock, x: e.clientX, y: e.clientY, movedFrom: prevCat || undefined })}
+                        onMouseLeave={onLeave}
+                        onClick={() => router.push(`/stocks/${stock.symbol.replace(/\D/g, '')}/financials`)}
+                    >
+                        <div
+                            className="w-[6px] h-[6px] rounded-full mr-[6px] shrink-0"
+                            style={{ backgroundColor: dotColor }}
+                        />
+                        {stock.company_name || stock.symbol}
+                        {arrow}
+                    </div>
+                );
+            })}
         </div>
     );
 }

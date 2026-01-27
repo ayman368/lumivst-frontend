@@ -1,11 +1,13 @@
 .container {
   background: #f8fafc;
+  /* لون رمادي فاتح جداً هادئ */
   min-height: 100vh;
   color: #334155;
-  padding-top: 5px;
+  padding: 20px;
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  direction: ltr;
-  text-align: left;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
 }
 
 .tableContainer {
@@ -14,7 +16,7 @@
   border-radius: 12px;
   overflow: hidden;
   margin-bottom: 24px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow-x: auto;
 }
 
@@ -54,7 +56,7 @@
 .table th:nth-child(2),
 .table td:nth-child(2) {
   width: 180px;
-  text-align: left;
+  text-align: center;
   white-space: normal;
   word-wrap: break-word;
   line-height: 1.4;
@@ -64,7 +66,7 @@
 .table th:nth-child(3),
 .table td:nth-child(3) {
   width: 120px;
-  text-align: left;
+  text-align: center;
   white-space: normal;
   word-wrap: break-word;
   line-height: 1.4;
@@ -74,7 +76,7 @@
 .table th:nth-child(4),
 .table td:nth-child(4) {
   width: 160px;
-  text-align: left;
+  text-align: center;
   white-space: normal;
   word-wrap: break-word;
   line-height: 1.4;
@@ -86,7 +88,7 @@
   width: 200px;
   min-width: 180px;
   max-width: 250px;
-  text-align: left;
+  text-align: center;
   white-space: normal;
   word-wrap: break-word;
   line-height: 1.4;
@@ -301,13 +303,15 @@
 }
 
 /* ⭐ تحسين التنسيق لما العمود يكون مفعل */
-.sortAsc, .sortDesc {
+.sortAsc,
+.sortDesc {
   background: #eff6ff !important;
   color: #1e40af !important;
   border-bottom: 2px solid #3b82f6 !important;
 }
 
-.sortAsc:hover, .sortDesc:hover {
+.sortAsc:hover,
+.sortDesc:hover {
   background: #dbeafe !important;
 }
 
@@ -387,27 +391,27 @@
   .container {
     padding: 16px;
   }
-  
+
   .tableContainer {
     overflow-x: auto;
     border-radius: 8px;
   }
-  
+
   .table {
     min-width: 1200px;
     font-size: 13px;
   }
-  
+
   .table th,
   .table td {
     padding: 12px 8px;
   }
-  
+
   .sortable {
     padding-right: 25px !important;
     padding-left: 28px !important;
   }
-  
+
   .sortPriority::before {
     width: 18px;
     height: 18px;
@@ -436,8 +440,10 @@
   flex-wrap: wrap;
   gap: 15px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  width: 100%; /* ⭐ عشان ياخد العرض الكامل */
-  box-sizing: border-box; /* ⭐ عشان الـ padding ميزودش العرض */
+  width: 100%;
+  /* ⭐ عشان ياخد العرض الكامل */
+  box-sizing: border-box;
+  /* ⭐ عشان الـ padding ميزودش العرض */
 }
 
 .metadataItem {
@@ -457,29 +463,28 @@
 }
 
 /* Container styles - Fixed layout */
-.container {
-  padding: 20px;
-  max-width: 100%;
-  margin: 0 auto;
-  display: flex; /* ⭐ استخدام flexbox */
-  flex-direction: column; /* ⭐ كل حاجة فوق بعض */
-  gap: 0; /* ⭐ بدون مسافة extra */
-}
+/* Container styles consolidated at the top of the file */
 
 .tableContainer {
   overflow-x: auto;
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  width: 100%; /* ⭐ عشان ياخد العرض الكامل */
+  width: 100%;
+  /* ⭐ عشان ياخد العرض الكامل */
 }
 
 .resultsCount {
   padding: 15px 20px;
-  border-bottom: 2px solid #e5e7eb;
+  border-bottom: none;
+  /* إزالة الخط تماماً */
   font-size: 14px;
-  color: #6b7280;
-  background: #f9fafb;
+  color: #64748b;
+  background: transparent;
+  /* جعل الخلفية شفافة عشان متبانش وقت السكرول */
+  width: fit-content;
+  min-width: 100%;
+  box-sizing: border-box;
 }
 
 .resultsCount strong {
@@ -501,10 +506,11 @@
 
 .table thead tr:first-child th {
   background: #f3f4f6;
+  /* العودة للون الرمادي الأصلي */
   color: #374151;
   font-weight: 600;
   padding: 12px 8px;
-  text-align: left;
+  text-align: center;
   border-bottom: 2px solid #e5e7eb;
   position: sticky;
   top: 0;
@@ -513,7 +519,7 @@
 
 .table thead .filterRow td {
   padding: 8px;
-  background: #fafafa;
+  background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
 }
 
@@ -523,6 +529,7 @@
   border: 1px solid #d1d5db;
   border-radius: 4px;
   font-size: 12px;
+  text-align: center;
   transition: all 0.2s;
 }
 
@@ -544,6 +551,7 @@
 .table tbody td {
   padding: 10px 8px;
   color: #374151;
+  text-align: center;
 }
 
 /* Link Styles */
@@ -564,8 +572,10 @@
   cursor: pointer;
   user-select: none;
   position: relative;
-  padding-right: 30px !important; /* ⭐ زودنا المساحة عشان السهم */
-  padding-left: 28px !important; /* ⭐ مساحة أكبر للـ priority number */
+  padding-right: 30px !important;
+  /* ⭐ زودنا المساحة عشان السهم */
+  padding-left: 28px !important;
+  /* ⭐ مساحة أكبر للـ priority number */
   transition: background-color 0.15s;
 }
 
@@ -575,25 +585,33 @@
 
 /* ⭐ السهمين الباهتين (▲▼) للأعمدة الغير مرتبة */
 .sortable::after {
-  content: '▲\A▼'; /* ⭐ \A = line break */
-  white-space: pre; /* ⭐ عشان الـ line break يشتغل */  position: absolute;
-  right: 10px; /* ⭐ بعدناه عن الحافة */
+  content: '▲\A▼';
+  /* ⭐ \A = line break */
+  white-space: pre;
+  /* ⭐ عشان الـ line break يشتغل */
+  position: absolute;
+  right: 10px;
+  /* ⭐ بعدناه عن الحافة */
   top: 50%;
   transform: translateY(-50%);
-  line-height: 0.9; /* ⭐ المسافة بين السهمين */
+  line-height: 0.9;
+  /* ⭐ المسافة بين السهمين */
   opacity: 0.25;
   font-size: 10px;
   letter-spacing: -2px;
   color: #6b7280;
-  z-index: 1; /* ⭐ فوق كل حاجة */
-  pointer-events: none; /* ⭐ عشان ميأثرش على الـ click */
+  z-index: 1;
+  /* ⭐ فوق كل حاجة */
+  pointer-events: none;
+  /* ⭐ عشان ميأثرش على الـ click */
 }
 
 /* ⭐ سهم تصاعدي واضح (▲) - لون أزرق */
 .sortAsc::after {
   content: '▲';
   opacity: 1;
-  color: #3b82f6; /* ⭐ لون أزرق */
+  color: #3b82f6;
+  /* ⭐ لون أزرق */
   font-size: 13px;
   letter-spacing: normal;
   right: 10px;
@@ -605,7 +623,8 @@
 .sortDesc::after {
   content: '▼';
   opacity: 1;
-  color: #3b82f6; /* ⭐ لون أزرق */
+  color: #3b82f6;
+  /* ⭐ لون أزرق */
   font-size: 13px;
   letter-spacing: normal;
   right: 10px;
@@ -620,7 +639,8 @@
   left: 8px;
   top: 50%;
   transform: translateY(-50%);
-  background: #3b82f6; /* ⭐ لون أزرق */
+  background: #3b82f6;
+  /* ⭐ لون أزرق */
   color: white;
   border-radius: 50%;
   width: 17px;
@@ -632,18 +652,25 @@
   font-weight: 700;
   line-height: 1;
   box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
-  z-index: 2; /* ⭐ فوق السهم */
+  z-index: 2;
+  /* ⭐ فوق السهم */
 }
 
 /* ⭐ تحسين التنسيق لما العمود يكون مفعل */
-.sortAsc, .sortDesc {
-  background: #eff6ff !important; /* ⭐ خلفية زرقاء فاتحة */
-  color: #1e40af !important; /* ⭐ لون نص أزرق داكن */
-  border-bottom: 2px solid #3b82f6 !important; /* ⭐ خط أزرق سفلي */
+.sortAsc,
+.sortDesc {
+  background: #eff6ff !important;
+  /* ⭐ خلفية زرقاء فاتحة */
+  color: #1e40af !important;
+  /* ⭐ لون نص أزرق داكن */
+  border-bottom: 2px solid #3b82f6 !important;
+  /* ⭐ خط أزرق سفلي */
 }
 
-.sortAsc:hover, .sortDesc:hover {
-  background: #dbeafe !important; /* ⭐ خلفية أزرق أفتح عند hover */
+.sortAsc:hover,
+.sortDesc:hover {
+  background: #dbeafe !important;
+  /* ⭐ خلفية أزرق أفتح عند hover */
 }
 
 /* Negative Values */
@@ -672,18 +699,24 @@
 
 
 /* Loading & Error States */
-.loading, .error, .noData {
+.loading,
+.error,
+.noData {
   text-align: center;
   padding: 60px 20px;
 }
 
-.loading h2, .error h2, .noData h2 {
+.loading h2,
+.error h2,
+.noData h2 {
   font-size: 24px;
   margin-bottom: 10px;
   color: #374151;
 }
 
-.loading p, .error p, .noData p {
+.loading p,
+.error p,
+.noData p {
   color: #6b7280;
   font-size: 14px;
 }
@@ -701,7 +734,7 @@
   .metadataBar {
     justify-content: flex-start;
   }
-  
+
   .metadataItem {
     font-size: 12px;
   }
@@ -711,27 +744,29 @@
   .container {
     padding: 10px;
   }
-  
+
   .metadataBar {
     flex-direction: column;
     align-items: stretch;
-    padding: 10px 15px; /* ⭐ تقليل الـ padding على الموبايل */
+    padding: 10px 15px;
+    /* ⭐ تقليل الـ padding على الموبايل */
   }
-  
+
   .metadataItem {
     justify-content: space-between;
-    width: 100%; /* ⭐ كل item ياخد العرض الكامل */
+    width: 100%;
+    /* ⭐ كل item ياخد العرض الكامل */
   }
-  
+
   .table {
     font-size: 11px;
   }
-  
+
   .table thead tr:first-child th,
   .table tbody td {
     padding: 8px 4px;
   }
-  
+
   .sortable {
     padding-right: 20px !important;
   }

@@ -7,7 +7,16 @@ interface StockRS {
     symbol: string;
     company_name?: string;
     rs_rating: number;
+    prev_rs_rating?: number;
 }
+
+// Helper to get category
+const getCategory = (rs: number) => {
+    if (rs >= 90) return 'STRONG';
+    if (rs >= 80) return 'IMPROVE';
+    if (rs >= 70) return 'NEUTRAL';
+    return 'WEAK';
+};
 
 export default function RSMatrix() {
     const [stocks, setStocks] = useState<StockRS[]>([]);
@@ -181,21 +190,48 @@ function MatrixCard({ title, range, variant, arrow, list, total }: any) {
                 [&::-webkit-scrollbar-thumb]:bg-black/20
                 [&::-webkit-scrollbar-thumb]:rounded-full
             ">
-                {list.map((item: any) => (
-                    <div
-                        key={item.symbol}
-                        className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-[#f8f9fa] border border-[#e9ecef] hover:border-[#2962ff] transition-all"
-                    >
-                        <div className={`w-2 h-2 rounded-full shrink-0 ${s.dot}`}></div>
-                        {/* تم إضافة stock-name-cell هنا للتحكم فيها أثناء التصوير */}
-                        <div className="stock-name-cell flex-1 text-[0.85rem] font-medium text-[#333] leading-tight break-words min-w-0">
-                            {item.company_name || item.symbol}
+                {list.map((item: any) => {
+                    const currentCat = getCategory(item.rs_rating);
+                    const prevCat = item.prev_rs_rating ? getCategory(item.prev_rs_rating) : null;
+
+                    const categories = ['WEAK', 'NEUTRAL', 'IMPROVE', 'STRONG'];
+                    const currIdx = categories.indexOf(currentCat);
+                    const prevIdx = prevCat ? categories.indexOf(prevCat) : -1;
+
+                    let movement = null;
+                    if (prevCat && currentCat !== prevCat) {
+                        if (currIdx > prevIdx) {
+                            movement = { arrow: '↑', color: 'text-green-600', badgeClass: 'bg-[#00c853] text-white', from: prevCat };
+                        } else {
+                            movement = { arrow: '↓', color: 'text-red-600', badgeClass: 'bg-[#d50000] text-white', from: prevCat };
+                        }
+                    }
+
+                    return (
+                        <div
+                            key={item.symbol}
+                            className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-[#f8f9fa] border border-[#e9ecef] hover:border-[#2962ff] transition-all"
+                        >
+                            <div className={`w-2 h-2 rounded-full shrink-0 ${s.dot}`}></div>
+                            <div className={`stock-name-cell flex-1 text-[0.85rem] font-medium text-[#333] leading-tight break-words min-w-0`}>
+                                {item.company_name || item.symbol}
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                                <div className="text-[0.8rem] font-bold text-[#666] bg-white px-2 py-1 rounded shadow-sm">
+                                    {item.rs_rating}
+                                </div>
+                                {movement && (
+                                    <div className="flex items-center gap-1">
+                                        <span className={`text-base font-bold ${movement.color}`}>{movement.arrow}</span>
+                                        <span className={`text-[0.65rem] px-1.5 py-0.5 rounded font-bold whitespace-nowrap uppercase ${movement.badgeClass}`}>
+                                            From {movement.from}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                        <div className="text-[0.8rem] font-bold text-[#666] bg-white px-2 py-1 rounded shadow-sm shrink-0">
-                            {item.rs_rating}
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );
