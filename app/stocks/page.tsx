@@ -94,6 +94,14 @@ interface FilterState {
   percent_off_52w_high: string;
   percent_off_52w_low: string;
   vol_diff_50_percent: string;
+
+  // IBD Metrics Filters
+  rs_rating: string;
+  industry_group_rs: string;
+  sector_rs: string;
+  industry_rs: string;
+  sub_industry_rs: string;
+  acc_dis_rating: string;
 }
 
 // ==================== Helper Functions ====================
