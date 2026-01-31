@@ -173,6 +173,9 @@ export default function Navbar() {
             <Link href="/stocks" className={styles['navbar-link']}>
               Stocks
             </Link>
+            {/* <Link href="/industry-groups" className={styles['navbar-link']}>
+              Industry Groups
+            </Link> */}
             <Link href="/pricing" className={styles['navbar-link']}>
               Pricing
             </Link>
