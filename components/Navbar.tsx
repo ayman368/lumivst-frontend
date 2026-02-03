@@ -115,7 +115,7 @@ export default function Navbar() {
       <div className={styles['navbar-container']}>
         {/* Logo */}
         <Link href="/" className={styles['navbar-logo']}>
-          ZAKHM
+          REBH
         </Link>
 
         {/* Main Menu */}
@@ -173,9 +173,9 @@ export default function Navbar() {
             <Link href="/stocks" className={styles['navbar-link']}>
               Stocks
             </Link>
-            {/* <Link href="/industry-groups" className={styles['navbar-link']}>
+            <Link href="/industry-groups" className={styles['navbar-link']}>
               Industry Groups
-            </Link> */}
+            </Link>
             <Link href="/pricing" className={styles['navbar-link']}>
               Pricing
             </Link>

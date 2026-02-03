@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { Calendar, X } from 'lucide-react';
 import {
@@ -105,8 +105,21 @@ export default function RSAnalysisPage() {
     const [maxRS, setMaxRS] = useState(100);
     const [selectedIndustry, setSelectedIndustry] = useState('');
     const [viewMode, setViewMode] = useState<'table' | 'cards' | 'chart'>('table');
+    const datePickerRef = useRef<HTMLDivElement>(null);
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node)) {
+                setShowDatePicker(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
 
     useEffect(() => {
         fetchData();
@@ -604,7 +617,7 @@ export default function RSAnalysisPage() {
                                             </button>
                                         ))}
 
-                                        <div className="relative">
+                                        <div className="relative" ref={datePickerRef}>
                                             <button
                                                 onClick={() => setShowDatePicker(!showDatePicker)}
                                                 className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 ${showDatePicker || selectedPeriod === 'Custom'
@@ -679,7 +692,7 @@ export default function RSAnalysisPage() {
                                                         return val.slice(0, 4);
                                                     }
                                                     const d = new Date(val);
-                                                    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+                                                    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
                                                 }}
                                                 minTickGap={30}
                                             />
@@ -690,7 +703,7 @@ export default function RSAnalysisPage() {
                                                 formatter={(value) => [value, 'RS Rating']}
                                                 labelFormatter={(label) => {
                                                     if (!label) return '';
-                                                    return new Date(label).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+                                                    return new Date(label).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
                                                 }}
                                             />
                                             <Line

@@ -25,6 +25,9 @@ export default function MarketOverview() {
         direction: SortDirection;
     }>({ key: 'rs_rating', direction: 'desc' });
 
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(25);
+
     // Fetch data
     useEffect(() => {
         fetchData();
@@ -89,6 +92,46 @@ export default function MarketOverview() {
         return result;
     }, [stocks, search, sortConfig]);
 
+    // Pagination Logic
+    const totalPages = Math.ceil(filteredAndSortedStocks.length / itemsPerPage);
+    const paginatedStocks = filteredAndSortedStocks.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    );
+
+    const handlePageChange = (page: number) => {
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+        }
+    };
+
+    const getPageNumbers = () => {
+        const pages = [];
+        // Max 500 items -> 20 pages max. We can show a smart list or just limited window.
+        if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) pages.push(i);
+        } else {
+            if (currentPage <= 4) {
+                for (let i = 1; i <= 5; i++) pages.push(i);
+                pages.push(-1); // Ellipsis
+                pages.push(totalPages);
+            } else if (currentPage >= totalPages - 3) {
+                pages.push(1);
+                pages.push(-1);
+                for (let i = totalPages - 4; i <= totalPages; i++) pages.push(i);
+            } else {
+                pages.push(1);
+                pages.push(-1);
+                pages.push(currentPage - 1);
+                pages.push(currentPage);
+                pages.push(currentPage + 1);
+                pages.push(-1);
+                pages.push(totalPages);
+            }
+        }
+        return pages;
+    };
+
     const handleSort = (key: SortKey) => {
         setSortConfig(prev => {
             if (prev.key === key) {
@@ -98,6 +141,7 @@ export default function MarketOverview() {
                 return { key, direction: isStringKey ? 'asc' : 'desc' };
             }
         });
+        setCurrentPage(1); // Reset to first page on sort
     };
 
     // --- وظيفة تصدير الملف CSV ---
@@ -160,18 +204,7 @@ export default function MarketOverview() {
                 </p>
 
                 <div className="flex flex-wrap justify-center gap-[8px] bg-white/10 p-[6px] rounded-[12px] mb-[30px]">
-                    {/* <a href="#" className="flex items-center gap-2 px-5 py-[10px] rounded-[8px] text-[0.95rem] font-medium transition-all duration-200 border border-black/10 bg-[#2c3e50] text-white shadow-[0_4px_15px_rgba(0,0,0,0.2)]">
-                        📋 Data Table
-                    </a>
-                    <a href="#" className="flex items-center gap-2 px-5 py-[10px] rounded-[8px] text-[0.95rem] font-medium transition-all duration-200 border border-black/10 text-[#2c3e50] bg-white/95 opacity-90 hover:bg-white hover:opacity-100 hover:-translate-y-[2px] hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)]">
-                        📈 Comparisons
-                    </a>
-                    <a href="#" className="flex items-center gap-2 px-5 py-[10px] rounded-[8px] text-[0.95rem] font-medium transition-all duration-200 border border-black/10 text-[#2c3e50] bg-white/95 opacity-90 hover:bg-white hover:opacity-100 hover:-translate-y-[2px] hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)]">
-                        💠 Matrix Cards
-                    </a>
-                    <a href="#" className="flex items-center gap-2 px-5 py-[10px] rounded-[8px] text-[0.95rem] font-medium transition-all duration-200 border border-black/10 text-[#2c3e50] bg-white/95 opacity-90 hover:bg-white hover:opacity-100 hover:-translate-y-[2px] hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)]">
-                        📊 Heatmap
-                    </a> */}
+
 
                     {/* الزر المعدل ليقوم بالتصدير */}
                     <button
@@ -185,10 +218,14 @@ export default function MarketOverview() {
                 <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
                     <div className="text-gray-600 text-sm">
                         Show
-                        <select className="mx-2 border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-[#2c3e50]">
-                            <option>25</option>
-                            <option>50</option>
-                            <option>100</option>
+                        <select
+                            className="mx-2 border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-[#2c3e50]"
+                            value={itemsPerPage}
+                            onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                        >
+                            <option value={25}>25</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
                         </select>
                         stocks
                     </div>
@@ -218,7 +255,7 @@ export default function MarketOverview() {
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredAndSortedStocks.map((stock, index) => (
+                            {paginatedStocks.map((stock, index) => (
                                 <tr
                                     key={stock.symbol}
                                     className={`${index % 2 !== 0 ? 'bg-[#f2f2f2]' : 'bg-white'} hover:bg-gray-100 transition-colors border-t border-gray-200`}
@@ -244,14 +281,31 @@ export default function MarketOverview() {
 
                 <div className="flex flex-col sm:flex-row justify-between items-center mt-4 text-sm text-gray-600">
                     <div>
-                        Showing 1 to {Math.min(filteredAndSortedStocks.length, 25)} of {filteredAndSortedStocks.length} entries
+                        Showing {filteredAndSortedStocks.length === 0 ? 0 : Math.min((currentPage - 1) * itemsPerPage + 1, filteredAndSortedStocks.length)} to {Math.min(currentPage * itemsPerPage, filteredAndSortedStocks.length)} of {filteredAndSortedStocks.length} entries
                     </div>
                     <div className="flex gap-1 mt-2 sm:mt-0">
-                        <button className="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-50" disabled>Previous</button>
-                        <button className="px-3 py-1 border bg-[#2c3e50] text-white rounded">1</button>
-                        <button className="px-3 py-1 border rounded hover:bg-gray-100">2</button>
-                        <button className="px-3 py-1 border rounded hover:bg-gray-100">3</button>
-                        <button className="px-3 py-1 border rounded hover:bg-gray-100">Next</button>
+                        <button
+                            className="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-50"
+                            disabled={currentPage === 1}
+                            onClick={() => handlePageChange(currentPage - 1)}
+                        >Previous</button>
+
+                        {getPageNumbers().map((p, i) => (
+                            <button
+                                key={i}
+                                disabled={p === -1}
+                                onClick={() => p !== -1 && handlePageChange(p as number)}
+                                className={`px-3 py-1 border rounded ${p === -1 ? 'border-none cursor-default' : currentPage === p ? 'bg-[#2c3e50] text-white' : 'hover:bg-gray-100'}`}
+                            >
+                                {p === -1 ? '...' : p}
+                            </button>
+                        ))}
+
+                        <button
+                            className="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-50"
+                            disabled={currentPage === totalPages || totalPages === 0}
+                            onClick={() => handlePageChange(currentPage + 1)}
+                        >Next</button>
                     </div>
                 </div>
 

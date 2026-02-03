@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart } from 'recharts';
 import { Calendar, TrendingUp, TrendingDown, Search, Filter, X, ChevronRight, BarChart3, Sparkles, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react';
 
@@ -81,6 +81,20 @@ export default function RSScreener() {
     const [customStartDate, setCustomStartDate] = useState('');
     const [customEndDate, setCustomEndDate] = useState('');
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const datePickerRef = useRef<HTMLDivElement>(null);
+
+    // Handle click outside for date picker
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node)) {
+                setShowDatePicker(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
 
     useEffect(() => {
         fetchLatestRS();
@@ -223,7 +237,7 @@ export default function RSScreener() {
             return (
                 <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl p-4 shadow-2xl backdrop-blur-xl">
                     <p className="text-slate-300 text-sm mb-2 font-medium">
-                        {new Date(label).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        {new Date(label).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}
                     </p>
                     <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500"></div>
@@ -297,7 +311,7 @@ export default function RSScreener() {
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto">
+                        <div className="overflow-y-auto h-[460px] custom-scrollbar">
                             <div className="p-3">
                                 <div className="flex items-center justify-between px-3 mb-2">
                                     <p className="text-xs text-slate-500 font-medium">{filteredStocks.length} stocks</p>
@@ -372,7 +386,7 @@ export default function RSScreener() {
             <div className="flex-1 flex flex-col overflow-hidden">
                 {selectedStock ? (
                     <>
-                        <div className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 backdrop-blur-xl border-b border-slate-800/50 px-8 py-6">
+                        <div className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 backdrop-blur-xl border-b border-slate-800/50 px-8 py-6 relative z-20">
                             <div className="flex justify-between items-center">
                                 <div className="flex items-center gap-5">
                                     <div className={`text-4xl font-black px-6 py-4 rounded-2xl text-white ${getRSBadgeStyle(selectedStock.rs_rating)}`}>
@@ -409,7 +423,7 @@ export default function RSScreener() {
                                         </button>
                                     ))}
 
-                                    <div className="relative">
+                                    <div className="relative" ref={datePickerRef}>
                                         <button
                                             onClick={() => setShowDatePicker(!showDatePicker)}
                                             className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all duration-200 ${showDatePicker || selectedPeriod === 'Custom'
@@ -519,10 +533,15 @@ export default function RSScreener() {
                                                     dataKey="date"
                                                     tick={{ fill: '#64748b', fontSize: 11 }}
                                                     tickFormatter={(val) => {
+                                                        const date = new Date(val);
+                                                        // Use UTC methods to avoid timezone shifts for YYYY-MM-DD strings
+                                                        const day = date.getUTCDate();
+                                                        const month = date.toLocaleString('default', { month: 'short', timeZone: 'UTC' });
+
                                                         if (selectedPeriod === 'MAX' || selectedPeriod === '5Y' || selectedPeriod === '10Y') {
-                                                            return val.slice(0, 4);
+                                                            return val.substring(0, 4);
                                                         }
-                                                        return new Date(val).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+                                                        return `${day} ${month}`;
                                                     }}
                                                     minTickGap={30}
                                                     axisLine={{ stroke: '#334155' }}

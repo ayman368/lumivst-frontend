@@ -11,7 +11,7 @@ export default function Footer() {
           {/* Brand Column */}
           <div>
             <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-6">
-              ZAKHM
+              REBH
             </h2>
             <p className="text-slate-400 mb-6 leading-relaxed">
               شريكك الذكي في عالم المال والأعمال. نقدم حلولاً مبتكرة تعتمد على الذكاء الاصطناعي لتعزيز قراراتك الاستثمارية.
@@ -112,7 +112,7 @@ export default function Footer() {
 
         <div className="border-t border-slate-800 pt-8 mt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-slate-500 text-sm">
-            © {new Date().getFullYear()} ZAKHM. جميع الحقوق محفوظة.
+            © {new Date().getFullYear()} REBH. جميع الحقوق محفوظة.
           </p>
           <div className="flex gap-6 text-sm text-slate-500">
             <Link href="/privacy" className="hover:text-white transition-colors">سياسة الخصوصية</Link>

@@ -4,7 +4,7 @@ import Layout from "@/components/Layout";
 import { AuthProvider } from "./providers/AuthProvider";
 
 export const metadata: Metadata = {
-  title: "LUMIVST",
+  title: "REBH",
   description: "المنصة الشاملة للتحليل المالي وتقييم الأسهم السعودية",
 };
 

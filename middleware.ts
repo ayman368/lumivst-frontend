@@ -22,13 +22,21 @@ export async function middleware(request: NextRequest) {
     '/contact'
   ];
 
+  // Check if this is a public path
+  const isPublicPath = publicPaths.some(p => path.startsWith(p)) || path.startsWith('/api/public');
+
   const token = request.cookies.get('session_token')?.value;
+
+  console.log(`[Middleware] Path: ${path}, Token: ${token ? 'Present' : 'Missing'}, IsPublic: ${isPublicPath}`);
 
   // 1. If NO TOKEN
   if (!token) {
-    if (publicPaths.some(p => path.startsWith(p)) || path.startsWith('/api/public')) {
+    // Allow public paths
+    if (isPublicPath) {
       return NextResponse.next();
     }
+    // Redirect to login for ALL other paths (including /)
+    console.log(`[Middleware] No token, redirecting to login from: ${path}`);
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('callbackUrl', encodeURIComponent(path));
     return NextResponse.redirect(loginUrl);
@@ -90,5 +98,15 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    /*
+     * Match all request paths except:
+     * - api routes (except auth-related) - let API handle its own auth
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder files (images, etc.)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+  ],
 };
