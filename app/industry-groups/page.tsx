@@ -26,7 +26,20 @@ export default function IndustryGroupsPage() {
     useEffect(() => {
         async function fetchData() {
             try {
-                const res = await fetch('http://localhost:8000/api/industry-groups/latest');
+                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+                // Get Token
+                const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+                const headers: HeadersInit = { 'Content-Type': 'application/json' };
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+
+                const res = await fetch(`${API_URL}/api/industry-groups/latest`, {
+                    headers,
+                    cache: 'no-store'
+                });
+
                 if (!res.ok) throw new Error('Failed to fetch data');
                 const jsonData = await res.json();
                 setData(jsonData);
