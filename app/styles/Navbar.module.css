@@ -25,13 +25,55 @@
 }
 
 .navbar-logo {
-  color: var(--navbar-text);
-  font-size: 20px;
-  font-weight: 700;
-  text-decoration: none;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  text-decoration: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.navbar-logo:hover {
+  background: rgba(59, 130, 246, 0.05);
+  transform: translateY(-1px);
+}
+
+.logo-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.navbar-logo:hover .logo-wrapper {
+  transform: rotate(-5deg) scale(1.1);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.logo-img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.logo-text {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: flex;
+  align-items: center;
 }
 
 .navbar-menu {

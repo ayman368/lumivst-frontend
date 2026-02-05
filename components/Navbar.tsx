@@ -115,7 +115,10 @@ export default function Navbar() {
       <div className={styles['navbar-container']}>
         {/* Logo */}
         <Link href="/" className={styles['navbar-logo']}>
-          REBH
+          <div className={styles['logo-wrapper']}>
+            <img src="/favicon.ico" alt="REBH Logo" className={styles['logo-img']} />
+          </div>
+          <span className={styles['logo-text']}>REBH</span>
         </Link>
 
         {/* Main Menu */}

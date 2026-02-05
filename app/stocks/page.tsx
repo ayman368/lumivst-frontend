@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { Filter, ChevronLeft, ChevronRight, PanelLeft, Search } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 // ==================== Interfaces ====================
 
@@ -145,6 +147,117 @@ interface FilterState {
     sub_industry: string;
 }
 
+// ==================== Custom Dropdown Component ====================
+
+function CustomDropdown({
+    options,
+    value,
+    onChange,
+    placeholder,
+    icon: Icon
+}: {
+    options: string[];
+    value: string;
+    onChange: (value: string) => void;
+    placeholder: string;
+    icon?: any;
+}) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState('');
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const filteredOptions = options.filter(option =>
+        option.toLowerCase().includes(search.toLowerCase())
+    );
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div className="relative" ref={dropdownRef}>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className={`
+                    w-full pl-10 pr-8 py-2.5 text-xs bg-gray-50 border border-gray-200 rounded-lg 
+                    focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white
+                    outline-none transition-all hover:border-gray-300 text-left
+                    flex items-center justify-between
+                `}
+            >
+                <div className="flex items-center">
+                    {Icon && <Icon className="absolute left-3 w-4 h-4 text-gray-400" />}
+                    <span className="truncate">
+                        {value || placeholder}
+                    </span>
+                </div>
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+
+            {isOpen && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-hidden">
+                    <div className="p-2 border-b border-gray-100">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Search..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="w-full pl-10 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                autoFocus
+                            />
+                        </div>
+                    </div>
+                    <div className="overflow-y-auto max-h-48 custom-scrollbar">
+                        {filteredOptions.length > 0 ? (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        onChange('');
+                                        setIsOpen(false);
+                                    }}
+                                    className={`
+                                        w-full px-3 py-2 text-left text-sm hover:bg-gray-50 border-b border-gray-100
+                                        ${!value ? 'bg-blue-50 text-blue-600' : 'text-gray-700'}
+                                    `}
+                                >
+                                    {placeholder}
+                                </button>
+                                {filteredOptions.map((option) => (
+                                    <button
+                                        key={option}
+                                        onClick={() => {
+                                            onChange(option === value ? '' : option);
+                                            setIsOpen(false);
+                                        }}
+                                        className={`
+                                            w-full px-3 py-2 text-left text-sm hover:bg-gray-50
+                                            ${option === value ? 'bg-blue-50 text-blue-600' : 'text-gray-700'}
+                                        `}
+                                    >
+                                        {option}
+                                    </button>
+                                ))}
+                            </>
+                        ) : (
+                            <div className="px-3 py-2 text-sm text-gray-500 text-center">No options found</div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ==================== Helper Functions ====================
 
 function cleanSymbol(symbol: string): string {
@@ -269,19 +382,27 @@ function RatingBadge({ value }: { value?: string }) {
 function FilterAccordion({
     title,
     children,
-    defaultOpen = false
+    defaultOpen = false,
+    collapseSignal = 0
 }: {
     title: string;
     children: React.ReactNode;
     defaultOpen?: boolean;
+    collapseSignal?: number;
 }) {
     const [isOpen, setIsOpen] = useState(defaultOpen);
+
+    useEffect(() => {
+        if (collapseSignal > 0) {
+            setIsOpen(false);
+        }
+    }, [collapseSignal]);
 
     return (
         <div className="border-b border-gray-200 pb-3">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-full flex justify-between items-center py-2 text-sm font-semibold text-gray-700 hover:text-gray-900"
+                className="w-full flex justify-between items-center py-2 text-xs font-semibold text-gray-700 hover:text-gray-900"
             >
                 <span>{title}</span>
                 <svg
@@ -322,22 +443,22 @@ function RangeFilter({
 }) {
     return (
         <div className="space-y-1">
-            <label className="block text-xs font-medium text-gray-600">{label}</label>
+            <label className="block text-[10px] font-medium text-gray-600">{label}</label>
             <div className="flex space-x-2">
                 <input
                     type="number"
                     placeholder={minPlaceholder}
                     value={minValue}
                     onChange={(e) => onMinChange(e.target.value)}
-                    className="w-full px-2 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all outline-none"
+                    className="w-full px-2 py-1 text-[10px] bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all outline-none"
                 />
-                <span className="self-center text-xs text-gray-400">-</span>
+                <span className="self-center text-[10px] text-gray-400">-</span>
                 <input
                     type="number"
                     placeholder={maxPlaceholder}
                     value={maxValue}
                     onChange={(e) => onMaxChange(e.target.value)}
-                    className="w-full px-2 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all outline-none"
+                    className="w-full px-2 py-1 text-[10px] bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all outline-none"
                 />
             </div>
         </div>
@@ -366,7 +487,7 @@ function CheckboxGroup({
 
     return (
         <div className="space-y-1">
-            <label className="block text-xs font-medium text-gray-600">{label}</label>
+            <label className="block text-[10px] font-medium text-gray-600">{label}</label>
             <div className="flex flex-wrap gap-1">
                 {options.map((option) => (
                     <button
@@ -374,7 +495,7 @@ function CheckboxGroup({
                         type="button"
                         onClick={() => toggleOption(option)}
                         className={`
-              px-2 py-1 text-xs font-medium rounded transition-colors
+              px-2 py-1 text-[10px] font-medium rounded transition-colors
               ${selected.includes(option)
                                 ? 'bg-blue-100 text-blue-700 border border-blue-300'
                                 : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
@@ -421,8 +542,20 @@ export default function StockScreenerPage() {
     const [error, setError] = useState<string | null>(null);
     const [sortConfigs, setSortConfigs] = useState<Array<{ key: string; direction: 'asc' | 'desc' }>>([]);
     const [showColumnMenu, setShowColumnMenu] = useState(false);
+    const [showExportMenu, setShowExportMenu] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [columnSearch, setColumnSearch] = useState('');
+    const [collapseSignal, setCollapseSignal] = useState(0);
+    const columnMenuRef = useRef<HTMLDivElement>(null);
 
-    // Column Definitions - بأسماء مفصلة كما تأتي من API
+    const selectStyles = `
+        w-full pl-10 pr-8 py-2.5 text-xs bg-gray-50 border border-gray-200 rounded-lg 
+        focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white
+        outline-none appearance-none cursor-pointer
+        transition-all hover:border-gray-300
+    `;
+
+    // Column Definitions
     const columnDefinitions = [
         { key: 'symbol', label: 'Symbol', visibleKey: 'symbol' },
         { key: 'name', label: 'Name', visibleKey: 'name' },
@@ -473,16 +606,14 @@ export default function StockScreenerPage() {
                 return JSON.parse(saved);
             }
         }
-        // Default: show first 15 columns
         const defaultVisible: Record<string, boolean> = {};
         columnDefinitions.forEach((col, index) => {
-            // Show first 15 columns by default
             defaultVisible[col.visibleKey] = index < 15;
         });
         return defaultVisible;
     });
 
-    // Filter State - تم توسيعه ليشمل جميع الفلاتر
+    // Filter State
     const [filters, setFilters] = useState<FilterState>({
         // SmartSelect Ratings
         rs_rating_min: '',
@@ -566,21 +697,46 @@ export default function StockScreenerPage() {
         sub_industry: '',
     });
 
-    // Toggle column visibility
-    const toggleColumn = (columnKey: string) => {
+    // Close menus when clicking outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (columnMenuRef.current && !columnMenuRef.current.contains(event.target as Node)) {
+                setShowColumnMenu(false);
+            }
+            // Logic for export menu if needed, but we can also use a Ref for it
+        }
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
+
+    const exportMenuRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+                setShowExportMenu(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Toggle column visibility with useCallback
+    const toggleColumn = useCallback((columnKey: string) => {
         setVisibleColumns(prev => {
             const updated = { ...prev, [columnKey]: !prev[columnKey] };
             localStorage.setItem('stocksVisibleColumns', JSON.stringify(updated));
             return updated;
         });
-    };
+    }, []);
 
     // Clear specific filter
-    const clearFilter = (key: keyof FilterState) => {
+    const clearFilter = useCallback((key: keyof FilterState) => {
         if (Array.isArray(filters[key])) {
             setFilters(prev => ({ ...prev, [key]: [] }));
         } else if (key.endsWith('_min') || key.endsWith('_max')) {
-            // Extract base key (remove _min or _max suffix)
             const baseKey = key.replace(/(_min|_max)$/, '');
             setFilters(prev => ({
                 ...prev,
@@ -590,10 +746,10 @@ export default function StockScreenerPage() {
         } else {
             setFilters(prev => ({ ...prev, [key]: '' }));
         }
-    };
+    }, [filters]);
 
     // Clear all filters
-    const clearAllFilters = () => {
+    const clearAllFilters = useCallback(() => {
         setFilters({
             // SmartSelect Ratings
             rs_rating_min: '',
@@ -676,7 +832,7 @@ export default function StockScreenerPage() {
             industry: '',
             sub_industry: '',
         });
-    };
+    }, []);
 
     // Fetch data
     useEffect(() => {
@@ -685,14 +841,12 @@ export default function StockScreenerPage() {
                 setLoading(true);
                 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-                // Get Token
                 const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
                 const headers: HeadersInit = { 'Content-Type': 'application/json' };
                 if (token) {
                     headers['Authorization'] = `Bearer ${token}`;
                 }
 
-                // Fetch Prices and RS Data in parallel
                 const [pricesRes, rsRes] = await Promise.all([
                     fetch(`${API_URL}/api/prices/latest`, { cache: 'no-store', headers }),
                     fetch(`${API_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', headers })
@@ -703,10 +857,8 @@ export default function StockScreenerPage() {
                 const pricesData = await pricesRes.json();
                 const rsData = rsRes.ok ? await rsRes.json() : { data: [] };
 
-                // Create RS Map for quick lookup
                 const rsMap = new Map((rsData.data || []).map((item: any) => [String(item.symbol), item]));
 
-                // Map PriceResponse to Stock interface
                 const mappedStocks = (pricesData.data || []).map((item: any) => {
                     const symbolStr = String(item.symbol);
                     const rsInfo: any = rsMap.get(symbolStr) || {};
@@ -761,7 +913,6 @@ export default function StockScreenerPage() {
 
                 setStocks(mappedStocks);
 
-                // Set metadata
                 setMetadata({
                     exchange: 'Tadawul',
                     currency: 'SAR',
@@ -781,7 +932,7 @@ export default function StockScreenerPage() {
     }, []);
 
     // Handle sort
-    const handleSort = (key: string) => {
+    const handleSort = useCallback((key: string) => {
         setSortConfigs(prev => {
             const existingIndex = prev.findIndex(config => config.key === key);
 
@@ -798,15 +949,39 @@ export default function StockScreenerPage() {
 
             return prev.filter((_, index) => index !== existingIndex);
         });
-    };
+    }, []);
 
-    const getSortClass = (key: string): string => {
+    const getSortClass = useCallback((key: string): string => {
         const index = sortConfigs.findIndex(config => config.key === key);
         if (index === -1) return 'cursor-pointer hover:bg-gray-50';
 
         const direction = sortConfigs[index].direction;
         return `cursor-pointer ${direction === 'asc' ? 'bg-blue-50' : 'bg-blue-50'}`;
-    };
+    }, [sortConfigs]);
+
+    // Extract unique values for filters
+    const filterOptions = useMemo(() => {
+        const options = {
+            industryGroups: new Set<string>(),
+            sectors: new Set<string>(),
+            industries: new Set<string>(),
+            subIndustries: new Set<string>()
+        };
+
+        stocks.forEach(stock => {
+            if (stock.industry_group) options.industryGroups.add(stock.industry_group);
+            if (stock.sector) options.sectors.add(stock.sector);
+            if (stock.industry) options.industries.add(stock.industry);
+            if (stock.sub_industry) options.subIndustries.add(stock.sub_industry);
+        });
+
+        return {
+            industryGroups: Array.from(options.industryGroups).sort(),
+            sectors: Array.from(options.sectors).sort(),
+            industries: Array.from(options.industries).sort(),
+            subIndustries: Array.from(options.subIndustries).sort()
+        };
+    }, [stocks]);
 
     // Get active filters for display
     const activeFilters = useMemo(() => {
@@ -1047,12 +1222,12 @@ export default function StockScreenerPage() {
         return filtered;
     }, [stocks, filters, sortConfigs]);
 
-    // Export to CSV
-    const exportToCSV = () => {
+    // Multi-format Export Function
+    const handleExport = useCallback((format: 'csv' | 'xlsx' | 'xls' | 'txt') => {
         const visibleCols = columnDefinitions.filter(col => visibleColumns[col.visibleKey]);
-        const headers = visibleCols.map(col => col.label);
+        const headerLabels = visibleCols.map(col => col.label);
 
-        const rows = filteredAndSortedStocks.map(stock => {
+        const dataRows = filteredAndSortedStocks.map(stock => {
             return visibleCols.map(col => {
                 switch (col.key) {
                     case 'symbol': return cleanSymbol(stock.symbol);
@@ -1099,29 +1274,51 @@ export default function StockScreenerPage() {
             });
         });
 
-        const csvContent = [
-            headers.join(','),
-            ...rows.map(row => row.map(cell => {
-                const cellStr = String(cell);
-                if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
-                    return `"${cellStr.replace(/"/g, '""')}"`;
-                }
-                return cellStr;
-            }).join(','))
-        ].join('\n');
+        const filename = `REBH_Stocks_${new Date().toISOString().split('T')[0]}`;
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
+        if (format === 'csv' || format === 'txt') {
+            const separator = format === 'csv' ? ',' : '\t';
+            const content = [
+                headerLabels.join(separator),
+                ...dataRows.map(row => row.map(cell => {
+                    const cellStr = String(cell);
+                    if (cellStr.includes(separator) || cellStr.includes('"') || cellStr.includes('\n')) {
+                        return `"${cellStr.replace(/"/g, '""')}"`;
+                    }
+                    return cellStr;
+                }).join(separator))
+            ].join('\n');
 
-        link.setAttribute('href', url);
-        link.setAttribute('download', `stocks_screener_${metadata?.datetime || new Date().toISOString().split('T')[0]}.csv`);
-        link.style.visibility = 'hidden';
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `${filename}.${format === 'csv' ? 'csv' : 'txt'}`;
+            link.click();
+        } else {
+            // Excel Export
+            const worksheet = XLSX.utils.aoa_to_sheet([headerLabels, ...dataRows]);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Stocks");
 
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
+            if (format === 'xls') {
+                XLSX.writeFile(workbook, `${filename}.xls`, { bookType: 'biff8' });
+            } else {
+                XLSX.writeFile(workbook, `${filename}.xlsx`, { bookType: 'xlsx' });
+            }
+        }
+        setShowExportMenu(false);
+    }, [filteredAndSortedStocks, visibleColumns, metadata]);
+
+    // Filter columns based on search
+    const filteredColumnDefinitions = useMemo(() => {
+        if (!columnSearch.trim()) return columnDefinitions;
+
+        const searchTerm = columnSearch.toLowerCase();
+        return columnDefinitions.filter(col =>
+            col.label.toLowerCase().includes(searchTerm) ||
+            col.key.toLowerCase().includes(searchTerm)
+        );
+    }, [columnDefinitions, columnSearch]);
 
     if (loading) {
         return (
@@ -1159,108 +1356,173 @@ export default function StockScreenerPage() {
 
     return (
         <div className="min-h-screen bg-gray-50">
+            <style jsx global>{`
+                .custom-scrollbar {
+                    scrollbar-width: thin;
+                    scrollbar-color: #cbd5e0 #f7fafc;
+                }
+
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 6px;
+                    height: 6px;
+                }
+
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: #f7fafc;
+                    border-radius: 3px;
+                }
+
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background-color: #cbd5e0;
+                    border-radius: 3px;
+                }
+
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background-color: #a0aec0;
+                }
+            `}</style>
+
             <div className="flex">
                 {/* Sidebar Filters */}
-                <div className="w-80 bg-white border-r border-gray-200 h-[calc(100vh-64px)] flex flex-col">
+                <div
+                    className={`
+                        bg-white border-r border-gray-200 h-[calc(100vh-64px)] flex flex-col transition-all duration-300 ease-in-out overflow-hidden
+                        ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full opacity-0'}
+                    `}
+                >
                     {/* Header with Export & Columns */}
                     <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 bg-white">
                         <div className="flex space-x-2">
-                            <button
-                                onClick={exportToCSV}
-                                className="flex-1 px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center justify-center space-x-2 transition-all"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                <span>Export CSV</span>
-                            </button>
+                            {/* Export Dropdown */}
+                            <div className="relative flex-1" ref={exportMenuRef}>
+                                <button
+                                    onClick={() => setShowExportMenu(!showExportMenu)}
+                                    className="w-full px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center justify-center space-x-2 transition-all whitespace-nowrap"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    <span>Export</span>
+                                    <svg className={`w-3 h-3 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+
+                                {showExportMenu && (
+                                    <div className="absolute left-0 mt-2 w-56 bg-white rounded-md shadow-lg z-[110] border border-gray-200 py-1">
+                                        <button
+                                            onClick={() => handleExport('csv')}
+                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                        >
+                                            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                                            <span>comma delimited (.csv)</span>
+                                        </button>
+                                        <button
+                                            onClick={() => handleExport('xls')}
+                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                        >
+                                            <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                            <span>excel 97-2003 (.xls)</span>
+                                        </button>
+                                        <button
+                                            onClick={() => handleExport('xlsx')}
+                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                        >
+                                            <span className="w-2 h-2 bg-green-600 rounded-full"></span>
+                                            <span>excel (.xlsx)</span>
+                                        </button>
+                                        <button
+                                            onClick={() => handleExport('txt')}
+                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                        >
+                                            <span className="w-2 h-2 bg-gray-500 rounded-full"></span>
+                                            <span>Text (.txt)</span>
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
 
                             {/* Column Selector */}
                             <div className="relative flex-1">
                                 <button
                                     onClick={() => setShowColumnMenu(!showColumnMenu)}
-                                    className="w-full px-3 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 flex items-center justify-center space-x-2 transition-all"
+                                    className="w-full px-3 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 flex items-center justify-center space-x-2 transition-all whitespace-nowrap"
                                 >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                                     </svg>
-                                    <span>Columns ({Object.values(visibleColumns).filter(v => v).length})</span>
+                                    <span>Cols</span>
                                 </button>
 
                                 {showColumnMenu && (
-                                    <>
-                                        <div
-                                            className="fixed inset-0 z-[90]"
-                                            onClick={() => setShowColumnMenu(false)}
-                                        />
-                                        <div
-                                            className="fixed bg-white rounded-md shadow-lg z-[100] border border-gray-200"
-                                            style={{
-                                                top: '60px',
-                                                left: '16px',
-                                                width: '280px',
-                                                maxHeight: '70vh',
-                                                overflowY: 'auto'
-                                            }}
-                                        >
-                                            <div className="p-3">
-                                                <div className="text-xs font-semibold text-gray-500 mb-2">
-                                                    SELECT COLUMNS
-                                                </div>
-                                                <div className="space-y-2 max-h-64 overflow-y-auto">
-                                                    {columnDefinitions.map((col) => (
-                                                        <label
-                                                            key={col.key}
-                                                            className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded"
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={visibleColumns[col.visibleKey] || false}
-                                                                onChange={() => toggleColumn(col.visibleKey)}
-                                                                className="rounded text-blue-600 border-gray-300"
-                                                            />
-                                                            <span className="text-sm text-gray-700">{col.label}</span>
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                                <div className="flex space-x-2 mt-3 pt-3 border-t border-gray-200">
-                                                    <button
-                                                        onClick={() => {
-                                                            const allVisible: Record<string, boolean> = {};
-                                                            columnDefinitions.forEach(col => {
-                                                                allVisible[col.visibleKey] = true;
-                                                            });
-                                                            setVisibleColumns(allVisible);
-                                                            localStorage.setItem('stocksVisibleColumns', JSON.stringify(allVisible));
-                                                        }}
-                                                        className="flex-1 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
+                                    <div
+                                        ref={columnMenuRef}
+                                        className="fixed bg-white rounded-md shadow-lg z-[100] border border-gray-200"
+                                        style={{
+                                            top: '60px',
+                                            left: '16px',
+                                            width: '280px',
+                                            maxHeight: '70vh',
+                                            overflowY: 'auto'
+                                        }}
+                                    >
+                                        <div className="p-3">
+                                            <div className="text-xs font-semibold text-gray-500 mb-2">
+                                                SELECT COLUMNS
+                                            </div>
+                                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                                                {columnDefinitions.map((col) => (
+                                                    <label
+                                                        key={col.key}
+                                                        className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded"
                                                     >
-                                                        Show All
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            const defaultVisible: Record<string, boolean> = {};
-                                                            columnDefinitions.forEach((col, index) => {
-                                                                defaultVisible[col.visibleKey] = index < 15;
-                                                            });
-                                                            setVisibleColumns(defaultVisible);
-                                                            localStorage.setItem('stocksVisibleColumns', JSON.stringify(defaultVisible));
-                                                        }}
-                                                        className="flex-1 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
-                                                    >
-                                                        Reset
-                                                    </button>
-                                                </div>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={visibleColumns[col.visibleKey] || false}
+                                                            onChange={() => toggleColumn(col.visibleKey)}
+                                                            className="rounded text-blue-600 border-gray-300"
+                                                        />
+                                                        <span className="text-sm text-gray-700">{col.label}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                            <div className="flex space-x-2 mt-3 pt-3 border-t border-gray-200">
+                                                <button
+                                                    onClick={() => {
+                                                        const allVisible: Record<string, boolean> = {};
+                                                        columnDefinitions.forEach(col => {
+                                                            allVisible[col.visibleKey] = true;
+                                                        });
+                                                        setVisibleColumns(allVisible);
+                                                        localStorage.setItem('stocksVisibleColumns', JSON.stringify(allVisible));
+                                                    }}
+                                                    className="flex-1 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
+                                                >
+                                                    Show All
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        const defaultVisible: Record<string, boolean> = {};
+                                                        columnDefinitions.forEach((col, index) => {
+                                                            defaultVisible[col.visibleKey] = index < 15;
+                                                        });
+                                                        setVisibleColumns(defaultVisible);
+                                                        localStorage.setItem('stocksVisibleColumns', JSON.stringify(defaultVisible));
+                                                    }}
+                                                    className="flex-1 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
+                                                >
+                                                    Reset
+                                                </button>
                                             </div>
                                         </div>
-                                    </>
+                                    </div>
                                 )}
                             </div>
                         </div>
                     </div>
 
                     {/* Scrollable Filters Area */}
-                    <div className="flex-1 overflow-y-auto p-4">
+                    <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                         {/* Quick Search */}
                         <div className="mb-4 space-y-2">
                             <div className="relative">
@@ -1290,61 +1552,48 @@ export default function StockScreenerPage() {
                         </div>
 
                         {/* Industry Filters */}
-                        <FilterAccordion title="INDUSTRY FILTERS" defaultOpen={true}>
-                            <div className="space-y-2">
-                                <div className="relative">
-                                    <svg className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                    </svg>
-                                    <input
-                                        type="text"
-                                        placeholder="Industry Group..."
-                                        value={filters.industry_group}
-                                        onChange={(e) => setFilters(prev => ({ ...prev, industry_group: e.target.value }))}
-                                        className="w-full pl-8 pr-2 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all outline-none"
-                                    />
-                                </div>
-                                <div className="relative">
-                                    <svg className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                                    </svg>
-                                    <input
-                                        type="text"
-                                        placeholder="Sector..."
-                                        value={filters.sector}
-                                        onChange={(e) => setFilters(prev => ({ ...prev, sector: e.target.value }))}
-                                        className="w-full pl-8 pr-2 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all outline-none"
-                                    />
-                                </div>
-                                <div className="relative">
-                                    <svg className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                    </svg>
-                                    <input
-                                        type="text"
-                                        placeholder="Industry..."
-                                        value={filters.industry}
-                                        onChange={(e) => setFilters(prev => ({ ...prev, industry: e.target.value }))}
-                                        className="w-full pl-8 pr-2 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all outline-none"
-                                    />
-                                </div>
-                                <div className="relative">
-                                    <svg className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                                    </svg>
-                                    <input
-                                        type="text"
-                                        placeholder="Sub Industry..."
-                                        value={filters.sub_industry}
-                                        onChange={(e) => setFilters(prev => ({ ...prev, sub_industry: e.target.value }))}
-                                        className="w-full pl-8 pr-2 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all outline-none"
-                                    />
-                                </div>
+                        <FilterAccordion title="INDUSTRY FILTERS" defaultOpen={false} collapseSignal={collapseSignal}>
+                            <div className="space-y-3">
+                                {/* Industry Group */}
+                                <CustomDropdown
+                                    options={filterOptions.industryGroups}
+                                    value={filters.industry_group}
+                                    onChange={(value) => setFilters(prev => ({ ...prev, industry_group: value }))}
+                                    placeholder={`All Industry Groups (${filterOptions.industryGroups.length})`}
+                                    icon={Filter}
+                                />
+
+                                {/* Sector */}
+                                <CustomDropdown
+                                    options={filterOptions.sectors}
+                                    value={filters.sector}
+                                    onChange={(value) => setFilters(prev => ({ ...prev, sector: value }))}
+                                    placeholder={`All Sectors (${filterOptions.sectors.length})`}
+                                    icon={Filter}
+                                />
+
+                                {/* Industry */}
+                                <CustomDropdown
+                                    options={filterOptions.industries}
+                                    value={filters.industry}
+                                    onChange={(value) => setFilters(prev => ({ ...prev, industry: value }))}
+                                    placeholder={`All Industries (${filterOptions.industries.length})`}
+                                    icon={Filter}
+                                />
+
+                                {/* Sub Industry */}
+                                <CustomDropdown
+                                    options={filterOptions.subIndustries}
+                                    value={filters.sub_industry}
+                                    onChange={(value) => setFilters(prev => ({ ...prev, sub_industry: value }))}
+                                    placeholder={`All Sub Industries (${filterOptions.subIndustries.length})`}
+                                    icon={Filter}
+                                />
                             </div>
                         </FilterAccordion>
 
                         {/* SmartSelect Ratings */}
-                        <FilterAccordion title="SMARTSELECT RATINGS">
+                        <FilterAccordion title="SMARTSELECT RATINGS" collapseSignal={collapseSignal}>
                             <RangeFilter
                                 label="RS Rating (0-99)"
                                 minValue={filters.rs_rating_min}
@@ -1385,7 +1634,7 @@ export default function StockScreenerPage() {
                         </FilterAccordion>
 
                         {/* Price & Volume */}
-                        <FilterAccordion title="PRICE & VOLUME">
+                        <FilterAccordion title="PRICE & VOLUME" collapseSignal={collapseSignal}>
                             <RangeFilter
                                 label="Close Price"
                                 minValue={filters.price_min}
@@ -1438,7 +1687,7 @@ export default function StockScreenerPage() {
                         </FilterAccordion>
 
                         {/* Moving Averages - Percentage */}
-                        <FilterAccordion title="MOVING AVERAGES %">
+                        <FilterAccordion title="MOVING AVERAGES %" collapseSignal={collapseSignal}>
                             <RangeFilter
                                 label="vs SMA 10%"
                                 minValue={filters.price_vs_sma_10_min}
@@ -1477,7 +1726,7 @@ export default function StockScreenerPage() {
                         </FilterAccordion>
 
                         {/* 52 Week Analysis */}
-                        <FilterAccordion title="52 WEEK ANALYSIS">
+                        <FilterAccordion title="52 WEEK ANALYSIS" collapseSignal={collapseSignal}>
                             <RangeFilter
                                 label="52W High"
                                 minValue={filters.fifty_two_week_high_min}
@@ -1509,7 +1758,7 @@ export default function StockScreenerPage() {
                         </FilterAccordion>
 
                         {/* Volume Analysis */}
-                        <FilterAccordion title="VOLUME ANALYSIS">
+                        <FilterAccordion title="VOLUME ANALYSIS" collapseSignal={collapseSignal}>
                             <RangeFilter
                                 label="Avg Volume 50"
                                 minValue={filters.average_volume_50_min}
@@ -1527,7 +1776,7 @@ export default function StockScreenerPage() {
                         </FilterAccordion>
 
                         {/* Open/High/Low */}
-                        <FilterAccordion title="OPEN/HIGH/LOW">
+                        <FilterAccordion title="OPEN/HIGH/LOW" collapseSignal={collapseSignal}>
                             <RangeFilter
                                 label="Open"
                                 minValue={filters.open_min}
@@ -1552,17 +1801,28 @@ export default function StockScreenerPage() {
                         </FilterAccordion>
                     </div>
 
-                    {/* Sticky Footer - Clear All Filters */}
+                    {/* Sticky Footer - Collapse All & Clear All Filters */}
                     <div className="flex-shrink-0 px-4 py-3 border-t border-gray-200 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                        <button
-                            onClick={clearAllFilters}
-                            className="w-full px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-all flex items-center justify-center space-x-2"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            <span>Clear All Filters</span>
-                        </button>
+                        <div className="flex space-x-2">
+                            <button
+                                onClick={() => setCollapseSignal(prev => prev + 1)}
+                                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all flex items-center justify-center space-x-2"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                                </svg>
+                                <span>Collapse All</span>
+                            </button>
+                            <button
+                                onClick={clearAllFilters}
+                                className="flex-1 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-all flex items-center justify-center space-x-2"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                <span>Clear All Filters</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -1571,16 +1831,24 @@ export default function StockScreenerPage() {
                     {/* Active Filters Bar */}
                     <div className="bg-white border-b border-gray-200 px-4 py-2 flex-shrink-0">
                         <div className="flex justify-between items-center">
-                            <div className="flex items-center space-x-2">
-                                <span className="text-sm font-medium text-gray-700">
-                                    Market Results: <span className="font-bold">{filteredAndSortedStocks.length}</span> stocks
-                                </span>
-                                {activeFilters.length > 0 && (
-                                    <span className="text-sm text-blue-600">• {activeFilters.length} filters active</span>
-                                )}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                                {metadata?.datetime}
+                            <div className="flex items-center space-x-4">
+                                <button
+                                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                                    className="p-1 hover:bg-gray-100 rounded text-gray-500"
+                                >
+                                    {isSidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                                </button>
+                                <div className="flex items-center space-x-2">
+                                    <span className="text-sm font-medium text-gray-700">
+                                        Market Results: <span className="font-bold">{filteredAndSortedStocks.length}</span> stocks
+                                    </span>
+                                    {activeFilters.length > 0 && (
+                                        <span className="text-sm text-blue-600">• {activeFilters.length} filters active</span>
+                                    )}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                    {metadata?.datetime}
+                                </div>
                             </div>
                         </div>
 
@@ -1599,9 +1867,9 @@ export default function StockScreenerPage() {
                         )}
                     </div>
 
-                    {/* Table Container - Show 19 rows with scroll */}
-                    <div className="flex-1 overflow-auto border-t border-gray-200 max-h-[720px]">
-                        <table className="min-w-full bg-white text-xs border-separate border-spacing-0">
+                    {/* Table Container - Compact View */}
+                    <div className="flex-1 overflow-auto border-t border-gray-200 bg-white">
+                        <table className="min-w-full bg-white text-[10px] border-separate border-spacing-0">
                             <thead className="bg-gray-50 sticky top-0 z-40 shadow-sm">
                                 <tr>
                                     {columnDefinitions
@@ -1616,11 +1884,11 @@ export default function StockScreenerPage() {
                                             let stickyStyle: React.CSSProperties = {};
 
                                             if (col.key === 'symbol') {
-                                                stickyClass = 'sticky left-0 z-50 bg-gray-50 border-r border-gray-200 min-w-[80px] w-[80px] max-w-[80px]';
+                                                stickyClass = 'sticky left-0 z-50 bg-gray-50 border-r border-gray-200 min-w-[70px] w-[70px] max-w-[70px]';
                                             } else if (col.key === 'name') {
-                                                stickyClass = 'sticky z-50 bg-gray-50 border-r border-gray-200 min-w-[200px] w-[200px] max-w-[200px]';
+                                                stickyClass = 'sticky z-50 bg-gray-50 border-r border-gray-200 min-w-[180px] w-[180px] max-w-[180px]';
                                                 if (visibleColumns['symbol']) {
-                                                    stickyClass += ' left-[80px]';
+                                                    stickyClass += ' left-[70px]';
                                                 } else {
                                                     stickyClass += ' left-0';
                                                 }
@@ -1630,16 +1898,16 @@ export default function StockScreenerPage() {
                                                 <th
                                                     key={col.key}
                                                     className={`
-                                                        px-3 py-3 text-left font-semibold text-gray-700 border-b border-gray-200 cursor-pointer 
-                                                        hover:bg-gray-100 transition-colors whitespace-nowrap
+                                                        px-1 py-1 text-center text-[12px] font-sans font-bold text-gray-900 border-b border-gray-200 cursor-pointer 
+                                                        hover:bg-gray-100 transition-colors whitespace-nowrap overflow-hidden text-ellipsis
                                                         ${stickyClass}
-                                                        ${isSorted ? 'bg-blue-50 text-blue-800 border-b-2 border-b-blue-500' : ''}
+                                                        ${isSorted ? 'bg-blue-50 text-blue-900 border-b-2 border-b-blue-500' : ''}
                                                     `}
                                                     style={stickyStyle}
                                                     onClick={() => handleSort(col.key)}
                                                 >
-                                                    <div className="flex items-center space-x-1">
-                                                        <span>{col.label}</span>
+                                                    <div className="flex items-center justify-center space-x-1">
+                                                        <span className="font-semibold">{col.label}</span>
                                                         <div className="flex flex-col">
                                                             {isSorted ? (
                                                                 <span className="text-xs font-bold">
@@ -1680,11 +1948,11 @@ export default function StockScreenerPage() {
                                                     let stickyClass = '';
 
                                                     if (col.key === 'symbol') {
-                                                        stickyClass = 'sticky left-0 z-30 bg-white group-hover:bg-gray-50 border-r border-gray-100 min-w-[80px] w-[80px] max-w-[80px]';
+                                                        stickyClass = 'sticky left-0 z-30 bg-white group-hover:bg-gray-50 border-r border-gray-100 min-w-[70px] w-[70px] max-w-[70px]';
                                                     } else if (col.key === 'name') {
-                                                        stickyClass = 'sticky z-30 bg-white group-hover:bg-gray-50 border-r border-gray-100 min-w-[200px] w-[200px] max-w-[200px]';
+                                                        stickyClass = 'sticky z-30 bg-white group-hover:bg-gray-50 border-r border-gray-100 min-w-[180px] w-[180px] max-w-[180px]';
                                                         if (visibleColumns['symbol']) {
-                                                            stickyClass += ' left-[80px]';
+                                                            stickyClass += ' left-[70px]';
                                                         } else {
                                                             stickyClass += ' left-0';
                                                         }
@@ -1777,109 +2045,109 @@ export default function StockScreenerPage() {
                                                             break;
 
                                                         case 'turnover':
-                                                            content = <span className="text-gray-600">{formatNumber(stock.turnover)}</span>;
+                                                            content = <span className="text-gray-900">{formatNumber(stock.turnover)}</span>;
                                                             break;
 
                                                         case 'no_of_trades':
-                                                            content = <span className="text-gray-600">{formatNumber(stock.no_of_trades)}</span>;
+                                                            content = <span className="text-gray-900">{formatNumber(stock.no_of_trades)}</span>;
                                                             break;
 
                                                         case 'market_cap':
-                                                            content = <span className="text-gray-600">{displayRawValue(stock.market_cap)}</span>;
+                                                            content = <span className="text-gray-900">{displayRawValue(stock.market_cap)}</span>;
                                                             break;
 
                                                         case 'industry_group':
-                                                            content = <span className="text-gray-600">{formatText(stock.industry_group)}</span>;
+                                                            content = <span className="text-gray-900">{formatText(stock.industry_group)}</span>;
                                                             break;
 
                                                         case 'sector':
-                                                            content = <span className="text-gray-600">{formatText(stock.sector)}</span>;
+                                                            content = <span className="text-gray-900">{formatText(stock.sector)}</span>;
                                                             break;
 
                                                         case 'industry':
-                                                            content = <span className="text-gray-600">{formatText(stock.industry)}</span>;
+                                                            content = <span className="text-gray-900">{formatText(stock.industry)}</span>;
                                                             break;
 
                                                         case 'sub_industry':
-                                                            content = <span className="text-gray-600">{formatText(stock.sub_industry)}</span>;
+                                                            content = <span className="text-gray-900">{formatText(stock.sub_industry)}</span>;
                                                             break;
 
                                                         case 'open':
-                                                            content = <span className="text-gray-600">{formatNumber(stock.open)}</span>;
+                                                            content = <span className="text-gray-900">{formatNumber(stock.open)}</span>;
                                                             break;
 
                                                         case 'high':
-                                                            content = <span className="text-gray-600">{formatNumber(stock.high)}</span>;
+                                                            content = <span className="text-gray-900">{formatNumber(stock.high)}</span>;
                                                             break;
 
                                                         case 'low':
-                                                            content = <span className="text-gray-600">{formatNumber(stock.low)}</span>;
+                                                            content = <span className="text-gray-900">{formatNumber(stock.low)}</span>;
                                                             break;
 
                                                         case 'price_minus_sma_10':
-                                                            content = <span className="text-gray-600">{formatNumber(stock.price_minus_sma_10)}</span>;
+                                                            content = <span className="text-gray-900">{formatNumber(stock.price_minus_sma_10)}</span>;
                                                             break;
 
                                                         case 'price_minus_sma_21':
-                                                            content = <span className="text-gray-600">{formatNumber(stock.price_minus_sma_21)}</span>;
+                                                            content = <span className="text-gray-900">{formatNumber(stock.price_minus_sma_21)}</span>;
                                                             break;
 
                                                         case 'price_minus_sma_50':
-                                                            content = <span className="text-gray-600">{formatNumber(stock.price_minus_sma_50)}</span>;
+                                                            content = <span className="text-gray-900">{formatNumber(stock.price_minus_sma_50)}</span>;
                                                             break;
 
                                                         case 'price_minus_sma_150':
-                                                            content = <span className="text-gray-600">{formatNumber(stock.price_minus_sma_150)}</span>;
+                                                            content = <span className="text-gray-900">{formatNumber(stock.price_minus_sma_150)}</span>;
                                                             break;
 
                                                         case 'price_minus_sma_200':
-                                                            content = <span className="text-gray-600">{formatNumber(stock.price_minus_sma_200)}</span>;
+                                                            content = <span className="text-gray-900">{formatNumber(stock.price_minus_sma_200)}</span>;
                                                             break;
 
                                                         case 'fifty_two_week_high_price':
-                                                            content = <span className="text-gray-600">{formatNumber(stock.fifty_two_week_high_price)}</span>;
+                                                            content = <span className="text-gray-900">{formatNumber(stock.fifty_two_week_high_price)}</span>;
                                                             break;
 
                                                         case 'fifty_two_week_low_price':
-                                                            content = <span className="text-gray-600">{formatNumber(stock.fifty_two_week_low_price)}</span>;
+                                                            content = <span className="text-gray-900">{formatNumber(stock.fifty_two_week_low_price)}</span>;
                                                             break;
 
                                                         case 'average_volume_50':
-                                                            content = <span className="text-gray-600">{formatNumber(stock.average_volume_50)}</span>;
+                                                            content = <span className="text-gray-900">{formatNumber(stock.average_volume_50)}</span>;
                                                             break;
 
                                                         case 'price_vs_sma_10_percent':
-                                                            content = <span className="text-gray-600">{formatChangePercent(stock.price_vs_sma_10_percent)}</span>;
+                                                            content = <span className="text-gray-900">{formatChangePercent(stock.price_vs_sma_10_percent)}</span>;
                                                             break;
 
                                                         case 'price_vs_sma_21_percent':
-                                                            content = <span className="text-gray-600">{formatChangePercent(stock.price_vs_sma_21_percent)}</span>;
+                                                            content = <span className="text-gray-900">{formatChangePercent(stock.price_vs_sma_21_percent)}</span>;
                                                             break;
 
                                                         case 'price_vs_sma_50_percent':
-                                                            content = <span className="text-gray-600">{formatChangePercent(stock.price_vs_sma_50_percent)}</span>;
+                                                            content = <span className="text-gray-900">{formatChangePercent(stock.price_vs_sma_50_percent)}</span>;
                                                             break;
 
                                                         case 'price_vs_sma_150_percent':
-                                                            content = <span className="text-gray-600">{formatChangePercent(stock.price_vs_sma_150_percent)}</span>;
+                                                            content = <span className="text-gray-900">{formatChangePercent(stock.price_vs_sma_150_percent)}</span>;
                                                             break;
 
                                                         case 'price_vs_sma_200_percent':
-                                                            content = <span className="text-gray-600">{formatChangePercent(stock.price_vs_sma_200_percent)}</span>;
+                                                            content = <span className="text-gray-900">{formatChangePercent(stock.price_vs_sma_200_percent)}</span>;
                                                             break;
 
                                                         case 'percent_off_52w_high':
-                                                            content = <span className={(stock.percent_off_52w_high || 0) < 0 ? 'text-red-600' : 'text-gray-600'}>
+                                                            content = <span className={(stock.percent_off_52w_high || 0) < 0 ? 'text-red-600' : 'text-gray-900'}>
                                                                 {formatChangePercent(stock.percent_off_52w_high)}
                                                             </span>;
                                                             break;
 
                                                         case 'percent_off_52w_low':
-                                                            content = <span className="text-gray-600">{formatChangePercent(stock.percent_off_52w_low)}</span>;
+                                                            content = <span className="text-gray-900">{formatChangePercent(stock.percent_off_52w_low)}</span>;
                                                             break;
 
                                                         case 'vol_diff_50_percent':
-                                                            content = <span className="text-gray-600">{formatChangePercent(stock.vol_diff_50_percent)}</span>;
+                                                            content = <span className="text-gray-900">{formatChangePercent(stock.vol_diff_50_percent)}</span>;
                                                             break;
 
                                                         default:
@@ -1887,7 +2155,7 @@ export default function StockScreenerPage() {
                                                     }
 
                                                     return (
-                                                        <td key={col.key} className={`px-3 py-2 ${stickyClass}`}>
+                                                        <td key={col.key} className={`px-1 py-0.5 text-center ${stickyClass}`}>
                                                             {content}
                                                         </td>
                                                     );
