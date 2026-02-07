@@ -141,13 +141,177 @@ interface FilterState {
     // Quick Filters
     symbol: string;
     name: string;
-    industry_group: string;
-    sector: string;
-    industry: string;
-    sub_industry: string;
+    industry_group: string[];
+    sector: string[];
+    industry: string[];
+    sub_industry: string[];
 }
 
-// ==================== Custom Dropdown Component ====================
+// ==================== Custom Multi-Select Dropdown Component ====================
+
+function CustomMultiSelect({
+    options,
+    selected,
+    onChange,
+    placeholder,
+    icon: Icon
+}: {
+    options: string[];
+    selected: string[];
+    onChange: (values: string[]) => void;
+    placeholder: string;
+    icon?: any;
+}) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState('');
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const filteredOptions = options.filter(option =>
+        option.toLowerCase().includes(search.toLowerCase())
+    );
+
+    const handleSelect = (option: string) => {
+        if (selected.includes(option)) {
+            onChange(selected.filter(item => item !== option));
+        } else {
+            onChange([...selected, option]);
+        }
+    };
+
+    const handleClearAll = () => {
+        onChange([]);
+    };
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div className="relative" ref={dropdownRef}>
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className={`
+                    w-full pl-10 pr-8 py-2.5 text-xs bg-gray-50 border border-gray-200 rounded-lg 
+                    focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white
+                    outline-none transition-all hover:border-gray-300 text-left
+                    flex items-center justify-between min-h-[42px]
+                `}
+            >
+                <div className="flex items-center w-full">
+                    {Icon && <Icon className="absolute left-3 w-4 h-4 text-gray-400" />}
+                    <div className="flex flex-col items-start truncate w-full">
+                        <span className="font-medium text-gray-700 text-xs">
+                            {placeholder}
+                        </span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                            {selected.length === 0 ? (
+                                <span className="text-gray-400 text-xs">All {placeholder}</span>
+                            ) : (
+                                <>
+                                    {selected.slice(0, 2).map((item) => (
+                                        <span
+                                            key={item}
+                                            className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] rounded-full"
+                                        >
+                                            {item}
+                                        </span>
+                                    ))}
+                                    {selected.length > 2 && (
+                                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] rounded-full">
+                                            +{selected.length - 2} more
+                                        </span>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+                <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+
+            {isOpen && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-hidden">
+                    <div className="p-2 border-b border-gray-100">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-xs font-semibold text-gray-700">
+                                Selected: {selected.length}
+                            </span>
+                            {selected.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={handleClearAll}
+                                    className="text-xs text-red-600 hover:text-red-800"
+                                >
+                                    Clear All
+                                </button>
+                            )}
+                        </div>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Search..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="w-full pl-10 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                autoFocus
+                            />
+                        </div>
+                    </div>
+                    <div className="overflow-y-auto max-h-60 custom-scrollbar">
+                        {filteredOptions.length > 0 ? (
+                            <>
+                                {filteredOptions.map((option) => (
+                                    <button
+                                        key={option}
+                                        type="button"
+                                        onClick={() => handleSelect(option)}
+                                        className={`
+                                            w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center
+                                            ${selected.includes(option)
+                                                ? 'bg-blue-50 text-blue-600'
+                                                : 'text-gray-700'
+                                            }
+                                        `}
+                                    >
+                                        <div className="flex items-center w-full">
+                                            <div className={`w-4 h-4 border rounded mr-2 flex items-center justify-center
+                                                ${selected.includes(option)
+                                                    ? 'bg-blue-600 border-blue-600'
+                                                    : 'border-gray-300'
+                                                }
+                                            `}>
+                                                {selected.includes(option) && (
+                                                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                            <span className="truncate">{option}</span>
+                                        </div>
+                                    </button>
+                                ))}
+                            </>
+                        ) : (
+                            <div className="px-3 py-2 text-sm text-gray-500 text-center">No options found</div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ==================== Custom Single-Select Dropdown Component ====================
 
 function CustomDropdown({
     options,
@@ -691,10 +855,10 @@ export default function StockScreenerPage() {
         // Quick Filters
         symbol: '',
         name: '',
-        industry_group: '',
-        sector: '',
-        industry: '',
-        sub_industry: '',
+        industry_group: [],
+        sector: [],
+        industry: [],
+        sub_industry: [],
     });
 
     // Close menus when clicking outside
@@ -827,10 +991,10 @@ export default function StockScreenerPage() {
             // Quick Filters
             symbol: '',
             name: '',
-            industry_group: '',
-            sector: '',
-            industry: '',
-            sub_industry: '',
+            industry_group: [],
+            sector: [],
+            industry: [],
+            sub_industry: [],
         });
     }, []);
 
@@ -1062,10 +1226,28 @@ export default function StockScreenerPage() {
         // Text filters
         if (filters.symbol) active.push({ label: 'Symbol', value: filters.symbol, key: 'symbol' });
         if (filters.name) active.push({ label: 'Name', value: filters.name, key: 'name' });
-        if (filters.industry_group) active.push({ label: 'Industry Group', value: filters.industry_group, key: 'industry_group' });
-        if (filters.sector) active.push({ label: 'Sector', value: filters.sector, key: 'sector' });
-        if (filters.industry) active.push({ label: 'Industry', value: filters.industry, key: 'industry' });
-        if (filters.sub_industry) active.push({ label: 'Sub Industry', value: filters.sub_industry, key: 'sub_industry' });
+
+        // Multi-select filters
+        if (filters.industry_group.length > 0) active.push({
+            label: 'Industry Groups',
+            value: filters.industry_group.join(', '),
+            key: 'industry_group'
+        });
+        if (filters.sector.length > 0) active.push({
+            label: 'Sectors',
+            value: filters.sector.join(', '),
+            key: 'sector'
+        });
+        if (filters.industry.length > 0) active.push({
+            label: 'Industries',
+            value: filters.industry.join(', '),
+            key: 'industry'
+        });
+        if (filters.sub_industry.length > 0) active.push({
+            label: 'Sub Industries',
+            value: filters.sub_industry.join(', '),
+            key: 'sub_industry'
+        });
 
         return active;
     }, [filters]);
@@ -1076,10 +1258,12 @@ export default function StockScreenerPage() {
             // Text filters
             if (filters.symbol && !cleanSymbol(stock.symbol).includes(filters.symbol)) return false;
             if (filters.name && !(stock.name || '').toLowerCase().includes(filters.name.toLowerCase())) return false;
-            if (filters.industry_group && !(stock.industry_group || '').toLowerCase().includes(filters.industry_group.toLowerCase())) return false;
-            if (filters.sector && !(stock.sector || '').toLowerCase().includes(filters.sector.toLowerCase())) return false;
-            if (filters.industry && !(stock.industry || '').toLowerCase().includes(filters.industry.toLowerCase())) return false;
-            if (filters.sub_industry && !(stock.sub_industry || '').toLowerCase().includes(filters.sub_industry.toLowerCase())) return false;
+
+            // Multi-select filters
+            if (filters.industry_group.length > 0 && !filters.industry_group.includes(stock.industry_group || '')) return false;
+            if (filters.sector.length > 0 && !filters.sector.includes(stock.sector || '')) return false;
+            if (filters.industry.length > 0 && !filters.industry.includes(stock.industry || '')) return false;
+            if (filters.sub_industry.length > 0 && !filters.sub_industry.includes(stock.sub_industry || '')) return false;
 
             // Helper function for range filters
             const checkRange = (value: any, minKey: keyof FilterState, maxKey: keyof FilterState, allowZero = false) => {
@@ -1551,42 +1735,42 @@ export default function StockScreenerPage() {
                             </div>
                         </div>
 
-                        {/* Industry Filters */}
+                        {/* Industry Filters - Multi-Select */}
                         <FilterAccordion title="INDUSTRY FILTERS" defaultOpen={false} collapseSignal={collapseSignal}>
                             <div className="space-y-3">
-                                {/* Industry Group */}
-                                <CustomDropdown
+                                {/* Industry Group - Multi Select */}
+                                <CustomMultiSelect
                                     options={filterOptions.industryGroups}
-                                    value={filters.industry_group}
+                                    selected={filters.industry_group}
                                     onChange={(value) => setFilters(prev => ({ ...prev, industry_group: value }))}
-                                    placeholder={`All Industry Groups (${filterOptions.industryGroups.length})`}
+                                    placeholder={`Industry Groups (${filterOptions.industryGroups.length})`}
                                     icon={Filter}
                                 />
 
-                                {/* Sector */}
-                                <CustomDropdown
+                                {/* Sector - Multi Select */}
+                                <CustomMultiSelect
                                     options={filterOptions.sectors}
-                                    value={filters.sector}
+                                    selected={filters.sector}
                                     onChange={(value) => setFilters(prev => ({ ...prev, sector: value }))}
-                                    placeholder={`All Sectors (${filterOptions.sectors.length})`}
+                                    placeholder={`Sectors (${filterOptions.sectors.length})`}
                                     icon={Filter}
                                 />
 
-                                {/* Industry */}
-                                <CustomDropdown
+                                {/* Industry - Multi Select */}
+                                <CustomMultiSelect
                                     options={filterOptions.industries}
-                                    value={filters.industry}
+                                    selected={filters.industry}
                                     onChange={(value) => setFilters(prev => ({ ...prev, industry: value }))}
-                                    placeholder={`All Industries (${filterOptions.industries.length})`}
+                                    placeholder={`Industries (${filterOptions.industries.length})`}
                                     icon={Filter}
                                 />
 
-                                {/* Sub Industry */}
-                                <CustomDropdown
+                                {/* Sub Industry - Multi Select */}
+                                <CustomMultiSelect
                                     options={filterOptions.subIndustries}
-                                    value={filters.sub_industry}
+                                    selected={filters.sub_industry}
                                     onChange={(value) => setFilters(prev => ({ ...prev, sub_industry: value }))}
-                                    placeholder={`All Sub Industries (${filterOptions.subIndustries.length})`}
+                                    placeholder={`Sub Industries (${filterOptions.subIndustries.length})`}
                                     icon={Filter}
                                 />
                             </div>
@@ -1802,25 +1986,26 @@ export default function StockScreenerPage() {
                     </div>
 
                     {/* Sticky Footer - Collapse All & Clear All Filters */}
-                    <div className="flex-shrink-0 px-4 py-3 border-t border-gray-200 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                        <div className="flex space-x-2">
+                    <div className="flex-shrink-0 px-4 py-4 border-t border-gray-200 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                        <div className="flex flex-col space-y-3">
                             <button
                                 onClick={() => setCollapseSignal(prev => prev + 1)}
-                                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all flex items-center justify-center space-x-2"
+                                className="w-full px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all flex items-center justify-center space-x-2 border border-gray-200"
                             >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                                 </svg>
-                                <span>Collapse All</span>
+                                <span>Collapse All Sections</span>
                             </button>
+
                             <button
                                 onClick={clearAllFilters}
-                                className="flex-1 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-all flex items-center justify-center space-x-2"
+                                className="w-full px-4 py-2.5 text-sm font-semibold text-red-600 bg-white border border-red-200 hover:bg-red-50 rounded-lg transition-all flex items-center justify-center space-x-2 shadow-sm"
                             >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
-                                <span>Clear All Filters</span>
+                                <span>Reset All Filters</span>
                             </button>
                         </div>
                     </div>
@@ -2170,8 +2355,7 @@ export default function StockScreenerPage() {
                 </div>
             </div>
 
-            {/* Spacer for footer */}
-            <div className="h-16"></div>
+            {/* Footer Spacer Removed */}
         </div>
     );
 }
