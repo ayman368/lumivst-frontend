@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { TrendingUp, TrendingDown, Search, Filter, Download, ChevronLeft, ChevronRight, PanelLeft } from 'lucide-react';
+import { TrendingUp, TrendingDown, Search, Filter, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface IndustryGroup {
     id: number;
@@ -17,6 +17,8 @@ interface IndustryGroup {
     rank_3_months_ago?: number;
     rank_6_months_ago?: number;
     ytd_change_percent: number;
+    letter_grade?: string;
+    change_vs_last_week?: number;
 }
 
 interface StockSummary {
@@ -38,19 +40,19 @@ interface StockSummary {
     rs_rating_1_year_ago?: number;
 }
 
-// تعريف نوع لتهيئة الترتيب
 interface SortConfig {
     key: string;
     direction: 'asc' | 'desc';
 }
 
-// تعريف نوع الفلاتر - تحديث لدعم المصفوفات
+interface StockSortConfig {
+    key: string;
+    direction: 'asc' | 'desc';
+}
+
 interface FilterState {
-    // Quick Filters - تغيير من string إلى string[]
     industry_group: string[];
     sector: string[];
-
-    // Range Filters
     rank_min: string;
     rank_max: string;
     number_of_stocks_min: string;
@@ -67,7 +69,21 @@ interface FilterState {
     market_value_max: string;
 }
 
-// ==================== Custom Multi-Select Dropdown Component ====================
+interface StockFilterState {
+    symbol: string;
+    company_name: string;
+    rs_rating_min: string;
+    rs_rating_max: string;
+    rs_rating_1_week_ago_min: string;
+    rs_rating_1_week_ago_max: string;
+    rs_rating_4_weeks_ago_min: string;
+    rs_rating_4_weeks_ago_max: string;
+    rs_rating_3_months_ago_min: string;
+    rs_rating_3_months_ago_max: string;
+    industry: string[];
+    sub_industry: string[];
+}
+
 function CustomMultiSelect({
     options,
     selected,
@@ -230,117 +246,6 @@ function CustomMultiSelect({
     );
 }
 
-// ==================== Custom Single-Select Dropdown Component ====================
-function CustomDropdown({
-    options,
-    value,
-    onChange,
-    placeholder,
-    icon: Icon
-}: {
-    options: string[];
-    value: string;
-    onChange: (value: string) => void;
-    placeholder: string;
-    icon?: any;
-}) {
-    const [isOpen, setIsOpen] = useState(false);
-    const [search, setSearch] = useState('');
-    const dropdownRef = useRef<HTMLDivElement>(null);
-
-    const filteredOptions = options.filter(option =>
-        option.toLowerCase().includes(search.toLowerCase())
-    );
-
-    useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    return (
-        <div className="relative" ref={dropdownRef}>
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className={`
-                    w-full pl-10 pr-8 py-2.5 text-xs bg-gray-50 border border-gray-200 rounded-lg 
-                    focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white
-                    outline-none transition-all hover:border-gray-300 text-left
-                    flex items-center justify-between
-                `}
-            >
-                <div className="flex items-center">
-                    {Icon && <Icon className="absolute left-3 w-4 h-4 text-gray-400" />}
-                    <span className="truncate">
-                        {value || placeholder}
-                    </span>
-                </div>
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-            </button>
-
-            {isOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-hidden">
-                    <div className="p-2 border-b border-gray-100">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                className="w-full pl-10 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                autoFocus
-                            />
-                        </div>
-                    </div>
-                    <div className="overflow-y-auto max-h-48 custom-scrollbar">
-                        {filteredOptions.length > 0 ? (
-                            <>
-                                <button
-                                    onClick={() => {
-                                        onChange('');
-                                        setIsOpen(false);
-                                    }}
-                                    className={`
-                                        w-full px-3 py-2 text-left text-sm hover:bg-gray-50 border-b border-gray-100
-                                        ${!value ? 'bg-blue-50 text-blue-600' : 'text-gray-700'}
-                                    `}
-                                >
-                                    {placeholder}
-                                </button>
-                                {filteredOptions.map((option) => (
-                                    <button
-                                        key={option}
-                                        onClick={() => {
-                                            onChange(option === value ? '' : option);
-                                            setIsOpen(false);
-                                        }}
-                                        className={`
-                                            w-full px-3 py-2 text-left text-sm hover:bg-gray-50
-                                            ${option === value ? 'bg-blue-50 text-blue-600' : 'text-gray-700'}
-                                        `}
-                                    >
-                                        {option}
-                                    </button>
-                                ))}
-                            </>
-                        ) : (
-                            <div className="px-3 py-2 text-sm text-gray-500 text-center">No options found</div>
-                        )}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-// ==================== Accordion Component ====================
 function FilterAccordion({
     title,
     children,
@@ -385,7 +290,6 @@ function FilterAccordion({
     );
 }
 
-// ==================== Range Filter Component ====================
 function RangeFilter({
     label,
     minValue,
@@ -427,7 +331,6 @@ function RangeFilter({
     );
 }
 
-// ==================== Active Filter Badge Component ====================
 function ActiveFilterBadge({
     label,
     value,
@@ -450,22 +353,60 @@ function ActiveFilterBadge({
     );
 }
 
+function StockFilterAccordion({
+    title,
+    children,
+    defaultOpen = false,
+    collapseSignal = 0
+}: {
+    title: string;
+    children: React.ReactNode;
+    defaultOpen?: boolean;
+    collapseSignal?: number;
+}) {
+    const [isOpen, setIsOpen] = useState(defaultOpen);
+
+    useEffect(() => {
+        if (collapseSignal > 0) {
+            setIsOpen(false);
+        }
+    }, [collapseSignal]);
+
+    return (
+        <div className="border-b border-gray-200 pb-3">
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full flex justify-between items-center py-2 text-xs font-semibold text-gray-700 hover:text-gray-900"
+            >
+                <span>{title}</span>
+                <svg
+                    className={`w-4 h-4 transition-transform ${isOpen ? 'transform rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+            {isOpen && (
+                <div className="mt-2 space-y-3">
+                    {children}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function IndustryGroupsPage() {
     const [data, setData] = useState<IndustryGroup[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
-    // State for sidebar
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [collapseSignal, setCollapseSignal] = useState(0);
 
-    // State for filters - تحديث لحقول المصفوفات
     const [filters, setFilters] = useState<FilterState>({
-        // Quick Filters - تغيير إلى مصفوفات
         industry_group: [],
         sector: [],
-
-        // Range Filters
         rank_min: '',
         rank_max: '',
         number_of_stocks_min: '',
@@ -482,21 +423,32 @@ export default function IndustryGroupsPage() {
         market_value_max: '',
     });
 
-    // State for expansion
+    const [stockFilters, setStockFilters] = useState<StockFilterState>({
+        symbol: '',
+        company_name: '',
+        rs_rating_min: '',
+        rs_rating_max: '',
+        rs_rating_1_week_ago_min: '',
+        rs_rating_1_week_ago_max: '',
+        rs_rating_4_weeks_ago_min: '',
+        rs_rating_4_weeks_ago_max: '',
+        rs_rating_3_months_ago_min: '',
+        rs_rating_3_months_ago_max: '',
+        industry: [],
+        sub_industry: [],
+    });
+
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
     const [stocksCache, setStocksCache] = useState<Record<string, StockSummary[]>>({});
     const [loadingStocks, setLoadingStocks] = useState<Set<string>>(new Set());
-
-    // State for sorting
     const [sortConfigs, setSortConfigs] = useState<SortConfig[]>([]);
+    const [stockSortConfigs, setStockSortConfigs] = useState<Record<string, StockSortConfig[]>>({});
 
-    // Stats for top/worst performers
     const [stats, setStats] = useState({
         topPerformer: { group: '', change: 0 },
         worstPerformer: { group: '', change: 0 }
     });
 
-    // Extract unique filter options
     const filterOptions = useMemo(() => {
         const options = {
             industryGroups: new Set<string>(),
@@ -514,17 +466,49 @@ export default function IndustryGroupsPage() {
         };
     }, [data]);
 
-    // تعريف أعمدة الجدول مع المفاتيح الخاصة بها
+    const stockFilterOptions = useMemo(() => {
+        const options = {
+            industries: new Set<string>(),
+            subIndustries: new Set<string>()
+        };
+
+        Object.values(stocksCache).forEach(stocks => {
+            stocks.forEach(stock => {
+                if (stock.industry) options.industries.add(stock.industry);
+                if (stock.sub_industry) options.subIndustries.add(stock.sub_industry);
+            });
+        });
+
+        return {
+            industries: Array.from(options.industries).sort(),
+            subIndustries: Array.from(options.subIndustries).sort()
+        };
+    }, [stocksCache]);
+
     const columnDefinitions = [
-        { key: 'rank', label: 'Order (Rank)', sortable: true },
-        { key: 'industry_group', label: 'Symbol (Name)', sortable: true },
+        { key: 'display_order', label: 'Order', sortable: false },
+        { key: 'industry_group', label: 'Industry Group', sortable: true },
         { key: 'number_of_stocks', label: 'Num Stocks', sortable: true },
-        { key: 'group_rank', label: 'Ind Group Rank', sortable: true }, // Changed key to be unique
+        { key: 'rank', label: 'Ind Group Rank', sortable: true },
         { key: 'rank_1_week_ago', label: 'Last Week', sortable: true },
         { key: 'rank_3_months_ago', label: '3 Mo Ago', sortable: true },
         { key: 'rank_6_months_ago', label: '6 Mo Ago', sortable: true },
         { key: 'ytd_change_percent', label: '% Chg YTD', sortable: true },
         { key: 'market_value', label: 'Ind Mkt Val (Bil)', sortable: true },
+        { key: 'change_vs_last_week', label: 'Change v last week', sortable: true },
+    ];
+
+    const stockColumnDefinitions = [
+        { key: 'symbol', label: 'Symbol', sortable: true },
+        { key: 'company_name', label: 'Name', sortable: true },
+        { key: 'rs_rating', label: 'RS Rating', sortable: true },
+        { key: 'rs_rating_1_week_ago', label: '1 Week Ago', sortable: true },
+        { key: 'rs_rating_4_weeks_ago', label: '4 Weeks Ago', sortable: true },
+        { key: 'rs_rating_3_months_ago', label: '3 Months Ago', sortable: true },
+        { key: 'rs_rating_6_months_ago', label: '6 Months Ago', sortable: true },
+        { key: 'rs_rating_1_year_ago', label: '1 Year Ago', sortable: true },
+        { key: 'industry', label: 'Industry', sortable: true },
+        { key: 'sub_industry', label: 'Sub Industry', sortable: true },
     ];
 
     useEffect(() => {
@@ -547,7 +531,6 @@ export default function IndustryGroupsPage() {
                 const jsonData = await res.json();
                 setData(jsonData);
 
-                // Calculate top/worst performers
                 if (jsonData.length > 0) {
                     let top = jsonData[0];
                     let worst = jsonData[0];
@@ -576,7 +559,6 @@ export default function IndustryGroupsPage() {
         fetchData();
     }, []);
 
-    // دالة التعامل مع الترتيب
     const handleSort = useCallback((key: string) => {
         setSortConfigs(prev => {
             const existingIndex = prev.findIndex(config => config.key === key);
@@ -596,7 +578,30 @@ export default function IndustryGroupsPage() {
         });
     }, []);
 
-    // الحصول على فئة التنسيق للخلايا بناءً على الترتيب
+    const handleStockSort = useCallback((groupName: string, key: string) => {
+        setStockSortConfigs(prev => {
+            const currentSorts = prev[groupName] || [];
+            const existingIndex = currentSorts.findIndex(config => config.key === key);
+
+            if (existingIndex === -1) {
+                return {
+                    ...prev,
+                    [groupName]: [...currentSorts, { key, direction: 'asc' }]
+                };
+            }
+
+            const existing = currentSorts[existingIndex];
+            if (existing.direction === 'asc') {
+                const newSorts = [...currentSorts];
+                newSorts[existingIndex] = { ...existing, direction: 'desc' };
+                return { ...prev, [groupName]: newSorts };
+            }
+
+            const filteredSorts = currentSorts.filter((_, index) => index !== existingIndex);
+            return { ...prev, [groupName]: filteredSorts };
+        });
+    }, []);
+
     const getSortClass = useCallback((key: string): string => {
         const index = sortConfigs.findIndex(config => config.key === key);
         if (index === -1) return 'cursor-pointer hover:bg-gray-50';
@@ -605,7 +610,15 @@ export default function IndustryGroupsPage() {
         return `cursor-pointer ${direction === 'asc' ? 'bg-blue-50' : 'bg-blue-50'}`;
     }, [sortConfigs]);
 
-    // دالة مساعدة للتحقق من الفلاتر
+    const getStockSortClass = useCallback((groupName: string, key: string): string => {
+        const currentSorts = stockSortConfigs[groupName] || [];
+        const index = currentSorts.findIndex(config => config.key === key);
+        if (index === -1) return 'cursor-pointer hover:bg-gray-50';
+
+        const direction = currentSorts[index].direction;
+        return `cursor-pointer ${direction === 'asc' ? 'bg-blue-50' : 'bg-blue-50'}`;
+    }, [stockSortConfigs]);
+
     const checkRange = (value: any, minKey: keyof FilterState, maxKey: keyof FilterState, allowZero = false) => {
         const minValue = filters[minKey] as string;
         const maxValue = filters[maxKey] as string;
@@ -617,11 +630,20 @@ export default function IndustryGroupsPage() {
         return true;
     };
 
-    // Get active filters for display
+    const checkStockRange = (value: any, minKey: keyof StockFilterState, maxKey: keyof StockFilterState, allowZero = false) => {
+        const minValue = stockFilters[minKey] as string;
+        const maxValue = stockFilters[maxKey] as string;
+        const numValue = typeof value === 'number' ? value : parseFloat(value) || 0;
+
+        if (minValue && numValue < parseFloat(minValue)) return false;
+        if (maxValue && numValue > parseFloat(maxValue)) return false;
+        if (!allowZero && numValue === 0 && (minValue || maxValue)) return false;
+        return true;
+    };
+
     const activeFilters = useMemo(() => {
         const active: Array<{ label: string; value: string; key: keyof FilterState }> = [];
 
-        // Helper function to add range filters
         const addRangeFilter = (label: string, minKey: keyof FilterState, maxKey: keyof FilterState) => {
             const minValue = filters[minKey];
             const maxValue = filters[maxKey];
@@ -634,7 +656,6 @@ export default function IndustryGroupsPage() {
             }
         };
 
-        // Quick Filters - تحديث للمصفوفات
         if (filters.industry_group.length > 0) active.push({
             label: 'Industry Groups',
             value: filters.industry_group.join(', '),
@@ -646,7 +667,6 @@ export default function IndustryGroupsPage() {
             key: 'sector'
         });
 
-        // Range Filters
         addRangeFilter('Rank', 'rank_min', 'rank_max');
         addRangeFilter('Num Stocks', 'number_of_stocks_min', 'number_of_stocks_max');
         addRangeFilter('Rank 1W Ago', 'rank_1_week_ago_min', 'rank_1_week_ago_max');
@@ -658,14 +678,11 @@ export default function IndustryGroupsPage() {
         return active;
     }, [filters]);
 
-    // Filter data based on all filters
     const filteredData = useMemo(() => {
         let filtered = data.filter(item => {
-            // Quick Filters - تحديث للدعم المصفوفات
             if (filters.industry_group.length > 0 && !filters.industry_group.includes(item.industry_group)) return false;
             if (filters.sector.length > 0 && !filters.sector.includes(item.sector)) return false;
 
-            // Range Filters
             if (!checkRange(item.rank, 'rank_min', 'rank_max')) return false;
             if (!checkRange(item.number_of_stocks, 'number_of_stocks_min', 'number_of_stocks_max')) return false;
             if (!checkRange(item.rank_1_week_ago, 'rank_1_week_ago_min', 'rank_1_week_ago_max', true)) return false;
@@ -677,14 +694,15 @@ export default function IndustryGroupsPage() {
             return true;
         });
 
-        // تطبيق الترتيب
         if (sortConfigs.length > 0) {
             filtered = [...filtered].sort((a, b) => {
                 for (const config of sortConfigs) {
                     const getValue = (item: IndustryGroup, key: string): any => {
                         switch (key) {
+                            case 'display_order':
+                                return 0;
                             case 'rank':
-                            case 'group_rank': // Map group_rank to rank
+                            case 'group_rank':
                                 return item.rank;
                             case 'industry_group':
                                 return item.industry_group.toLowerCase();
@@ -700,6 +718,8 @@ export default function IndustryGroupsPage() {
                                 return item.ytd_change_percent;
                             case 'market_value':
                                 return item.market_value || 0;
+                            case 'change_vs_last_week':
+                                return item.change_vs_last_week || 0;
                             default:
                                 return 0;
                         }
@@ -730,7 +750,81 @@ export default function IndustryGroupsPage() {
         return filtered;
     }, [data, filters, sortConfigs]);
 
-    // Clear specific filter
+    const getFilteredStocks = useCallback((groupName: string) => {
+        const stocks = stocksCache[groupName] || [];
+        if (!stocks) return [];
+
+        let filtered = stocks.filter(stock => {
+            if (stockFilters.symbol && !stock.symbol.toLowerCase().includes(stockFilters.symbol.toLowerCase())) return false;
+            if (stockFilters.company_name && !stock.company_name.toLowerCase().includes(stockFilters.company_name.toLowerCase())) return false;
+
+            if (!checkStockRange(stock.rs_rating, 'rs_rating_min', 'rs_rating_max', true)) return false;
+            if (!checkStockRange(stock.rs_rating_1_week_ago, 'rs_rating_1_week_ago_min', 'rs_rating_1_week_ago_max', true)) return false;
+            if (!checkStockRange(stock.rs_rating_4_weeks_ago, 'rs_rating_4_weeks_ago_min', 'rs_rating_4_weeks_ago_max', true)) return false;
+            if (!checkStockRange(stock.rs_rating_3_months_ago, 'rs_rating_3_months_ago_min', 'rs_rating_3_months_ago_max', true)) return false;
+
+            if (stockFilters.industry.length > 0 && !stockFilters.industry.includes(stock.industry)) return false;
+            if (stockFilters.sub_industry.length > 0 && !stockFilters.sub_industry.includes(stock.sub_industry)) return false;
+
+            return true;
+        });
+
+        const currentSorts = stockSortConfigs[groupName] || [];
+        if (currentSorts.length > 0) {
+            filtered = [...filtered].sort((a, b) => {
+                for (const config of currentSorts) {
+                    const getValue = (item: StockSummary, key: string): any => {
+                        switch (key) {
+                            case 'symbol':
+                                return item.symbol.toLowerCase();
+                            case 'company_name':
+                                return item.company_name.toLowerCase();
+                            case 'rs_rating':
+                                return item.rs_rating || 0;
+                            case 'rs_rating_1_week_ago':
+                                return item.rs_rating_1_week_ago || 0;
+                            case 'rs_rating_4_weeks_ago':
+                                return item.rs_rating_4_weeks_ago || 0;
+                            case 'rs_rating_3_months_ago':
+                                return item.rs_rating_3_months_ago || 0;
+                            case 'rs_rating_6_months_ago':
+                                return item.rs_rating_6_months_ago || 0;
+                            case 'rs_rating_1_year_ago':
+                                return item.rs_rating_1_year_ago || 0;
+                            case 'industry':
+                                return item.industry.toLowerCase();
+                            case 'sub_industry':
+                                return item.sub_industry.toLowerCase();
+                            default:
+                                return 0;
+                        }
+                    };
+
+                    const aValue = getValue(a, config.key);
+                    const bValue = getValue(b, config.key);
+
+                    if (aValue === bValue) continue;
+
+                    if (typeof aValue === 'string' && typeof bValue === 'string') {
+                        const comparison = aValue.localeCompare(bValue);
+                        if (comparison !== 0) {
+                            return config.direction === 'asc' ? comparison : -comparison;
+                        }
+                    } else {
+                        const aNum = Number(aValue);
+                        const bNum = Number(bValue);
+                        if (aNum !== bNum) {
+                            return config.direction === 'asc' ? aNum - bNum : bNum - aNum;
+                        }
+                    }
+                }
+                return 0;
+            });
+        }
+
+        return filtered;
+    }, [stocksCache, stockFilters, stockSortConfigs]);
+
     const clearFilter = useCallback((key: keyof FilterState) => {
         if (Array.isArray(filters[key])) {
             setFilters(prev => ({ ...prev, [key]: [] }));
@@ -746,7 +840,6 @@ export default function IndustryGroupsPage() {
         }
     }, [filters]);
 
-    // Clear all filters
     const clearAllFilters = useCallback(() => {
         setFilters({
             industry_group: [],
@@ -765,6 +858,23 @@ export default function IndustryGroupsPage() {
             ytd_change_percent_max: '',
             market_value_min: '',
             market_value_max: '',
+        });
+    }, []);
+
+    const clearStockFilters = useCallback(() => {
+        setStockFilters({
+            symbol: '',
+            company_name: '',
+            rs_rating_min: '',
+            rs_rating_max: '',
+            rs_rating_1_week_ago_min: '',
+            rs_rating_1_week_ago_max: '',
+            rs_rating_4_weeks_ago_min: '',
+            rs_rating_4_weeks_ago_max: '',
+            rs_rating_3_months_ago_min: '',
+            rs_rating_3_months_ago_max: '',
+            industry: [],
+            sub_industry: [],
         });
     }, []);
 
@@ -797,7 +907,6 @@ export default function IndustryGroupsPage() {
                 headers['Authorization'] = `Bearer ${token}`;
             }
 
-            // Updated to use Query Parameter to handle special characters (e.g. '&') safely
             const res = await fetch(`${API_URL}/api/industry-groups/stocks?industry_group=${encodedGroup}`, {
                 headers,
                 cache: 'no-store'
@@ -821,13 +930,6 @@ export default function IndustryGroupsPage() {
     const formatNumber = (num: number, decimals = 2) => {
         if (num === undefined || num === null) return '-';
         return num.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-    };
-
-    const getRankChangeClass = (current: number, past: number) => {
-        if (!past) return '';
-        if (current < past) return 'text-green-500 font-bold';
-        if (current > past) return 'text-red-500 font-bold';
-        return '';
     };
 
     const getChangeColor = (val: number) => {
@@ -940,17 +1042,14 @@ export default function IndustryGroupsPage() {
             `}</style>
 
             <div className="flex">
-                {/* Sidebar Filters */}
                 <div
                     className={`
                         bg-white border-r border-gray-200 h-[calc(100vh-64px)] flex flex-col transition-all duration-300 ease-in-out overflow-hidden
                         ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full opacity-0'}
                     `}
                 >
-                    {/* Header with Export */}
                     <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 bg-white">
                         <div className="flex space-x-2">
-                            {/* Export Button */}
                             <button
                                 onClick={exportToCSV}
                                 className="w-full px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center justify-center space-x-2 transition-all whitespace-nowrap"
@@ -961,9 +1060,7 @@ export default function IndustryGroupsPage() {
                         </div>
                     </div>
 
-                    {/* Scrollable Filters Area */}
                     <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                        {/* Quick Search */}
                         <div className="mb-4 space-y-2">
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -975,8 +1072,6 @@ export default function IndustryGroupsPage() {
                                         const value = e.target.value;
                                         if (value.trim() === '') {
                                             setFilters(prev => ({ ...prev, industry_group: [] }));
-                                        } else {
-                                            // يمكن إضافة منطق للبحث هنا
                                         }
                                     }}
                                     className="w-full pl-10 pr-3 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all outline-none"
@@ -984,10 +1079,8 @@ export default function IndustryGroupsPage() {
                             </div>
                         </div>
 
-                        {/* Industry Filters - Multi-Select */}
                         <FilterAccordion title="INDUSTRY FILTERS" defaultOpen={false} collapseSignal={collapseSignal}>
                             <div className="space-y-3">
-                                {/* Industry Group - Multi Select */}
                                 <CustomMultiSelect
                                     options={filterOptions.industryGroups}
                                     selected={filters.industry_group}
@@ -995,8 +1088,6 @@ export default function IndustryGroupsPage() {
                                     placeholder={`Industry Groups (${filterOptions.industryGroups.length})`}
                                     icon={Filter}
                                 />
-
-                                {/* Sector - Multi Select */}
                                 <CustomMultiSelect
                                     options={filterOptions.sectors}
                                     selected={filters.sector}
@@ -1007,7 +1098,6 @@ export default function IndustryGroupsPage() {
                             </div>
                         </FilterAccordion>
 
-                        {/* Rank Filters */}
                         <FilterAccordion title="RANK FILTERS" collapseSignal={collapseSignal}>
                             <RangeFilter
                                 label="Rank"
@@ -1047,7 +1137,6 @@ export default function IndustryGroupsPage() {
                             />
                         </FilterAccordion>
 
-                        {/* Stock Statistics Filters */}
                         <FilterAccordion title="STOCK STATISTICS" collapseSignal={collapseSignal}>
                             <RangeFilter
                                 label="Number of Stocks"
@@ -1069,7 +1158,6 @@ export default function IndustryGroupsPage() {
                             />
                         </FilterAccordion>
 
-                        {/* Performance Filters */}
                         <FilterAccordion title="PERFORMANCE FILTERS" collapseSignal={collapseSignal}>
                             <RangeFilter
                                 label="YTD Change %"
@@ -1081,9 +1169,102 @@ export default function IndustryGroupsPage() {
                                 maxPlaceholder="Max"
                             />
                         </FilterAccordion>
+
+                        {/* Stock Table Filters Section */}
+                        <StockFilterAccordion title="STOCKS TABLE FILTERS" collapseSignal={collapseSignal}>
+                            <div className="space-y-3">
+                                <div className="space-y-2">
+                                    <div className="space-y-1">
+                                        <label className="block text-[10px] font-medium text-gray-600">Symbol</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Search symbol..."
+                                            value={stockFilters.symbol}
+                                            onChange={(e) => setStockFilters(prev => ({ ...prev, symbol: e.target.value }))}
+                                            className="w-full px-2 py-1 text-[10px] bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all outline-none"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="block text-[10px] font-medium text-gray-600">Company Name</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Search company..."
+                                            value={stockFilters.company_name}
+                                            onChange={(e) => setStockFilters(prev => ({ ...prev, company_name: e.target.value }))}
+                                            className="w-full px-2 py-1 text-[10px] bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all outline-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <RangeFilter
+                                        label="RS Rating"
+                                        minValue={stockFilters.rs_rating_min}
+                                        maxValue={stockFilters.rs_rating_max}
+                                        onMinChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_min: value }))}
+                                        onMaxChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_max: value }))}
+                                        minPlaceholder="Min"
+                                        maxPlaceholder="Max"
+                                    />
+                                    <RangeFilter
+                                        label="RS 1 Week Ago"
+                                        minValue={stockFilters.rs_rating_1_week_ago_min}
+                                        maxValue={stockFilters.rs_rating_1_week_ago_max}
+                                        onMinChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_1_week_ago_min: value }))}
+                                        onMaxChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_1_week_ago_max: value }))}
+                                        minPlaceholder="Min"
+                                        maxPlaceholder="Max"
+                                    />
+                                    <RangeFilter
+                                        label="RS 4 Weeks Ago"
+                                        minValue={stockFilters.rs_rating_4_weeks_ago_min}
+                                        maxValue={stockFilters.rs_rating_4_weeks_ago_max}
+                                        onMinChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_4_weeks_ago_min: value }))}
+                                        onMaxChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_4_weeks_ago_max: value }))}
+                                        minPlaceholder="Min"
+                                        maxPlaceholder="Max"
+                                    />
+                                    <RangeFilter
+                                        label="RS 3 Months Ago"
+                                        minValue={stockFilters.rs_rating_3_months_ago_min}
+                                        maxValue={stockFilters.rs_rating_3_months_ago_max}
+                                        onMinChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_3_months_ago_min: value }))}
+                                        onMaxChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_3_months_ago_max: value }))}
+                                        minPlaceholder="Min"
+                                        maxPlaceholder="Max"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <CustomMultiSelect
+                                        options={stockFilterOptions.industries}
+                                        selected={stockFilters.industry}
+                                        onChange={(value) => setStockFilters(prev => ({ ...prev, industry: value }))}
+                                        placeholder={`Industry (${stockFilterOptions.industries.length})`}
+                                        icon={Filter}
+                                    />
+                                    <CustomMultiSelect
+                                        options={stockFilterOptions.subIndustries}
+                                        selected={stockFilters.sub_industry}
+                                        onChange={(value) => setStockFilters(prev => ({ ...prev, sub_industry: value }))}
+                                        placeholder={`Sub Industry (${stockFilterOptions.subIndustries.length})`}
+                                        icon={Filter}
+                                    />
+                                </div>
+
+                                <button
+                                    onClick={clearStockFilters}
+                                    className="w-full px-3 py-1.5 text-xs font-medium text-red-600 bg-white border border-red-200 hover:bg-red-50 rounded-md transition-all flex items-center justify-center space-x-1"
+                                >
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    <span>Clear Stock Filters</span>
+                                </button>
+                            </div>
+                        </StockFilterAccordion>
                     </div>
 
-                    {/* Sticky Footer - Collapse All & Clear All Filters */}
                     <div className="flex-shrink-0 px-4 py-4 border-t border-gray-200 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                         <div className="flex flex-col space-y-3">
                             <button
@@ -1109,9 +1290,7 @@ export default function IndustryGroupsPage() {
                     </div>
                 </div>
 
-                {/* Main Content */}
                 <div className="flex-1 flex flex-col h-[calc(100vh-64px)] overflow-hidden">
-                    {/* Active Filters Bar */}
                     <div className="bg-white border-b border-gray-200 px-4 py-2 flex-shrink-0">
                         <div className="flex justify-between items-center">
                             <div className="flex items-center space-x-4">
@@ -1135,7 +1314,6 @@ export default function IndustryGroupsPage() {
                             </div>
                         </div>
 
-                        {/* Active Filters */}
                         {activeFilters.length > 0 && (
                             <div className="mt-2 flex flex-wrap gap-2">
                                 {activeFilters.map((filter, index) => (
@@ -1150,7 +1328,6 @@ export default function IndustryGroupsPage() {
                         )}
                     </div>
 
-                    {/* Performance Stats Cards */}
                     <div className="px-4 py-4 border-b border-gray-200 bg-gray-50">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
@@ -1185,7 +1362,6 @@ export default function IndustryGroupsPage() {
                         </div>
                     </div>
 
-                    {/* Table Container */}
                     <div className="flex-1 overflow-auto border-t border-gray-200 bg-white">
                         <table className="min-w-full bg-white text-sm border-separate border-spacing-0">
                             <thead className="bg-gray-50 sticky top-0 z-40 shadow-sm">
@@ -1237,8 +1413,9 @@ export default function IndustryGroupsPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {filteredData.map((item) => {
+                                {filteredData.map((item, index) => {
                                     const isExpanded = expandedGroups.has(item.industry_group);
+                                    const filteredStocks = getFilteredStocks(item.industry_group);
 
                                     return (
                                         <React.Fragment key={item.id}>
@@ -1255,34 +1432,49 @@ export default function IndustryGroupsPage() {
                                                     </svg>
                                                 </td>
 
-                                                <td className="px-4 py-3 font-semibold text-gray-700">
-                                                    {item.rank}
+                                                <td className="px-4 py-3 font-semibold text-gray-700 text-center">
+                                                    {index + 1}
                                                 </td>
 
                                                 <td className="px-4 py-3">
-                                                    <div className="font-medium text-blue-600 hover:underline">
-                                                        {item.industry_group}
+                                                    <div className="flex items-center gap-3">
+                                                        <span className={`
+                                                            px-2 py-1 rounded text-xs font-bold min-w-[30px] text-center
+                                                            ${item.letter_grade === 'A+' ? 'bg-green-100 text-green-800' :
+                                                                item.letter_grade === 'A' ? 'bg-green-50 text-green-700' :
+                                                                    item.letter_grade === 'B' ? 'bg-blue-50 text-blue-700' :
+                                                                        item.letter_grade === 'C' ? 'bg-yellow-50 text-yellow-700' :
+                                                                            item.letter_grade === 'D' ? 'bg-orange-50 text-orange-700' :
+                                                                                'bg-red-50 text-red-700'}
+                                                        `}>
+                                                            {item.letter_grade || '-'}
+                                                        </span>
+                                                        <div>
+                                                            <div className="font-medium text-blue-600 hover:underline">
+                                                                {item.industry_group}
+                                                            </div>
+                                                            <div className="text-xs text-gray-400 mt-0.5">{item.sector}</div>
+                                                        </div>
                                                     </div>
-                                                    <div className="text-xs text-gray-400 mt-0.5">{item.sector}</div>
                                                 </td>
 
                                                 <td className="px-4 py-3 text-center">
                                                     {item.number_of_stocks}
                                                 </td>
 
-                                                <td className="px-4 py-3 text-center font-bold text-blue-800 bg-blue-50 rounded-lg mx-2 border border-blue-100">
+                                                <td className="px-4 py-3 text-center font-bold text-gray-800">
                                                     {item.rank}
                                                 </td>
 
-                                                <td className={`px-4 py-3 text-center ${getRankChangeClass(item.rank, item.rank_1_week_ago!)}`}>
+                                                <td className="px-4 py-3 text-center">
                                                     {item.rank_1_week_ago || '-'}
                                                 </td>
 
-                                                <td className={`px-4 py-3 text-center ${getRankChangeClass(item.rank, item.rank_3_months_ago!)}`}>
+                                                <td className="px-4 py-3 text-center">
                                                     {item.rank_3_months_ago || '-'}
                                                 </td>
 
-                                                <td className={`px-4 py-3 text-center ${getRankChangeClass(item.rank, item.rank_6_months_ago!)}`}>
+                                                <td className="px-4 py-3 text-center">
                                                     {item.rank_6_months_ago || '-'}
                                                 </td>
 
@@ -1293,14 +1485,30 @@ export default function IndustryGroupsPage() {
                                                 <td className="px-4 py-3 text-right text-gray-600">
                                                     {item.market_value > 0 ? formatNumber(item.market_value) : '-'}
                                                 </td>
+
+                                                <td className="px-4 py-3 text-center">
+                                                    {item.change_vs_last_week !== undefined && item.change_vs_last_week !== null ? (
+                                                        <span className={`font-medium ${item.change_vs_last_week > 0 ? 'text-green-600' :
+                                                            item.change_vs_last_week < 0 ? 'text-red-600' : 'text-gray-500'
+                                                            }`}>
+                                                            {item.change_vs_last_week > 0 ? '+' : ''}{item.change_vs_last_week}
+                                                        </span>
+                                                    ) : '-'}
+                                                </td>
                                             </tr>
 
-                                            {/* Nested Row for Stocks */}
                                             {isExpanded && (
                                                 <tr className="bg-gray-50">
-                                                    <td colSpan={10} className="px-4 pb-4 pt-2">
+                                                    <td colSpan={11} className="px-4 pb-4 pt-2">
                                                         <div className="bg-white rounded border border-gray-200 p-4 ml-8 shadow-inner">
-                                                            <h3 className="text-sm font-bold text-gray-700 mb-3">Stocks in {item.industry_group}</h3>
+                                                            <div className="flex justify-between items-center mb-3">
+                                                                <h3 className="text-sm font-bold text-gray-700">
+                                                                    Stocks in {item.industry_group}
+                                                                </h3>
+                                                                <div className="text-xs text-gray-500">
+                                                                    Showing {filteredStocks.length} of {stocksCache[item.industry_group]?.length || 0} stocks
+                                                                </div>
+                                                            </div>
 
                                                             {loadingStocks.has(item.industry_group) ? (
                                                                 <div className="text-center py-4 text-gray-500 text-sm">Loading stocks...</div>
@@ -1311,22 +1519,52 @@ export default function IndustryGroupsPage() {
                                                                     <table className="w-full text-xs text-left">
                                                                         <thead className="bg-gray-100 text-gray-500 font-medium border-b border-gray-200">
                                                                             <tr>
-                                                                                <th className="px-3 py-2 whitespace-nowrap">Symbol</th>
-                                                                                <th className="px-3 py-2 whitespace-nowrap">Name</th>
-                                                                                <th className="px-3 py-2 text-center whitespace-nowrap">RS Rating</th>
-                                                                                <th className="px-3 py-2 text-center whitespace-nowrap">1 Week Ago</th>
-                                                                                <th className="px-3 py-2 text-center whitespace-nowrap">4 Weeks Ago</th>
-                                                                                <th className="px-3 py-2 text-center whitespace-nowrap">3 Months Ago</th>
-                                                                                <th className="px-3 py-2 text-center whitespace-nowrap">6 Months Ago</th>
-                                                                                <th className="px-3 py-2 text-center whitespace-nowrap">1 Year Ago</th>
-                                                                                <th className="px-3 py-2 whitespace-nowrap">Industry Group</th>
-                                                                                <th className="px-3 py-2 whitespace-nowrap">Sector</th>
-                                                                                <th className="px-3 py-2 whitespace-nowrap">Industry</th>
-                                                                                <th className="px-3 py-2 whitespace-nowrap">Sub Industry</th>
+                                                                                {stockColumnDefinitions.map((col) => {
+                                                                                    const currentSorts = stockSortConfigs[item.industry_group] || [];
+                                                                                    const sortIndex = currentSorts.findIndex(config => config.key === col.key);
+                                                                                    const isSorted = sortIndex !== -1;
+                                                                                    const sortPriority = sortIndex + 1;
+                                                                                    const sortDir = isSorted ? currentSorts[sortIndex].direction : null;
+
+                                                                                    return (
+                                                                                        <th
+                                                                                            key={col.key}
+                                                                                            className={`
+                                                                                                px-3 py-2 cursor-pointer hover:bg-gray-200 transition-colors whitespace-nowrap
+                                                                                                ${getStockSortClass(item.industry_group, col.key)}
+                                                                                                ${col.key.includes('rating') ? 'text-center' : 'text-left'}
+                                                                                                ${isSorted ? 'bg-blue-50 text-blue-900 border-b-2 border-b-blue-500' : ''}
+                                                                                            `}
+                                                                                            onClick={() => col.sortable && handleStockSort(item.industry_group, col.key)}
+                                                                                        >
+                                                                                            <div className={`flex items-center ${col.key.includes('rating') ? 'justify-center' : 'justify-start'}`}>
+                                                                                                <span className="font-semibold">{col.label}</span>
+                                                                                                {col.sortable && (
+                                                                                                    <div className="flex flex-col ml-1">
+                                                                                                        {isSorted ? (
+                                                                                                            <span className="text-xs font-bold">
+                                                                                                                {sortDir === 'asc' ? '▲' : '▼'}
+                                                                                                            </span>
+                                                                                                        ) : (
+                                                                                                            <span className="text-[10px] text-gray-400 opacity-50 block leading-[8px]">
+                                                                                                                ▲<br />▼
+                                                                                                            </span>
+                                                                                                        )}
+                                                                                                    </div>
+                                                                                                )}
+                                                                                                {isSorted && (
+                                                                                                    <span className="ml-1 inline-flex items-center justify-center w-3 h-3 bg-blue-600 text-white text-[8px] font-bold rounded-full flex-shrink-0">
+                                                                                                        {sortPriority}
+                                                                                                    </span>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </th>
+                                                                                    );
+                                                                                })}
                                                                             </tr>
                                                                         </thead>
                                                                         <tbody className="divide-y divide-gray-100">
-                                                                            {stocksCache[item.industry_group].map(stock => (
+                                                                            {filteredStocks.map(stock => (
                                                                                 <tr key={stock.symbol} className="hover:bg-gray-50">
                                                                                     <td className="px-3 py-2 font-medium text-blue-600">
                                                                                         <Link href={`/stocks/${stock.symbol}`} className="hover:underline">
@@ -1344,8 +1582,6 @@ export default function IndustryGroupsPage() {
                                                                                     <td className="px-3 py-2 text-center text-gray-600">{stock.rs_rating_3_months_ago || '-'}</td>
                                                                                     <td className="px-3 py-2 text-center text-gray-600">{stock.rs_rating_6_months_ago || '-'}</td>
                                                                                     <td className="px-3 py-2 text-center text-gray-600">{stock.rs_rating_1_year_ago || '-'}</td>
-                                                                                    <td className="px-3 py-2 text-gray-500">{stock.industry_group}</td>
-                                                                                    <td className="px-3 py-2 text-gray-500">{stock.sector}</td>
                                                                                     <td className="px-3 py-2 text-gray-500">{stock.industry}</td>
                                                                                     <td className="px-3 py-2 text-gray-500">{stock.sub_industry}</td>
                                                                                 </tr>
@@ -1366,8 +1602,6 @@ export default function IndustryGroupsPage() {
                     </div>
                 </div>
             </div>
-
-            {/* Footer Spacer Removed */}
         </div>
     );
 }

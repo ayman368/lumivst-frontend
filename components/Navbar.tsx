@@ -31,6 +31,7 @@ export default function Navbar() {
       items: [
         { en: 'Fundamental', href: '/screeners/fundamental' },
         { en: 'Technical', href: '/screeners/technical' },
+        { en: 'Technical Screener', href: '/technical-screener' },
         { en: 'Top Traders', href: '/screeners/top-traders' },
         { en: 'Screeners', href: '/screeners/my-screens' },
       ],
@@ -42,6 +43,7 @@ export default function Navbar() {
         { en: 'My Watchlist', href: '/watchlist' },
         { en: 'RS Screener', href: '/rs-screener' },
         { en: 'RS Analysis', href: '/rs-analysis' },
+        { en: 'Technical Screener', href: '/technical-screener' },
       ],
     },
     market: {
