@@ -6,28 +6,28 @@ import {
     TrendingUp,
     TrendingDown,
     Search,
-    Filter,
     CheckCircle2,
     XCircle,
-    Loader2,
-    BarChart3,
+    RefreshCw,
     Gauge,
     Target,
     Zap,
-    RefreshCw,
-    ChevronRight,
-    Star,
-    LineChart,
     PieChart,
-    AlertCircle,
     Shield,
-    Rocket,
     TrendingUp as TrendingUpIcon,
-    Bell,
-    Settings,
-    Download,
-    Share2,
-    Bookmark
+    AlertCircle,
+    Filter,
+    BarChart3,
+    LineChart,
+    Info,
+    Calendar,
+    DollarSign,
+    Star,
+    TrendingDown as TrendingDownIcon,
+    Clock,
+    Layers,
+    Cpu,
+    Sparkles
 } from 'lucide-react';
 
 interface ScreenerStock {
@@ -156,7 +156,7 @@ export default function TechnicalScreenerPage() {
             const params = new URLSearchParams();
             if (minScore > 0) params.append('min_score', minScore.toString());
             if (passingOnly) params.append('passing_only', 'true');
-            params.append('limit', '200');
+            params.append('limit', '500');
 
             const res = await fetch(
                 `${API_URL}/api/technical-screener/screener?${params.toString()}`,
@@ -210,20 +210,20 @@ export default function TechnicalScreenerPage() {
         setFilteredStocks(result);
     };
 
-    const getScoreColor = (score: number) => {
-        if (score >= 13) return '#10B981';
-        if (score >= 10) return '#34D399';
-        if (score >= 7) return '#F59E0B';
-        if (score >= 4) return '#F97316';
-        return '#EF4444';
+    const getScoreGradient = (score: number) => {
+        if (score >= 13) return 'linear-gradient(135deg, #059669 0%, #10B981 100%)';
+        if (score >= 10) return 'linear-gradient(135deg, #10B981 0%, #34D399 100%)';
+        if (score >= 7) return 'linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%)';
+        if (score >= 4) return 'linear-gradient(135deg, #F97316 0%, #FB923C 100%)';
+        return 'linear-gradient(135deg, #DC2626 0%, #EF4444 100%)';
     };
 
-    const getScoreGradient = (score: number) => {
-        if (score >= 13) return 'linear-gradient(135deg, #10B981 0%, #059669 100%)';
-        if (score >= 10) return 'linear-gradient(135deg, #34D399 0%, #10B981 100%)';
-        if (score >= 7) return 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)';
-        if (score >= 4) return 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)';
-        return 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)';
+    const getScoreColor = (score: number) => {
+        if (score >= 13) return 'text-green-600';
+        if (score >= 10) return 'text-emerald-500';
+        if (score >= 7) return 'text-amber-500';
+        if (score >= 4) return 'text-orange-500';
+        return 'text-red-500';
     };
 
     const formatValue = (val: number | null | undefined, decimals: number = 2) => {
@@ -231,35 +231,39 @@ export default function TechnicalScreenerPage() {
         return val.toFixed(decimals);
     };
 
+    const formatDate = (dateStr: string) => {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
+        });
+    };
+
     const getSignalIcon = (signal: boolean) => {
         return signal ? (
-            <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                <span className="text-green-500 text-sm font-semibold">Passing</span>
+            <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></div>
+                <span className="text-green-600 text-sm font-semibold">Passing</span>
             </div>
         ) : (
-            <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                <span className="text-red-500 text-sm font-semibold">Failing</span>
+            <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+                <span className="text-red-600 text-sm font-semibold">Failing</span>
             </div>
         );
     };
 
-    const StatCard = ({ title, value, change, icon: Icon, color }: any) => (
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-            <div className="flex justify-between items-start">
-                <div>
-                    <p className="text-gray-600 text-sm font-medium mb-1">{title}</p>
-                    <h3 className="text-3xl font-bold text-gray-900">{value}</h3>
-                    {change && (
-                        <div className={`flex items-center gap-1 mt-2 text-sm ${change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {change >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                            <span>{Math.abs(change)}%</span>
-                        </div>
-                    )}
+    const StatCard = ({ title, value, description, icon: Icon, color }: any) => (
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+            <div className="flex items-start gap-3">
+                <div className={`p-2 rounded-lg ${color}`}>
+                    <Icon size={20} className="text-white" />
                 </div>
-                <div className={`p-3 rounded-xl ${color}`}>
-                    <Icon size={24} className="text-white" />
+                <div className="flex-1">
+                    <p className="text-sm text-gray-600 mb-1">{title}</p>
+                    <h3 className="text-xl font-bold text-gray-900 mb-1">{value}</h3>
+                    <p className="text-xs text-gray-500">{description}</p>
                 </div>
             </div>
         </div>
@@ -268,231 +272,211 @@ export default function TechnicalScreenerPage() {
     const GaugeIndicator = ({ label, value, min, max, optimalRange, unit = '' }: any) => {
         const percentage = ((value - min) / (max - min)) * 100;
         const isOptimal = value >= optimalRange[0] && value <= optimalRange[1];
+        const isOverbought = value > optimalRange[1];
+        const isOversold = value < optimalRange[0];
 
         return (
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                <div className="flex justify-between items-center mb-3">
+            <div className="bg-white rounded-lg p-3 border border-gray-200">
+                <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-medium text-gray-700">{label}</span>
-                    <span className={`text-lg font-bold ${isOptimal ? 'text-green-600' : 'text-red-600'}`}>
+                    <span className={`text-base font-semibold ${isOptimal ? 'text-green-600' : isOverbought ? 'text-red-600' : 'text-blue-600'}`}>
                         {formatValue(value)}{unit}
                     </span>
                 </div>
-                <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div className="relative h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1">
                     <div
-                        className={`absolute h-full ${isOptimal ? 'bg-green-500' : 'bg-red-500'}`}
+                        className={`absolute h-full ${isOptimal ? 'bg-green-500' : isOverbought ? 'bg-red-500' : 'bg-blue-500'}`}
                         style={{ width: `${Math.min(100, Math.max(0, percentage))}%` }}
                     ></div>
-                    <div
-                        className="absolute h-full w-0.5 bg-gray-400"
-                        style={{ left: `${((optimalRange[0] - min) / (max - min)) * 100}%` }}
-                    ></div>
-                    <div
-                        className="absolute h-full w-0.5 bg-gray-400"
-                        style={{ left: `${((optimalRange[1] - min) / (max - min)) * 100}%` }}
-                    ></div>
                 </div>
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>{min}</span>
-                    <span className="text-gray-400">Optimal: {optimalRange[0]}-{optimalRange[1]}</span>
-                    <span>{max}</span>
+                <div className="flex justify-between text-xs text-gray-500">
+                    <span className={isOversold ? 'text-blue-600 font-medium' : ''}>Oversold</span>
+                    <span className={isOptimal ? 'text-green-600 font-medium' : ''}>Optimal</span>
+                    <span className={isOverbought ? 'text-red-600 font-medium' : ''}>Overbought</span>
                 </div>
             </div>
         );
     };
 
-    const ConditionPill = ({ label, passed, value }: any) => (
-        <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-full ${passed ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+    const ConditionPill = ({ label, passed, value, description }: any) => (
+        <div className={`flex items-start gap-3 p-3 rounded-lg ${passed ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
             {passed ? (
-                <CheckCircle2 size={16} className="text-green-500" />
+                <CheckCircle2 size={18} className="text-green-500 mt-0.5" />
             ) : (
-                <XCircle size={16} className="text-red-500" />
+                <XCircle size={18} className="text-red-500 mt-0.5" />
             )}
-            <span className={`text-sm font-medium ${passed ? 'text-green-700' : 'text-red-700'}`}>{label}</span>
-            {value && (
-                <span className={`text-xs ${passed ? 'text-green-600' : 'text-red-600'}`}>
-                    {value}
-                </span>
-            )}
+            <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-sm font-medium ${passed ? 'text-green-800' : 'text-red-800'}`}>
+                        {label}
+                    </span>
+                    {value && (
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${passed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {value}
+                        </span>
+                    )}
+                </div>
+                {description && (
+                    <p className="text-xs text-gray-600">{description}</p>
+                )}
+            </div>
         </div>
     );
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 font-sans">
+        <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 font-sans">
             {/* Header */}
-            <header className="bg-white border-b border-gray-200">
-                <div className="px-8 py-4">
+            <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+                <div className="px-6 py-4">
                     <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-4">
-                            <div className="p-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl">
-                                <Activity size={28} className="text-white" />
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
+                                <Cpu size={24} className="text-white" />
                             </div>
                             <div>
-                                <h1 className="text-2xl font-bold text-gray-900">Technical Screener</h1>
-                                <p className="text-gray-600 text-sm">Real-time RSI & Trend Analysis</p>
+                                <h1 className="text-xl font-bold text-gray-900">Technical Screener Pro</h1>
+                                <p className="text-gray-600 text-sm">Advanced RSI & Trend Analysis Dashboard</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                            <button className="p-2 hover:bg-gray-100 rounded-lg">
-                                <Bell size={20} className="text-gray-600" />
-                            </button>
-                            <button className="p-2 hover:bg-gray-100 rounded-lg">
-                                <Settings size={20} className="text-gray-600" />
-                            </button>
-                            <div className="h-8 w-px bg-gray-300"></div>
-                            <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:opacity-90 transition-opacity">
-                                New Scan
+                        <div className="flex items-center gap-3">
+                            <div className="text-sm text-gray-600 hidden md:block">
+                                <Clock size={14} className="inline mr-1" />
+                                Real-time Analysis
+                            </div>
+                            <button
+                                onClick={fetchScreenerData}
+                                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-blue-700 transition-all flex items-center gap-2"
+                            >
+                                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                                Refresh Data
                             </button>
                         </div>
                     </div>
                 </div>
             </header>
 
-            <div className="flex">
-                {/* Sidebar */}
-                <div className="w-80 bg-white border-r border-gray-200 min-h-[calc(100vh-73px)]">
-                    <div className="p-6">
-                        <div className="relative mb-6">
-                            <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <div className="flex flex-col lg:flex-row">
+                {/* Sidebar - Stock List */}
+                <div className="lg:w-96 bg-white border-r border-gray-200 lg:h-[calc(100vh-73px)] lg:sticky lg:top-16">
+                    <div className="p-4 border-b border-gray-200">
+                        <div className="relative mb-4">
+                            <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Search stocks..."
+                                placeholder="Search by symbol or company name..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-500"
+                                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-500 text-sm"
                             />
                         </div>
 
-                        <div className="space-y-4">
-                            <div>
-                                <h3 className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wider">Score Filter</h3>
-                                <div className="flex gap-2">
-                                    {['All', '5+', '10+', '13+'].map((label, idx) => {
-                                        const score = idx === 0 ? 0 : idx === 1 ? 5 : idx === 2 ? 10 : 13;
-                                        return (
-                                            <button
-                                                key={label}
-                                                onClick={() => setMinScore(score)}
-                                                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${minScore === score
-                                                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md'
-                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                                    }`}
-                                            >
-                                                {label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <Filter size={16} className="text-gray-500" />
+                                <span className="text-sm font-medium text-gray-700">Filters</span>
                             </div>
-
-                            <div>
-                                <h3 className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wider">Quick Filters</h3>
-                                <div className="space-y-2">
-                                    <button
-                                        onClick={() => setPassingOnly(!passingOnly)}
-                                        className={`w-full flex items-center justify-between p-3 rounded-xl transition-all ${passingOnly
-                                            ? 'bg-green-50 border border-green-200'
-                                            : 'bg-gray-50 border border-gray-200 hover:bg-gray-100'
-                                            }`}
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            <Zap size={18} className={passingOnly ? 'text-green-600' : 'text-gray-500'} />
-                                            <span className={passingOnly ? 'text-green-700 font-medium' : 'text-gray-700'}>
-                                                Passing Only
-                                            </span>
-                                        </div>
-                                        <div className={`w-8 h-4 rounded-full transition-all ${passingOnly ? 'bg-green-500 justify-end' : 'bg-gray-300 justify-start'} flex items-center px-1`}>
-                                            <div className="w-3 h-3 bg-white rounded-full"></div>
-                                        </div>
-                                    </button>
-                                    <button className="w-full flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-all">
-                                        <div className="flex items-center gap-2">
-                                            <Star size={18} className="text-yellow-500" />
-                                            <span className="text-gray-700">Top Performers</span>
-                                        </div>
-                                        <ChevronRight size={18} className="text-gray-400" />
-                                    </button>
-                                    <button className="w-full flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-all">
-                                        <div className="flex items-center gap-2">
-                                            <Rocket size={18} className="text-purple-600" />
-                                            <span className="text-gray-700">Momentum Plays</span>
-                                        </div>
-                                        <ChevronRight size={18} className="text-gray-400" />
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="pt-4 border-t border-gray-200">
-                                <div className="flex justify-between items-center mb-2">
-                                    <h3 className="text-sm font-semibold text-gray-700">View Mode</h3>
-                                    <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-                                        <button
-                                            onClick={() => setViewMode('grid')}
-                                            className={`p-2 rounded ${viewMode === 'grid' ? 'bg-white shadow-sm' : 'text-gray-500'}`}
-                                        >
-                                            <div className="grid grid-cols-2 gap-1 w-4 h-4">
-                                                <div className="bg-current rounded-sm"></div>
-                                                <div className="bg-current rounded-sm"></div>
-                                                <div className="bg-current rounded-sm"></div>
-                                                <div className="bg-current rounded-sm"></div>
-                                            </div>
-                                        </button>
-                                        <button
-                                            onClick={() => setViewMode('list')}
-                                            className={`p-2 rounded ${viewMode === 'list' ? 'bg-white shadow-sm' : 'text-gray-500'}`}
-                                        >
-                                            <div className="space-y-1 w-4">
-                                                <div className="h-0.5 bg-current rounded-full"></div>
-                                                <div className="h-0.5 bg-current rounded-full"></div>
-                                                <div className="h-0.5 bg-current rounded-full"></div>
-                                            </div>
-                                        </button>
+                            <div className="flex gap-1">
+                                <button
+                                    onClick={() => setViewMode('grid')}
+                                    className={`p-1.5 rounded ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-500'}`}
+                                >
+                                    <div className="grid grid-cols-2 gap-0.5 w-4 h-4">
+                                        {[...Array(4)].map((_, i) => (
+                                            <div key={i} className="bg-current rounded-sm"></div>
+                                        ))}
                                     </div>
-                                </div>
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('list')}
+                                    className={`p-1.5 rounded ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-500'}`}
+                                >
+                                    <div className="space-y-0.5 w-4 h-4">
+                                        {[...Array(3)].map((_, i) => (
+                                            <div key={i} className="w-full h-0.5 bg-current rounded"></div>
+                                        ))}
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                            <div className="flex-1">
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Minimum Score</label>
+                                <select
+                                    value={minScore}
+                                    onChange={(e) => setMinScore(Number(e.target.value))}
+                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="0">All Scores</option>
+                                    <option value="5">5+ (Good)</option>
+                                    <option value="10">10+ (Excellent)</option>
+                                    <option value="13">13+ (Premium)</option>
+                                </select>
+                            </div>
+                            <div className="flex items-end">
+                                <button
+                                    onClick={() => setPassingOnly(!passingOnly)}
+                                    className={`px-3 py-2 rounded-lg border text-sm font-medium flex items-center gap-2 ${passingOnly
+                                        ? 'bg-green-50 border-green-200 text-green-700'
+                                        : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
+                                        }`}
+                                >
+                                    <Zap size={14} className={passingOnly ? 'text-green-600' : 'text-gray-500'} />
+                                    Passing Only
+                                </button>
                             </div>
                         </div>
                     </div>
 
                     {/* Stock List */}
-                    <div className="px-4">
-                        <div className="flex justify-between items-center mb-3 px-2">
-                            <span className="text-sm text-gray-600">{filteredStocks.length} stocks</span>
-                            <button
-                                onClick={fetchScreenerData}
-                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                                title="Refresh"
-                            >
-                                <RefreshCw size={16} className={`text-gray-600 ${loading ? 'animate-spin' : ''}`} />
-                            </button>
+                    <div className="p-4">
+                        <div className="flex justify-between items-center mb-3">
+                            <span className="text-sm text-gray-600">
+                                <span className="font-semibold text-gray-900">{filteredStocks.length}</span> stocks found
+                            </span>
+                            {!loading && (
+                                <div className="text-xs text-gray-500">
+                                    Updated: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                            )}
                         </div>
 
-                        <div className="space-y-2 max-h-[calc(100vh-400px)] overflow-y-auto pr-2">
+                        <div className={`${viewMode === 'grid' ? 'grid grid-cols-1 gap-2' : 'space-y-2'} max-h-[calc(100vh-280px)] overflow-y-auto pr-1`}>
                             {loading ? (
-                                <div className="flex justify-center py-8">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                                <div className="flex flex-col items-center justify-center py-10">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3"></div>
+                                    <p className="text-gray-600 text-sm">Loading market data...</p>
                                 </div>
                             ) : filteredStocks.length === 0 ? (
-                                <div className="text-center py-8">
-                                    <p className="text-gray-500">No stocks found</p>
+                                <div className="text-center py-10 bg-gray-50 rounded-lg">
+                                    <Search size={32} className="mx-auto text-gray-400 mb-3" />
+                                    <p className="text-gray-600">No stocks match your criteria</p>
+                                    <p className="text-gray-500 text-sm mt-1">Try adjusting your filters</p>
                                 </div>
                             ) : (
                                 filteredStocks.map((stock) => (
                                     <div
                                         key={stock.symbol}
                                         onClick={() => setSelectedStock(stock)}
-                                        className={`p-4 rounded-xl cursor-pointer transition-all duration-300 ${selectedStock?.symbol === stock.symbol
-                                            ? 'bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 shadow-sm scale-[1.02]'
-                                            : 'bg-white border border-gray-200 hover:shadow-md hover:border-blue-200'
+                                        className={`p-3 rounded-lg cursor-pointer transition-all duration-200 ${selectedStock?.symbol === stock.symbol
+                                            ? 'bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 shadow-sm'
+                                            : 'bg-white border border-gray-200 hover:border-blue-300 hover:shadow'
                                             }`}
                                     >
-                                        <div className="flex justify-between items-start mb-3">
+                                        <div className="flex justify-between items-start mb-2">
                                             <div>
-                                                <div className="font-bold text-gray-900">{stock.symbol}</div>
-                                                <div className="text-sm text-gray-600 truncate max-w-[180px]">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-bold text-gray-900">{stock.symbol}</span>
+                                                    {stock.score >= 10 && (
+                                                        <Star size={12} className="text-amber-500 fill-amber-500" />
+                                                    )}
+                                                </div>
+                                                <div className="text-xs text-gray-600 truncate max-w-[180px]">
                                                     {stock.company_name}
                                                 </div>
                                             </div>
                                             <div
-                                                className="px-3 py-1.5 rounded-full text-white text-sm font-bold shadow-sm"
+                                                className={`px-2.5 py-1 rounded-full text-xs font-bold ${getScoreColor(stock.score)}`}
                                                 style={{
                                                     background: getScoreGradient(stock.score)
                                                 }}
@@ -502,16 +486,30 @@ export default function TechnicalScreenerPage() {
                                         </div>
 
                                         <div className="flex justify-between items-center">
-                                            <div className="text-lg font-bold text-gray-900">
-                                                SAR {formatValue(stock.close)}
+                                            <div className="flex items-center gap-2">
+                                                <DollarSign size={12} className="text-gray-500" />
+                                                <span className="font-semibold text-gray-900">
+                                                    {formatValue(stock.close)}
+                                                </span>
                                             </div>
-                                            {getSignalIcon(stock.final_signal)}
+                                            <div className="flex items-center gap-1">
+                                                <Calendar size={12} className="text-gray-500" />
+                                                <span className="text-xs text-gray-600">
+                                                    {formatDate(stock.date)}
+                                                </span>
+                                            </div>
                                         </div>
 
-                                        <div className="mt-3 flex gap-1">
-                                            <div className={`w-6 h-1 rounded-full ${stock.stamp ? 'bg-green-500' : 'bg-red-300'}`}></div>
-                                            <div className={`w-6 h-1 rounded-full ${stock.trend_signal ? 'bg-green-500' : 'bg-red-300'}`}></div>
-                                            <div className={`w-6 h-1 rounded-full ${stock.rsi_55_70 ? 'bg-green-500' : 'bg-red-300'}`}></div>
+                                        <div className="mt-2 flex items-center justify-between">
+                                            <div className="flex gap-1">
+                                                <div className={`w-5 h-1 rounded-full ${stock.stamp ? 'bg-green-500' : 'bg-gray-300'}`}
+                                                    title="STAMP Signal"></div>
+                                                <div className={`w-5 h-1 rounded-full ${stock.trend_signal ? 'bg-blue-500' : 'bg-gray-300'}`}
+                                                    title="Trend Signal"></div>
+                                                <div className={`w-5 h-1 rounded-full ${stock.rsi_55_70 ? 'bg-purple-500' : 'bg-gray-300'}`}
+                                                    title="RSI 55-70"></div>
+                                            </div>
+                                            {getSignalIcon(stock.final_signal)}
                                         </div>
                                     </div>
                                 ))
@@ -521,40 +519,49 @@ export default function TechnicalScreenerPage() {
                 </div>
 
                 {/* Main Content */}
-                <div className="flex-1 p-8">
+                <div className="flex-1 p-4 lg:p-6">
                     {selectedStock && stockDetails ? (
                         <>
                             {/* Stock Header */}
-                            <div className="bg-white rounded-2xl p-6 mb-6 shadow-lg border border-gray-200">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <div className="flex items-center gap-4 mb-3">
+                            <div className="bg-white rounded-xl p-5 mb-6 shadow-sm border border-gray-200">
+                                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                                    <div className="flex-1">
+                                        <div className="flex flex-col sm:flex-row sm:items-start gap-4 mb-4">
                                             <div
-                                                className="px-6 py-4 rounded-xl text-white text-2xl font-black shadow-lg"
+                                                className="px-6 py-3 rounded-xl text-white font-black shadow-lg w-fit"
                                                 style={{
                                                     background: getScoreGradient(selectedStock.score)
                                                 }}
                                             >
-                                                {selectedStock.score}/15
+                                                <div className="text-2xl">{selectedStock.score}</div>
+                                                <div className="text-xs opacity-90">OUT OF 15</div>
                                             </div>
                                             <div>
-                                                <h2 className="text-2xl font-bold text-gray-900">
-                                                    {selectedStock.company_name || selectedStock.symbol}
+                                                <h2 className="text-xl font-bold text-gray-900 mb-1">
+                                                    {selectedStock.symbol}
+                                                    {selectedStock.company_name && (
+                                                        <span className="text-gray-600 font-normal ml-2">
+                                                            - {selectedStock.company_name}
+                                                        </span>
+                                                    )}
                                                 </h2>
-                                                <div className="flex items-center gap-3 mt-1">
-                                                    <span className="text-gray-700 font-medium">{selectedStock.symbol}</span>
-                                                    <span className="text-gray-400">•</span>
-                                                    <span className="text-xl font-bold text-gray-900">
-                                                        SAR {formatValue(selectedStock.close)}
-                                                    </span>
-                                                    <span className="text-gray-400">•</span>
-                                                    <span className="text-sm text-gray-600">
-                                                        {selectedStock.date}
-                                                    </span>
+                                                <div className="flex flex-wrap items-center gap-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <DollarSign size={16} className="text-gray-500" />
+                                                        <span className="text-lg font-bold text-gray-900">
+                                                            SAR {formatValue(selectedStock.close)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Calendar size={16} className="text-gray-500" />
+                                                        <span className="text-sm text-gray-600">
+                                                            {formatDate(selectedStock.date)}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex flex-wrap gap-2">
                                             <div className={`px-3 py-1.5 rounded-full flex items-center gap-2 ${selectedStock.final_signal
                                                 ? 'bg-green-100 text-green-800 border border-green-200'
                                                 : 'bg-red-100 text-red-800 border border-red-200'
@@ -562,53 +569,41 @@ export default function TechnicalScreenerPage() {
                                                 {selectedStock.final_signal ? (
                                                     <>
                                                         <CheckCircle2 size={14} />
-                                                        <span className="font-semibold">All Conditions Passed</span>
+                                                        <span className="font-semibold text-sm">All Conditions Met</span>
                                                     </>
                                                 ) : (
                                                     <>
                                                         <AlertCircle size={14} />
-                                                        <span className="font-semibold">{15 - selectedStock.score} Conditions Failed</span>
+                                                        <span className="font-semibold text-sm">{15 - selectedStock.score} Conditions Failed</span>
                                                     </>
                                                 )}
                                             </div>
-                                            <button className="p-2 hover:bg-gray-100 rounded-lg">
-                                                <Bookmark size={18} className="text-gray-500" />
-                                            </button>
-                                            <button className="p-2 hover:bg-gray-100 rounded-lg">
-                                                <Share2 size={18} className="text-gray-500" />
-                                            </button>
-                                            <button className="p-2 hover:bg-gray-100 rounded-lg">
-                                                <Download size={18} className="text-gray-500" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-sm text-gray-600 mb-1">Market Status</div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
-                                            <span className="font-medium text-gray-900">Live</span>
+                                            <div className="px-3 py-1.5 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                                                <Sparkles size={14} className="inline mr-1" />
+                                                Technical Score: {selectedStock.score}/15
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Navigation Tabs */}
-                            <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
+                            <div className="flex gap-1 mb-6 bg-white p-1 rounded-lg border border-gray-200 w-fit">
                                 {[
-                                    { id: 'overview', label: 'Overview', icon: PieChart },
-                                    { id: 'rsi', label: 'RSI Analysis', icon: Gauge },
-                                    { id: 'trend', label: 'Trend', icon: TrendingUpIcon },
-                                    { id: 'stamp', label: 'STAMP', icon: Shield }
+                                    { id: 'overview', label: 'Dashboard', icon: PieChart, color: 'text-blue-600' },
+                                    { id: 'rsi', label: 'RSI Analysis', icon: Gauge, color: 'text-purple-600' },
+                                    { id: 'trend', label: 'Trend Signals', icon: TrendingUpIcon, color: 'text-green-600' },
+                                    { id: 'stamp', label: 'STAMP System', icon: Shield, color: 'text-amber-600' }
                                 ].map((tab) => (
                                     <button
                                         key={tab.id}
                                         onClick={() => setActiveTab(tab.id as any)}
-                                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all ${activeTab === tab.id
-                                            ? 'bg-white shadow-sm text-blue-600'
-                                            : 'text-gray-600 hover:text-gray-900'
+                                        className={`flex items-center gap-2 px-4 py-2.5 rounded-md transition-all ${activeTab === tab.id
+                                            ? 'bg-blue-50 text-blue-600'
+                                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                                             }`}
                                     >
-                                        <tab.icon size={18} />
+                                        <tab.icon size={18} className={activeTab === tab.id ? tab.color : ''} />
                                         <span className="font-medium">{tab.label}</span>
                                     </button>
                                 ))}
@@ -619,49 +614,59 @@ export default function TechnicalScreenerPage() {
                                 <div className="flex justify-center items-center h-64">
                                     <div className="text-center">
                                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                                        <p className="text-gray-600">Loading indicators...</p>
+                                        <p className="text-gray-600">Loading detailed analysis...</p>
+                                        <p className="text-gray-500 text-sm mt-1">Fetching latest indicators</p>
                                     </div>
                                 </div>
                             ) : (
                                 <>
                                     {activeTab === 'overview' && (
                                         <div className="space-y-6">
-                                            {/* Stats Grid */}
-                                            <div className="grid grid-cols-4 gap-4">
+                                            {/* Quick Stats */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                                 <StatCard
-                                                    title="Total Scanned"
-                                                    value={stocks.length}
-                                                    change={2.5}
-                                                    icon={Activity}
-                                                    color="bg-blue-100"
+                                                    title="Current Price"
+                                                    value={`SAR ${formatValue(selectedStock.close)}`}
+                                                    description="Latest closing price"
+                                                    icon={DollarSign}
+                                                    color="bg-blue-500"
                                                 />
                                                 <StatCard
-                                                    title="Passing RSI"
-                                                    value={stocks.filter(s => s.final_signal).length}
-                                                    change={5.2}
-                                                    icon={CheckCircle2}
-                                                    color="bg-green-100"
+                                                    title="RSI Score"
+                                                    value={formatValue(stockDetails.indicators.rsi.rsi, 1)}
+                                                    description="Relative Strength Index"
+                                                    icon={Gauge}
+                                                    color="bg-purple-500"
                                                 />
                                                 <StatCard
-                                                    title="Trend Positive"
-                                                    value={stocks.filter(s => s.trend_signal).length}
-                                                    change={3.8}
-                                                    icon={TrendingUp}
-                                                    color="bg-purple-100"
+                                                    title="Trend Signal"
+                                                    value={stockDetails.indicators.trend_screener.signal ? "Bullish" : "Bearish"}
+                                                    description="Overall trend direction"
+                                                    icon={TrendingUpIcon}
+                                                    color={stockDetails.indicators.trend_screener.signal ? "bg-green-500" : "bg-red-500"}
                                                 />
                                                 <StatCard
-                                                    title="STAMP Signals"
-                                                    value={stocks.filter(s => s.stamp).length}
-                                                    change={4.1}
-                                                    icon={Zap}
-                                                    color="bg-amber-100"
+                                                    title="The Number"
+                                                    value={formatValue(stockDetails.indicators.the_number.value)}
+                                                    description="Volatility indicator"
+                                                    icon={Target}
+                                                    color="bg-amber-500"
                                                 />
                                             </div>
 
                                             {/* Key Indicators */}
-                                            <div className="grid grid-cols-2 gap-6">
-                                                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-                                                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Key RSI Indicators</h3>
+                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                                {/* RSI Indicators */}
+                                                <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
+                                                    <div className="flex items-center gap-3 mb-4">
+                                                        <div className="p-2 bg-purple-100 rounded-lg">
+                                                            <Gauge size={20} className="text-purple-600" />
+                                                        </div>
+                                                        <div>
+                                                            <h3 className="font-bold text-gray-900">RSI Momentum Analysis</h3>
+                                                            <p className="text-gray-600 text-sm">Optimal range: 55-70 (Not overbought)</p>
+                                                        </div>
+                                                    </div>
                                                     <div className="space-y-4">
                                                         <GaugeIndicator
                                                             label="RSI (14)"
@@ -687,47 +692,74 @@ export default function TechnicalScreenerPage() {
                                                     </div>
                                                 </div>
 
-                                                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-                                                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Trend Indicators</h3>
-                                                    <div className="space-y-4">
-                                                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                                                            <div className="flex items-center gap-3">
-                                                                <Target size={20} className="text-blue-600" />
-                                                                <div>
-                                                                    <div className="font-medium text-gray-900">The Number</div>
-                                                                    <div className="text-sm text-gray-600">SMA9 vs Value</div>
-                                                                </div>
-                                                            </div>
-                                                            <div className="text-right">
-                                                                <div className="text-xl font-bold text-gray-900">
-                                                                    {formatValue(stockDetails.indicators.the_number.value)}
-                                                                </div>
-                                                                <div className={`text-sm ${(stockDetails.indicators.the_number.sma9 ?? 0) > (stockDetails.indicators.the_number.value ?? 0)
-                                                                    ? 'text-green-600'
-                                                                    : 'text-red-600'
-                                                                    }`}>
-                                                                    SMA9: {formatValue(stockDetails.indicators.the_number.sma9)}
-                                                                </div>
-                                                            </div>
+                                                {/* Trend Indicators */}
+                                                <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
+                                                    <div className="flex items-center gap-3 mb-4">
+                                                        <div className="p-2 bg-green-100 rounded-lg">
+                                                            <TrendingUpIcon size={20} className="text-green-600" />
                                                         </div>
-
+                                                        <div>
+                                                            <h3 className="font-bold text-gray-900">Trend Strength Indicators</h3>
+                                                            <p className="text-gray-600 text-sm">Momentum and direction analysis</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-4">
                                                         <div className="grid grid-cols-2 gap-4">
-                                                            <div className="p-4 bg-gray-50 rounded-xl">
-                                                                <div className="text-sm text-gray-600 mb-1">CCI (14)</div>
+                                                            <div className="p-4 bg-gray-50 rounded-lg">
+                                                                <div className="text-sm text-gray-600 mb-2">CCI (14)</div>
                                                                 <div className={`text-xl font-bold ${(stockDetails.indicators.trend_screener.cci ?? 0) > 100
                                                                     ? 'text-green-600'
-                                                                    : 'text-amber-600'
+                                                                    : (stockDetails.indicators.trend_screener.cci ?? 0) < -100
+                                                                        ? 'text-red-600'
+                                                                        : 'text-amber-600'
                                                                     }`}>
                                                                     {formatValue(stockDetails.indicators.trend_screener.cci, 1)}
                                                                 </div>
+                                                                <div className="text-xs text-gray-500 mt-1">
+                                                                    {stockDetails.indicators.trend_screener.cci !== null &&
+                                                                        (stockDetails.indicators.trend_screener.cci > 100 ? "Strong Uptrend" :
+                                                                            stockDetails.indicators.trend_screener.cci < -100 ? "Strong Downtrend" :
+                                                                                "Neutral Zone")}
+                                                                </div>
                                                             </div>
-                                                            <div className="p-4 bg-gray-50 rounded-xl">
-                                                                <div className="text-sm text-gray-600 mb-1">Aroon Up</div>
+                                                            <div className="p-4 bg-gray-50 rounded-lg">
+                                                                <div className="text-sm text-gray-600 mb-2">Aroon Up</div>
                                                                 <div className={`text-xl font-bold ${(stockDetails.indicators.trend_screener.aroon_up ?? 0) > 70
                                                                     ? 'text-green-600'
                                                                     : 'text-amber-600'
                                                                     }`}>
                                                                     {formatValue(stockDetails.indicators.trend_screener.aroon_up, 1)}%
+                                                                </div>
+                                                                <div className="text-xs text-gray-500 mt-1">
+                                                                    {(stockDetails.indicators.trend_screener.aroon_up ?? 0) > 70
+                                                                        ? "Strong Uptrend"
+                                                                        : "Moderate Uptrend"}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <div className="font-medium text-gray-900">The Number Analysis</div>
+                                                                <div className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                                                                    Volatility Indicator
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center justify-between">
+                                                                <div>
+                                                                    <div className="text-lg font-bold text-gray-900">
+                                                                        {formatValue(stockDetails.indicators.the_number.value)}
+                                                                    </div>
+                                                                    <div className="text-sm text-gray-600">Current Value</div>
+                                                                </div>
+                                                                <div className="text-right">
+                                                                    <div className={`text-lg font-bold ${(stockDetails.indicators.the_number.sma9 ?? 0) > (stockDetails.indicators.the_number.value ?? 0)
+                                                                        ? 'text-green-600'
+                                                                        : 'text-red-600'
+                                                                        }`}>
+                                                                        SMA9: {formatValue(stockDetails.indicators.the_number.sma9)}
+                                                                    </div>
+                                                                    <div className="text-sm text-gray-600">9-Day Average</div>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -739,23 +771,38 @@ export default function TechnicalScreenerPage() {
 
                                     {activeTab === 'rsi' && (
                                         <div className="space-y-6">
-                                            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+                                            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
                                                 <div className="flex items-center gap-3 mb-6">
-                                                    <div className="p-2 bg-blue-100 rounded-lg">
-                                                        <Gauge size={24} className="text-blue-600" />
+                                                    <div className="p-2 bg-purple-100 rounded-lg">
+                                                        <BarChart3 size={24} className="text-purple-600" />
                                                     </div>
                                                     <div>
-                                                        <h3 className="text-xl font-bold text-gray-900">RSI Screener Analysis</h3>
-                                                        <p className="text-gray-600">Daily & Weekly Conditions</p>
+                                                        <h3 className="text-lg font-bold text-gray-900">RSI Screener Analysis</h3>
+                                                        <p className="text-gray-600 text-sm">Detailed daily and weekly RSI conditions</p>
+                                                    </div>
+                                                    <div className="ml-auto">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className={`px-3 py-1.5 rounded-full ${stockDetails.indicators.rsi_screener.final_signal
+                                                                ? 'bg-green-100 text-green-800'
+                                                                : 'bg-red-100 text-red-800'
+                                                                }`}>
+                                                                <span className="font-semibold">
+                                                                    {stockDetails.indicators.rsi_screener.final_signal ? 'Passing' : 'Failing'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
 
-                                                <div className="grid grid-cols-2 gap-6">
+                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                                     {/* Daily Conditions */}
-                                                    <div className="bg-blue-50 rounded-xl p-5">
-                                                        <div className="flex items-center gap-2 mb-4">
-                                                            <div className="w-2 h-5 bg-blue-600 rounded-full"></div>
-                                                            <h4 className="font-semibold text-gray-900">Daily Conditions</h4>
+                                                    <div className="bg-gradient-to-b from-blue-50 to-white rounded-xl p-5 border border-blue-200">
+                                                        <div className="flex items-center gap-3 mb-4">
+                                                            <div className="w-3 h-6 bg-blue-600 rounded-full"></div>
+                                                            <h4 className="font-bold text-gray-900">Daily Analysis</h4>
+                                                            <div className="ml-auto text-sm text-gray-600">
+                                                                {formatDate(stockDetails.date)}
+                                                            </div>
                                                         </div>
                                                         <div className="space-y-3">
                                                             {Object.entries(stockDetails.indicators.rsi_screener.daily.conditions).map(([key, passed]) => (
@@ -763,16 +810,26 @@ export default function TechnicalScreenerPage() {
                                                                     key={key}
                                                                     label={key.replace(/_/g, ' ')}
                                                                     passed={passed}
+                                                                    description={
+                                                                        key.includes('rsi') ? "Optimal RSI range: 55-70" :
+                                                                            key.includes('sma9') ? "SMA9 comparison" :
+                                                                                key.includes('wma45') ? "Weighted moving average" :
+                                                                                    key.includes('ema45') ? "Exponential moving average" :
+                                                                                        "Technical condition"
+                                                                    }
                                                                 />
                                                             ))}
                                                         </div>
                                                     </div>
 
                                                     {/* Weekly Conditions */}
-                                                    <div className="bg-purple-50 rounded-xl p-5">
-                                                        <div className="flex items-center gap-2 mb-4">
-                                                            <div className="w-2 h-5 bg-purple-600 rounded-full"></div>
-                                                            <h4 className="font-semibold text-gray-900">Weekly Conditions</h4>
+                                                    <div className="bg-gradient-to-b from-purple-50 to-white rounded-xl p-5 border border-purple-200">
+                                                        <div className="flex items-center gap-3 mb-4">
+                                                            <div className="w-3 h-6 bg-purple-600 rounded-full"></div>
+                                                            <h4 className="font-bold text-gray-900">Weekly Analysis</h4>
+                                                            <div className="ml-auto text-sm text-gray-600">
+                                                                This week
+                                                            </div>
                                                         </div>
                                                         <div className="space-y-3">
                                                             {Object.entries(stockDetails.indicators.rsi_screener.weekly.conditions).map(([key, passed]) => (
@@ -780,9 +837,24 @@ export default function TechnicalScreenerPage() {
                                                                     key={key}
                                                                     label={key.replace(/_/g, ' ')}
                                                                     passed={passed}
+                                                                    description={
+                                                                        key.includes('weekly') ? "Weekly timeframe analysis" :
+                                                                            key.includes('stamp') ? "Weekly STAMP signal" :
+                                                                                "Long-term condition"
+                                                                    }
                                                                 />
                                                             ))}
                                                         </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="mt-6 pt-6 border-t border-gray-200">
+                                                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                        <Info size={16} />
+                                                        <p>
+                                                            RSI analysis evaluates momentum strength. Scores above 70 may indicate overbought conditions,
+                                                            while scores below 30 may indicate oversold conditions.
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -790,93 +862,177 @@ export default function TechnicalScreenerPage() {
                                     )}
 
                                     {activeTab === 'trend' && (
-                                        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+                                        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
                                             <div className="flex items-center gap-3 mb-6">
                                                 <div className="p-2 bg-green-100 rounded-lg">
-                                                    <TrendingUpIcon size={24} className="text-green-600" />
+                                                    <LineChart size={24} className="text-green-600" />
                                                 </div>
                                                 <div>
-                                                    <h3 className="text-xl font-bold text-gray-900">Trend Analysis</h3>
-                                                    <p className="text-gray-600">CCI, Aroon & SMA Trend Indicators</p>
+                                                    <h3 className="text-lg font-bold text-gray-900">Trend Analysis Dashboard</h3>
+                                                    <p className="text-gray-600 text-sm">Comprehensive trend detection and momentum signals</p>
                                                 </div>
                                                 <div className="ml-auto">
-                                                    {getSignalIcon(stockDetails.indicators.trend_screener.signal)}
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`px-3 py-1.5 rounded-full ${stockDetails.indicators.trend_screener.signal
+                                                            ? 'bg-green-100 text-green-800 border border-green-200'
+                                                            : 'bg-red-100 text-red-800 border border-red-200'
+                                                            }`}>
+                                                            {stockDetails.indicators.trend_screener.signal ? (
+                                                                <span className="font-semibold">Bullish Trend</span>
+                                                            ) : (
+                                                                <span className="font-semibold">Bearish Trend</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
 
-                                            <div className="grid grid-cols-3 gap-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                                                 {Object.entries(stockDetails.indicators.trend_screener.conditions).map(([key, passed]) => (
                                                     <div
                                                         key={key}
-                                                        className={`p-4 rounded-xl border ${passed
+                                                        className={`p-4 rounded-lg border ${passed
                                                             ? 'border-green-200 bg-green-50'
                                                             : 'border-red-200 bg-red-50'
                                                             }`}
                                                     >
-                                                        <div className="flex items-center gap-3">
+                                                        <div className="flex items-start gap-3">
                                                             {passed ? (
-                                                                <CheckCircle2 size={20} className="text-green-600" />
+                                                                <CheckCircle2 size={20} className="text-green-600 mt-0.5" />
                                                             ) : (
-                                                                <XCircle size={20} className="text-red-600" />
+                                                                <XCircle size={20} className="text-red-600 mt-0.5" />
                                                             )}
                                                             <div>
-                                                                <div className="font-medium text-gray-900">
-                                                                    {key.replace(/_/g, ' ')}
+                                                                <div className="font-medium text-gray-900 mb-1">
+                                                                    {key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
                                                                 </div>
-                                                                <div className="text-sm text-gray-600 mt-1">
-                                                                    {passed ? 'Condition met' : 'Condition not met'}
+                                                                <div className="text-sm text-gray-600">
+                                                                    {passed ? (
+                                                                        <span className="text-green-700">Condition satisfied</span>
+                                                                    ) : (
+                                                                        <span className="text-red-700">Condition not met</span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-xs text-gray-500 mt-2">
+                                                                    {key.includes('cci') ? "Commodity Channel Index" :
+                                                                        key.includes('aroon') ? "Aroon Oscillator" :
+                                                                            key.includes('sma') ? "Simple Moving Average" :
+                                                                                "Trend indicator"}
                                                                 </div>
                                                             </div>
                                                         </div>
                                                     </div>
                                                 ))}
                                             </div>
+
+                                            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <Layers size={18} className="text-gray-600" />
+                                                    <h4 className="font-medium text-gray-900">Indicator Values</h4>
+                                                </div>
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                    <div className="text-center p-3 bg-white rounded-lg border">
+                                                        <div className="text-sm text-gray-600 mb-1">CCI (14)</div>
+                                                        <div className={`text-lg font-bold ${(stockDetails.indicators.trend_screener.cci ?? 0) > 0
+                                                            ? 'text-green-600'
+                                                            : 'text-red-600'
+                                                            }`}>
+                                                            {formatValue(stockDetails.indicators.trend_screener.cci, 1)}
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-center p-3 bg-white rounded-lg border">
+                                                        <div className="text-sm text-gray-600 mb-1">Aroon Up</div>
+                                                        <div className="text-lg font-bold text-gray-900">
+                                                            {formatValue(stockDetails.indicators.trend_screener.aroon_up, 1)}%
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-center p-3 bg-white rounded-lg border">
+                                                        <div className="text-sm text-gray-600 mb-1">Aroon Down</div>
+                                                        <div className="text-lg font-bold text-gray-900">
+                                                            {formatValue(stockDetails.indicators.trend_screener.aroon_down, 1)}%
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-center p-3 bg-white rounded-lg border">
+                                                        <div className="text-sm text-gray-600 mb-1">Trend Strength</div>
+                                                        <div className={`text-lg font-bold ${stockDetails.indicators.trend_screener.signal
+                                                            ? 'text-green-600'
+                                                            : 'text-red-600'
+                                                            }`}>
+                                                            {stockDetails.indicators.trend_screener.signal ? "Strong" : "Weak"}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     )}
 
                                     {activeTab === 'stamp' && (
-                                        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+                                        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
                                             <div className="flex items-center gap-3 mb-6">
                                                 <div className="p-2 bg-amber-100 rounded-lg">
                                                     <Shield size={24} className="text-amber-600" />
                                                 </div>
                                                 <div>
-                                                    <h3 className="text-xl font-bold text-gray-900">STAMP Indicator</h3>
-                                                    <p className="text-gray-600">RSI-based Momentum Analysis</p>
+                                                    <h3 className="text-lg font-bold text-gray-900">STAMP Momentum System</h3>
+                                                    <p className="text-gray-600 text-sm">Strategic Trading and Momentum Pattern</p>
                                                 </div>
                                                 <div className="ml-auto">
                                                     <div className={`px-4 py-2 rounded-full font-medium ${stockDetails.indicators.rsi_screener.stamp
                                                         ? 'bg-green-100 text-green-800 border border-green-200'
                                                         : 'bg-red-100 text-red-800 border border-red-200'
                                                         }`}>
-                                                        {stockDetails.indicators.rsi_screener.stamp ? 'STAMP Active' : 'STAMP Inactive'}
+                                                        {stockDetails.indicators.rsi_screener.stamp ? 'Active Signal' : 'No Signal'}
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div className="grid grid-cols-4 gap-4">
-                                                <div className="text-center p-4">
-                                                    <div className="text-sm text-gray-600 mb-2">S9(RSI)</div>
-                                                    <div className="text-2xl font-bold text-gray-900">
-                                                        {formatValue(stockDetails.indicators.stamp.s9_rsi, 1)}
+                                            <div className="mb-6">
+                                                <div className="text-sm text-gray-600 mb-4">
+                                                    The STAMP system combines multiple RSI-based indicators to detect strong momentum patterns
+                                                    suitable for strategic trading entries.
+                                                </div>
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                    <div className="text-center p-4 bg-gradient-to-b from-blue-50 to-white rounded-xl border border-blue-200">
+                                                        <div className="text-xs text-gray-600 mb-2 font-medium">S9(RSI)</div>
+                                                        <div className="text-2xl font-bold text-gray-900 mb-1">
+                                                            {formatValue(stockDetails.indicators.stamp.s9_rsi, 1)}
+                                                        </div>
+                                                        <div className="text-xs text-gray-500">9-period SMA of RSI</div>
+                                                    </div>
+                                                    <div className="text-center p-4 bg-gradient-to-b from-purple-50 to-white rounded-xl border border-purple-200">
+                                                        <div className="text-xs text-gray-600 mb-2 font-medium">E45(CFG)</div>
+                                                        <div className="text-2xl font-bold text-gray-900 mb-1">
+                                                            {formatValue(stockDetails.indicators.stamp.e45_cfg, 1)}
+                                                        </div>
+                                                        <div className="text-xs text-gray-500">45-period EMA (CFG)</div>
+                                                    </div>
+                                                    <div className="text-center p-4 bg-gradient-to-b from-green-50 to-white rounded-xl border border-green-200">
+                                                        <div className="text-xs text-gray-600 mb-2 font-medium">E45(RSI)</div>
+                                                        <div className="text-2xl font-bold text-gray-900 mb-1">
+                                                            {formatValue(stockDetails.indicators.stamp.e45_rsi, 1)}
+                                                        </div>
+                                                        <div className="text-xs text-gray-500">45-period EMA of RSI</div>
+                                                    </div>
+                                                    <div className="text-center p-4 bg-gradient-to-b from-amber-50 to-white rounded-xl border border-amber-200">
+                                                        <div className="text-xs text-gray-600 mb-2 font-medium">E20(SMA3)</div>
+                                                        <div className="text-2xl font-bold text-gray-900 mb-1">
+                                                            {formatValue(stockDetails.indicators.stamp.e20_sma3_rsi3, 1)}
+                                                        </div>
+                                                        <div className="text-xs text-gray-500">20-period EMA of 3 SMA</div>
                                                     </div>
                                                 </div>
-                                                <div className="text-center p-4">
-                                                    <div className="text-sm text-gray-600 mb-2">E45(CFG)</div>
-                                                    <div className="text-2xl font-bold text-gray-900">
-                                                        {formatValue(stockDetails.indicators.stamp.e45_cfg, 1)}
-                                                    </div>
-                                                </div>
-                                                <div className="text-center p-4">
-                                                    <div className="text-sm text-gray-600 mb-2">E45(RSI)</div>
-                                                    <div className="text-2xl font-bold text-gray-900">
-                                                        {formatValue(stockDetails.indicators.stamp.e45_rsi, 1)}
-                                                    </div>
-                                                </div>
-                                                <div className="text-center p-4">
-                                                    <div className="text-sm text-gray-600 mb-2">E20(SMA3(RSI3))</div>
-                                                    <div className="text-2xl font-bold text-gray-900">
-                                                        {formatValue(stockDetails.indicators.stamp.e20_sma3_rsi3, 1)}
+                                            </div>
+
+                                            <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                                                <div className="flex items-start gap-3">
+                                                    <Info size={18} className="text-amber-600 mt-0.5" />
+                                                    <div>
+                                                        <h4 className="font-medium text-gray-900 mb-1">About STAMP Signals</h4>
+                                                        <p className="text-sm text-gray-600">
+                                                            A STAMP signal is generated when multiple RSI-based indicators align, indicating
+                                                            strong momentum. This pattern often precedes significant price movements and is
+                                                            used by traders for strategic entry points.
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -886,14 +1042,26 @@ export default function TechnicalScreenerPage() {
                             )}
                         </>
                     ) : (
-                        <div className="flex flex-col items-center justify-center h-full pt-20">
+                        <div className="flex flex-col items-center justify-center h-full pt-20 px-4">
                             <div className="w-24 h-24 bg-gradient-to-r from-blue-100 to-purple-100 rounded-2xl flex items-center justify-center mb-6">
-                                <Activity size={48} className="text-gray-400" />
+                                <Cpu size={48} className="text-gray-400" />
                             </div>
-                            <h3 className="text-2xl font-bold text-gray-900 mb-3">Select a Stock</h3>
-                            <p className="text-gray-600 max-w-md text-center">
-                                Choose a stock from the sidebar to view detailed technical analysis and indicators
+                            <h3 className="text-2xl font-bold text-gray-900 mb-3 text-center">Welcome to Technical Screener</h3>
+                            <p className="text-gray-600 max-w-md text-center mb-8">
+                                Select a stock from the sidebar to begin detailed technical analysis
                             </p>
+                            <div className="grid grid-cols-2 gap-4 max-w-md">
+                                <div className="p-4 bg-white rounded-lg border border-gray-200 text-center">
+                                    <BarChart3 size={24} className="mx-auto text-blue-600 mb-2" />
+                                    <div className="font-medium text-gray-900">RSI Analysis</div>
+                                    <div className="text-sm text-gray-600">Momentum indicators</div>
+                                </div>
+                                <div className="p-4 bg-white rounded-lg border border-gray-200 text-center">
+                                    <TrendingUpIcon size={24} className="mx-auto text-green-600 mb-2" />
+                                    <div className="font-medium text-gray-900">Trend Signals</div>
+                                    <div className="text-sm text-gray-600">Direction analysis</div>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
