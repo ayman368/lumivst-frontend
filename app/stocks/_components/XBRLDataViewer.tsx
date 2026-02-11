@@ -47,30 +47,51 @@ export default function XBRLDataViewer({ symbol }: XBRLDataViewerProps) {
 
     // 1. Determine Columns (Periods) - Sort Newest First
     const periods = Object.keys(data).sort((a, b) => {
-        const [yearA, typeA] = a.split('_');
-        const [yearB, typeB] = b.split('_');
+        // Handle both "2024_ANNUAL" and "2024 ANNUAL"
+        const partsA = a.includes('_') ? a.split('_') : a.split(' ');
+        const partsB = b.includes('_') ? b.split('_') : b.split(' ');
+
+        const yearA = partsA[0];
+        const typeA = partsA[1]?.toUpperCase() || '';
+
+        const yearB = partsB[0];
+        const typeB = partsB[1]?.toUpperCase() || '';
+
         if (yearA !== yearB) return Number(yearB) - Number(yearA);
-        const order = { 'Annual': 4, 'Q3': 3, 'Q2': 2, 'Q1': 1 };
-        return (order[typeB as keyof typeof order] || 0) - (order[typeA as keyof typeof order] || 0);
+
+        const order: Record<string, number> = { 'ANNUAL': 4, 'Q3': 3, 'Q2': 2, 'Q1': 1 };
+        return (order[typeB] || 0) - (order[typeA] || 0);
     });
 
-    // 2. Master Template rows
-    const masterPeriod = periods[0];
+    if (periods.length === 0) return <div>No data found</div>;
+
+    // 2. Master Template rows (taking the most complete period, usually Annual or latest)
+    // We strive to find a period that has the most keys to serve as the master list
+    const masterPeriod = periods.reduce((a, b) => (data[a]?.length > data[b]?.length ? a : b), periods[0]);
     const masterRows = data[masterPeriod] || [];
 
-    // 3. Lookup Map using row_id
-    const lookups: Record<string, Record<number, any>> = {};
+    // 3. Lookup Map using KEY (metric name) instead of row_id 
+    // row_id is not persistent across files, so we MUST use the metric key
+    const lookups: Record<string, Record<string, any>> = {};
+
+    // Pre-process lookups for O(1) access
     periods.forEach(p => {
         lookups[p] = {};
-        data[p].forEach(item => {
-            lookups[p][item.row_id] = item.value;
+        data[p].forEach((item: any) => {
+            // Use 'key' which is the snake_case metric name
+            if (item.key) {
+                lookups[p][item.key] = item.value ?? item.text;
+            }
         });
     });
 
     const fmt = (val: any) => {
-        if (val === null || val === undefined || val === "") return "";
-        if (typeof val === 'number') return val.toLocaleString();
-        if (!isNaN(Number(val)) && val.toString().length > 4) return Number(val).toLocaleString();
+        if (val === null || val === undefined || val === "") return "-";
+        if (typeof val === 'number') return val.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        // Check if string is numeric but large
+        if (!isNaN(Number(val)) && val.toString().length > 4) {
+            return Number(val).toLocaleString(undefined, { maximumFractionDigits: 2 });
+        }
         return val;
     };
 
@@ -107,18 +128,18 @@ export default function XBRLDataViewer({ symbol }: XBRLDataViewerProps) {
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
                         {masterRows.map((row, idx) => {
-                            const isHeader = (row.value === null || row.value === "") && !row.key.includes("date");
+                            // Skip if no label
+                            if (!row.label) return null;
 
                             return (
-                                <tr key={`${row.key}-${idx}`} className={`hover:bg-zinc-50/80 dark:hover:bg-zinc-800/20 transition-colors ${isHeader ? 'bg-zinc-50/50 dark:bg-zinc-900/50' : ''}`}>
-                                    <td className={`px-4 py-2 border-r border-zinc-200 dark:border-zinc-800 sticky left-0 bg-white dark:bg-zinc-900 z-10 
-                            ${isHeader ? 'font-bold text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 dark:text-zinc-400 font-medium'}
-                        `}>
+                                <tr key={`${row.key}-${idx}`} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/20 transition-colors">
+                                    <td className="px-4 py-2 border-r border-zinc-200 dark:border-zinc-800 sticky left-0 bg-white dark:bg-zinc-900 z-10 text-zinc-600 dark:text-zinc-400 font-medium">
                                         {row.label}
                                     </td>
 
                                     {periods.map(p => {
-                                        let val = lookups[p][row.row_id];
+                                        // Retrieve value using the metric KEY
+                                        let val = lookups[p][row.key];
                                         return (
                                             <td key={p} className="px-4 py-2 text-right font-mono text-zinc-700 dark:text-zinc-300 border-b border-zinc-50 dark:border-zinc-800/50 max-w-[200px]">
                                                 <div className="break-words whitespace-normal text-xs leading-relaxed">
