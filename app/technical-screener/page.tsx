@@ -107,6 +107,7 @@ interface ScreenerStock {
     // Additional Fields
     wma45_close: number | null;
     sma4: number | null;
+    sma9: number | null;
     sma18: number | null;
 
     // CFG Conditions
@@ -128,8 +129,11 @@ interface ScreenerStock {
     // CFG Weekly Values
     cfg_w: number | null;
     cfg_weekly?: number | null; // Alias for frontend compatibility
+    cfg_wma45: number | null;   // WMA45 CFG Daily
+    cfg_wma45_w: number | null; // WMA45 CFG Weekly
     wma45_close_w: number | null;
     sma4_w: number | null;
+    sma9_w: number | null;
     sma18_w: number | null;
     close_w: number | null;
     cfg_sma9_w: number | null;
@@ -162,9 +166,13 @@ interface ScreenerStock {
     has_gap: boolean;
 }
 
-const formatValue = (val: number | null | undefined, decimals: number = 2) => {
+// تعديل دالة formatValue لجعل 2 هي القيمة الافتراضية وضمان رقمين بعد العلامة
+const formatValue = (val: number | null | undefined | string, decimals: number = 2) => {
     if (val === null || val === undefined) return '-';
-    return val.toFixed(decimals);
+    const num = typeof val === 'number' ? val : Number(val);
+    if (Number.isNaN(num)) return '-';
+    // التأكد من عرض رقمين بعد العلامة دائماً
+    return num.toFixed(decimals);
 };
 
 const CFGFormulaDisplay = ({ stock }: { stock: ScreenerStock }) => {
@@ -195,7 +203,7 @@ const CFGFormulaDisplay = ({ stock }: { stock: ScreenerStock }) => {
                         </div>
                         <span className="font-medium text-gray-900">RSI(14) Current</span>
                     </div>
-                    <div className="text-2xl font-bold text-indigo-700">{formatValue(rsi14, 1)}</div>
+                    <div className="text-2xl font-bold text-indigo-700">{formatValue(rsi14, 2)}</div>
                     <div className="text-sm text-gray-600 mt-1">Current RSI 14-day</div>
                 </div>
 
@@ -207,7 +215,7 @@ const CFGFormulaDisplay = ({ stock }: { stock: ScreenerStock }) => {
                         <span className="font-medium text-gray-900">RSI(14) - Shifted(9)</span>
                     </div>
                     <div className="text-2xl font-bold text-indigo-700">
-                        {formatValue(rsiDifference, 1)}
+                        {formatValue(rsiDifference, 2)}
                     </div>
                     <div className="text-sm text-gray-600 mt-1">RSI(14) - ta.rsi(close[9], 14)</div>
                 </div>
@@ -219,7 +227,7 @@ const CFGFormulaDisplay = ({ stock }: { stock: ScreenerStock }) => {
                         </div>
                         <span className="font-medium text-gray-900">SMA(RSI(3), 3)</span>
                     </div>
-                    <div className="text-2xl font-bold text-indigo-700">{formatValue(sma3Rsi3, 1)}</div>
+                    <div className="text-2xl font-bold text-indigo-700">{formatValue(sma3Rsi3, 2)}</div>
                     <div className="text-sm text-gray-600 mt-1">3-day SMA of RSI(3)</div>
                 </div>
             </div>
@@ -228,10 +236,10 @@ const CFGFormulaDisplay = ({ stock }: { stock: ScreenerStock }) => {
                 <div className="text-center">
                     <div className="text-sm text-gray-600 mb-2">Final CFG Calculation</div>
                     <div className="text-3xl font-bold text-indigo-700 mb-2">
-                        {formatValue(rsi14, 1)} - ({formatValue(rsiDifference, 1)}) + {formatValue(sma3Rsi3, 1)} = {formatValue(cfgValue, 1)}
+                        {formatValue(rsi14, 2)} - ({formatValue(rsiDifference, 2)}) + {formatValue(sma3Rsi3, 2)} = {formatValue(cfgValue, 2)}
                     </div>
                     <div className="text-sm text-gray-500">
-                        CFG = {formatValue(rsi14, 1)} - ta.rsi(close[9], 14) + {formatValue(sma3Rsi3, 1)} = {formatValue(cfgValue, 1)}
+                        CFG = {formatValue(rsi14, 2)} - ta.rsi(close[9], 14) + {formatValue(sma3Rsi3, 2)} = {formatValue(cfgValue, 2)}
                     </div>
                 </div>
             </div>
@@ -260,7 +268,7 @@ export default function TechnicalScreenerPage() {
 
     useEffect(() => {
         filterAndSortStocks();
-    }, [searchQuery, sortBy]); // Removed 'stocks' from dependency to prevent infinite loop if filter modifies it, but filterAndSort uses stocks state. Actually stocks is fine if it's state. But wait.
+    }, [searchQuery, sortBy, stocks]);
 
     // Debugging Selected Stock Data
     useEffect(() => {
@@ -372,11 +380,6 @@ export default function TechnicalScreenerPage() {
         return 'bg-blue-100';
     };
 
-    const formatValue = (val: number | null | undefined, decimals: number = 2) => {
-        if (val === null || val === undefined) return '-';
-        return val.toFixed(decimals);
-    };
-
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr);
         return date.toLocaleDateString('en-US', {
@@ -434,7 +437,7 @@ export default function TechnicalScreenerPage() {
                 <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-medium text-gray-700">{label}</span>
                     <span className={`text-base font-semibold ${isOptimal ? 'text-green-600' : isOverbought ? 'text-red-600' : 'text-blue-600'}`}>
-                        {formatValue(value)}{unit}
+                        {formatValue(value, 2)}{unit}
                     </span>
                 </div>
                 <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden mb-1">
@@ -498,71 +501,6 @@ export default function TechnicalScreenerPage() {
             </div>
         </div>
     );
-
-    const CFGFormulaDisplay = ({ stock }: { stock: ScreenerStock }) => {
-        return (
-            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-5 border border-indigo-200 mb-6">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-indigo-600 rounded-lg">
-                        <Calculator size={24} className="text-white" />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-bold text-gray-900">CFG Formula Breakdown</h3>
-                        <p className="text-gray-600 text-sm">CFG = RSI(14) - RSI(14)[9] + SMA(RSI(3), 3)</p>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div className="bg-white p-4 rounded-lg border border-indigo-200">
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="p-1 bg-blue-100 rounded">
-                                <Sigma size={16} className="text-blue-600" />
-                            </div>
-                            <span className="font-medium text-gray-900">RSI(14)</span>
-                        </div>
-                        <div className="text-2xl font-bold text-indigo-700">{formatValue(stock.rsi, 1)}</div>
-                        <div className="text-sm text-gray-600 mt-1">Current RSI 14-day</div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-lg border border-indigo-200">
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="p-1 bg-red-100 rounded">
-                                <Minus size={16} className="text-red-600" />
-                            </div>
-                            <span className="font-medium text-gray-900">RSI(14)[9]</span>
-                        </div>
-                        <div className="text-2xl font-bold text-indigo-700">
-                            {stock.rsi_14_minus_9 ? formatValue(stock.rsi! - stock.rsi_14_minus_9!, 1) : '-'}
-                        </div>
-                        <div className="text-sm text-gray-600 mt-1">RSI from 9 days ago</div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-lg border border-indigo-200">
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="p-1 bg-green-100 rounded">
-                                <Plus size={16} className="text-green-600" />
-                            </div>
-                            <span className="font-medium text-gray-900">SMA(RSI(3), 3)</span>
-                        </div>
-                        <div className="text-2xl font-bold text-indigo-700">{formatValue(stock.sma3_rsi3, 1)}</div>
-                        <div className="text-sm text-gray-600 mt-1">3-day SMA of RSI(3)</div>
-                    </div>
-                </div>
-
-                <div className="bg-white p-4 rounded-lg border border-indigo-200">
-                    <div className="text-center">
-                        <div className="text-sm text-gray-600 mb-2">Final CFG Calculation</div>
-                        <div className="text-3xl font-bold text-indigo-700 mb-2">
-                            CFG = {formatValue(stock.cfg_daily, 1)}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                            {formatValue(stock.rsi, 1)} - {formatValue(stock.rsi_14_minus_9, 1)} + {formatValue(stock.sma3_rsi3, 1)} = {formatValue(stock.cfg_daily, 1)}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    };
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 font-sans">
@@ -753,11 +691,11 @@ export default function TechnicalScreenerPage() {
                                             <div className="flex items-center gap-2">
                                                 <DollarSign size={12} className="text-gray-500" />
                                                 <span className="font-semibold text-gray-900">
-                                                    {formatValue(stock.close)}
+                                                    {formatValue(stock.close, 2)}
                                                 </span>
                                             </div>
                                             <div className={`px-2 py-1 rounded text-xs ${getRSIBgColor(stock.rsi || 50)} ${getRSIColor(stock.rsi || 50)}`}>
-                                                RSI: {formatValue(stock.rsi, 1)}
+                                                RSI: {formatValue(stock.rsi, 2)}
                                             </div>
                                         </div>
 
@@ -814,7 +752,7 @@ export default function TechnicalScreenerPage() {
                                                     <div className="flex items-center gap-2">
                                                         <DollarSign size={16} className="text-gray-500" />
                                                         <span className="text-lg font-bold text-gray-900">
-                                                            SAR {formatValue(selectedStock.close)}
+                                                            SAR {formatValue(selectedStock.close, 2)}
                                                         </span>
                                                     </div>
                                                     <div className="flex items-center gap-2">
@@ -826,13 +764,13 @@ export default function TechnicalScreenerPage() {
                                                     <div className="flex items-center gap-2">
                                                         <Percent size={16} className="text-gray-500" />
                                                         <span className={`text-sm font-medium ${getRSIColor(selectedStock.rsi || 50)}`}>
-                                                            RSI: {formatValue(selectedStock.rsi, 1)}
+                                                            RSI: {formatValue(selectedStock.rsi, 2)}
                                                         </span>
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <Activity size={16} className="text-gray-500" />
                                                         <span className={`text-sm font-medium ${selectedStock.cfg_daily && selectedStock.cfg_daily > 50 ? 'text-green-600' : 'text-red-600'}`}>
-                                                            CFG: {formatValue(selectedStock.cfg_daily, 1)}
+                                                            CFG: {formatValue(selectedStock.cfg_daily, 2)}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -877,7 +815,6 @@ export default function TechnicalScreenerPage() {
                                                 ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
                                                 : 'bg-gray-100 text-gray-800 border border-gray-200'
                                                 }`}>
-                                                {/* <Function size={14} className="inline mr-1" /> */}
                                                 CFG: {selectedStock.cfg_ema45_gt_50 ? 'Positive' : 'Negative'}
                                             </div>
                                         </div>
@@ -916,32 +853,54 @@ export default function TechnicalScreenerPage() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                         <StatCard
                                             title="Current Price"
-                                            value={`SAR ${formatValue(selectedStock.close)}`}
+                                            value={`SAR ${formatValue(selectedStock.close, 2)}`}
                                             description="Latest closing price"
                                             icon={DollarSign}
                                             color="bg-blue-500"
                                         />
                                         <StatCard
                                             title="RSI Score"
-                                            value={formatValue(selectedStock.rsi, 1)}
+                                            value={formatValue(selectedStock.rsi, 2)}
                                             description="Relative Strength Index"
                                             icon={Gauge}
                                             color="bg-purple-500"
                                         />
                                         <StatCard
                                             title="CFG Value"
-                                            value={formatValue(selectedStock.cfg_daily, 1)}
+                                            value={formatValue(selectedStock.cfg_daily, 2)}
                                             description="Custom Formula Generator"
                                             icon={Activity}
                                             color="bg-indigo-500"
                                         />
                                         <StatCard
                                             title="The Number"
-                                            value={formatValue(selectedStock.the_number)}
+                                            value={formatValue(selectedStock.the_number, 2)}
                                             description="Volatility indicator"
                                             icon={TargetIcon}
                                             color="bg-red-500"
                                         />
+                                        <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-200">
+                                            <div className="text-sm text-gray-600 mb-2">Moving Averages (Close)</div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                                    <div className="text-xs text-gray-500 mb-1">Daily SMAs</div>
+                                                    <div className="text-lg font-bold text-gray-900">SMA4: {formatValue(selectedStock.sma4, 2)}</div>
+                                                    <div className="text-sm text-gray-700">SMA9: {formatValue(selectedStock.sma9, 2)} · SMA18: {formatValue(selectedStock.sma18, 2)}</div>
+                                                    <div className={`mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm ${selectedStock.sma_trend_daily ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+                                                        {selectedStock.sma_trend_daily ? 'المتوسطات إيجابية (يومي)' : 'المتوسطات ليست إيجابية (يومي)'}
+                                                    </div>
+                                                </div>
+
+                                                <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                                    <div className="text-xs text-gray-500 mb-1">Weekly SMAs</div>
+                                                    <div className="text-lg font-bold text-gray-900">SMA4: {formatValue(selectedStock.sma4_w, 2)}</div>
+                                                    <div className="text-sm text-gray-700">SMA9: {formatValue(selectedStock.sma9_w, 2)} · SMA18: {formatValue(selectedStock.sma18_w, 2)}</div>
+                                                    <div className={`mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm ${selectedStock.sma_trend_weekly ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+                                                        {selectedStock.sma_trend_weekly ? 'المتوسطات إيجابية (أسبوعي)' : 'المتوسطات ليست إيجابية (أسبوعي)'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* Key Indicators */}
@@ -1012,7 +971,7 @@ export default function TechnicalScreenerPage() {
                                                             ? 'text-green-600'
                                                             : 'text-red-600'
                                                             }`}>
-                                                            {formatValue(selectedStock.cfg_daily, 1)}
+                                                            {formatValue(selectedStock.cfg_daily, 2)}
                                                         </div>
                                                         <div className="text-xs text-gray-500 mt-1">
                                                             {selectedStock.cfg_daily !== null &&
@@ -1025,11 +984,24 @@ export default function TechnicalScreenerPage() {
                                                             ? 'text-green-600'
                                                             : 'text-red-600'
                                                             }`}>
-                                                            {formatValue(selectedStock.cfg_ema45, 1)}
+                                                            {formatValue(selectedStock.cfg_ema45, 2)}
                                                         </div>
                                                         <div className="text-xs text-gray-500 mt-1">
                                                             {selectedStock.cfg_ema45 !== null &&
                                                                 (selectedStock.cfg_ema45 > 50 ? "Strong CFG Signal" : "Weak CFG Signal")}
+                                                        </div>
+                                                    </div>
+                                                    <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                                                        <div className="text-sm text-gray-600 mb-2">CFG WMA45</div>
+                                                        <div className={`text-xl font-bold ${(selectedStock.cfg_wma45 ?? 0) > 50
+                                                            ? 'text-green-600'
+                                                            : 'text-red-600'
+                                                            }`}>
+                                                            {formatValue(selectedStock.cfg_wma45, 2)}
+                                                        </div>
+                                                        <div className="text-xs text-gray-500 mt-1">
+                                                            {selectedStock.cfg_wma45 !== null &&
+                                                                (selectedStock.cfg_wma45 > 50 ? "Strong WMA Signal" : "Weak WMA Signal")}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1044,7 +1016,7 @@ export default function TechnicalScreenerPage() {
                                                     <div className="flex items-center justify-between">
                                                         <div>
                                                             <div className="text-lg font-bold text-gray-900">
-                                                                {formatValue(selectedStock.the_number)}
+                                                                {formatValue(selectedStock.the_number, 2)}
                                                             </div>
                                                             <div className="text-sm text-gray-600">Current Value</div>
                                                         </div>
@@ -1053,7 +1025,7 @@ export default function TechnicalScreenerPage() {
                                                                 ? 'text-green-600'
                                                                 : 'text-red-600'
                                                                 }`}>
-                                                                SMA9: {formatValue(selectedStock.sma9_close)}
+                                                                SMA9: {formatValue(selectedStock.sma9_close, 2)}
                                                             </div>
                                                             <div className="text-sm text-gray-600">9-Day Average</div>
                                                         </div>
@@ -1067,7 +1039,7 @@ export default function TechnicalScreenerPage() {
                                                             {selectedStock.cfg_ema45_gt_50 ? 'EMA45 > 50 ✓' : 'EMA45 < 50 ✗'}
                                                         </div>
                                                         <div className={`text-sm ${selectedStock.cfg_gt_50_daily ? 'text-green-600' : 'text-red-600'}`}>
-                                                            CFG: {formatValue(selectedStock.cfg_daily, 1)}
+                                                            CFG: {formatValue(selectedStock.cfg_daily, 2)}
                                                         </div>
                                                     </div>
                                                     <div className="text-center p-3 bg-green-50 rounded-lg">
@@ -1076,7 +1048,7 @@ export default function TechnicalScreenerPage() {
                                                             {selectedStock.rsi_55_70 ? '55-70 ✓' : 'Out of Range'}
                                                         </div>
                                                         <div className="text-sm text-gray-500">
-                                                            Current: {formatValue(selectedStock.rsi, 1)}
+                                                            Current: {formatValue(selectedStock.rsi, 2)}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1116,28 +1088,28 @@ export default function TechnicalScreenerPage() {
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                                 <IndicatorCard
                                                     title="RSI (14)"
-                                                    value={formatValue(selectedStock.rsi, 1)}
+                                                    value={formatValue(selectedStock.rsi, 2)}
                                                     description="Relative Strength Index"
                                                     color="bg-purple-500"
                                                     icon={Gauge}
                                                 />
                                                 <IndicatorCard
                                                     title="SMA9 RSI"
-                                                    value={formatValue(selectedStock.sma9_rsi, 1)}
+                                                    value={formatValue(selectedStock.sma9_rsi, 2)}
                                                     description="9-period SMA of RSI"
                                                     color="bg-blue-500"
                                                     icon={BarChart}
                                                 />
                                                 <IndicatorCard
                                                     title="WMA45 RSI"
-                                                    value={formatValue(selectedStock.wma45_rsi, 1)}
+                                                    value={formatValue(selectedStock.wma45_rsi, 2)}
                                                     description="45-period WMA of RSI"
                                                     color="bg-red-500"
                                                     icon={LineChartIcon}
                                                 />
                                                 <IndicatorCard
                                                     title="EMA45 RSI"
-                                                    value={formatValue(selectedStock.ema45_rsi, 1)}
+                                                    value={formatValue(selectedStock.ema45_rsi, 2)}
                                                     description="45-period EMA of RSI"
                                                     color="bg-green-500"
                                                     icon={TrendingUpIcon}
@@ -1159,43 +1131,43 @@ export default function TechnicalScreenerPage() {
                                                     <ConditionPill
                                                         label="SMA9 > The Number"
                                                         passed={selectedStock.sma9_gt_tn_daily}
-                                                        value={`SMA9: ${formatValue(selectedStock.sma9_close)} vs TN: ${formatValue(selectedStock.the_number)}`}
+                                                        value={`SMA9: ${formatValue(selectedStock.sma9_close, 2)} vs TN: ${formatValue(selectedStock.the_number, 2)}`}
                                                         description="9-day SMA must be above The Number"
                                                     />
                                                     <ConditionPill
                                                         label="RSI < 80"
                                                         passed={selectedStock.rsi_lt_80_d}
-                                                        value={`RSI: ${formatValue(selectedStock.rsi, 1)}`}
+                                                        value={`RSI: ${formatValue(selectedStock.rsi, 2)}`}
                                                         description="RSI must be below 80 (not overbought)"
                                                     />
                                                     <ConditionPill
                                                         label="SMA9(RSI) ≤ 75"
                                                         passed={selectedStock.sma9_rsi_lte_75_d}
-                                                        value={`SMA9 RSI: ${formatValue(selectedStock.sma9_rsi, 1)}`}
+                                                        value={`SMA9 RSI: ${formatValue(selectedStock.sma9_rsi, 2)}`}
                                                         description="9-day SMA of RSI must be ≤ 75"
                                                     />
                                                     <ConditionPill
                                                         label="EMA45(RSI) ≤ 70"
                                                         passed={selectedStock.ema45_rsi_lte_70_d}
-                                                        value={`EMA45 RSI: ${formatValue(selectedStock.ema45_rsi, 1)}`}
+                                                        value={`EMA45 RSI: ${formatValue(selectedStock.ema45_rsi, 2)}`}
                                                         description="45-day EMA of RSI must be ≤ 70"
                                                     />
                                                     <ConditionPill
                                                         label="RSI 55-70"
                                                         passed={selectedStock.rsi_55_70}
-                                                        value={`RSI: ${formatValue(selectedStock.rsi, 1)}`}
+                                                        value={`RSI: ${formatValue(selectedStock.rsi, 2)}`}
                                                         description="RSI must be between 55 and 70"
                                                     />
                                                     <ConditionPill
                                                         label="RSI > WMA45 RSI"
                                                         passed={selectedStock.rsi_gt_wma45_d}
-                                                        value={`RSI: ${formatValue(selectedStock.rsi, 1)} vs WMA45: ${formatValue(selectedStock.wma45_rsi, 1)}`}
+                                                        value={`RSI: ${formatValue(selectedStock.rsi, 2)} vs WMA45: ${formatValue(selectedStock.wma45_rsi, 2)}`}
                                                         description="RSI must be above 45-day WMA of RSI"
                                                     />
                                                     <ConditionPill
                                                         label="SMA9 RSI > WMA45 RSI"
                                                         passed={selectedStock.sma9rsi_gt_wma45rsi_d}
-                                                        value={`SMA9 RSI: ${formatValue(selectedStock.sma9_rsi, 1)} vs WMA45: ${formatValue(selectedStock.wma45_rsi, 1)}`}
+                                                        value={`SMA9 RSI: ${formatValue(selectedStock.sma9_rsi, 2)} vs WMA45: ${formatValue(selectedStock.wma45_rsi, 2)}`}
                                                         description="9-day SMA RSI must be above 45-day WMA RSI"
                                                     />
                                                 </div>
@@ -1295,28 +1267,28 @@ export default function TechnicalScreenerPage() {
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                             <IndicatorCard
                                                 title="CCI (14)"
-                                                value={formatValue(selectedStock.cci, 1)}
+                                                value={formatValue(selectedStock.cci, 2)}
                                                 description="Commodity Channel Index"
                                                 color={selectedStock.cci_gt_100 ? 'bg-green-500' : 'bg-red-500'}
                                                 icon={LineChartIcon}
                                             />
                                             <IndicatorCard
                                                 title="Aroon Up"
-                                                value={`${formatValue(selectedStock.aroon_up, 1)}%`}
+                                                value={`${formatValue(selectedStock.aroon_up, 2)}%`}
                                                 description="Uptrend strength"
                                                 color={selectedStock.aroon_up_gt_70 ? 'bg-green-500' : 'bg-amber-500'}
                                                 icon={TrendingUp}
                                             />
                                             <IndicatorCard
                                                 title="Aroon Down"
-                                                value={`${formatValue(selectedStock.aroon_down, 1)}%`}
+                                                value={`${formatValue(selectedStock.aroon_down, 2)}%`}
                                                 description="Downtrend strength"
                                                 color={selectedStock.aroon_down_lt_30 ? 'bg-green-500' : 'bg-red-500'}
                                                 icon={TrendingDown}
                                             />
                                             <IndicatorCard
                                                 title="CCI EMA(20)"
-                                                value={formatValue(selectedStock.cci_ema20, 1)}
+                                                value={formatValue(selectedStock.cci_ema20, 2)}
                                                 description="20-period EMA of CCI"
                                                 color={selectedStock.cci_ema20_gt_0_daily ? 'bg-green-500' : 'bg-red-500'}
                                                 icon={BarChart}
@@ -1352,14 +1324,14 @@ export default function TechnicalScreenerPage() {
                                         <ConditionPill
                                             label="CCI(14) > 100"
                                             passed={selectedStock.cci_gt_100}
-                                            value={`CCI: ${formatValue(selectedStock.cci, 1)}`}
+                                            value={`CCI: ${formatValue(selectedStock.cci, 2)}`}
                                             description="CCI must be above 100"
                                             icon={LineChartIcon}
                                         />
                                         <ConditionPill
                                             label="CCI EMA(20) > 0 (Daily)"
                                             passed={selectedStock.cci_ema20_gt_0_daily}
-                                            value={`CCI EMA20: ${formatValue(selectedStock.cci_ema20, 1)}`}
+                                            value={`CCI EMA20: ${formatValue(selectedStock.cci_ema20, 2)}`}
                                             description="Daily CCI EMA must be positive"
                                             icon={BarChart}
                                         />
@@ -1372,14 +1344,14 @@ export default function TechnicalScreenerPage() {
                                         <ConditionPill
                                             label="Aroon Up > 70%"
                                             passed={selectedStock.aroon_up_gt_70}
-                                            value={`Aroon Up: ${formatValue(selectedStock.aroon_up, 1)}%`}
+                                            value={`Aroon Up: ${formatValue(selectedStock.aroon_up, 2)}%`}
                                             description="Aroon Up must be above 70%"
                                             icon={TrendingUp}
                                         />
                                         <ConditionPill
                                             label="Aroon Down < 30%"
                                             passed={selectedStock.aroon_down_lt_30}
-                                            value={`Aroon Down: ${formatValue(selectedStock.aroon_down, 1)}%`}
+                                            value={`Aroon Down: ${formatValue(selectedStock.aroon_down, 2)}%`}
                                             description="Aroon Down must be below 30%"
                                             icon={TrendingDown}
                                         />
@@ -1389,14 +1361,14 @@ export default function TechnicalScreenerPage() {
                                     <div className="mt-4 grid grid-cols-2 gap-4">
                                         <IndicatorCard
                                             title="Aroon Up Weekly"
-                                            value={`${formatValue(selectedStock.aroon_up_w, 1)}%`}
+                                            value={`${formatValue(selectedStock.aroon_up_w, 2)}%`}
                                             description="Weekly uptrend strength"
                                             color={(selectedStock.aroon_up_w ?? 0) > 70 ? 'bg-green-500' : 'bg-amber-500'}
                                             icon={TrendingUp}
                                         />
                                         <IndicatorCard
                                             title="Aroon Down Weekly"
-                                            value={`${formatValue(selectedStock.aroon_down_w, 1)}%`}
+                                            value={`${formatValue(selectedStock.aroon_down_w, 2)}%`}
                                             description="Weekly downtrend strength"
                                             color={(selectedStock.aroon_down_w ?? 100) < 30 ? 'bg-green-500' : 'bg-red-500'}
                                             icon={TrendingDown}
@@ -1474,7 +1446,7 @@ export default function TechnicalScreenerPage() {
                                             <div className="text-center p-4 bg-gradient-to-b from-blue-50 to-white rounded-xl border border-blue-200">
                                                 <div className="text-xs text-gray-600 mb-2 font-medium">S9(RSI)</div>
                                                 <div className="text-2xl font-bold text-gray-900 mb-1">
-                                                    {formatValue(selectedStock.sma9_rsi, 1)}
+                                                    {formatValue(selectedStock.sma9_rsi, 2)}
                                                 </div>
                                                 <div className="text-xs text-gray-500">9-period SMA of RSI</div>
                                                 <div className={`text-xs mt-1 ${selectedStock.stamp_daily ? 'text-green-600' : 'text-red-600'}`}>
@@ -1484,7 +1456,7 @@ export default function TechnicalScreenerPage() {
                                             <div className="text-center p-4 bg-gradient-to-b from-purple-50 to-white rounded-xl border border-purple-200">
                                                 <div className="text-xs text-gray-600 mb-2 font-medium">E45(CFG)</div>
                                                 <div className="text-2xl font-bold text-gray-900 mb-1">
-                                                    {formatValue(selectedStock.e45_cfg, 1)}
+                                                    {formatValue(selectedStock.e45_cfg, 2)}
                                                 </div>
                                                 <div className="text-xs text-gray-500">45-period EMA (CFG)</div>
                                                 <div className={`text-xs mt-1 ${selectedStock.e45_cfg && selectedStock.e45_cfg > 50 ? 'text-green-600' : 'text-red-600'}`}>
@@ -1494,7 +1466,7 @@ export default function TechnicalScreenerPage() {
                                             <div className="text-center p-4 bg-gradient-to-b from-green-50 to-white rounded-xl border border-green-200">
                                                 <div className="text-xs text-gray-600 mb-2 font-medium">E45(RSI)</div>
                                                 <div className="text-2xl font-bold text-gray-900 mb-1">
-                                                    {formatValue(selectedStock.ema45_rsi, 1)}
+                                                    {formatValue(selectedStock.ema45_rsi, 2)}
                                                 </div>
                                                 <div className="text-xs text-gray-500">45-period EMA of RSI</div>
                                                 <div className={`text-xs mt-1 ${selectedStock.ema45_rsi && selectedStock.ema45_rsi > 50 ? 'text-green-600' : 'text-red-600'}`}>
@@ -1504,7 +1476,7 @@ export default function TechnicalScreenerPage() {
                                             <div className="text-center p-4 bg-gradient-to-b from-amber-50 to-white rounded-xl border border-amber-200">
                                                 <div className="text-xs text-gray-600 mb-2 font-medium">E20(SMA3)</div>
                                                 <div className="text-2xl font-bold text-gray-900 mb-1">
-                                                    {formatValue(selectedStock.e20_sma3_rsi3, 1)}
+                                                    {formatValue(selectedStock.e20_sma3_rsi3, 2)}
                                                 </div>
                                                 <div className="text-xs text-gray-500">20-period EMA of 3 SMA</div>
                                                 <div className={`text-xs mt-1 ${selectedStock.e20_sma3_rsi3 && selectedStock.e20_sma3_rsi3 > 50 ? 'text-green-600' : 'text-red-600'}`}>
@@ -1534,20 +1506,20 @@ export default function TechnicalScreenerPage() {
                                                 />
                                                 <ConditionPill
                                                     label="EMA45 RSI > 50"
-                                                    passed={selectedStock.ema45_rsi && selectedStock.ema45_rsi > 50}
-                                                    value={`EMA45 RSI: ${formatValue(selectedStock.ema45_rsi, 1)}`}
+                                                    passed={selectedStock.ema45_rsi ? selectedStock.ema45_rsi > 50 : false}
+                                                    value={`EMA45 RSI: ${formatValue(selectedStock.ema45_rsi, 2)}`}
                                                     description="45-day EMA of RSI above 50"
                                                 />
                                                 <ConditionPill
                                                     label="E45 CFG > 50"
-                                                    passed={selectedStock.e45_cfg && selectedStock.e45_cfg > 50}
-                                                    value={`E45 CFG: ${formatValue(selectedStock.e45_cfg, 1)}`}
+                                                    passed={selectedStock.e45_cfg ? selectedStock.e45_cfg > 50 : false}
+                                                    value={`E45 CFG: ${formatValue(selectedStock.e45_cfg, 2)}`}
                                                     description="45-day EMA of CFG above 50"
                                                 />
                                                 <ConditionPill
                                                     label="E20 SMA3 > 50"
-                                                    passed={selectedStock.e20_sma3_rsi3 && selectedStock.e20_sma3_rsi3 > 50}
-                                                    value={`E20 SMA3: ${formatValue(selectedStock.e20_sma3_rsi3, 1)}`}
+                                                    passed={selectedStock.e20_sma3_rsi3 ? selectedStock.e20_sma3_rsi3 > 50 : false}
+                                                    value={`E20 SMA3: ${formatValue(selectedStock.e20_sma3_rsi3, 2)}`}
                                                     description="20-day EMA of 3-day SMA RSI above 50"
                                                 />
                                             </div>
@@ -1573,19 +1545,19 @@ export default function TechnicalScreenerPage() {
                                                 <ConditionPill
                                                     label="EMA45 RSI > 50"
                                                     passed={selectedStock.ema45_rsi_w ? selectedStock.ema45_rsi_w > 50 : false}
-                                                    value={selectedStock.ema45_rsi_w ? formatValue(selectedStock.ema45_rsi_w) : '-'}
+                                                    value={selectedStock.ema45_rsi_w ? formatValue(selectedStock.ema45_rsi_w, 2) : '-'}
                                                     description="Weekly EMA45 RSI above 50"
                                                 />
                                                 <ConditionPill
                                                     label="E45 CFG > 50"
                                                     passed={selectedStock.cfg_ema45_w ? selectedStock.cfg_ema45_w > 50 : false}
-                                                    value={selectedStock.cfg_ema45_w ? formatValue(selectedStock.cfg_ema45_w) : '-'}
+                                                    value={selectedStock.cfg_ema45_w ? formatValue(selectedStock.cfg_ema45_w, 2) : '-'}
                                                     description="Weekly E45 CFG above 50"
                                                 />
                                                 <ConditionPill
                                                     label="E20 SMA3 > 50"
                                                     passed={selectedStock.ema20_sma3_rsi3_w ? selectedStock.ema20_sma3_rsi3_w > 50 : false}
-                                                    value={selectedStock.ema20_sma3_rsi3_w ? formatValue(selectedStock.ema20_sma3_rsi3_w) : '-'}
+                                                    value={selectedStock.ema20_sma3_rsi3_w ? formatValue(selectedStock.ema20_sma3_rsi3_w, 2) : '-'}
                                                     description="Weekly E20 SMA3(RSI3) above 50"
                                                 />
                                             </div>
@@ -1598,7 +1570,7 @@ export default function TechnicalScreenerPage() {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                             <div className="p-3 bg-white rounded-lg border border-amber-100">
                                                 <div className="text-xs font-medium text-amber-700 mb-1">EMA20(SMA3 RSI3) Weekly</div>
-                                                <div className="text-lg font-bold text-gray-900">{formatValue(selectedStock.ema20_sma3_rsi3_w, 1)}</div>
+                                                <div className="text-lg font-bold text-gray-900">{formatValue(selectedStock.ema20_sma3_rsi3_w, 2)}</div>
                                                 <div className="text-xs text-gray-600 mt-1">20-period EMA of 3-week SMA RSI3</div>
                                                 <div className={`text-xs mt-2 font-medium ${selectedStock.ema20_sma3_rsi3_w && selectedStock.ema20_sma3_rsi3_w > 50 ? 'text-green-600' : 'text-red-600'}`}>
                                                     Status: {selectedStock.ema20_sma3_rsi3_w && selectedStock.ema20_sma3_rsi3_w > 50 ? '> 50 ✓' : '< 50 ✗'}
@@ -1607,8 +1579,8 @@ export default function TechnicalScreenerPage() {
                                             <div className="p-3 bg-white rounded-lg border border-amber-100">
                                                 <div className="text-xs font-medium text-amber-700 mb-1">Daily E20(SMA3) Comparison</div>
                                                 <div className="text-sm text-gray-600 mt-2">
-                                                    <div>Daily: <span className="font-bold">{formatValue(selectedStock.e20_sma3_rsi3, 1)}</span></div>
-                                                    <div className="mt-1">Weekly: <span className="font-bold">{formatValue(selectedStock.ema20_sma3_rsi3_w, 1)}</span></div>
+                                                    <div>Daily: <span className="font-bold">{formatValue(selectedStock.e20_sma3_rsi3, 2)}</span></div>
+                                                    <div className="mt-1">Weekly: <span className="font-bold">{formatValue(selectedStock.ema20_sma3_rsi3_w, 2)}</span></div>
                                                     <div className={`mt-2 text-xs ${(selectedStock.ema20_sma3_rsi3_w || 0) > (selectedStock.e20_sma3_rsi3 || 0) ? 'text-green-600' : 'text-red-600'}`}>
                                                         {(selectedStock.ema20_sma3_rsi3_w || 0) > (selectedStock.e20_sma3_rsi3 || 0) ? '✓ Weekly > Daily' : '✗ Weekly ≤ Daily'}
                                                     </div>
@@ -1665,7 +1637,7 @@ export default function TechnicalScreenerPage() {
                                             <div className="text-center p-4 bg-gradient-to-b from-red-50 to-white rounded-xl border border-red-200">
                                                 <div className="text-xs text-gray-600 mb-2 font-medium">THE.NUMBER</div>
                                                 <div className="text-2xl font-bold text-gray-900 mb-1">
-                                                    SAR {formatValue(selectedStock.the_number)}
+                                                    SAR {formatValue(selectedStock.the_number, 2)}
                                                 </div>
                                                 <div className="text-xs text-gray-500">Composite volatility level</div>
                                                 <div className="text-xs text-red-600 mt-1">
@@ -1675,7 +1647,7 @@ export default function TechnicalScreenerPage() {
                                             <div className="text-center p-4 bg-gradient-to-b from-green-50 to-white rounded-xl border border-green-200">
                                                 <div className="text-xs text-gray-600 mb-2 font-medium">SMA9 Close</div>
                                                 <div className="text-2xl font-bold text-gray-900 mb-1">
-                                                    SAR {formatValue(selectedStock.sma9_close)}
+                                                    SAR {formatValue(selectedStock.sma9_close, 2)}
                                                 </div>
                                                 <div className="text-xs text-gray-500">9-day Simple Moving Average</div>
                                                 <div className={`text-xs mt-1 ${selectedStock.sma9_gt_tn_daily ? 'text-green-600' : 'text-red-600'}`}>
@@ -1685,11 +1657,11 @@ export default function TechnicalScreenerPage() {
                                             <div className="text-center p-4 bg-gradient-to-b from-blue-50 to-white rounded-xl border border-blue-200">
                                                 <div className="text-xs text-gray-600 mb-2 font-medium">Current Price</div>
                                                 <div className="text-2xl font-bold text-gray-900 mb-1">
-                                                    SAR {formatValue(selectedStock.close)}
+                                                    SAR {formatValue(selectedStock.close, 2)}
                                                 </div>
                                                 <div className="text-xs text-gray-500">Latest closing price</div>
                                                 <div className="text-xs text-blue-600 mt-1">
-                                                    Difference: {formatValue(selectedStock.close - (selectedStock.the_number || 0))}
+                                                    Difference: {formatValue(selectedStock.close - (selectedStock.the_number || 0), 2)}
                                                 </div>
                                             </div>
                                         </div>
@@ -1705,12 +1677,12 @@ export default function TechnicalScreenerPage() {
                                             <div className="space-y-3">
                                                 <div className="flex justify-between items-center">
                                                     <span className="text-sm text-gray-600">The Number Value:</span>
-                                                    <span className="font-medium text-gray-900">SAR {formatValue(selectedStock.the_number)}</span>
+                                                    <span className="font-medium text-gray-900">SAR {formatValue(selectedStock.the_number, 2)}</span>
                                                 </div>
                                                 <div className="flex justify-between items-center">
                                                     <span className="text-sm text-gray-600">SMA9 Close:</span>
                                                     <span className={`font-medium ${selectedStock.sma9_gt_tn_daily ? 'text-green-600' : 'text-red-600'}`}>
-                                                        SAR {formatValue(selectedStock.sma9_close)}
+                                                        SAR {formatValue(selectedStock.sma9_close, 2)}
                                                     </span>
                                                 </div>
                                                 <div className="flex justify-between items-center">
@@ -1722,7 +1694,7 @@ export default function TechnicalScreenerPage() {
                                                 <div className="flex justify-between items-center">
                                                     <span className="text-sm text-gray-600">Difference:</span>
                                                     <span className={`font-medium ${selectedStock.sma9_gt_tn_daily ? 'text-green-600' : 'text-red-600'}`}>
-                                                        {formatValue((selectedStock.sma9_close || 0) - (selectedStock.the_number || 0))}
+                                                        {formatValue((selectedStock.sma9_close || 0) - (selectedStock.the_number || 0), 2)}
                                                     </span>
                                                 </div>
                                             </div>
@@ -1742,7 +1714,7 @@ export default function TechnicalScreenerPage() {
                                                     </span>
                                                 </div>
                                                 <div className="flex justify-between items-center">
-                                                    <span className="text-sm text-gray-600">Weekly SMA9  The Number:</span>
+                                                    <span className="text-sm text-gray-600">Weekly SMA9 vs The Number:</span>
                                                     <span className={`font-medium ${selectedStock.sma9_gt_tn_weekly ? 'text-green-600' : 'text-red-600'}`}>
                                                         {selectedStock.sma9_gt_tn_weekly ? '✓' : '✗'}
                                                     </span>
@@ -1767,7 +1739,7 @@ export default function TechnicalScreenerPage() {
                                     <div className="grid grid-cols-2 gap-4 mb-6">
                                         <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
                                             <div className="text-sm font-medium text-blue-800 mb-2">Upper Band (HL)</div>
-                                            <div className="text-2xl font-bold text-gray-900">SAR {formatValue(selectedStock.the_number_hl)}</div>
+                                            <div className="text-2xl font-bold text-gray-900">SAR {formatValue(selectedStock.the_number_hl, 2)}</div>
                                             <div className="text-xs text-gray-600 mt-1">(SMA13(High) + SMA65(High)) / 2</div>
                                             <div className="text-xs text-blue-600 mt-2">
                                                 {selectedStock.close && selectedStock.the_number_hl ? (
@@ -1777,7 +1749,7 @@ export default function TechnicalScreenerPage() {
                                         </div>
                                         <div className="p-4 bg-purple-50 rounded-xl border border-purple-200">
                                             <div className="text-sm font-medium text-purple-800 mb-2">Lower Band (LL)</div>
-                                            <div className="text-2xl font-bold text-gray-900">SAR {formatValue(selectedStock.the_number_ll)}</div>
+                                            <div className="text-2xl font-bold text-gray-900">SAR {formatValue(selectedStock.the_number_ll, 2)}</div>
                                             <div className="text-xs text-gray-600 mt-1">(SMA13(Low) + SMA65(Low)) / 2</div>
                                             <div className="text-xs text-purple-600 mt-2">
                                                 {selectedStock.close && selectedStock.the_number_ll ? (
@@ -1814,24 +1786,24 @@ export default function TechnicalScreenerPage() {
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <IndicatorCard
                                             title="CFG Daily"
-                                            value={formatValue(selectedStock.cfg_daily, 1)}
+                                            value={formatValue(selectedStock.cfg_daily, 2)}
                                             description="Custom Formula Generator"
                                             color="bg-indigo-500"
                                             icon={Calculator}
                                         />
                                         <IndicatorCard
                                             title="CFG EMA45"
-                                            value={formatValue(selectedStock.cfg_ema45, 1)}
+                                            value={formatValue(selectedStock.cfg_ema45, 2)}
                                             description="45-day EMA of CFG"
                                             color={selectedStock.cfg_ema45_gt_50 ? 'bg-green-500' : 'bg-red-500'}
                                             icon={TrendingUpIcon}
                                         />
                                         <IndicatorCard
-                                            title="SMA(RSI3, 3)"
-                                            value={formatValue(selectedStock.sma3_rsi3, 1)}
-                                            description="3-day SMA of RSI(3)"
-                                            color="bg-purple-500"
-                                            icon={Sigma}
+                                            title="CFG WMA45"
+                                            value={formatValue(selectedStock.cfg_wma45, 2)}
+                                            description="45-day WMA of CFG"
+                                            color={(selectedStock.cfg_wma45 ?? 0) > 50 ? 'bg-green-500' : 'bg-red-500'}
+                                            icon={TrendingUpIcon}
                                         />
                                     </div>
 
@@ -1844,34 +1816,34 @@ export default function TechnicalScreenerPage() {
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             <IndicatorCard
                                                 title="CFG Weekly"
-                                                value={formatValue(selectedStock.cfg_w, 1)}
+                                                value={formatValue(selectedStock.cfg_w, 2)}
                                                 description="Weekly CFG Value"
                                                 color={selectedStock.cfg_gt_50_w ? 'bg-green-500' : 'bg-red-500'}
                                                 icon={Calculator}
                                             />
                                             <IndicatorCard
                                                 title="CFG EMA45 Weekly"
-                                                value={formatValue(selectedStock.cfg_ema45_w, 1)}
+                                                value={formatValue(selectedStock.cfg_ema45_w, 2)}
                                                 description="45-week EMA of CFG"
                                                 color={selectedStock.cfg_ema45_gt_50_w ? 'bg-green-500' : 'bg-red-500'}
                                                 icon={TrendingUpIcon}
                                             />
                                             <IndicatorCard
-                                                title="RSI(14) Weekly"
-                                                value={formatValue(selectedStock.rsi_w, 1)}
-                                                description="Weekly RSI 14-period"
-                                                color="bg-blue-500"
-                                                icon={Sigma}
+                                                title="CFG WMA45 Weekly"
+                                                value={formatValue(selectedStock.cfg_wma45_w, 2)}
+                                                description="45-week WMA of CFG"
+                                                color={(selectedStock.cfg_wma45_w ?? 0) > 50 ? 'bg-green-500' : 'bg-red-500'}
+                                                icon={TrendingUpIcon}
                                             />
                                         </div>
                                         {selectedStock.rsi_w_9_weeks_ago !== null && (
                                             <div className="mt-4 p-3 bg-gray-50 rounded-lg">
                                                 <div className="text-sm text-gray-600">
-                                                    <span className="font-medium">RSI(14) from 9 weeks ago:</span> {formatValue(selectedStock.rsi_w_9_weeks_ago, 1)}
+                                                    <span className="font-medium">RSI(14) from 9 weeks ago:</span> {formatValue(selectedStock.rsi_w_9_weeks_ago, 2)}
                                                 </div>
                                                 {selectedStock.rsi_14_w_shifted !== null && (
                                                     <div className="text-sm text-gray-600 mt-2">
-                                                        <span className="font-medium">ta.rsi(close[9], 14) Weekly:</span> {formatValue(selectedStock.rsi_14_w_shifted, 1)}
+                                                        <span className="font-medium">ta.rsi(close[9], 14) Weekly:</span> {formatValue(selectedStock.rsi_14_w_shifted, 2)}
                                                     </div>
                                                 )}
                                             </div>
@@ -1883,12 +1855,12 @@ export default function TechnicalScreenerPage() {
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-200">
                                                 <span className="text-xs text-gray-600">ta.rsi(close[9], 14):</span>
-                                                <div className="font-bold text-lg text-gray-900 mt-1">{formatValue(selectedStock.rsi_14_shifted, 1)}</div>
+                                                <div className="font-bold text-lg text-gray-900 mt-1">{formatValue(selectedStock.rsi_14_shifted, 2)}</div>
                                                 <span className="text-xs text-gray-500">Daily shifted</span>
                                             </div>
                                             <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
                                                 <span className="text-xs text-gray-600">Weekly ta.rsi(close[9], 14):</span>
-                                                <div className="font-bold text-lg text-gray-900 mt-1">{formatValue(selectedStock.rsi_14_w_shifted, 1)}</div>
+                                                <div className="font-bold text-lg text-gray-900 mt-1">{formatValue(selectedStock.rsi_14_w_shifted, 2)}</div>
                                                 <span className="text-xs text-gray-500">Weekly shifted</span>
                                             </div>
                                         </div>
@@ -1944,10 +1916,9 @@ export default function TechnicalScreenerPage() {
                                 </div>
                             </div>
                         </div>
-                    )
-                    }
-                </div >
-            </div >
-        </div >
+                    )}
+                </div>
+            </div>
+        </div>
     );
 }
