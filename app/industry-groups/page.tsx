@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { TrendingUp, TrendingDown, Search, Filter, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Filter, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface IndustryGroup {
     id: number;
@@ -51,12 +51,17 @@ interface StockSortConfig {
 }
 
 interface FilterState {
-    industry_group: string[];
+    // Industry Filters
     sector: string[];
-    rank_min: string;
-    rank_max: string;
+    industry_group: string[];
+    industry: string[];
+    sub_industry: string[];
+
+    // Main Table Filters
     number_of_stocks_min: string;
     number_of_stocks_max: string;
+    rank_min: string;
+    rank_max: string;
     rank_1_week_ago_min: string;
     rank_1_week_ago_max: string;
     rank_3_months_ago_min: string;
@@ -67,6 +72,9 @@ interface FilterState {
     ytd_change_percent_max: string;
     market_value_min: string;
     market_value_max: string;
+    change_vs_last_week_min: string;
+    change_vs_last_week_max: string;
+    letter_grade: string[];
 }
 
 interface StockFilterState {
@@ -82,8 +90,8 @@ interface StockFilterState {
     rs_rating_3_months_ago_max: string;
     rs_rating_6_months_ago_min: string;
     rs_rating_6_months_ago_max: string;
-    industry: string[];
-    sub_industry: string[];
+    rs_rating_1_year_ago_min: string;
+    rs_rating_1_year_ago_max: string;
 }
 
 function CustomMultiSelect({
@@ -149,7 +157,7 @@ function CustomMultiSelect({
                         </span>
                         <div className="flex flex-wrap gap-1 mt-1">
                             {selected.length === 0 ? (
-                                <span className="text-gray-400 text-xs">All {placeholder}</span>
+                                <span className="text-gray-400 text-xs">All</span>
                             ) : (
                                 <>
                                     {selected.slice(0, 2).map((item) => (
@@ -162,7 +170,7 @@ function CustomMultiSelect({
                                     ))}
                                     {selected.length > 2 && (
                                         <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] rounded-full">
-                                            +{selected.length - 2} more
+                                            +{selected.length - 2}
                                         </span>
                                     )}
                                 </>
@@ -193,13 +201,12 @@ function CustomMultiSelect({
                             )}
                         </div>
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
                                 type="text"
                                 placeholder="Search..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                className="w-full pl-10 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                className="w-full pl-3 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 autoFocus
                             />
                         </div>
@@ -355,49 +362,6 @@ function ActiveFilterBadge({
     );
 }
 
-function StockFilterAccordion({
-    title,
-    children,
-    defaultOpen = false,
-    collapseSignal = 0
-}: {
-    title: string;
-    children: React.ReactNode;
-    defaultOpen?: boolean;
-    collapseSignal?: number;
-}) {
-    const [isOpen, setIsOpen] = useState(defaultOpen);
-
-    useEffect(() => {
-        if (collapseSignal > 0) {
-            setIsOpen(false);
-        }
-    }, [collapseSignal]);
-
-    return (
-        <div className="border-b border-gray-200 pb-3">
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="w-full flex justify-between items-center py-2 text-xs font-semibold text-gray-700 hover:text-gray-900"
-            >
-                <span>{title}</span>
-                <svg
-                    className={`w-4 h-4 transition-transform ${isOpen ? 'transform rotate-180' : ''}`}
-                    fill="none"
-                    stroke="currentColor" viewBox="0 0 24 24"
-                >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-            </button>
-            {isOpen && (
-                <div className="mt-2 space-y-3">
-                    {children}
-                </div>
-            )}
-        </div>
-    );
-}
-
 export default function IndustryGroupsPage() {
     const [data, setData] = useState<IndustryGroup[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -406,12 +370,17 @@ export default function IndustryGroupsPage() {
     const [collapseSignal, setCollapseSignal] = useState(0);
 
     const [filters, setFilters] = useState<FilterState>({
-        industry_group: [],
+        // Industry Filters
         sector: [],
-        rank_min: '',
-        rank_max: '',
+        industry_group: [],
+        industry: [],
+        sub_industry: [],
+
+        // Main Table Filters
         number_of_stocks_min: '',
         number_of_stocks_max: '',
+        rank_min: '',
+        rank_max: '',
         rank_1_week_ago_min: '',
         rank_1_week_ago_max: '',
         rank_3_months_ago_min: '',
@@ -422,6 +391,9 @@ export default function IndustryGroupsPage() {
         ytd_change_percent_max: '',
         market_value_min: '',
         market_value_max: '',
+        change_vs_last_week_min: '',
+        change_vs_last_week_max: '',
+        letter_grade: [],
     });
 
     const [stockFilters, setStockFilters] = useState<StockFilterState>({
@@ -437,8 +409,8 @@ export default function IndustryGroupsPage() {
         rs_rating_3_months_ago_max: '',
         rs_rating_6_months_ago_min: '',
         rs_rating_6_months_ago_max: '',
-        industry: [],
-        sub_industry: [],
+        rs_rating_1_year_ago_min: '',
+        rs_rating_1_year_ago_max: '',
     });
 
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -452,28 +424,23 @@ export default function IndustryGroupsPage() {
         worstPerformer: { group: '', change: 0 }
     });
 
+    // Letter grade options
+    const letterGradeOptions = ['A+', 'A', 'B', 'C', 'D', 'F'];
+
+    // Filter options from data
     const filterOptions = useMemo(() => {
         const options = {
+            sectors: new Set<string>(),
             industryGroups: new Set<string>(),
-            sectors: new Set<string>()
+            industries: new Set<string>(),
+            subIndustries: new Set<string>(),
+            letterGrades: new Set<string>(letterGradeOptions)
         };
 
         data.forEach(item => {
-            if (item.industry_group) options.industryGroups.add(item.industry_group);
             if (item.sector) options.sectors.add(item.sector);
+            if (item.industry_group) options.industryGroups.add(item.industry_group);
         });
-
-        return {
-            industryGroups: Array.from(options.industryGroups).sort(),
-            sectors: Array.from(options.sectors).sort()
-        };
-    }, [data]);
-
-    const stockFilterOptions = useMemo(() => {
-        const options = {
-            industries: new Set<string>(),
-            subIndustries: new Set<string>()
-        };
 
         Object.values(stocksCache).forEach(stocks => {
             stocks.forEach(stock => {
@@ -483,10 +450,13 @@ export default function IndustryGroupsPage() {
         });
 
         return {
+            sectors: Array.from(options.sectors).sort(),
+            industryGroups: Array.from(options.industryGroups).sort(),
             industries: Array.from(options.industries).sort(),
-            subIndustries: Array.from(options.subIndustries).sort()
+            subIndustries: Array.from(options.subIndustries).sort(),
+            letterGrades: Array.from(options.letterGrades).sort()
         };
-    }, [stocksCache]);
+    }, [data, stocksCache]);
 
     const columnDefinitions = [
         { key: 'display_order', label: 'Order', sortable: false },
@@ -629,74 +599,40 @@ export default function IndustryGroupsPage() {
 
         if (minValue && numValue < parseFloat(minValue)) return false;
         if (maxValue && numValue > parseFloat(maxValue)) return false;
-        if (!allowZero && numValue === 0 && (minValue || maxValue)) return false;
         return true;
     };
 
-    const checkStockRange = (value: any, minKey: keyof StockFilterState, maxKey: keyof StockFilterState, allowZero = false) => {
+    const checkStockRange = (value: any, minKey: keyof StockFilterState, maxKey: keyof StockFilterState) => {
         const minValue = stockFilters[minKey] as string;
         const maxValue = stockFilters[maxKey] as string;
         const numValue = typeof value === 'number' ? value : parseFloat(value) || 0;
 
         if (minValue && numValue < parseFloat(minValue)) return false;
         if (maxValue && numValue > parseFloat(maxValue)) return false;
-        if (!allowZero && numValue === 0 && (minValue || maxValue)) return false;
         return true;
     };
 
-    const activeFilters = useMemo(() => {
-        const active: Array<{ label: string; value: string; key: keyof FilterState }> = [];
-
-        const addRangeFilter = (label: string, minKey: keyof FilterState, maxKey: keyof FilterState) => {
-            const minValue = filters[minKey];
-            const maxValue = filters[maxKey];
-            if (minValue || maxValue) {
-                active.push({
-                    label,
-                    value: `${minValue || 'Min'} - ${maxValue || 'Max'}`,
-                    key: minKey
-                });
-            }
-        };
-
-        if (filters.industry_group.length > 0) active.push({
-            label: 'Industry Groups',
-            value: filters.industry_group.join(', '),
-            key: 'industry_group'
-        });
-        if (filters.sector.length > 0) active.push({
-            label: 'Sectors',
-            value: filters.sector.join(', '),
-            key: 'sector'
-        });
-
-        addRangeFilter('Rank', 'rank_min', 'rank_max');
-        addRangeFilter('Num Stocks', 'number_of_stocks_min', 'number_of_stocks_max');
-        addRangeFilter('Rank 1W Ago', 'rank_1_week_ago_min', 'rank_1_week_ago_max');
-        addRangeFilter('Rank 3M Ago', 'rank_3_months_ago_min', 'rank_3_months_ago_max');
-        addRangeFilter('Rank 6M Ago', 'rank_6_months_ago_min', 'rank_6_months_ago_max');
-        addRangeFilter('% Chg YTD', 'ytd_change_percent_min', 'ytd_change_percent_max');
-        addRangeFilter('Market Value', 'market_value_min', 'market_value_max');
-
-        return active;
-    }, [filters]);
-
     const filteredData = useMemo(() => {
         let filtered = data.filter(item => {
-            if (filters.industry_group.length > 0 && !filters.industry_group.includes(item.industry_group)) return false;
+            // Industry Filters
             if (filters.sector.length > 0 && !filters.sector.includes(item.sector)) return false;
+            if (filters.industry_group.length > 0 && !filters.industry_group.includes(item.industry_group)) return false;
+            if (filters.letter_grade.length > 0 && !filters.letter_grade.includes(item.letter_grade || '')) return false;
 
-            if (!checkRange(item.rank, 'rank_min', 'rank_max')) return false;
+            // Range Filters
             if (!checkRange(item.number_of_stocks, 'number_of_stocks_min', 'number_of_stocks_max')) return false;
+            if (!checkRange(item.rank, 'rank_min', 'rank_max')) return false;
             if (!checkRange(item.rank_1_week_ago, 'rank_1_week_ago_min', 'rank_1_week_ago_max', true)) return false;
             if (!checkRange(item.rank_3_months_ago, 'rank_3_months_ago_min', 'rank_3_months_ago_max', true)) return false;
             if (!checkRange(item.rank_6_months_ago, 'rank_6_months_ago_min', 'rank_6_months_ago_max', true)) return false;
             if (!checkRange(item.ytd_change_percent, 'ytd_change_percent_min', 'ytd_change_percent_max', true)) return false;
             if (!checkRange(item.market_value, 'market_value_min', 'market_value_max')) return false;
+            if (!checkRange(item.change_vs_last_week, 'change_vs_last_week_min', 'change_vs_last_week_max', true)) return false;
 
             return true;
         });
 
+        // Apply sorting
         if (sortConfigs.length > 0) {
             filtered = [...filtered].sort((a, b) => {
                 for (const config of sortConfigs) {
@@ -705,7 +641,6 @@ export default function IndustryGroupsPage() {
                             case 'display_order':
                                 return 0;
                             case 'rank':
-                            case 'group_rank':
                                 return item.rank;
                             case 'industry_group':
                                 return item.industry_group.toLowerCase();
@@ -758,17 +693,20 @@ export default function IndustryGroupsPage() {
         if (!stocks) return [];
 
         let filtered = stocks.filter(stock => {
+            // تطبيق industry و sub industry من الفلاتر الرئيسية
+            if (filters.industry.length > 0 && !filters.industry.includes(stock.industry)) return false;
+            if (filters.sub_industry.length > 0 && !filters.sub_industry.includes(stock.sub_industry)) return false;
+
+            // Stock table specific filters
             if (stockFilters.symbol && !stock.symbol.toLowerCase().includes(stockFilters.symbol.toLowerCase())) return false;
             if (stockFilters.company_name && !stock.company_name.toLowerCase().includes(stockFilters.company_name.toLowerCase())) return false;
 
-            if (!checkStockRange(stock.rs_rating, 'rs_rating_min', 'rs_rating_max', true)) return false;
-            if (!checkStockRange(stock.rs_rating_1_week_ago, 'rs_rating_1_week_ago_min', 'rs_rating_1_week_ago_max', true)) return false;
-            if (!checkStockRange(stock.rs_rating_4_weeks_ago, 'rs_rating_4_weeks_ago_min', 'rs_rating_4_weeks_ago_max', true)) return false;
-            if (!checkStockRange(stock.rs_rating_3_months_ago, 'rs_rating_3_months_ago_min', 'rs_rating_3_months_ago_max', true)) return false;
-            if (!checkStockRange(stock.rs_rating_6_months_ago, 'rs_rating_6_months_ago_min', 'rs_rating_6_months_ago_max', true)) return false;
-
-            if (stockFilters.industry.length > 0 && !stockFilters.industry.includes(stock.industry)) return false;
-            if (stockFilters.sub_industry.length > 0 && !stockFilters.sub_industry.includes(stock.sub_industry)) return false;
+            if (!checkStockRange(stock.rs_rating, 'rs_rating_min', 'rs_rating_max')) return false;
+            if (!checkStockRange(stock.rs_rating_1_week_ago, 'rs_rating_1_week_ago_min', 'rs_rating_1_week_ago_max')) return false;
+            if (!checkStockRange(stock.rs_rating_4_weeks_ago, 'rs_rating_4_weeks_ago_min', 'rs_rating_4_weeks_ago_max')) return false;
+            if (!checkStockRange(stock.rs_rating_3_months_ago, 'rs_rating_3_months_ago_min', 'rs_rating_3_months_ago_max')) return false;
+            if (!checkStockRange(stock.rs_rating_6_months_ago, 'rs_rating_6_months_ago_min', 'rs_rating_6_months_ago_max')) return false;
+            if (!checkStockRange(stock.rs_rating_1_year_ago, 'rs_rating_1_year_ago_min', 'rs_rating_1_year_ago_max')) return false;
 
             return true;
         });
@@ -827,7 +765,7 @@ export default function IndustryGroupsPage() {
         }
 
         return filtered;
-    }, [stocksCache, stockFilters, stockSortConfigs]);
+    }, [stocksCache, stockFilters, stockSortConfigs, filters.industry, filters.sub_industry]);
 
     const clearFilter = useCallback((key: keyof FilterState) => {
         if (Array.isArray(filters[key])) {
@@ -845,14 +783,15 @@ export default function IndustryGroupsPage() {
     }, [filters]);
 
     const clearAllFilters = useCallback(() => {
-        // Reset main table filters
         setFilters({
-            industry_group: [],
             sector: [],
-            rank_min: '',
-            rank_max: '',
+            industry_group: [],
+            industry: [],
+            sub_industry: [],
             number_of_stocks_min: '',
             number_of_stocks_max: '',
+            rank_min: '',
+            rank_max: '',
             rank_1_week_ago_min: '',
             rank_1_week_ago_max: '',
             rank_3_months_ago_min: '',
@@ -863,9 +802,11 @@ export default function IndustryGroupsPage() {
             ytd_change_percent_max: '',
             market_value_min: '',
             market_value_max: '',
+            change_vs_last_week_min: '',
+            change_vs_last_week_max: '',
+            letter_grade: [],
         });
 
-        // Reset stock table filters
         setStockFilters({
             symbol: '',
             company_name: '',
@@ -879,11 +820,10 @@ export default function IndustryGroupsPage() {
             rs_rating_3_months_ago_max: '',
             rs_rating_6_months_ago_min: '',
             rs_rating_6_months_ago_max: '',
-            industry: [],
-            sub_industry: [],
+            rs_rating_1_year_ago_min: '',
+            rs_rating_1_year_ago_max: '',
         });
 
-        // Reset sorting
         setSortConfigs([]);
         setStockSortConfigs({});
     }, []);
@@ -947,6 +887,27 @@ export default function IndustryGroupsPage() {
         if (val < 0) return 'text-red-600 font-medium';
         return '';
     };
+
+    const activeFilters = useMemo(() => {
+        const active: Array<{ label: string; value: string; key: keyof FilterState }> = [];
+
+        if (filters.sector.length > 0) active.push({ label: 'Sectors', value: filters.sector.join(', '), key: 'sector' });
+        if (filters.industry_group.length > 0) active.push({ label: 'Industry Groups', value: filters.industry_group.join(', '), key: 'industry_group' });
+        if (filters.industry.length > 0) active.push({ label: 'Industries', value: filters.industry.join(', '), key: 'industry' });
+        if (filters.sub_industry.length > 0) active.push({ label: 'Sub Industries', value: filters.sub_industry.join(', '), key: 'sub_industry' });
+        if (filters.letter_grade.length > 0) active.push({ label: 'Letter Grade', value: filters.letter_grade.join(', '), key: 'letter_grade' });
+
+        if (filters.number_of_stocks_min || filters.number_of_stocks_max) active.push({ label: 'Num Stocks', value: `${filters.number_of_stocks_min || 'Min'} - ${filters.number_of_stocks_max || 'Max'}`, key: 'number_of_stocks_min' });
+        if (filters.rank_min || filters.rank_max) active.push({ label: 'Rank', value: `${filters.rank_min || 'Min'} - ${filters.rank_max || 'Max'}`, key: 'rank_min' });
+        if (filters.rank_1_week_ago_min || filters.rank_1_week_ago_max) active.push({ label: 'Rank 1W Ago', value: `${filters.rank_1_week_ago_min || 'Min'} - ${filters.rank_1_week_ago_max || 'Max'}`, key: 'rank_1_week_ago_min' });
+        if (filters.rank_3_months_ago_min || filters.rank_3_months_ago_max) active.push({ label: 'Rank 3M Ago', value: `${filters.rank_3_months_ago_min || 'Min'} - ${filters.rank_3_months_ago_max || 'Max'}`, key: 'rank_3_months_ago_min' });
+        if (filters.rank_6_months_ago_min || filters.rank_6_months_ago_max) active.push({ label: 'Rank 6M Ago', value: `${filters.rank_6_months_ago_min || 'Min'} - ${filters.rank_6_months_ago_max || 'Max'}`, key: 'rank_6_months_ago_min' });
+        if (filters.ytd_change_percent_min || filters.ytd_change_percent_max) active.push({ label: '% Chg YTD', value: `${filters.ytd_change_percent_min || 'Min'} - ${filters.ytd_change_percent_max || 'Max'}`, key: 'ytd_change_percent_min' });
+        if (filters.market_value_min || filters.market_value_max) active.push({ label: 'Market Value', value: `${filters.market_value_min || 'Min'} - ${filters.market_value_max || 'Max'}`, key: 'market_value_min' });
+        if (filters.change_vs_last_week_min || filters.change_vs_last_week_max) active.push({ label: 'Change v last week', value: `${filters.change_vs_last_week_min || 'Min'} - ${filters.change_vs_last_week_max || 'Max'}`, key: 'change_vs_last_week_min' });
+
+        return active;
+    }, [filters]);
 
     const exportToCSV = () => {
         if (filteredData.length === 0) return;
@@ -1052,233 +1013,234 @@ export default function IndustryGroupsPage() {
             `}</style>
 
             <div className="flex">
+                {/* Sidebar */}
                 <div
                     className={`
                         bg-white border-r border-gray-200 h-[calc(100vh-64px)] flex flex-col transition-all duration-300 ease-in-out overflow-hidden
-                        ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full opacity-0'}
+                        ${isSidebarOpen ? 'w-80 translate-x-0' : 'w-0 -translate-x-full opacity-0'}
                     `}
                 >
                     <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 bg-white">
-                        <div className="flex space-x-2">
-                            <button
-                                onClick={exportToCSV}
-                                className="w-full px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center justify-center space-x-2 transition-all whitespace-nowrap"
-                            >
-                                <Download className="w-4 h-4" />
-                                <span>Export</span>
-                            </button>
-                        </div>
+                        <button
+                            onClick={exportToCSV}
+                            className="w-full px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center justify-center space-x-2 transition-all"
+                        >
+                            <Download className="w-4 h-4" />
+                            <span>Export to CSV</span>
+                        </button>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                        <div className="mb-4 space-y-2">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Search Industry Group..."
-                                    value={filters.industry_group.join(', ')}
-                                    onChange={(e) => {
-                                        const value = e.target.value;
-                                        if (value.trim() === '') {
-                                            setFilters(prev => ({ ...prev, industry_group: [] }));
-                                        }
-                                    }}
-                                    className="w-full pl-10 pr-3 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all outline-none"
-                                />
-                            </div>
-                        </div>
-
-                        <FilterAccordion title="INDUSTRY FILTERS" defaultOpen={false} collapseSignal={collapseSignal}>
+                        {/* INDUSTRY FILTERS SECTION - 4 filters together */}
+                        <FilterAccordion title="INDUSTRY FILTERS" defaultOpen={true} collapseSignal={collapseSignal}>
                             <div className="space-y-3">
-                                <CustomMultiSelect
-                                    options={filterOptions.industryGroups}
-                                    selected={filters.industry_group}
-                                    onChange={(value) => setFilters(prev => ({ ...prev, industry_group: value }))}
-                                    placeholder={`Industry Groups (${filterOptions.industryGroups.length})`}
-                                    icon={Filter}
-                                />
                                 <CustomMultiSelect
                                     options={filterOptions.sectors}
                                     selected={filters.sector}
                                     onChange={(value) => setFilters(prev => ({ ...prev, sector: value }))}
-                                    placeholder={`Sectors (${filterOptions.sectors.length})`}
+                                    placeholder="Sectors"
+                                    icon={Filter}
+                                />
+                                <CustomMultiSelect
+                                    options={filterOptions.industryGroups}
+                                    selected={filters.industry_group}
+                                    onChange={(value) => setFilters(prev => ({ ...prev, industry_group: value }))}
+                                    placeholder="Industry Groups"
+                                    icon={Filter}
+                                />
+                                <CustomMultiSelect
+                                    options={filterOptions.industries}
+                                    selected={filters.industry}
+                                    onChange={(value) => setFilters(prev => ({ ...prev, industry: value }))}
+                                    placeholder="Industries"
+                                    icon={Filter}
+                                />
+                                <CustomMultiSelect
+                                    options={filterOptions.subIndustries}
+                                    selected={filters.sub_industry}
+                                    onChange={(value) => setFilters(prev => ({ ...prev, sub_industry: value }))}
+                                    placeholder="Sub Industries"
                                     icon={Filter}
                                 />
                             </div>
                         </FilterAccordion>
 
-                        <FilterAccordion title="RANK FILTERS" collapseSignal={collapseSignal}>
-                            <RangeFilter
-                                label="Rank"
-                                minValue={filters.rank_min}
-                                maxValue={filters.rank_max}
-                                onMinChange={(value) => setFilters(prev => ({ ...prev, rank_min: value }))}
-                                onMaxChange={(value) => setFilters(prev => ({ ...prev, rank_max: value }))}
-                                minPlaceholder="1"
-                                maxPlaceholder="197"
-                            />
-                            <RangeFilter
-                                label="Rank 1 Week Ago"
-                                minValue={filters.rank_1_week_ago_min}
-                                maxValue={filters.rank_1_week_ago_max}
-                                onMinChange={(value) => setFilters(prev => ({ ...prev, rank_1_week_ago_min: value }))}
-                                onMaxChange={(value) => setFilters(prev => ({ ...prev, rank_1_week_ago_max: value }))}
-                                minPlaceholder="Min"
-                                maxPlaceholder="Max"
-                            />
-                            <RangeFilter
-                                label="Rank 3 Months Ago"
-                                minValue={filters.rank_3_months_ago_min}
-                                maxValue={filters.rank_3_months_ago_max}
-                                onMinChange={(value) => setFilters(prev => ({ ...prev, rank_3_months_ago_min: value }))}
-                                onMaxChange={(value) => setFilters(prev => ({ ...prev, rank_3_months_ago_max: value }))}
-                                minPlaceholder="Min"
-                                maxPlaceholder="Max"
-                            />
-                            <RangeFilter
-                                label="Rank 6 Months Ago"
-                                minValue={filters.rank_6_months_ago_min}
-                                maxValue={filters.rank_6_months_ago_max}
-                                onMinChange={(value) => setFilters(prev => ({ ...prev, rank_6_months_ago_min: value }))}
-                                onMaxChange={(value) => setFilters(prev => ({ ...prev, rank_6_months_ago_max: value }))}
-                                minPlaceholder="Min"
-                                maxPlaceholder="Max"
-                            />
-                        </FilterAccordion>
+                        {/* MAIN TABLE FILTERS - Each column has its own filter */}
+                        <FilterAccordion title="MAIN TABLE FILTERS" defaultOpen={false} collapseSignal={collapseSignal}>
+                            <div className="space-y-4">
+                                {/* Letter Grade Filter */}
+                                <CustomMultiSelect
+                                    options={letterGradeOptions}
+                                    selected={filters.letter_grade}
+                                    onChange={(value) => setFilters(prev => ({ ...prev, letter_grade: value }))}
+                                    placeholder="Letter Grade"
+                                    icon={Filter}
+                                />
 
-                        <FilterAccordion title="STOCK STATISTICS" collapseSignal={collapseSignal}>
-                            <RangeFilter
-                                label="Number of Stocks"
-                                minValue={filters.number_of_stocks_min}
-                                maxValue={filters.number_of_stocks_max}
-                                onMinChange={(value) => setFilters(prev => ({ ...prev, number_of_stocks_min: value }))}
-                                onMaxChange={(value) => setFilters(prev => ({ ...prev, number_of_stocks_max: value }))}
-                                minPlaceholder="Min"
-                                maxPlaceholder="Max"
-                            />
-                            <RangeFilter
-                                label="Market Value (Bil)"
-                                minValue={filters.market_value_min}
-                                maxValue={filters.market_value_max}
-                                onMinChange={(value) => setFilters(prev => ({ ...prev, market_value_min: value }))}
-                                onMaxChange={(value) => setFilters(prev => ({ ...prev, market_value_max: value }))}
-                                minPlaceholder="Min"
-                                maxPlaceholder="Max"
-                            />
-                        </FilterAccordion>
+                                {/* Number of Stocks */}
+                                <RangeFilter
+                                    label="Number of Stocks"
+                                    minValue={filters.number_of_stocks_min}
+                                    maxValue={filters.number_of_stocks_max}
+                                    onMinChange={(value) => setFilters(prev => ({ ...prev, number_of_stocks_min: value }))}
+                                    onMaxChange={(value) => setFilters(prev => ({ ...prev, number_of_stocks_max: value }))}
+                                />
 
-                        <FilterAccordion title="PERFORMANCE FILTERS" collapseSignal={collapseSignal}>
-                            <RangeFilter
-                                label="YTD Change %"
-                                minValue={filters.ytd_change_percent_min}
-                                maxValue={filters.ytd_change_percent_max}
-                                onMinChange={(value) => setFilters(prev => ({ ...prev, ytd_change_percent_min: value }))}
-                                onMaxChange={(value) => setFilters(prev => ({ ...prev, ytd_change_percent_max: value }))}
-                                minPlaceholder="Min"
-                                maxPlaceholder="Max"
-                            />
-                        </FilterAccordion>
+                                {/* Rank */}
+                                <RangeFilter
+                                    label="Rank"
+                                    minValue={filters.rank_min}
+                                    maxValue={filters.rank_max}
+                                    onMinChange={(value) => setFilters(prev => ({ ...prev, rank_min: value }))}
+                                    onMaxChange={(value) => setFilters(prev => ({ ...prev, rank_max: value }))}
+                                />
 
-                        {/* Stock Table Filters Section */}
-                        <StockFilterAccordion title="STOCKS TABLE FILTERS" collapseSignal={collapseSignal}>
-                            <div className="space-y-3">
-                                <div className="space-y-2">
-                                    <div className="space-y-1">
-                                        <label className="block text-[10px] font-medium text-gray-600">Symbol</label>
-                                        <input
-                                            type="text"
-                                            placeholder="Search symbol..."
-                                            value={stockFilters.symbol}
-                                            onChange={(e) => setStockFilters(prev => ({ ...prev, symbol: e.target.value }))}
-                                            className="w-full px-2 py-1 text-[10px] bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all outline-none"
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="block text-[10px] font-medium text-gray-600">Company Name</label>
-                                        <input
-                                            type="text"
-                                            placeholder="Search company..."
-                                            value={stockFilters.company_name}
-                                            onChange={(e) => setStockFilters(prev => ({ ...prev, company_name: e.target.value }))}
-                                            className="w-full px-2 py-1 text-[10px] bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all outline-none"
-                                        />
-                                    </div>
-                                </div>
+                                {/* Rank 1 Week Ago */}
+                                <RangeFilter
+                                    label="Rank 1 Week Ago"
+                                    minValue={filters.rank_1_week_ago_min}
+                                    maxValue={filters.rank_1_week_ago_max}
+                                    onMinChange={(value) => setFilters(prev => ({ ...prev, rank_1_week_ago_min: value }))}
+                                    onMaxChange={(value) => setFilters(prev => ({ ...prev, rank_1_week_ago_max: value }))}
+                                />
 
-                                <div className="space-y-2">
-                                    <RangeFilter
-                                        label="RS Rating"
-                                        minValue={stockFilters.rs_rating_min}
-                                        maxValue={stockFilters.rs_rating_max}
-                                        onMinChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_min: value }))}
-                                        onMaxChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_max: value }))}
-                                        minPlaceholder="Min"
-                                        maxPlaceholder="Max"
-                                    />
-                                    <RangeFilter
-                                        label="RS 1 Week Ago"
-                                        minValue={stockFilters.rs_rating_1_week_ago_min}
-                                        maxValue={stockFilters.rs_rating_1_week_ago_max}
-                                        onMinChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_1_week_ago_min: value }))}
-                                        onMaxChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_1_week_ago_max: value }))}
-                                        minPlaceholder="Min"
-                                        maxPlaceholder="Max"
-                                    />
-                                    <RangeFilter
-                                        label="RS 4 Weeks Ago"
-                                        minValue={stockFilters.rs_rating_4_weeks_ago_min}
-                                        maxValue={stockFilters.rs_rating_4_weeks_ago_max}
-                                        onMinChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_4_weeks_ago_min: value }))}
-                                        onMaxChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_4_weeks_ago_max: value }))}
-                                        minPlaceholder="Min"
-                                        maxPlaceholder="Max"
-                                    />
-                                    <RangeFilter
-                                        label="RS 3 Months Ago"
-                                        minValue={stockFilters.rs_rating_3_months_ago_min}
-                                        maxValue={stockFilters.rs_rating_3_months_ago_max}
-                                        onMinChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_3_months_ago_min: value }))}
-                                        onMaxChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_3_months_ago_max: value }))}
-                                        minPlaceholder="Min"
-                                        maxPlaceholder="Max"
-                                    />
-                                    <RangeFilter
-                                        label="RS 6 Months Ago"
-                                        minValue={stockFilters.rs_rating_6_months_ago_min}
-                                        maxValue={stockFilters.rs_rating_6_months_ago_max}
-                                        onMinChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_6_months_ago_min: value }))}
-                                        onMaxChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_6_months_ago_max: value }))}
-                                        minPlaceholder="Min"
-                                        maxPlaceholder="Max"
-                                    />
-                                </div>
+                                {/* Rank 3 Months Ago */}
+                                <RangeFilter
+                                    label="Rank 3 Months Ago"
+                                    minValue={filters.rank_3_months_ago_min}
+                                    maxValue={filters.rank_3_months_ago_max}
+                                    onMinChange={(value) => setFilters(prev => ({ ...prev, rank_3_months_ago_min: value }))}
+                                    onMaxChange={(value) => setFilters(prev => ({ ...prev, rank_3_months_ago_max: value }))}
+                                />
 
-                                <div className="space-y-2">
-                                    <CustomMultiSelect
-                                        options={stockFilterOptions.industries}
-                                        selected={stockFilters.industry}
-                                        onChange={(value) => setStockFilters(prev => ({ ...prev, industry: value }))}
-                                        placeholder={`Industry (${stockFilterOptions.industries.length})`}
-                                        icon={Filter}
-                                    />
-                                    <CustomMultiSelect
-                                        options={stockFilterOptions.subIndustries}
-                                        selected={stockFilters.sub_industry}
-                                        onChange={(value) => setStockFilters(prev => ({ ...prev, sub_industry: value }))}
-                                        placeholder={`Sub Industry (${stockFilterOptions.subIndustries.length})`}
-                                        icon={Filter}
-                                    />
-                                </div>
+                                {/* Rank 6 Months Ago */}
+                                <RangeFilter
+                                    label="Rank 6 Months Ago"
+                                    minValue={filters.rank_6_months_ago_min}
+                                    maxValue={filters.rank_6_months_ago_max}
+                                    onMinChange={(value) => setFilters(prev => ({ ...prev, rank_6_months_ago_min: value }))}
+                                    onMaxChange={(value) => setFilters(prev => ({ ...prev, rank_6_months_ago_max: value }))}
+                                />
+
+                                {/* YTD Change % */}
+                                <RangeFilter
+                                    label="YTD Change %"
+                                    minValue={filters.ytd_change_percent_min}
+                                    maxValue={filters.ytd_change_percent_max}
+                                    onMinChange={(value) => setFilters(prev => ({ ...prev, ytd_change_percent_min: value }))}
+                                    onMaxChange={(value) => setFilters(prev => ({ ...prev, ytd_change_percent_max: value }))}
+                                />
+
+                                {/* Market Value */}
+                                <RangeFilter
+                                    label="Market Value (Bil)"
+                                    minValue={filters.market_value_min}
+                                    maxValue={filters.market_value_max}
+                                    onMinChange={(value) => setFilters(prev => ({ ...prev, market_value_min: value }))}
+                                    onMaxChange={(value) => setFilters(prev => ({ ...prev, market_value_max: value }))}
+                                />
+
+                                {/* Change vs Last Week */}
+                                <RangeFilter
+                                    label="Change vs Last Week"
+                                    minValue={filters.change_vs_last_week_min}
+                                    maxValue={filters.change_vs_last_week_max}
+                                    onMinChange={(value) => setFilters(prev => ({ ...prev, change_vs_last_week_min: value }))}
+                                    onMaxChange={(value) => setFilters(prev => ({ ...prev, change_vs_last_week_max: value }))}
+                                />
                             </div>
-                        </StockFilterAccordion>
+                        </FilterAccordion>
+
+                        {/* STOCKS TABLE FILTERS - Appears when a row is expanded */}
+                        <FilterAccordion title="STOCKS TABLE FILTERS" defaultOpen={false} collapseSignal={collapseSignal}>
+                            <div className="space-y-4">
+                                {/* Symbol Filter */}
+                                <div className="space-y-1">
+                                    <label className="block text-[10px] font-medium text-gray-600">Symbol</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Search symbol..."
+                                        value={stockFilters.symbol}
+                                        onChange={(e) => setStockFilters(prev => ({ ...prev, symbol: e.target.value }))}
+                                        className="w-full px-2 py-1 text-[10px] bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all outline-none"
+                                    />
+                                </div>
+
+                                {/* Company Name Filter */}
+                                <div className="space-y-1">
+                                    <label className="block text-[10px] font-medium text-gray-600">Company Name</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Search company..."
+                                        value={stockFilters.company_name}
+                                        onChange={(e) => setStockFilters(prev => ({ ...prev, company_name: e.target.value }))}
+                                        className="w-full px-2 py-1 text-[10px] bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all outline-none"
+                                    />
+                                </div>
+
+                                {/* RS Rating */}
+                                <RangeFilter
+                                    label="RS Rating"
+                                    minValue={stockFilters.rs_rating_min}
+                                    maxValue={stockFilters.rs_rating_max}
+                                    onMinChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_min: value }))}
+                                    onMaxChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_max: value }))}
+                                />
+
+                                {/* RS Rating 1 Week Ago */}
+                                <RangeFilter
+                                    label="RS Rating 1 Week Ago"
+                                    minValue={stockFilters.rs_rating_1_week_ago_min}
+                                    maxValue={stockFilters.rs_rating_1_week_ago_max}
+                                    onMinChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_1_week_ago_min: value }))}
+                                    onMaxChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_1_week_ago_max: value }))}
+                                />
+
+                                {/* RS Rating 4 Weeks Ago */}
+                                <RangeFilter
+                                    label="RS Rating 4 Weeks Ago"
+                                    minValue={stockFilters.rs_rating_4_weeks_ago_min}
+                                    maxValue={stockFilters.rs_rating_4_weeks_ago_max}
+                                    onMinChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_4_weeks_ago_min: value }))}
+                                    onMaxChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_4_weeks_ago_max: value }))}
+                                />
+
+                                {/* RS Rating 3 Months Ago */}
+                                <RangeFilter
+                                    label="RS Rating 3 Months Ago"
+                                    minValue={stockFilters.rs_rating_3_months_ago_min}
+                                    maxValue={stockFilters.rs_rating_3_months_ago_max}
+                                    onMinChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_3_months_ago_min: value }))}
+                                    onMaxChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_3_months_ago_max: value }))}
+                                />
+
+                                {/* RS Rating 6 Months Ago */}
+                                <RangeFilter
+                                    label="RS Rating 6 Months Ago"
+                                    minValue={stockFilters.rs_rating_6_months_ago_min}
+                                    maxValue={stockFilters.rs_rating_6_months_ago_max}
+                                    onMinChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_6_months_ago_min: value }))}
+                                    onMaxChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_6_months_ago_max: value }))}
+                                />
+
+                                {/* RS Rating 1 Year Ago */}
+                                <RangeFilter
+                                    label="RS Rating 1 Year Ago"
+                                    minValue={stockFilters.rs_rating_1_year_ago_min}
+                                    maxValue={stockFilters.rs_rating_1_year_ago_max}
+                                    onMinChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_1_year_ago_min: value }))}
+                                    onMaxChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_1_year_ago_max: value }))}
+                                />
+                            </div>
+                        </FilterAccordion>
                     </div>
 
-                    <div className="flex-shrink-0 px-4 py-4 border-t border-gray-200 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                    {/* Sidebar Footer */}
+                    <div className="flex-shrink-0 px-4 py-4 border-t border-gray-200 bg-white">
                         <div className="flex flex-col space-y-3">
                             <button
                                 onClick={() => setCollapseSignal(prev => prev + 1)}
-                                className="w-full px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all flex items-center justify-center space-x-2 border border-gray-200"
+                                className="w-full px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all flex items-center justify-center space-x-2"
                             >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -1288,7 +1250,7 @@ export default function IndustryGroupsPage() {
 
                             <button
                                 onClick={clearAllFilters}
-                                className="w-full px-4 py-2.5 text-sm font-semibold text-red-600 bg-white border border-red-200 hover:bg-red-50 rounded-lg transition-all flex items-center justify-center space-x-2 shadow-sm"
+                                className="w-full px-4 py-2.5 text-sm font-semibold text-red-600 bg-white border border-red-200 hover:bg-red-50 rounded-lg transition-all flex items-center justify-center space-x-2"
                             >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1299,7 +1261,9 @@ export default function IndustryGroupsPage() {
                     </div>
                 </div>
 
+                {/* Main Content */}
                 <div className="flex-1 flex flex-col h-[calc(100vh-64px)] overflow-hidden">
+                    {/* Header */}
                     <div className="bg-white border-b border-gray-200 px-4 py-2 flex-shrink-0">
                         <div className="flex justify-between items-center">
                             <div className="flex items-center space-x-4">
@@ -1323,6 +1287,7 @@ export default function IndustryGroupsPage() {
                             </div>
                         </div>
 
+                        {/* Active Filters */}
                         {activeFilters.length > 0 && (
                             <div className="mt-2 flex flex-wrap gap-2">
                                 {activeFilters.map((filter, index) => (
@@ -1337,6 +1302,7 @@ export default function IndustryGroupsPage() {
                         )}
                     </div>
 
+                    {/* Stats Cards */}
                     <div className="px-4 py-4 border-b border-gray-200 bg-gray-50">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
@@ -1371,6 +1337,7 @@ export default function IndustryGroupsPage() {
                         </div>
                     </div>
 
+                    {/* Main Table */}
                     <div className="flex-1 overflow-auto border-t border-gray-200 bg-white">
                         <table className="min-w-full bg-white text-sm border-separate border-spacing-0">
                             <thead className="bg-gray-50 sticky top-0 z-40 shadow-sm">

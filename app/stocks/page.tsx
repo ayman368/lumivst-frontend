@@ -3,707 +3,38 @@
 import Link from 'next/link';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Filter, ChevronLeft, ChevronRight, PanelLeft, Search } from 'lucide-react';
+import RatingBadge from './components/RatingBadge';
+import CustomMultiSelect from './components/CustomMultiSelect';
+import RangeFilter from './components/RangeFilter';
+import CustomDropdown from './components/CustomDropdown';
+import CheckboxGroup from './components/CheckboxGroup';
+import ActiveFilterBadge from './components/ActiveFilterBadge';
+import FilterAccordion from './components/FilterAccordion';
+import ExportMenu from './components/ExportMenu';
+import ColumnSelector from './components/ColumnSelector';
+import StockTable from './components/StockTable';
+import useStocks from './hooks/useStocks';
+import type { Stock, StockMetadata, FilterState } from './types';
 import * as XLSX from 'xlsx';
+import { cleanSymbol, cleanName, parseFormattedNumber, formatNumber, formatChange, formatChangePercent, formatText, displayRawValue } from './utils/formatters';
 
-// ==================== Interfaces ====================
+// Types and helpers moved to `types.ts` and `utils/formatters.ts`
 
-interface StockMetadata {
-    exchange: string;
-    currency: string;
-    datetime: string;
-    timezone: string;
-}
+// `CustomMultiSelect` moved to `components/CustomMultiSelect.tsx`
 
-interface Stock {
-    symbol: string;
-    name: string;
-    industry_group: string;
-    sector: string;
-    industry: string;
-    sub_industry: string;
+// `CustomDropdown` moved to `components/CustomDropdown.tsx`
 
-    price: string | number;
-    change: string | number;
-    percent_change: string | number;
-
-    open: string | number;
-    high: string | number;
-    low: string | number;
-
-    volume: string | number;
-    turnover: string | number;
-    no_of_trades: number;
-    market_cap: string | number;
-
-    // IBD Metrics
-    rs_rating?: number;
-    industry_group_rs?: string;
-    sector_rs?: string;
-    industry_rs?: string;
-    sub_industry_rs?: string;
-    acc_dis_rating?: string;
-
-    // Technical Indicators
-    price_minus_sma_10?: number;
-    price_minus_sma_21?: number;
-    price_minus_sma_50?: number;
-    price_minus_sma_150?: number;
-    price_minus_sma_200?: number;
-    fifty_two_week_high_price?: number;
-    fifty_two_week_low_price?: number;
-    average_volume_50?: number;
-
-    // Percentage Technicals
-    price_vs_sma_10_percent?: number;
-    price_vs_sma_21_percent?: number;
-    price_vs_sma_50_percent?: number;
-    price_vs_sma_150_percent?: number;
-    price_vs_sma_200_percent?: number;
-    percent_off_52w_high?: number;
-    percent_off_52w_low?: number;
-    vol_diff_50_percent?: number;
-}
-
-interface FilterState {
-    // SmartSelect Ratings
-    rs_rating_min: string;
-    rs_rating_max: string;
-    acc_dis_rating: string[];
-    industry_group_rs: string[];
-    sector_rs: string[];
-    industry_rs: string[];
-    sub_industry_rs: string[];
-
-    // Price & Volume
-    price_min: string;
-    price_max: string;
-    change_min: string;
-    change_max: string;
-    percent_change_min: string;
-    percent_change_max: string;
-    volume_min: string;
-    volume_max: string;
-    turnover_min: string;
-    turnover_max: string;
-    market_cap_min: string;
-    market_cap_max: string;
-    no_of_trades_min: string;
-    no_of_trades_max: string;
-    percent_off_52w_high_min: string;
-    percent_off_52w_high_max: string;
-    percent_off_52w_low_min: string;
-    percent_off_52w_low_max: string;
-
-    // Moving Averages - Absolute
-    price_minus_sma_10_min: string;
-    price_minus_sma_10_max: string;
-    price_minus_sma_21_min: string;
-    price_minus_sma_21_max: string;
-    price_minus_sma_50_min: string;
-    price_minus_sma_50_max: string;
-    price_minus_sma_150_min: string;
-    price_minus_sma_150_max: string;
-    price_minus_sma_200_min: string;
-    price_minus_sma_200_max: string;
-
-    // Moving Averages - Percentage
-    price_vs_sma_10_min: string;
-    price_vs_sma_10_max: string;
-    price_vs_sma_21_min: string;
-    price_vs_sma_21_max: string;
-    price_vs_sma_50_min: string;
-    price_vs_sma_50_max: string;
-    price_vs_sma_150_min: string;
-    price_vs_sma_150_max: string;
-    price_vs_sma_200_min: string;
-    price_vs_sma_200_max: string;
-
-    // 52 Week High/Low
-    fifty_two_week_high_min: string;
-    fifty_two_week_high_max: string;
-    fifty_two_week_low_min: string;
-    fifty_two_week_low_max: string;
-
-    // Volume Analysis
-    average_volume_50_min: string;
-    average_volume_50_max: string;
-    vol_diff_50_percent_min: string;
-    vol_diff_50_percent_max: string;
-
-    // Open/High/Low
-    open_min: string;
-    open_max: string;
-    high_min: string;
-    high_max: string;
-    low_min: string;
-    low_max: string;
-
-    // Quick Filters
-    symbol: string;
-    name: string;
-    industry_group: string[];
-    sector: string[];
-    industry: string[];
-    sub_industry: string[];
-}
-
-// ==================== Custom Multi-Select Dropdown Component ====================
-
-function CustomMultiSelect({
-    options,
-    selected,
-    onChange,
-    placeholder,
-    icon: Icon
-}: {
-    options: string[];
-    selected: string[];
-    onChange: (values: string[]) => void;
-    placeholder: string;
-    icon?: any;
-}) {
-    const [isOpen, setIsOpen] = useState(false);
-    const [search, setSearch] = useState('');
-    const dropdownRef = useRef<HTMLDivElement>(null);
-
-    const filteredOptions = options.filter(option =>
-        option.toLowerCase().includes(search.toLowerCase())
-    );
-
-    const handleSelect = (option: string) => {
-        if (selected.includes(option)) {
-            onChange(selected.filter(item => item !== option));
-        } else {
-            onChange([...selected, option]);
-        }
-    };
-
-    const handleClearAll = () => {
-        onChange([]);
-    };
-
-    useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    return (
-        <div className="relative" ref={dropdownRef}>
-            <button
-                type="button"
-                onClick={() => setIsOpen(!isOpen)}
-                className={`
-                    w-full pl-10 pr-8 py-2.5 text-xs bg-gray-50 border border-gray-200 rounded-lg 
-                    focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white
-                    outline-none transition-all hover:border-gray-300 text-left
-                    flex items-center justify-between min-h-[42px]
-                `}
-            >
-                <div className="flex items-center w-full">
-                    {Icon && <Icon className="absolute left-3 w-4 h-4 text-gray-400" />}
-                    <div className="flex flex-col items-start truncate w-full">
-                        <span className="font-medium text-gray-700 text-xs">
-                            {placeholder}
-                        </span>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                            {selected.length === 0 ? (
-                                <span className="text-gray-400 text-xs">All {placeholder}</span>
-                            ) : (
-                                <>
-                                    {selected.slice(0, 2).map((item) => (
-                                        <span
-                                            key={item}
-                                            className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] rounded-full"
-                                        >
-                                            {item}
-                                        </span>
-                                    ))}
-                                    {selected.length > 2 && (
-                                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] rounded-full">
-                                            +{selected.length - 2} more
-                                        </span>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </div>
-                <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-            </button>
-
-            {isOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-hidden">
-                    <div className="p-2 border-b border-gray-100">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="text-xs font-semibold text-gray-700">
-                                Selected: {selected.length}
-                            </span>
-                            {selected.length > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={handleClearAll}
-                                    className="text-xs text-red-600 hover:text-red-800"
-                                >
-                                    Clear All
-                                </button>
-                            )}
-                        </div>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                className="w-full pl-10 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                autoFocus
-                            />
-                        </div>
-                    </div>
-                    <div className="overflow-y-auto max-h-60 custom-scrollbar">
-                        {filteredOptions.length > 0 ? (
-                            <>
-                                {filteredOptions.map((option) => (
-                                    <button
-                                        key={option}
-                                        type="button"
-                                        onClick={() => handleSelect(option)}
-                                        className={`
-                                            w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center
-                                            ${selected.includes(option)
-                                                ? 'bg-blue-50 text-blue-600'
-                                                : 'text-gray-700'
-                                            }
-                                        `}
-                                    >
-                                        <div className="flex items-center w-full">
-                                            <div className={`w-4 h-4 border rounded mr-2 flex items-center justify-center
-                                                ${selected.includes(option)
-                                                    ? 'bg-blue-600 border-blue-600'
-                                                    : 'border-gray-300'
-                                                }
-                                            `}>
-                                                {selected.includes(option) && (
-                                                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                                    </svg>
-                                                )}
-                                            </div>
-                                            <span className="truncate">{option}</span>
-                                        </div>
-                                    </button>
-                                ))}
-                            </>
-                        ) : (
-                            <div className="px-3 py-2 text-sm text-gray-500 text-center">No options found</div>
-                        )}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-// ==================== Custom Single-Select Dropdown Component ====================
-
-function CustomDropdown({
-    options,
-    value,
-    onChange,
-    placeholder,
-    icon: Icon
-}: {
-    options: string[];
-    value: string;
-    onChange: (value: string) => void;
-    placeholder: string;
-    icon?: any;
-}) {
-    const [isOpen, setIsOpen] = useState(false);
-    const [search, setSearch] = useState('');
-    const dropdownRef = useRef<HTMLDivElement>(null);
-
-    const filteredOptions = options.filter(option =>
-        option.toLowerCase().includes(search.toLowerCase())
-    );
-
-    useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    return (
-        <div className="relative" ref={dropdownRef}>
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className={`
-                    w-full pl-10 pr-8 py-2.5 text-xs bg-gray-50 border border-gray-200 rounded-lg 
-                    focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white
-                    outline-none transition-all hover:border-gray-300 text-left
-                    flex items-center justify-between
-                `}
-            >
-                <div className="flex items-center">
-                    {Icon && <Icon className="absolute left-3 w-4 h-4 text-gray-400" />}
-                    <span className="truncate">
-                        {value || placeholder}
-                    </span>
-                </div>
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-            </button>
-
-            {isOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-hidden">
-                    <div className="p-2 border-b border-gray-100">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                className="w-full pl-10 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                autoFocus
-                            />
-                        </div>
-                    </div>
-                    <div className="overflow-y-auto max-h-48 custom-scrollbar">
-                        {filteredOptions.length > 0 ? (
-                            <>
-                                <button
-                                    onClick={() => {
-                                        onChange('');
-                                        setIsOpen(false);
-                                    }}
-                                    className={`
-                                        w-full px-3 py-2 text-left text-sm hover:bg-gray-50 border-b border-gray-100
-                                        ${!value ? 'bg-blue-50 text-blue-600' : 'text-gray-700'}
-                                    `}
-                                >
-                                    {placeholder}
-                                </button>
-                                {filteredOptions.map((option) => (
-                                    <button
-                                        key={option}
-                                        onClick={() => {
-                                            onChange(option === value ? '' : option);
-                                            setIsOpen(false);
-                                        }}
-                                        className={`
-                                            w-full px-3 py-2 text-left text-sm hover:bg-gray-50
-                                            ${option === value ? 'bg-blue-50 text-blue-600' : 'text-gray-700'}
-                                        `}
-                                    >
-                                        {option}
-                                    </button>
-                                ))}
-                            </>
-                        ) : (
-                            <div className="px-3 py-2 text-sm text-gray-500 text-center">No options found</div>
-                        )}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-// ==================== Helper Functions ====================
-
-function cleanSymbol(symbol: string): string {
-    if (!symbol) return '';
-    return symbol.replace(/\D/g, '');
-}
-
-function cleanName(value: any): string {
-    if (!value || value === 'N/A') return 'N/A';
-    return String(value).trim().replace(/\.$/, '');
-}
-
-function parseFormattedNumber(value: any, handleParentheses = false): number {
-    if (!value || value === 'N/A' || value === '') return 0;
-
-    if (typeof value === 'number') return value;
-
-    const strValue = value.toString().trim();
-
-    if (handleParentheses && strValue.startsWith('(') && strValue.endsWith(')')) {
-        return -parseFloat(strValue.slice(1, -1).replace(/,/g, ''));
-    }
-
-    if (strValue.includes('%')) {
-        return parseFloat(strValue.replace('%', ''));
-    }
-
-    return parseFloat(strValue.replace(/,/g, '')) || 0;
-}
-
-function formatNumber(value: any): string {
-    if (value === null || value === undefined || value === 'N/A') return 'N/A';
-
-    const num = parseFormattedNumber(value);
-    if (isNaN(num)) return 'N/A';
-
-    return num.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
-}
-
-function formatChange(value: any): string {
-    if (value === null || value === undefined || value === 'N/A') return 'N/A';
-
-    const num = parseFormattedNumber(value, true);
-    if (isNaN(num)) return 'N/A';
-
-    const absNum = Math.abs(num);
-    const formatted = absNum.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
-
-    return num < 0 ? `(${formatted})` : formatted;
-}
-
-function formatChangePercent(value: any): string {
-    if (value === null || value === undefined || value === 'N/A') return 'N/A';
-
-    const num = parseFormattedNumber(value);
-    if (isNaN(num)) return 'N/A';
-
-    const absNum = Math.abs(num);
-    return num < 0 ? `(${absNum.toFixed(2)}%)` : `${absNum.toFixed(2)}%`;
-}
-
-function formatText(value: any): string {
-    if (!value || value === 'N/A') return 'N/A';
-    return String(value);
-}
-
-function displayRawValue(value: any): string {
-    if (value === null || value === undefined || value === '') return 'N/A';
-
-    if (typeof value === 'number') {
-        return value.toLocaleString('en-US', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        });
-    }
-
-    const strValue = String(value).trim();
-    if (strValue === 'N/A') return 'N/A';
-
-    const num = parseFloat(strValue.replace(/,/g, ''));
-    if (!isNaN(num)) {
-        return num.toLocaleString('en-US', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        });
-    }
-
-    return strValue;
-}
+// Helper functions moved to `utils/formatters.ts`
 
 // Helper Component for Ratings
-function RatingBadge({ value }: { value?: string }) {
-    if (!value || value === 'N/A') return <span className="text-gray-300">-</span>;
+// `RatingBadge` moved to `components/RatingBadge.tsx`
 
-    let bg = 'bg-gray-100';
-    let color = 'text-gray-700';
-    let border = 'border-gray-200';
-
-    if (value.startsWith('A')) { bg = 'bg-green-100'; color = 'text-green-800'; border = 'border-green-200'; }
-    else if (value.startsWith('B')) { bg = 'bg-blue-100'; color = 'text-blue-800'; border = 'border-blue-200'; }
-    else if (value.startsWith('C')) { bg = 'bg-yellow-100'; color = 'text-yellow-800'; border = 'border-yellow-200'; }
-    else if (value.startsWith('D')) { bg = 'bg-orange-100'; color = 'text-orange-800'; border = 'border-orange-200'; }
-    else if (value.startsWith('E')) { bg = 'bg-red-100'; color = 'text-red-800'; border = 'border-red-200'; }
-
-    return (
-        <span className={`
-      inline-block px-2 py-0.5 rounded text-xs font-bold
-      ${bg} ${color} border ${border} min-w-6 text-center
-    `}>
-            {value}
-        </span>
-    );
-}
-
-// Accordion Component for Sidebar
-function FilterAccordion({
-    title,
-    children,
-    defaultOpen = false,
-    collapseSignal = 0
-}: {
-    title: string;
-    children: React.ReactNode;
-    defaultOpen?: boolean;
-    collapseSignal?: number;
-}) {
-    const [isOpen, setIsOpen] = useState(defaultOpen);
-
-    useEffect(() => {
-        if (collapseSignal > 0) {
-            setIsOpen(false);
-        }
-    }, [collapseSignal]);
-
-    return (
-        <div className="border-b border-gray-200 pb-3">
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="w-full flex justify-between items-center py-2 text-xs font-semibold text-gray-700 hover:text-gray-900"
-            >
-                <span>{title}</span>
-                <svg
-                    className={`w-4 h-4 transition-transform ${isOpen ? 'transform rotate-180' : ''}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-            </button>
-            {isOpen && (
-                <div className="mt-2 space-y-3">
-                    {children}
-                </div>
-            )}
-        </div>
-    );
-}
-
-// Range Input Component
-function RangeFilter({
-    label,
-    minValue,
-    maxValue,
-    onMinChange,
-    onMaxChange,
-    minPlaceholder = "Min",
-    maxPlaceholder = "Max"
-}: {
-    label: string;
-    minValue: string;
-    maxValue: string;
-    onMinChange: (value: string) => void;
-    onMaxChange: (value: string) => void;
-    minPlaceholder?: string;
-    maxPlaceholder?: string;
-}) {
-    return (
-        <div className="space-y-1">
-            <label className="block text-[10px] font-medium text-gray-600">{label}</label>
-            <div className="flex space-x-2">
-                <input
-                    type="number"
-                    placeholder={minPlaceholder}
-                    value={minValue}
-                    onChange={(e) => onMinChange(e.target.value)}
-                    className="w-full px-2 py-1 text-[10px] bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all outline-none"
-                />
-                <span className="self-center text-[10px] text-gray-400">-</span>
-                <input
-                    type="number"
-                    placeholder={maxPlaceholder}
-                    value={maxValue}
-                    onChange={(e) => onMaxChange(e.target.value)}
-                    className="w-full px-2 py-1 text-[10px] bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all outline-none"
-                />
-            </div>
-        </div>
-    );
-}
-
-// Checkbox Group Component
-function CheckboxGroup({
-    label,
-    options,
-    selected,
-    onChange
-}: {
-    label: string;
-    options: string[];
-    selected: string[];
-    onChange: (value: string[]) => void;
-}) {
-    const toggleOption = (option: string) => {
-        if (selected.includes(option)) {
-            onChange(selected.filter(item => item !== option));
-        } else {
-            onChange([...selected, option]);
-        }
-    };
-
-    return (
-        <div className="space-y-1">
-            <label className="block text-[10px] font-medium text-gray-600">{label}</label>
-            <div className="flex flex-wrap gap-1">
-                {options.map((option) => (
-                    <button
-                        key={option}
-                        type="button"
-                        onClick={() => toggleOption(option)}
-                        className={`
-              px-2 py-1 text-[10px] font-medium rounded transition-colors
-              ${selected.includes(option)
-                                ? 'bg-blue-100 text-blue-700 border border-blue-300'
-                                : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
-                            }
-            `}
-                    >
-                        {option}
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-// Active Filter Badge Component
-function ActiveFilterBadge({
-    label,
-    value,
-    onRemove
-}: {
-    label: string;
-    value: string;
-    onRemove: () => void;
-}) {
-    return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700 border border-blue-200">
-            {label}: {value}
-            <button
-                onClick={onRemove}
-                className="ml-1 text-blue-500 hover:text-blue-700"
-            >
-                ×
-            </button>
-        </span>
-    );
-}
+// `FilterAccordion`, `CheckboxGroup`, and `ActiveFilterBadge` moved to `components/` folder
 
 // ==================== Main Component ====================
 
 export default function StockScreenerPage() {
-    const [stocks, setStocks] = useState<Stock[]>([]);
-    const [metadata, setMetadata] = useState<StockMetadata | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { stocks, metadata, loading, error, setStocks, setMetadata, setLoading, setError, refetch } = useStocks();
     const [sortConfigs, setSortConfigs] = useState<Array<{ key: string; direction: 'asc' | 'desc' }>>([]);
     const [showColumnMenu, setShowColumnMenu] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
@@ -1072,6 +403,7 @@ export default function StockScreenerPage() {
                         percent_off_52w_high: item.percent_off_52w_high,
                         percent_off_52w_low: item.percent_off_52w_low,
                         vol_diff_50_percent: item.vol_diff_50_percent,
+                        trading_view_symbol: item.trading_view_symbol,
                     };
                 });
 
@@ -1377,6 +709,7 @@ export default function StockScreenerPage() {
                             case 'percent_off_52w_high': return stock.percent_off_52w_high || 0;
                             case 'percent_off_52w_low': return stock.percent_off_52w_low || 0;
                             case 'vol_diff_50_percent': return stock.vol_diff_50_percent || 0;
+                            case 'trading_view_symbol': return stock.trading_view_symbol || '';
                             default: return 0;
                         }
                     };
@@ -1453,6 +786,7 @@ export default function StockScreenerPage() {
                     case 'percent_off_52w_high': return formatChangePercent(stock.percent_off_52w_high);
                     case 'percent_off_52w_low': return formatChangePercent(stock.percent_off_52w_low);
                     case 'vol_diff_50_percent': return formatChangePercent(stock.vol_diff_50_percent);
+                    case 'trading_view_symbol': return stock.trading_view_symbol || '';
                     default: return '';
                 }
             });
@@ -1504,39 +838,33 @@ export default function StockScreenerPage() {
         );
     }, [columnDefinitions, columnSearch]);
 
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                    <h2 className="mt-4 text-lg font-semibold text-gray-700">Loading Data...</h2>
-                    <p className="text-gray-500">Please wait</p>
-                </div>
+    if (loading) return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <h2 className="mt-4 text-lg font-semibold text-gray-700">Loading Data...</h2>
+                <p className="text-gray-500">Please wait</p>
             </div>
-        );
-    }
+        </div>
+    );
 
-    if (error) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center text-red-600">
-                    <h2 className="text-lg font-semibold">Error fetching data</h2>
-                    <p>{error}</p>
-                </div>
+    if (error) return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="text-center text-red-600">
+                <h2 className="text-lg font-semibold">Error fetching data</h2>
+                <p>{error}</p>
             </div>
-        );
-    }
+        </div>
+    );
 
-    if (stocks.length === 0) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center text-gray-500">
-                    <h2 className="text-lg font-semibold">No Data Available</h2>
-                    <p>No stock data found</p>
-                </div>
+    if (stocks.length === 0) return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="text-center text-gray-500">
+                <h2 className="text-lg font-semibold">No Data Available</h2>
+                <p>No stock data found</p>
             </div>
-        );
-    }
+        </div>
+    );
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -1577,7 +905,6 @@ export default function StockScreenerPage() {
                     {/* Header with Export & Columns */}
                     <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 bg-white">
                         <div className="flex space-x-2">
-                            {/* Export Dropdown */}
                             <div className="relative flex-1" ref={exportMenuRef}>
                                 <button
                                     onClick={() => setShowExportMenu(!showExportMenu)}
@@ -1592,41 +919,14 @@ export default function StockScreenerPage() {
                                     </svg>
                                 </button>
 
-                                {showExportMenu && (
-                                    <div className="absolute left-0 mt-2 w-56 bg-white rounded-md shadow-lg z-[110] border border-gray-200 py-1">
-                                        <button
-                                            onClick={() => handleExport('csv')}
-                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                                        >
-                                            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                                            <span>comma delimited (.csv)</span>
-                                        </button>
-                                        <button
-                                            onClick={() => handleExport('xls')}
-                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                                        >
-                                            <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                                            <span>excel 97-2003 (.xls)</span>
-                                        </button>
-                                        <button
-                                            onClick={() => handleExport('xlsx')}
-                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                                        >
-                                            <span className="w-2 h-2 bg-green-600 rounded-full"></span>
-                                            <span>excel (.xlsx)</span>
-                                        </button>
-                                        <button
-                                            onClick={() => handleExport('txt')}
-                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                                        >
-                                            <span className="w-2 h-2 bg-gray-500 rounded-full"></span>
-                                            <span>Text (.txt)</span>
-                                        </button>
-                                    </div>
-                                )}
+                                <ExportMenu
+                                    show={showExportMenu}
+                                    onExport={handleExport}
+                                    onClose={() => setShowExportMenu(false)}
+                                    filteredStocks={filteredAndSortedStocks}
+                                />
                             </div>
 
-                            {/* Column Selector */}
                             <div className="relative flex-1">
                                 <button
                                     onClick={() => setShowColumnMenu(!showColumnMenu)}
@@ -1638,69 +938,14 @@ export default function StockScreenerPage() {
                                     <span>Cols</span>
                                 </button>
 
-                                {showColumnMenu && (
-                                    <div
-                                        ref={columnMenuRef}
-                                        className="fixed bg-white rounded-md shadow-lg z-[100] border border-gray-200"
-                                        style={{
-                                            top: '60px',
-                                            left: '16px',
-                                            width: '280px',
-                                            maxHeight: '70vh',
-                                            overflowY: 'auto'
-                                        }}
-                                    >
-                                        <div className="p-3">
-                                            <div className="text-xs font-semibold text-gray-500 mb-2">
-                                                SELECT COLUMNS
-                                            </div>
-                                            <div className="space-y-2 max-h-64 overflow-y-auto">
-                                                {columnDefinitions.map((col) => (
-                                                    <label
-                                                        key={col.key}
-                                                        className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded"
-                                                    >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={visibleColumns[col.visibleKey] || false}
-                                                            onChange={() => toggleColumn(col.visibleKey)}
-                                                            className="rounded text-blue-600 border-gray-300"
-                                                        />
-                                                        <span className="text-sm text-gray-700">{col.label}</span>
-                                                    </label>
-                                                ))}
-                                            </div>
-                                            <div className="flex space-x-2 mt-3 pt-3 border-t border-gray-200">
-                                                <button
-                                                    onClick={() => {
-                                                        const allVisible: Record<string, boolean> = {};
-                                                        columnDefinitions.forEach(col => {
-                                                            allVisible[col.visibleKey] = true;
-                                                        });
-                                                        setVisibleColumns(allVisible);
-                                                        localStorage.setItem('stocksVisibleColumns', JSON.stringify(allVisible));
-                                                    }}
-                                                    className="flex-1 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
-                                                >
-                                                    Show All
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        const defaultVisible: Record<string, boolean> = {};
-                                                        columnDefinitions.forEach((col, index) => {
-                                                            defaultVisible[col.visibleKey] = index < 15;
-                                                        });
-                                                        setVisibleColumns(defaultVisible);
-                                                        localStorage.setItem('stocksVisibleColumns', JSON.stringify(defaultVisible));
-                                                    }}
-                                                    className="flex-1 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
-                                                >
-                                                    Reset
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
+                                <ColumnSelector
+                                    show={showColumnMenu}
+                                    columnDefinitions={columnDefinitions}
+                                    visibleColumns={visibleColumns}
+                                    toggleColumn={toggleColumn}
+                                    setVisibleColumns={setVisibleColumns}
+                                    onClose={() => setShowColumnMenu(false)}
+                                />
                             </div>
                         </div>
                     </div>
@@ -1738,21 +983,21 @@ export default function StockScreenerPage() {
                         {/* Industry Filters - Multi-Select */}
                         <FilterAccordion title="INDUSTRY FILTERS" defaultOpen={false} collapseSignal={collapseSignal}>
                             <div className="space-y-3">
-                                {/* Industry Group - Multi Select */}
-                                <CustomMultiSelect
-                                    options={filterOptions.industryGroups}
-                                    selected={filters.industry_group}
-                                    onChange={(value) => setFilters(prev => ({ ...prev, industry_group: value }))}
-                                    placeholder={`Industry Groups (${filterOptions.industryGroups.length})`}
-                                    icon={Filter}
-                                />
-
                                 {/* Sector - Multi Select */}
                                 <CustomMultiSelect
                                     options={filterOptions.sectors}
                                     selected={filters.sector}
                                     onChange={(value) => setFilters(prev => ({ ...prev, sector: value }))}
                                     placeholder={`Sectors (${filterOptions.sectors.length})`}
+                                    icon={Filter}
+                                />
+
+                                {/* Industry Group - Multi Select */}
+                                <CustomMultiSelect
+                                    options={filterOptions.industryGroups}
+                                    selected={filters.industry_group}
+                                    onChange={(value) => setFilters(prev => ({ ...prev, industry_group: value }))}
+                                    placeholder={`Industry Groups (${filterOptions.industryGroups.length})`}
                                     icon={Filter}
                                 />
 
