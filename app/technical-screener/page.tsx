@@ -366,12 +366,12 @@ export default function TechnicalScreenerPage() {
                 ) : (
                     <div className="flex-1 overflow-auto bg-white rounded-lg border border-gray-200 shadow">
                         <table className="w-full border-collapse">
-                            <thead className="bg-gray-50 sticky top-0 z-10">
+                            <thead className="bg-gray-50 sticky top-0 z-20">
                                 <tr>
-                                    <th className="px-3 py-2 text-left text-xs font-bold text-gray-700 border-b sticky left-0 bg-gray-50 z-20" style={{ boxShadow: '2px 0 5px -2px rgba(0,0,0,0.1)' }}>Symbol</th>
-                                    <th className="px-3 py-2 text-center text-xs font-bold text-gray-700 border-b">Date</th>
-                                    <th className="px-3 py-2 text-center text-xs font-bold text-gray-700 border-b">Score</th>
-                                    <th className="px-3 py-2 text-center text-xs font-bold text-gray-700 border-b">Close</th>
+                                    <th rowSpan={2} className="px-3 py-2 text-left text-xs font-bold text-gray-700 border-b sticky left-0 top-0 bg-gray-50 z-30" style={{ boxShadow: '2px 0 5px -2px rgba(0,0,0,0.1)' }}>Symbol</th>
+                                    <th rowSpan={2} className="px-3 py-2 text-center text-xs font-bold text-gray-700 border-b">Date</th>
+                                    <th rowSpan={2} className="px-3 py-2 text-center text-xs font-bold text-gray-700 border-b">Score</th>
+                                    <th rowSpan={2} className="px-3 py-2 text-center text-xs font-bold text-gray-700 border-b">Close</th>
 
                                     {/* Daily RSI */}
                                     <th colSpan={7} className="px-3 py-2 text-center text-xs font-bold text-blue-700 bg-blue-50 border-b">Daily RSI</th>
@@ -407,10 +407,6 @@ export default function TechnicalScreenerPage() {
                                     <th colSpan={5} className="px-3 py-2 text-center text-xs font-bold text-green-700 bg-green-50 border-b">Signals</th>
                                 </tr>
                                 <tr className="text-xs">
-                                    <th className="sticky left-0 bg-gray-50 z-20 border-b" style={{ boxShadow: '2px 0 5px -2px rgba(0,0,0,0.1)' }}></th>
-                                    <th></th>
-                                    <th></th>
-                                    <th></th>
                                     {/* Daily RSI headers */}
                                     {['RSI(14)', 'RSI(3)', 'SMA9(RSI)', 'WMA45(RSI)', 'EMA45(RSI)', 'SMA3(RSI3)', 'EMA20(SMA3)'].map(h => (
                                         <th key={h} className="px-2 py-1 font-medium text-gray-600 border-b bg-blue-50 text-xs">{h}</th>
