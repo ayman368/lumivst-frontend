@@ -9,7 +9,7 @@ export default function ExportMenu({
     filteredStocks
 }: {
     show: boolean;
-    onExport: (format: 'csv'|'xls'|'xlsx'|'txt') => void;
+    onExport: (format: 'csv' | 'xls' | 'xlsx' | 'txt') => void;
     onClose: () => void;
     filteredStocks: Stock[];
 }) {
@@ -48,24 +48,31 @@ export default function ExportMenu({
             <div className="border-t border-gray-100 my-1"></div>
             <button
                 onClick={() => {
-                    // Export TradingView symbols into an Excel file (one symbol per row)
+                    // Export TradingView symbols into a CSV file (one symbol per row)
                     const symbols = filteredStocks
                         .map(s => s.trading_view_symbol)
                         .filter(Boolean);
-                    const wsData = symbols.map(s => [s]);
-                    const wb = XLSX.utils.book_new();
-                    const ws = XLSX.utils.aoa_to_sheet([["TradingView Symbol"], ...wsData]);
-                    XLSX.utils.book_append_sheet(wb, ws, 'Symbols');
-                    const filename = `TradingView_Symbols_${new Date().toISOString().split('T')[0]}.xlsx`;
-                    XLSX.writeFile(wb, filename);
+
+                    // Create simple CSV content manually to ensure correct format
+                    const csvContent = "TradingView Symbol\n" + symbols.join("\n");
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement("a");
+                    const url = URL.createObjectURL(blob);
+
+                    link.setAttribute("href", url);
+                    link.setAttribute("download", `TradingView_Symbols_${new Date().toISOString().split('T')[0]}.csv`);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
                     onClose();
                 }}
                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
             >
-                <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                <span>TradingView Symbols (.xlsx)</span>
+                <span>TradingView Symbol (.csv)</span>
             </button>
         </div>
     );

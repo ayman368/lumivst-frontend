@@ -11,6 +11,7 @@ interface OfficialFiling {
     published_date: string | null;
     file_type: 'pdf' | 'excel' | 'other' | null;
     source?: string; // Added for UI tracking
+    language?: string; // 'en' | 'ar'
 }
 
 const CATEGORIES = [
@@ -28,6 +29,7 @@ export default function FinancialReportsTable({ symbol }: { symbol: string }) {
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState(CATEGORIES[0]);
     const [years, setYears] = useState<number[]>([]);
+    const [currentLanguage, setCurrentLanguage] = useState<'en' | 'ar'>('en');
 
     useEffect(() => {
         if (symbol) fetchReports();
@@ -47,11 +49,21 @@ export default function FinancialReportsTable({ symbol }: { symbol: string }) {
             }
 
             const json = await res.json();
-            setData(json);
+
+            // DATA NORMALIZATION: Ensure 'language' field exists, default to 'en' if missing
+            const normalizedJson: Record<string, OfficialFiling[]> = {};
+            Object.keys(json).forEach(key => {
+                normalizedJson[key] = json[key].map((item: any) => ({
+                    ...item,
+                    language: item.language || 'en'
+                }));
+            });
+
+            setData(normalizedJson);
 
             // Extract all unique years
             const allYears = new Set<number>();
-            Object.values(json).forEach((list: any) => {
+            Object.values(normalizedJson).forEach((list: any) => {
                 list.forEach((d: any) => allYears.add(d.year));
             });
             setYears(Array.from(allYears).sort((a, b) => b - a));
@@ -85,13 +97,16 @@ export default function FinancialReportsTable({ symbol }: { symbol: string }) {
         // Helper to push items from a source
         const pushSourceItems = (sourceName: string) => {
             const sourceList = data[sourceName] || [];
+            // FILTER BY LANGUAGE HERE
+            const langFilteredList = sourceList.filter(item => item.language === currentLanguage);
+
             if (col.key === 'ANY') {
                 // For Board/ESG, take all for the year (usually one)
-                const match = sourceList.find(i => i.year === year);
+                const match = langFilteredList.find(i => i.year === year);
                 if (match) items.push({ ...match, source: sourceName });
             } else {
                 // For Periods, match exact period
-                const matches = sourceList.filter(i => i.year === year && i.period === col.key);
+                const matches = langFilteredList.filter(i => i.year === year && i.period === col.key);
                 items.push(...matches.map(m => ({ ...m, source: sourceName })));
             }
         };
@@ -101,14 +116,16 @@ export default function FinancialReportsTable({ symbol }: { symbol: string }) {
         // If this is a Financial Statement period column, ALSO fetch XBRL for this period
         if (col.source === 'Financial Statements') {
             const xbrlList = data['XBRL'] || [];
+            // FILTER XBRL BY LANGUAGE TOO
+            const xbrlFiltered = xbrlList.filter(item => item.language === currentLanguage);
+
             // Find XBRL for same year and period
-            const xbrlMatches = xbrlList.filter(i => i.year === year && i.period === col.key);
+            const xbrlMatches = xbrlFiltered.filter(i => i.year === year && i.period === col.key);
             items.push(...xbrlMatches.map(m => ({ ...m, source: 'XBRL' })));
         }
 
         // DEDUPLICATION:
         // Ensure we don't show the exact same file (same URL) twice.
-        // User confirmed DB has single copy, so if duplicates appear, it might be frontend artifact or exact duplicate in response.
         const uniqueItems = Array.from(new Map(items.map(item => [item.file_url, item])).values());
 
         return uniqueItems;
@@ -133,8 +150,6 @@ export default function FinancialReportsTable({ symbol }: { symbol: string }) {
                         ) : (
                             <FileText className="w-5 h-5 text-[#d32f2f] hover:scale-110 transition-transform" />
                         )}
-                        {/* Optional tiny label if needed to distinguish types explicitly, though icons usually suffice */}
-                        {/* {item.source && <span className="text-[8px] text-gray-400">{item.source === 'XBRL' ? 'XBRL' : 'FS'}</span>} */}
                     </a>
                 ))}
             </div>
@@ -165,8 +180,33 @@ export default function FinancialReportsTable({ symbol }: { symbol: string }) {
 
     return (
         <div className="bg-white rounded-lg border border-gray-300 shadow-sm mt-8 overflow-hidden font-sans">
+            {/* Language Toggle Header */}
+            <div className="flex justify-between items-center px-4 py-3 bg-gray-50 border-b border-gray-200">
+                <h3 className="font-semibold text-gray-700">Available Reports</h3>
+                <div className="flex bg-gray-200 rounded-lg p-1">
+                    <button
+                        onClick={() => setCurrentLanguage('en')}
+                        className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${currentLanguage === 'en'
+                                ? 'bg-white text-gray-900 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-900'
+                            }`}
+                    >
+                        English
+                    </button>
+                    <button
+                        onClick={() => setCurrentLanguage('ar')}
+                        className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${currentLanguage === 'ar'
+                                ? 'bg-white text-gray-900 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-900'
+                            }`}
+                    >
+                        العربية
+                    </button>
+                </div>
+            </div>
+
             <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left border-collapse">
+                <table className="w-full text-sm text-left border-collapse" dir={currentLanguage === 'ar' ? 'rtl' : 'ltr'}>
                     <thead>
                         {/* Level 1 Header */}
                         <tr className="bg-gray-100 text-gray-800 border-b border-gray-300">
