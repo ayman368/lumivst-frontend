@@ -1,13 +1,10 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '../../../providers/AuthProvider';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 function FacebookCallbackContent() {
-    const router = useRouter();
     const searchParams = useSearchParams();
-    const { setUser } = useAuth();
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -49,7 +46,8 @@ function FacebookCallbackContent() {
                             localStorage.setItem('tempToken', tempToken);
                         }
                         localStorage.setItem('pendingApprovalMessage', errorMessage);
-                        router.push(`/pending-approval`);
+                        // Use window.location for immediate redirect without middleware interference
+                        window.location.href = '/pending-approval';
                         return;
                     }
                     
@@ -58,15 +56,12 @@ function FacebookCallbackContent() {
 
                 const data = await res.json();
 
-                // Store token
+                // Store token in both places
                 localStorage.setItem('token', data.access_token);
-                document.cookie = `token=${data.access_token}; path=/; max-age=2592000; SameSite=Lax`;
+                document.cookie = `session_token=${data.access_token}; path=/; max-age=2592000; SameSite=Lax`;
 
-                // Update user state
-                setUser(data.user);
-
-                // Redirect to dashboard
-                router.push('/');
+                // Redirect to home
+                window.location.href = '/';
             } catch (err: any) {
                 console.error('[Facebook Callback] Error:', err);
                 setError(err.message);
@@ -74,7 +69,7 @@ function FacebookCallbackContent() {
         };
 
         exchangeCode();
-    }, [searchParams, router, setUser]);
+    }, [searchParams]);
 
     if (error) {
         return (
@@ -83,7 +78,7 @@ function FacebookCallbackContent() {
                     <h1 className="text-2xl font-bold text-red-600 mb-4">Login Failed</h1>
                     <p className="text-gray-600">{error}</p>
                     <button
-                        onClick={() => router.push('/login')}
+                        onClick={() => window.location.href = '/login'}
                         className="mt-4 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800"
                     >
                         Back to Login
@@ -104,16 +99,5 @@ function FacebookCallbackContent() {
 }
 
 export default function FacebookCallbackPage() {
-    return (
-        <Suspense fallback={
-            <div className="min-h-screen flex items-center justify-center bg-white">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
-                    <h1 className="text-xl font-semibold text-gray-900">Loading...</h1>
-                </div>
-            </div>
-        }>
-            <FacebookCallbackContent />
-        </Suspense>
-    );
+    return <FacebookCallbackContent />;
 }
