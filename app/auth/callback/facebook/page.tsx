@@ -24,8 +24,22 @@ function FacebookCallbackContent() {
                 });
 
                 if (!res.ok) {
-                    const data = await res.json();
-                    throw new Error(data.detail || 'Failed to exchange code');
+                    let errorMessage = 'Failed to exchange code';
+                    try {
+                        const errorData = await res.json();
+                        errorMessage = errorData.detail || errorData.message || 'Failed to exchange code';
+                    } catch (parseError) {
+                        console.error('Failed to parse error response:', parseError);
+                    }
+                    console.error(`[Facebook Callback] Status ${res.status}: ${errorMessage}`);
+                    
+                    // If approval pending, redirect to pending page
+                    if (res.status === 403 && errorMessage.includes('بانتظار موافقة')) {
+                        router.push(`/pending-approval`);
+                        return;
+                    }
+                    
+                    throw new Error(errorMessage);
                 }
 
                 const data = await res.json();
@@ -40,6 +54,7 @@ function FacebookCallbackContent() {
                 // Redirect to dashboard
                 router.push('/');
             } catch (err: any) {
+                console.error('[Facebook Callback] Error:', err);
                 setError(err.message);
             }
         };
