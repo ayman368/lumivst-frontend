@@ -25,16 +25,30 @@ function FacebookCallbackContent() {
 
                 if (!res.ok) {
                     let errorMessage = 'Failed to exchange code';
+                    let userData: any = null;
+                    let tempToken: string | null = null;
+                    
                     try {
                         const errorData = await res.json();
                         errorMessage = errorData.detail || errorData.message || 'Failed to exchange code';
+                        userData = errorData.user;
+                        tempToken = errorData.temp_token;
                     } catch (parseError) {
                         console.error('Failed to parse error response:', parseError);
                     }
                     console.error(`[Facebook Callback] Status ${res.status}: ${errorMessage}`);
                     
-                    // If approval pending, redirect to pending page
-                    if (res.status === 403 && errorMessage.includes('بانتظار موافقة')) {
+                    // If status is 403 (Forbidden) - account pending approval
+                    if (res.status === 403) {
+                        console.log('[Facebook Callback] Account pending admin approval', userData);
+                        // Store user info and temp token for pending approval page
+                        if (userData) {
+                            localStorage.setItem('pendingUser', JSON.stringify(userData));
+                        }
+                        if (tempToken) {
+                            localStorage.setItem('tempToken', tempToken);
+                        }
+                        localStorage.setItem('pendingApprovalMessage', errorMessage);
                         router.push(`/pending-approval`);
                         return;
                     }
