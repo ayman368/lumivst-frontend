@@ -13,6 +13,7 @@ export async function middleware(request: NextRequest) {
     '/login',
     '/register',
     '/auth/',
+    '/pending-approval',
     '/terms',
     '/terms-of-service',
     '/privacy',

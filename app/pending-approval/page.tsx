@@ -45,7 +45,7 @@ export default function PendingApproval() {
                     if (user && user.is_approved) {
                         console.log('✅ User approved! Attempting to get fresh token...');
                         clearInterval(interval);
-                        
+
                         // Try to refresh token
                         try {
                             const refreshResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/auth/refresh-token`, {
@@ -58,7 +58,7 @@ export default function PendingApproval() {
                             if (refreshResponse.ok) {
                                 const refreshData = await refreshResponse.json();
                                 localStorage.setItem('token', refreshData.access_token);
-                                document.cookie = `token=${refreshData.access_token}; path=/; max-age=2592000; SameSite=Lax`;
+                                document.cookie = `session_token=${refreshData.access_token}; path=/; max-age=2592000; SameSite=Lax`;
                                 // Clear pending data
                                 localStorage.removeItem('tempToken');
                                 localStorage.removeItem('pendingUser');
@@ -89,7 +89,7 @@ export default function PendingApproval() {
         <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
             <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
                 <div className="text-6xl mb-6">⏳</div>
-                
+
                 <h1 className="text-2xl font-bold mb-2 text-gray-900">الحساب قيد المراجعة</h1>
                 <p className="text-gray-500 text-sm mb-6">Account Under Review</p>
 
@@ -109,7 +109,7 @@ export default function PendingApproval() {
                         <strong>شكراً لتسجيلك!</strong>
                         <br />
                         <br />
-                        حسابك جاهز لكن بحاجة لموافقة من الإدارة. 
+                        حسابك جاهز لكن بحاجة لموافقة من الإدارة.
                         سيتم تفعيل حسابك قريباً.
                         {message && (
                             <>
@@ -123,9 +123,9 @@ export default function PendingApproval() {
 
                 <div className="mb-6">
                     <div className="flex items-center justify-center">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0s'}}></div>
-                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce mx-2" style={{animationDelay: '0.2s'}}></div>
-                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div>
+                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce mx-2" style={{ animationDelay: '0.2s' }}></div>
+                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
                     </div>
                     <p className="text-xs text-blue-600 mt-3">جاري التحقق من الحالة...</p>
                 </div>
