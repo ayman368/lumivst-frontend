@@ -16,21 +16,25 @@ export default function useStocks() {
             const headers: HeadersInit = { 'Content-Type': 'application/json' };
             if (token) headers['Authorization'] = `Bearer ${token}`;
 
-            const [pricesRes, rsRes] = await Promise.all([
+            const [pricesRes, rsRes, techRes] = await Promise.all([
                 fetch(`${API_URL}/api/prices/latest`, { cache: 'no-store', headers }),
-                fetch(`${API_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', headers })
+                fetch(`${API_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', headers }),
+                fetch(`${API_URL}/api/technical-screener/screener?limit=500`, { cache: 'no-store', headers })
             ]);
 
             if (!pricesRes.ok) throw new Error(`Failed to fetch prices: ${pricesRes.status}`);
 
             const pricesData = await pricesRes.json();
             const rsData = rsRes.ok ? await rsRes.json() : { data: [] };
+            const techData = techRes.ok ? await techRes.json() : { data: [] };
 
             const rsMap = new Map((rsData.data || []).map((item: any) => [String(item.symbol), item]));
+            const techMap = new Map((techData.data || []).map((item: any) => [String(item.symbol), item]));
 
             const mappedStocks = (pricesData.data || []).map((item: any) => {
                 const symbolStr = String(item.symbol);
                 const rsInfo: any = rsMap.get(symbolStr) || {};
+                const techInfo: any = techMap.get(symbolStr) || {};
 
                 return {
                     symbol: item.symbol,
@@ -75,6 +79,111 @@ export default function useStocks() {
                     percent_off_52w_low: item.percent_off_52w_low,
                     vol_diff_50_percent: item.vol_diff_50_percent,
                     trading_view_symbol: item.trading_view_symbol,
+
+                    // Technical Screener data
+                    tech_score: techInfo.score ?? undefined,
+
+                    // Daily RSI
+                    rsi_14: techInfo.rsi_14 ?? null,
+                    rsi_3: techInfo.rsi_3 ?? null,
+                    sma9_rsi: techInfo.sma9_rsi ?? null,
+                    wma45_rsi: techInfo.wma45_rsi ?? null,
+                    ema45_rsi: techInfo.ema45_rsi ?? null,
+                    sma3_rsi3: techInfo.sma3_rsi3 ?? null,
+                    ema20_sma3: techInfo.ema20_sma3 ?? null,
+
+                    // Daily The Number
+                    sma9_close: techInfo.sma9_close ?? null,
+                    high_sma13: techInfo.high_sma13 ?? null,
+                    low_sma13: techInfo.low_sma13 ?? null,
+                    high_sma65: techInfo.high_sma65 ?? null,
+                    low_sma65: techInfo.low_sma65 ?? null,
+                    the_number: techInfo.the_number ?? null,
+                    the_number_hl: techInfo.the_number_hl ?? null,
+                    the_number_ll: techInfo.the_number_ll ?? null,
+
+                    // Daily STAMP
+                    rsi_14_9days_ago: techInfo.rsi_14_9days_ago ?? null,
+                    stamp_a_value: techInfo.stamp_a_value ?? null,
+                    stamp_s9rsi: techInfo.stamp_s9rsi ?? null,
+                    stamp_e45cfg: techInfo.stamp_e45cfg ?? null,
+                    stamp_e45rsi: techInfo.stamp_e45rsi ?? null,
+                    stamp_e20sma3: techInfo.stamp_e20sma3 ?? null,
+
+                    // Daily CFG
+                    cfg_daily: techInfo.cfg_daily ?? null,
+                    cfg_sma4: techInfo.cfg_sma4 ?? null,
+                    cfg_sma9: techInfo.cfg_sma9 ?? null,
+                    cfg_sma20: techInfo.cfg_sma20 ?? null,
+                    cfg_ema20: techInfo.cfg_ema20 ?? null,
+                    cfg_ema45: techInfo.cfg_ema45 ?? null,
+                    cfg_wma45: techInfo.cfg_wma45 ?? null,
+
+                    // Daily Trend
+                    sma4: techInfo.sma4 ?? null,
+                    sma9_price: techInfo.sma9 ?? null,
+                    sma18: techInfo.sma18 ?? null,
+                    wma45_close: techInfo.wma45_close ?? null,
+                    cci: techInfo.cci ?? null,
+                    cci_ema20: techInfo.cci_ema20 ?? null,
+                    aroon_up: techInfo.aroon_up ?? null,
+                    aroon_down: techInfo.aroon_down ?? null,
+
+                    // Weekly RSI
+                    rsi_w: techInfo.rsi_w ?? null,
+                    rsi_3_w: techInfo.rsi_3_w ?? null,
+                    sma9_rsi_w: techInfo.sma9_rsi_w ?? null,
+                    wma45_rsi_w: techInfo.wma45_rsi_w ?? null,
+                    ema45_rsi_w: techInfo.ema45_rsi_w ?? null,
+                    sma3_rsi3_w: techInfo.sma3_rsi3_w ?? null,
+                    ema20_sma3_w: techInfo.ema20_sma3_w ?? null,
+
+                    // Weekly The Number
+                    sma9_close_w: techInfo.sma9_close_w ?? null,
+                    high_sma13_w: techInfo.high_sma13_w ?? null,
+                    low_sma13_w: techInfo.low_sma13_w ?? null,
+                    high_sma65_w: techInfo.high_sma65_w ?? null,
+                    low_sma65_w: techInfo.low_sma65_w ?? null,
+                    the_number_w: techInfo.the_number_w ?? null,
+                    the_number_hl_w: techInfo.the_number_hl_w ?? null,
+                    the_number_ll_w: techInfo.the_number_ll_w ?? null,
+
+                    // Weekly STAMP
+                    rsi_14_9days_ago_w: techInfo.rsi_14_9days_ago_w ?? null,
+                    stamp_a_value_w: techInfo.stamp_a_value_w ?? null,
+                    stamp_s9rsi_w: techInfo.stamp_s9rsi_w ?? null,
+                    stamp_e45cfg_w: techInfo.stamp_e45cfg_w ?? null,
+                    stamp_e45rsi_w: techInfo.stamp_e45rsi_w ?? null,
+                    stamp_e20sma3_w: techInfo.stamp_e20sma3_w ?? null,
+
+                    // Weekly CFG
+                    cfg_w: techInfo.cfg_w ?? null,
+                    cfg_sma4_w: techInfo.cfg_sma4_w ?? null,
+                    cfg_sma9_w: techInfo.cfg_sma9_w ?? null,
+                    cfg_ema20_w: techInfo.cfg_ema20_w ?? null,
+                    cfg_ema45_w: techInfo.cfg_ema45_w ?? null,
+                    cfg_wma45_w: techInfo.cfg_wma45_w ?? null,
+
+                    // Weekly Trend
+                    close_w: techInfo.close_w ?? techInfo.close ?? null,
+                    sma4_w: techInfo.sma4_w ?? null,
+                    sma9_w: techInfo.sma9_w ?? null,
+                    sma18_w: techInfo.sma18_w ?? null,
+                    wma45_close_w: techInfo.wma45_close_w ?? null,
+                    cci_w: techInfo.cci_w ?? null,
+                    cci_ema20_w: techInfo.cci_ema20_w ?? null,
+                    aroon_up_w: techInfo.aroon_up_w ?? null,
+                    aroon_down_w: techInfo.aroon_down_w ?? null,
+
+                    // Signals
+                    stamp: techInfo.stamp ?? false,
+                    stamp_daily: techInfo.stamp_daily ?? false,
+                    stamp_weekly: techInfo.stamp_weekly ?? false,
+                    trend_signal: techInfo.trend_signal ?? false,
+                    final_signal: techInfo.final_signal ?? false,
+                    rsi_55_70: techInfo.rsi_55_70 ?? false,
+                    cfg_gt_50_daily: techInfo.cfg_gt_50_daily ?? false,
+                    cfg_gt_50_w: techInfo.cfg_gt_50_w ?? false,
                 } as Stock;
             });
 

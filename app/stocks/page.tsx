@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Filter, ChevronLeft, ChevronRight, PanelLeft, Search } from 'lucide-react';
+import { Filter, ChevronLeft, ChevronRight, PanelLeft, Search, CheckCircle2, XCircle, Shield, TrendingUp as TrendingUpIcon } from 'lucide-react';
 import RatingBadge from './components/RatingBadge';
 import CustomMultiSelect from './components/CustomMultiSelect';
 import RangeFilter from './components/RangeFilter';
@@ -32,6 +32,146 @@ import { cleanSymbol, cleanName, parseFormattedNumber, formatNumber, formatChang
 // `FilterAccordion`, `CheckboxGroup`, and `ActiveFilterBadge` moved to `components/` folder
 
 // ==================== Main Component ====================
+
+const initialFilterState: FilterState = {
+    // SmartSelect Ratings
+    rs_rating_min: '', rs_rating_max: '',
+    acc_dis_rating: [], industry_group_rs: [], sector_rs: [], industry_rs: [], sub_industry_rs: [],
+
+    // Price & Volume
+    price_min: '', price_max: '',
+    change_min: '', change_max: '',
+    percent_change_min: '', percent_change_max: '',
+    volume_min: '', volume_max: '',
+    turnover_min: '', turnover_max: '',
+    no_of_trades_min: '', no_of_trades_max: '',
+    percent_off_52w_high_min: '', percent_off_52w_high_max: '',
+    percent_off_52w_low_min: '', percent_off_52w_low_max: '',
+    market_cap_min: '', market_cap_max: '',
+
+    // Moving Averages - Absolute
+    price_minus_sma_10_min: '', price_minus_sma_10_max: '',
+    price_minus_sma_21_min: '', price_minus_sma_21_max: '',
+    price_minus_sma_50_min: '', price_minus_sma_50_max: '',
+    price_minus_sma_150_min: '', price_minus_sma_150_max: '',
+    price_minus_sma_200_min: '', price_minus_sma_200_max: '',
+
+    // Moving Averages - Percentage
+    price_vs_sma_10_min: '', price_vs_sma_10_max: '',
+    price_vs_sma_21_min: '', price_vs_sma_21_max: '',
+    price_vs_sma_50_min: '', price_vs_sma_50_max: '',
+    price_vs_sma_150_min: '', price_vs_sma_150_max: '',
+    price_vs_sma_200_min: '', price_vs_sma_200_max: '',
+
+    // 52 Week High/Low
+    fifty_two_week_high_min: '', fifty_two_week_high_max: '',
+    fifty_two_week_low_min: '', fifty_two_week_low_max: '',
+
+    // Volume Analysis
+    average_volume_50_min: '', average_volume_50_max: '',
+    vol_diff_50_percent_min: '', vol_diff_50_percent_max: '',
+
+    // Open/High/Low
+    open_min: '', open_max: '',
+    high_min: '', high_max: '',
+    low_min: '', low_max: '',
+
+    // Quick Filters
+    symbol: '',
+    name: '',
+    industry_group: [],
+    sector: [],
+    industry: [],
+    sub_industry: [],
+
+    // === Technical Screener Filters ===
+    tech_score_min: '', tech_score_max: '',
+    final_signal: [], stamp_signal: [], trend_signal: [],
+    rsi_55_70: [], cfg_gt_50_daily: [], cfg_gt_50_w: [],
+    stamp_daily: [], stamp_weekly: [],
+
+    rsi_14_min: '', rsi_14_max: '',
+    rsi_3_min: '', rsi_3_max: '',
+    sma9_rsi_min: '', sma9_rsi_max: '',
+    wma45_rsi_min: '', wma45_rsi_max: '',
+    ema45_rsi_min: '', ema45_rsi_max: '',
+    sma3_rsi3_min: '', sma3_rsi3_max: '',
+    ema20_sma3_min: '', ema20_sma3_max: '',
+
+    sma9_close_min: '', sma9_close_max: '',
+    high_sma13_min: '', high_sma13_max: '',
+    low_sma13_min: '', low_sma13_max: '',
+    high_sma65_min: '', high_sma65_max: '',
+    low_sma65_min: '', low_sma65_max: '',
+    the_number_min: '', the_number_max: '',
+    the_number_hl_min: '', the_number_hl_max: '',
+    the_number_ll_min: '', the_number_ll_max: '',
+
+    rsi_14_9days_ago_min: '', rsi_14_9days_ago_max: '',
+    stamp_a_value_min: '', stamp_a_value_max: '',
+    stamp_s9rsi_min: '', stamp_s9rsi_max: '',
+    stamp_e45cfg_min: '', stamp_e45cfg_max: '',
+    stamp_e45rsi_min: '', stamp_e45rsi_max: '',
+    stamp_e20sma3_min: '', stamp_e20sma3_max: '',
+
+    cfg_daily_min: '', cfg_daily_max: '',
+    cfg_sma4_min: '', cfg_sma4_max: '',
+    cfg_sma9_min: '', cfg_sma9_max: '',
+    cfg_sma20_min: '', cfg_sma20_max: '',
+    cfg_ema20_min: '', cfg_ema20_max: '',
+    cfg_ema45_min: '', cfg_ema45_max: '',
+    cfg_wma45_min: '', cfg_wma45_max: '',
+
+    sma4_min: '', sma4_max: '',
+    sma9_price_min: '', sma9_price_max: '',
+    sma18_min: '', sma18_max: '',
+    wma45_close_min: '', wma45_close_max: '',
+    cci_min: '', cci_max: '',
+    cci_ema20_min: '', cci_ema20_max: '',
+    aroon_up_min: '', aroon_up_max: '',
+    aroon_down_min: '', aroon_down_max: '',
+
+    rsi_w_min: '', rsi_w_max: '',
+    rsi_3_w_min: '', rsi_3_w_max: '',
+    sma9_rsi_w_min: '', sma9_rsi_w_max: '',
+    wma45_rsi_w_min: '', wma45_rsi_w_max: '',
+    ema45_rsi_w_min: '', ema45_rsi_w_max: '',
+    sma3_rsi3_w_min: '', sma3_rsi3_w_max: '',
+    ema20_sma3_w_min: '', ema20_sma3_w_max: '',
+
+    sma9_close_w_min: '', sma9_close_w_max: '',
+    high_sma13_w_min: '', high_sma13_w_max: '',
+    low_sma13_w_min: '', low_sma13_w_max: '',
+    high_sma65_w_min: '', high_sma65_w_max: '',
+    low_sma65_w_min: '', low_sma65_w_max: '',
+    the_number_w_min: '', the_number_w_max: '',
+    the_number_hl_w_min: '', the_number_hl_w_max: '',
+    the_number_ll_w_min: '', the_number_ll_w_max: '',
+
+    rsi_14_9days_ago_w_min: '', rsi_14_9days_ago_w_max: '',
+    stamp_a_value_w_min: '', stamp_a_value_w_max: '',
+    stamp_s9rsi_w_min: '', stamp_s9rsi_w_max: '',
+    stamp_e45cfg_w_min: '', stamp_e45cfg_w_max: '',
+    stamp_e45rsi_w_min: '', stamp_e45rsi_w_max: '',
+    stamp_e20sma3_w_min: '', stamp_e20sma3_w_max: '',
+
+    cfg_w_min: '', cfg_w_max: '',
+    cfg_sma4_w_min: '', cfg_sma4_w_max: '',
+    cfg_sma9_w_min: '', cfg_sma9_w_max: '',
+    cfg_ema20_w_min: '', cfg_ema20_w_max: '',
+    cfg_ema45_w_min: '', cfg_ema45_w_max: '',
+    cfg_wma45_w_min: '', cfg_wma45_w_max: '',
+
+    close_w_min: '', close_w_max: '',
+    sma4_w_min: '', sma4_w_max: '',
+    sma9_w_min: '', sma9_w_max: '',
+    sma18_w_min: '', sma18_w_max: '',
+    wma45_close_w_min: '', wma45_close_w_max: '',
+    cci_w_min: '', cci_w_max: '',
+    cci_ema20_w_min: '', cci_ema20_w_max: '',
+    aroon_up_w_min: '', aroon_up_w_max: '',
+    aroon_down_w_min: '', aroon_down_w_max: '',
+};
 
 export default function StockScreenerPage() {
     const { stocks, metadata, loading, error, setStocks, setMetadata, setLoading, setError, refetch } = useStocks();
@@ -91,106 +231,133 @@ export default function StockScreenerPage() {
         { key: 'percent_off_52w_high', label: '% Off 52W High', visibleKey: 'percent_off_52w_high' },
         { key: 'percent_off_52w_low', label: '% Off 52W Low', visibleKey: 'percent_off_52w_low' },
         { key: 'vol_diff_50_percent', label: 'Vol Diff 50 %', visibleKey: 'vol_diff_50_percent' },
+
+        // === Technical Screener Columns ===
+        { key: 'tech_score', label: 'Tech Score', visibleKey: 'tech_score' },
+
+        // Daily RSI
+        { key: 'rsi_14', label: 'RSI(14)', visibleKey: 'rsi_14' },
+        { key: 'rsi_3', label: 'RSI(3)', visibleKey: 'rsi_3' },
+        { key: 'sma9_rsi', label: 'SMA9(RSI)', visibleKey: 'sma9_rsi' },
+        { key: 'wma45_rsi', label: 'WMA45(RSI)', visibleKey: 'wma45_rsi' },
+        { key: 'ema45_rsi', label: 'EMA45(RSI)', visibleKey: 'ema45_rsi' },
+        { key: 'sma3_rsi3', label: 'SMA3(RSI3)', visibleKey: 'sma3_rsi3' },
+        { key: 'ema20_sma3', label: 'EMA20(SMA3)', visibleKey: 'ema20_sma3' },
+
+        // Daily The Number
+        { key: 'sma9_close', label: 'SMA9(Close)', visibleKey: 'sma9_close' },
+        { key: 'high_sma13', label: 'HIGH.SMA13', visibleKey: 'high_sma13' },
+        { key: 'low_sma13', label: 'LOW.SMA13', visibleKey: 'low_sma13' },
+        { key: 'high_sma65', label: 'HIGH.SMA65', visibleKey: 'high_sma65' },
+        { key: 'low_sma65', label: 'LOW.SMA65', visibleKey: 'low_sma65' },
+        { key: 'the_number', label: 'THE.NUMBER', visibleKey: 'the_number' },
+        { key: 'the_number_hl', label: 'THE.NUMBER.HIGH', visibleKey: 'the_number_hl' },
+        { key: 'the_number_ll', label: 'THE.NUMBER.LOW', visibleKey: 'the_number_ll' },
+
+        // Daily STAMP
+        { key: 'rsi_14_9days_ago', label: 'RSI[9]', visibleKey: 'rsi_14_9days_ago' },
+        { key: 'stamp_a_value', label: 'STAMP.A', visibleKey: 'stamp_a_value' },
+        { key: 'stamp_s9rsi', label: 'STAMP.SMA9(RSI)', visibleKey: 'stamp_s9rsi' },
+        { key: 'stamp_e45cfg', label: 'STAMP.EMA45(CFG)', visibleKey: 'stamp_e45cfg' },
+        { key: 'stamp_e45rsi', label: 'STAMP.EMA45(RSI)', visibleKey: 'stamp_e45rsi' },
+        { key: 'stamp_e20sma3', label: 'STAMP.EMA20(SMA3)', visibleKey: 'stamp_e20sma3' },
+
+        // Daily CFG
+        { key: 'cfg_daily', label: 'CFG', visibleKey: 'cfg_daily' },
+        { key: 'cfg_sma4', label: 'CFG.SMA4', visibleKey: 'cfg_sma4' },
+        { key: 'cfg_sma9', label: 'CFG.SMA9', visibleKey: 'cfg_sma9' },
+        { key: 'cfg_sma20', label: 'CFG.SMA20', visibleKey: 'cfg_sma20' },
+        { key: 'cfg_ema20', label: 'CFG.EMA20', visibleKey: 'cfg_ema20' },
+        { key: 'cfg_ema45', label: 'CFG.EMA45', visibleKey: 'cfg_ema45' },
+        { key: 'cfg_wma45', label: 'CFG.WMA45', visibleKey: 'cfg_wma45' },
+
+        // Daily Trend
+        { key: 'sma4', label: 'SMA4', visibleKey: 'sma4' },
+        { key: 'sma9_price', label: 'SMA9(Price)', visibleKey: 'sma9_price' },
+        { key: 'sma18', label: 'SMA18', visibleKey: 'sma18' },
+        { key: 'wma45_close', label: 'WMA45(Price)', visibleKey: 'wma45_close' },
+        { key: 'cci', label: 'CCI(14)', visibleKey: 'cci' },
+        { key: 'cci_ema20', label: 'CCI.EMA20', visibleKey: 'cci_ema20' },
+        { key: 'aroon_up', label: 'AROON.UP', visibleKey: 'aroon_up' },
+        { key: 'aroon_down', label: 'AROON.DOWN', visibleKey: 'aroon_down' },
+
+        // Weekly RSI
+        { key: 'rsi_w', label: 'RSI(14)(W)', visibleKey: 'rsi_w' },
+        { key: 'rsi_3_w', label: 'RSI(3)(W)', visibleKey: 'rsi_3_w' },
+        { key: 'sma9_rsi_w', label: 'SMA9(RSI)(W)', visibleKey: 'sma9_rsi_w' },
+        { key: 'wma45_rsi_w', label: 'WMA45(RSI)(W)', visibleKey: 'wma45_rsi_w' },
+        { key: 'ema45_rsi_w', label: 'EMA45(RSI)(W)', visibleKey: 'ema45_rsi_w' },
+        { key: 'sma3_rsi3_w', label: 'SMA3(RSI3)(W)', visibleKey: 'sma3_rsi3_w' },
+        { key: 'ema20_sma3_w', label: 'EMA20(SMA3)(W)', visibleKey: 'ema20_sma3_w' },
+
+        // Weekly The Number
+        { key: 'sma9_close_w', label: 'SMA9(Close)(W)', visibleKey: 'sma9_close_w' },
+        { key: 'high_sma13_w', label: 'HIGH.SMA13(W)', visibleKey: 'high_sma13_w' },
+        { key: 'low_sma13_w', label: 'LOW.SMA13(W)', visibleKey: 'low_sma13_w' },
+        { key: 'high_sma65_w', label: 'HIGH.SMA65(W)', visibleKey: 'high_sma65_w' },
+        { key: 'low_sma65_w', label: 'LOW.SMA65(W)', visibleKey: 'low_sma65_w' },
+        { key: 'the_number_w', label: 'THE.NUMBER(W)', visibleKey: 'the_number_w' },
+        { key: 'the_number_hl_w', label: 'THE.NUMBER.HIGH(W)', visibleKey: 'the_number_hl_w' },
+        { key: 'the_number_ll_w', label: 'THE.NUMBER.LOW(W)', visibleKey: 'the_number_ll_w' },
+
+        // Weekly STAMP
+        { key: 'rsi_14_9days_ago_w', label: 'RSI[9](W)', visibleKey: 'rsi_14_9days_ago_w' },
+        { key: 'stamp_a_value_w', label: 'STAMP.A(W)', visibleKey: 'stamp_a_value_w' },
+        { key: 'stamp_s9rsi_w', label: 'STAMP.SMA9(RSI)(W)', visibleKey: 'stamp_s9rsi_w' },
+        { key: 'stamp_e45cfg_w', label: 'STAMP.EMA45(CFG)(W)', visibleKey: 'stamp_e45cfg_w' },
+        { key: 'stamp_e45rsi_w', label: 'STAMP.EMA45(RSI)(W)', visibleKey: 'stamp_e45rsi_w' },
+        { key: 'stamp_e20sma3_w', label: 'STAMP.EMA20(SMA3)(W)', visibleKey: 'stamp_e20sma3_w' },
+
+        // Weekly CFG
+        { key: 'cfg_w', label: 'CFG(W)', visibleKey: 'cfg_w' },
+        { key: 'cfg_sma4_w', label: 'CFG.SMA4(W)', visibleKey: 'cfg_sma4_w' },
+        { key: 'cfg_sma9_w', label: 'CFG.SMA9(W)', visibleKey: 'cfg_sma9_w' },
+        { key: 'cfg_ema20_w', label: 'CFG.EMA20(W)', visibleKey: 'cfg_ema20_w' },
+        { key: 'cfg_ema45_w', label: 'CFG.EMA45(W)', visibleKey: 'cfg_ema45_w' },
+        { key: 'cfg_wma45_w', label: 'CFG.WMA45(W)', visibleKey: 'cfg_wma45_w' },
+
+        // Weekly Trend
+        { key: 'close_w', label: 'Close(W)', visibleKey: 'close_w' },
+        { key: 'sma4_w', label: 'SMA4(W)', visibleKey: 'sma4_w' },
+        { key: 'sma9_w', label: 'SMA9(W)', visibleKey: 'sma9_w' },
+        { key: 'sma18_w', label: 'SMA18(W)', visibleKey: 'sma18_w' },
+        { key: 'wma45_close_w', label: 'WMA45(Price)(W)', visibleKey: 'wma45_close_w' },
+        { key: 'cci_w', label: 'CCI(14)(W)', visibleKey: 'cci_w' },
+        { key: 'cci_ema20_w', label: 'CCI.EMA20(W)', visibleKey: 'cci_ema20_w' },
+        { key: 'aroon_up_w', label: 'AROON.UP(W)', visibleKey: 'aroon_up_w' },
+        { key: 'aroon_down_w', label: 'AROON.DOWN(W)', visibleKey: 'aroon_down_w' },
+
+        // Signals
+        { key: 'final_signal', label: 'FINAL.SIGNAL', visibleKey: 'final_signal' },
+        { key: 'stamp_signal', label: 'STAMP Signal', visibleKey: 'stamp_signal' },
+        { key: 'trend_signal', label: 'TREND Signal', visibleKey: 'trend_signal' },
+        { key: 'rsi_55_70', label: 'RSI 55-70', visibleKey: 'rsi_55_70' },
+        { key: 'cfg_gt_50_daily', label: 'CFG>50 Daily', visibleKey: 'cfg_gt_50_daily' },
+        { key: 'cfg_gt_50_w', label: 'CFG>50 Weekly', visibleKey: 'cfg_gt_50_w' },
     ];
 
     // Column visibility state
     const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('stocksVisibleColumns');
-            if (saved) {
-                return JSON.parse(saved);
-            }
-        }
+        // Build defaults: first 15 columns visible, all new tech screener columns hidden
         const defaultVisible: Record<string, boolean> = {};
         columnDefinitions.forEach((col, index) => {
             defaultVisible[col.visibleKey] = index < 15;
         });
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('stocksVisibleColumns');
+            if (saved) {
+                try {
+                    const parsed: Record<string, boolean> = JSON.parse(saved);
+                    // Merge: defaults provide fallback for any new columns not yet saved
+                    return { ...defaultVisible, ...parsed };
+                } catch { /* ignore corrupt data */ }
+            }
+        }
         return defaultVisible;
     });
 
     // Filter State
-    const [filters, setFilters] = useState<FilterState>({
-        // SmartSelect Ratings
-        rs_rating_min: '',
-        rs_rating_max: '',
-        acc_dis_rating: [],
-        industry_group_rs: [],
-        sector_rs: [],
-        industry_rs: [],
-        sub_industry_rs: [],
-
-        // Price & Volume
-        price_min: '',
-        price_max: '',
-        change_min: '',
-        change_max: '',
-        percent_change_min: '',
-        percent_change_max: '',
-        volume_min: '',
-        volume_max: '',
-        turnover_min: '',
-        turnover_max: '',
-        no_of_trades_min: '',
-        no_of_trades_max: '',
-        percent_off_52w_high_min: '',
-        percent_off_52w_high_max: '',
-        percent_off_52w_low_min: '',
-        percent_off_52w_low_max: '',
-        market_cap_min: '',
-        market_cap_max: '',
-
-        // Moving Averages - Absolute
-        price_minus_sma_10_min: '',
-        price_minus_sma_10_max: '',
-        price_minus_sma_21_min: '',
-        price_minus_sma_21_max: '',
-        price_minus_sma_50_min: '',
-        price_minus_sma_50_max: '',
-        price_minus_sma_150_min: '',
-        price_minus_sma_150_max: '',
-        price_minus_sma_200_min: '',
-        price_minus_sma_200_max: '',
-
-        // Moving Averages - Percentage
-        price_vs_sma_10_min: '',
-        price_vs_sma_10_max: '',
-        price_vs_sma_21_min: '',
-        price_vs_sma_21_max: '',
-        price_vs_sma_50_min: '',
-        price_vs_sma_50_max: '',
-        price_vs_sma_150_min: '',
-        price_vs_sma_150_max: '',
-        price_vs_sma_200_min: '',
-        price_vs_sma_200_max: '',
-
-        // 52 Week High/Low
-        fifty_two_week_high_min: '',
-        fifty_two_week_high_max: '',
-        fifty_two_week_low_min: '',
-        fifty_two_week_low_max: '',
-
-        // Volume Analysis
-        average_volume_50_min: '',
-        average_volume_50_max: '',
-        vol_diff_50_percent_min: '',
-        vol_diff_50_percent_max: '',
-
-        // Open/High/Low
-        open_min: '',
-        open_max: '',
-        high_min: '',
-        high_max: '',
-        low_min: '',
-        low_max: '',
-
-        // Quick Filters
-        symbol: '',
-        name: '',
-        industry_group: [],
-        sector: [],
-        industry: [],
-        sub_industry: [],
-    });
+    const [filters, setFilters] = useState<FilterState>(initialFilterState);
 
     // Close menus when clicking outside
     useEffect(() => {
@@ -245,88 +412,7 @@ export default function StockScreenerPage() {
 
     // Clear all filters
     const clearAllFilters = useCallback(() => {
-        setFilters({
-            // SmartSelect Ratings
-            rs_rating_min: '',
-            rs_rating_max: '',
-            acc_dis_rating: [],
-            industry_group_rs: [],
-            sector_rs: [],
-            industry_rs: [],
-            sub_industry_rs: [],
-
-            // Price & Volume
-            price_min: '',
-            price_max: '',
-            change_min: '',
-            change_max: '',
-            percent_change_min: '',
-            percent_change_max: '',
-            volume_min: '',
-            volume_max: '',
-            turnover_min: '',
-            turnover_max: '',
-            no_of_trades_min: '',
-            no_of_trades_max: '',
-            percent_off_52w_high_min: '',
-            percent_off_52w_high_max: '',
-            percent_off_52w_low_min: '',
-            percent_off_52w_low_max: '',
-            market_cap_min: '',
-            market_cap_max: '',
-
-            // Moving Averages - Absolute
-            price_minus_sma_10_min: '',
-            price_minus_sma_10_max: '',
-            price_minus_sma_21_min: '',
-            price_minus_sma_21_max: '',
-            price_minus_sma_50_min: '',
-            price_minus_sma_50_max: '',
-            price_minus_sma_150_min: '',
-            price_minus_sma_150_max: '',
-            price_minus_sma_200_min: '',
-            price_minus_sma_200_max: '',
-
-            // Moving Averages - Percentage
-            price_vs_sma_10_min: '',
-            price_vs_sma_10_max: '',
-            price_vs_sma_21_min: '',
-            price_vs_sma_21_max: '',
-            price_vs_sma_50_min: '',
-            price_vs_sma_50_max: '',
-            price_vs_sma_150_min: '',
-            price_vs_sma_150_max: '',
-            price_vs_sma_200_min: '',
-            price_vs_sma_200_max: '',
-
-            // 52 Week High/Low
-            fifty_two_week_high_min: '',
-            fifty_two_week_high_max: '',
-            fifty_two_week_low_min: '',
-            fifty_two_week_low_max: '',
-
-            // Volume Analysis
-            average_volume_50_min: '',
-            average_volume_50_max: '',
-            vol_diff_50_percent_min: '',
-            vol_diff_50_percent_max: '',
-
-            // Open/High/Low
-            open_min: '',
-            open_max: '',
-            high_min: '',
-            high_max: '',
-            low_min: '',
-            low_max: '',
-
-            // Quick Filters
-            symbol: '',
-            name: '',
-            industry_group: [],
-            sector: [],
-            industry: [],
-            sub_industry: [],
-        });
+        setFilters(initialFilterState);
     }, []);
 
     // Fetch data
@@ -342,21 +428,25 @@ export default function StockScreenerPage() {
                     headers['Authorization'] = `Bearer ${token}`;
                 }
 
-                const [pricesRes, rsRes] = await Promise.all([
+                const [pricesRes, rsRes, techRes] = await Promise.all([
                     fetch(`${API_URL}/api/prices/latest`, { cache: 'no-store', headers }),
-                    fetch(`${API_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', headers })
+                    fetch(`${API_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', headers }),
+                    fetch(`${API_URL}/api/technical-screener/screener?limit=500`, { cache: 'no-store', headers })
                 ]);
 
                 if (!pricesRes.ok) throw new Error(`Failed to fetch prices: ${pricesRes.status}`);
 
                 const pricesData = await pricesRes.json();
                 const rsData = rsRes.ok ? await rsRes.json() : { data: [] };
+                const techData = techRes.ok ? await techRes.json() : { data: [] };
 
                 const rsMap = new Map((rsData.data || []).map((item: any) => [String(item.symbol), item]));
+                const techMap = new Map((techData.data || []).map((item: any) => [String(item.symbol), item]));
 
                 const mappedStocks = (pricesData.data || []).map((item: any) => {
                     const symbolStr = String(item.symbol);
                     const rsInfo: any = rsMap.get(symbolStr) || {};
+                    const techInfo: any = techMap.get(symbolStr) || {};
 
                     return {
                         symbol: item.symbol,
@@ -404,6 +494,89 @@ export default function StockScreenerPage() {
                         percent_off_52w_low: item.percent_off_52w_low,
                         vol_diff_50_percent: item.vol_diff_50_percent,
                         trading_view_symbol: item.trading_view_symbol,
+
+                        // Technical Screener data
+                        tech_score: techInfo.score ?? undefined,
+                        rsi_14: techInfo.rsi_14 ?? null,
+                        rsi_3: techInfo.rsi_3 ?? null,
+                        sma9_rsi: techInfo.sma9_rsi ?? null,
+                        wma45_rsi: techInfo.wma45_rsi ?? null,
+                        ema45_rsi: techInfo.ema45_rsi ?? null,
+                        sma3_rsi3: techInfo.sma3_rsi3 ?? null,
+                        ema20_sma3: techInfo.ema20_sma3 ?? null,
+                        sma9_close: techInfo.sma9_close ?? null,
+                        high_sma13: techInfo.high_sma13 ?? null,
+                        low_sma13: techInfo.low_sma13 ?? null,
+                        high_sma65: techInfo.high_sma65 ?? null,
+                        low_sma65: techInfo.low_sma65 ?? null,
+                        the_number: techInfo.the_number ?? null,
+                        the_number_hl: techInfo.the_number_hl ?? null,
+                        the_number_ll: techInfo.the_number_ll ?? null,
+                        rsi_14_9days_ago: techInfo.rsi_14_9days_ago ?? null,
+                        stamp_a_value: techInfo.stamp_a_value ?? null,
+                        stamp_s9rsi: techInfo.stamp_s9rsi ?? null,
+                        stamp_e45cfg: techInfo.stamp_e45cfg ?? null,
+                        stamp_e45rsi: techInfo.stamp_e45rsi ?? null,
+                        stamp_e20sma3: techInfo.stamp_e20sma3 ?? null,
+                        cfg_daily: techInfo.cfg_daily ?? null,
+                        cfg_sma4: techInfo.cfg_sma4 ?? null,
+                        cfg_sma9: techInfo.cfg_sma9 ?? null,
+                        cfg_sma20: techInfo.cfg_sma20 ?? null,
+                        cfg_ema20: techInfo.cfg_ema20 ?? null,
+                        cfg_ema45: techInfo.cfg_ema45 ?? null,
+                        cfg_wma45: techInfo.cfg_wma45 ?? null,
+                        sma4: techInfo.sma4 ?? null,
+                        sma9_price: techInfo.sma9 ?? null,
+                        sma18: techInfo.sma18 ?? null,
+                        wma45_close: techInfo.wma45_close ?? null,
+                        cci: techInfo.cci ?? null,
+                        cci_ema20: techInfo.cci_ema20 ?? null,
+                        aroon_up: techInfo.aroon_up ?? null,
+                        aroon_down: techInfo.aroon_down ?? null,
+                        rsi_w: techInfo.rsi_w ?? null,
+                        rsi_3_w: techInfo.rsi_3_w ?? null,
+                        sma9_rsi_w: techInfo.sma9_rsi_w ?? null,
+                        wma45_rsi_w: techInfo.wma45_rsi_w ?? null,
+                        ema45_rsi_w: techInfo.ema45_rsi_w ?? null,
+                        sma3_rsi3_w: techInfo.sma3_rsi3_w ?? null,
+                        ema20_sma3_w: techInfo.ema20_sma3_w ?? null,
+                        sma9_close_w: techInfo.sma9_close_w ?? null,
+                        high_sma13_w: techInfo.high_sma13_w ?? null,
+                        low_sma13_w: techInfo.low_sma13_w ?? null,
+                        high_sma65_w: techInfo.high_sma65_w ?? null,
+                        low_sma65_w: techInfo.low_sma65_w ?? null,
+                        the_number_w: techInfo.the_number_w ?? null,
+                        the_number_hl_w: techInfo.the_number_hl_w ?? null,
+                        the_number_ll_w: techInfo.the_number_ll_w ?? null,
+                        rsi_14_9days_ago_w: techInfo.rsi_14_9days_ago_w ?? null,
+                        stamp_a_value_w: techInfo.stamp_a_value_w ?? null,
+                        stamp_s9rsi_w: techInfo.stamp_s9rsi_w ?? null,
+                        stamp_e45cfg_w: techInfo.stamp_e45cfg_w ?? null,
+                        stamp_e45rsi_w: techInfo.stamp_e45rsi_w ?? null,
+                        stamp_e20sma3_w: techInfo.stamp_e20sma3_w ?? null,
+                        cfg_w: techInfo.cfg_w ?? null,
+                        cfg_sma4_w: techInfo.cfg_sma4_w ?? null,
+                        cfg_sma9_w: techInfo.cfg_sma9_w ?? null,
+                        cfg_ema20_w: techInfo.cfg_ema20_w ?? null,
+                        cfg_ema45_w: techInfo.cfg_ema45_w ?? null,
+                        cfg_wma45_w: techInfo.cfg_wma45_w ?? null,
+                        close_w: techInfo.close_w ?? techInfo.close ?? null,
+                        sma4_w: techInfo.sma4_w ?? null,
+                        sma9_w: techInfo.sma9_w ?? null,
+                        sma18_w: techInfo.sma18_w ?? null,
+                        wma45_close_w: techInfo.wma45_close_w ?? null,
+                        cci_w: techInfo.cci_w ?? null,
+                        cci_ema20_w: techInfo.cci_ema20_w ?? null,
+                        aroon_up_w: techInfo.aroon_up_w ?? null,
+                        aroon_down_w: techInfo.aroon_down_w ?? null,
+                        stamp: techInfo.stamp ?? false,
+                        stamp_daily: techInfo.stamp_daily ?? false,
+                        stamp_weekly: techInfo.stamp_weekly ?? false,
+                        trend_signal: techInfo.trend_signal ?? false,
+                        final_signal: techInfo.final_signal ?? false,
+                        rsi_55_70: techInfo.rsi_55_70 ?? false,
+                        cfg_gt_50_daily: techInfo.cfg_gt_50_daily ?? false,
+                        cfg_gt_50_w: techInfo.cfg_gt_50_w ?? false,
                     };
                 });
 
@@ -662,6 +835,122 @@ export default function StockScreenerPage() {
             if (!checkRange(stock.high, 'high_min', 'high_max')) return false;
             if (!checkRange(stock.low, 'low_min', 'low_max')) return false;
 
+            // === Technical Screener Filters ===
+
+            // Helper for Signal filters (YES/NO)
+            const checkSignal = (val: boolean | undefined, selected: string[]) => {
+                if (selected.length === 0) return true;
+                const status = val ? 'YES' : 'NO';
+                return selected.includes(status);
+            };
+
+            // Score
+            if (!checkRange(stock.tech_score, 'tech_score_min', 'tech_score_max')) return false;
+
+            // Signals
+            if (!checkSignal(stock.final_signal, filters.final_signal)) return false;
+            if (!checkSignal(stock.stamp, filters.stamp_signal)) return false;
+            if (!checkSignal(stock.trend_signal, filters.trend_signal)) return false;
+            if (!checkSignal(stock.rsi_55_70, filters.rsi_55_70)) return false;
+            if (!checkSignal(stock.cfg_gt_50_daily, filters.cfg_gt_50_daily)) return false;
+            if (!checkSignal(stock.cfg_gt_50_w, filters.cfg_gt_50_w)) return false;
+            if (!checkSignal(stock.stamp_daily, filters.stamp_daily)) return false;
+            if (!checkSignal(stock.stamp_weekly, filters.stamp_weekly)) return false;
+
+            // Daily RSI
+            if (!checkRange(stock.rsi_14, 'rsi_14_min', 'rsi_14_max', true)) return false;
+            if (!checkRange(stock.rsi_3, 'rsi_3_min', 'rsi_3_max', true)) return false;
+            if (!checkRange(stock.sma9_rsi, 'sma9_rsi_min', 'sma9_rsi_max', true)) return false;
+            if (!checkRange(stock.wma45_rsi, 'wma45_rsi_min', 'wma45_rsi_max', true)) return false;
+            if (!checkRange(stock.ema45_rsi, 'ema45_rsi_min', 'ema45_rsi_max', true)) return false;
+            if (!checkRange(stock.sma3_rsi3, 'sma3_rsi3_min', 'sma3_rsi3_max', true)) return false;
+            if (!checkRange(stock.ema20_sma3, 'ema20_sma3_min', 'ema20_sma3_max', true)) return false;
+
+            // Daily The Number
+            if (!checkRange(stock.sma9_close, 'sma9_close_min', 'sma9_close_max', true)) return false;
+            if (!checkRange(stock.high_sma13, 'high_sma13_min', 'high_sma13_max', true)) return false;
+            if (!checkRange(stock.low_sma13, 'low_sma13_min', 'low_sma13_max', true)) return false;
+            if (!checkRange(stock.high_sma65, 'high_sma65_min', 'high_sma65_max', true)) return false;
+            if (!checkRange(stock.low_sma65, 'low_sma65_min', 'low_sma65_max', true)) return false;
+            if (!checkRange(stock.the_number, 'the_number_min', 'the_number_max', true)) return false;
+            if (!checkRange(stock.the_number_hl, 'the_number_hl_min', 'the_number_hl_max', true)) return false;
+            if (!checkRange(stock.the_number_ll, 'the_number_ll_min', 'the_number_ll_max', true)) return false;
+
+            // Daily STAMP
+            if (!checkRange(stock.rsi_14_9days_ago, 'rsi_14_9days_ago_min', 'rsi_14_9days_ago_max', true)) return false;
+            if (!checkRange(stock.stamp_a_value, 'stamp_a_value_min', 'stamp_a_value_max', true)) return false;
+            if (!checkRange(stock.stamp_s9rsi, 'stamp_s9rsi_min', 'stamp_s9rsi_max', true)) return false;
+            if (!checkRange(stock.stamp_e45cfg, 'stamp_e45cfg_min', 'stamp_e45cfg_max', true)) return false;
+            if (!checkRange(stock.stamp_e45rsi, 'stamp_e45rsi_min', 'stamp_e45rsi_max', true)) return false;
+            if (!checkRange(stock.stamp_e20sma3, 'stamp_e20sma3_min', 'stamp_e20sma3_max', true)) return false;
+
+            // Daily CFG
+            if (!checkRange(stock.cfg_daily, 'cfg_daily_min', 'cfg_daily_max', true)) return false;
+            if (!checkRange(stock.cfg_sma4, 'cfg_sma4_min', 'cfg_sma4_max', true)) return false;
+            if (!checkRange(stock.cfg_sma9, 'cfg_sma9_min', 'cfg_sma9_max', true)) return false;
+            if (!checkRange(stock.cfg_sma20, 'cfg_sma20_min', 'cfg_sma20_max', true)) return false;
+            if (!checkRange(stock.cfg_ema20, 'cfg_ema20_min', 'cfg_ema20_max', true)) return false;
+            if (!checkRange(stock.cfg_ema45, 'cfg_ema45_min', 'cfg_ema45_max', true)) return false;
+            if (!checkRange(stock.cfg_wma45, 'cfg_wma45_min', 'cfg_wma45_max', true)) return false;
+
+            // Daily Trend
+            if (!checkRange(stock.sma4, 'sma4_min', 'sma4_max', true)) return false;
+            if (!checkRange(stock.sma9_price, 'sma9_price_min', 'sma9_price_max', true)) return false;
+            if (!checkRange(stock.sma18, 'sma18_min', 'sma18_max', true)) return false;
+            if (!checkRange(stock.wma45_close, 'wma45_close_min', 'wma45_close_max', true)) return false;
+            if (!checkRange(stock.cci, 'cci_min', 'cci_max', true)) return false;
+            if (!checkRange(stock.cci_ema20, 'cci_ema20_min', 'cci_ema20_max', true)) return false;
+            if (!checkRange(stock.aroon_up, 'aroon_up_min', 'aroon_up_max', true)) return false;
+            if (!checkRange(stock.aroon_down, 'aroon_down_min', 'aroon_down_max', true)) return false;
+
+            // Weekly RSI
+            if (!checkRange(stock.rsi_w, 'rsi_w_min', 'rsi_w_max', true)) return false;
+            if (!checkRange(stock.rsi_3_w, 'rsi_3_w_min', 'rsi_3_w_max', true)) return false;
+            if (!checkRange(stock.sma9_rsi_w, 'sma9_rsi_w_min', 'sma9_rsi_w_max', true)) return false;
+            if (!checkRange(stock.wma45_rsi_w, 'wma45_rsi_w_min', 'wma45_rsi_w_max', true)) return false;
+            if (!checkRange(stock.ema45_rsi_w, 'ema45_rsi_w_min', 'ema45_rsi_w_max', true)) return false;
+            if (!checkRange(stock.sma3_rsi3_w, 'sma3_rsi3_w_min', 'sma3_rsi3_w_max', true)) return false;
+            if (!checkRange(stock.ema20_sma3_w, 'ema20_sma3_w_min', 'ema20_sma3_w_max', true)) return false;
+
+            // Weekly The Number
+            if (!checkRange(stock.sma9_close_w, 'sma9_close_w_min', 'sma9_close_w_max', true)) return false;
+            if (!checkRange(stock.high_sma13_w, 'high_sma13_w_min', 'high_sma13_w_max', true)) return false;
+            if (!checkRange(stock.low_sma13_w, 'low_sma13_w_min', 'low_sma13_w_max', true)) return false;
+            if (!checkRange(stock.high_sma65_w, 'high_sma65_w_min', 'high_sma65_w_max', true)) return false;
+            if (!checkRange(stock.low_sma65_w, 'low_sma65_w_min', 'low_sma65_w_max', true)) return false;
+            if (!checkRange(stock.the_number_w, 'the_number_w_min', 'the_number_w_max', true)) return false;
+            if (!checkRange(stock.the_number_hl_w, 'the_number_hl_w_min', 'the_number_hl_w_max', true)) return false;
+            if (!checkRange(stock.the_number_ll_w, 'the_number_ll_w_min', 'the_number_ll_w_max', true)) return false;
+
+            // Weekly STAMP
+            if (!checkRange(stock.rsi_14_9days_ago_w, 'rsi_14_9days_ago_w_min', 'rsi_14_9days_ago_w_max', true)) return false;
+            if (!checkRange(stock.stamp_a_value_w, 'stamp_a_value_w_min', 'stamp_a_value_w_max', true)) return false;
+            if (!checkRange(stock.stamp_s9rsi_w, 'stamp_s9rsi_w_min', 'stamp_s9rsi_w_max', true)) return false;
+            if (!checkRange(stock.stamp_e45cfg_w, 'stamp_e45cfg_w_min', 'stamp_e45cfg_w_max', true)) return false;
+            if (!checkRange(stock.stamp_e45rsi_w, 'stamp_e45rsi_w_min', 'stamp_e45rsi_w_max', true)) return false;
+            if (!checkRange(stock.stamp_e20sma3_w, 'stamp_e20sma3_w_min', 'stamp_e20sma3_w_max', true)) return false;
+
+            // Weekly CFG
+            if (!checkRange(stock.cfg_w, 'cfg_w_min', 'cfg_w_max', true)) return false;
+            if (!checkRange(stock.cfg_sma4_w, 'cfg_sma4_w_min', 'cfg_sma4_w_max', true)) return false;
+            if (!checkRange(stock.cfg_sma9_w, 'cfg_sma9_w_min', 'cfg_sma9_w_max', true)) return false;
+            if (!checkRange(stock.cfg_ema20_w, 'cfg_ema20_w_min', 'cfg_ema20_w_max', true)) return false;
+            if (!checkRange(stock.cfg_ema45_w, 'cfg_ema45_w_min', 'cfg_ema45_w_max', true)) return false;
+            if (!checkRange(stock.cfg_wma45_w, 'cfg_wma45_w_min', 'cfg_wma45_w_max', true)) return false;
+
+            // Weekly Trend
+            if (!checkRange(stock.close_w, 'close_w_min', 'close_w_max', true)) return false;
+            if (!checkRange(stock.sma4_w, 'sma4_w_min', 'sma4_w_max', true)) return false;
+            if (!checkRange(stock.sma9_w, 'sma9_w_min', 'sma9_w_max', true)) return false;
+            if (!checkRange(stock.sma18_w, 'sma18_w_min', 'sma18_w_max', true)) return false;
+            if (!checkRange(stock.wma45_close_w, 'wma45_close_w_min', 'wma45_close_w_max', true)) return false;
+            if (!checkRange(stock.cci_w, 'cci_w_min', 'cci_w_max', true)) return false;
+            if (!checkRange(stock.cci_ema20_w, 'cci_ema20_w_min', 'cci_ema20_w_max', true)) return false;
+            if (!checkRange(stock.aroon_up_w, 'aroon_up_w_min', 'aroon_up_w_max', true)) return false;
+            if (!checkRange(stock.aroon_down_w, 'aroon_down_w_min', 'aroon_down_w_max', true)) return false;
+
+
+
             return true;
         });
 
@@ -710,6 +999,86 @@ export default function StockScreenerPage() {
                             case 'percent_off_52w_low': return stock.percent_off_52w_low || 0;
                             case 'vol_diff_50_percent': return stock.vol_diff_50_percent || 0;
                             case 'trading_view_symbol': return stock.trading_view_symbol || '';
+                            // Technical Screener columns
+                            case 'tech_score': return stock.tech_score || 0;
+                            case 'rsi_14': return stock.rsi_14 || 0;
+                            case 'rsi_3': return stock.rsi_3 || 0;
+                            case 'sma9_rsi': return stock.sma9_rsi || 0;
+                            case 'wma45_rsi': return stock.wma45_rsi || 0;
+                            case 'ema45_rsi': return stock.ema45_rsi || 0;
+                            case 'sma3_rsi3': return stock.sma3_rsi3 || 0;
+                            case 'ema20_sma3': return stock.ema20_sma3 || 0;
+                            case 'sma9_close': return stock.sma9_close || 0;
+                            case 'high_sma13': return stock.high_sma13 || 0;
+                            case 'low_sma13': return stock.low_sma13 || 0;
+                            case 'high_sma65': return stock.high_sma65 || 0;
+                            case 'low_sma65': return stock.low_sma65 || 0;
+                            case 'the_number': return stock.the_number || 0;
+                            case 'the_number_hl': return stock.the_number_hl || 0;
+                            case 'the_number_ll': return stock.the_number_ll || 0;
+                            case 'rsi_14_9days_ago': return stock.rsi_14_9days_ago || 0;
+                            case 'stamp_a_value': return stock.stamp_a_value || 0;
+                            case 'stamp_s9rsi': return stock.stamp_s9rsi || 0;
+                            case 'stamp_e45cfg': return stock.stamp_e45cfg || 0;
+                            case 'stamp_e45rsi': return stock.stamp_e45rsi || 0;
+                            case 'stamp_e20sma3': return stock.stamp_e20sma3 || 0;
+                            case 'cfg_daily': return stock.cfg_daily || 0;
+                            case 'cfg_sma4': return stock.cfg_sma4 || 0;
+                            case 'cfg_sma9': return stock.cfg_sma9 || 0;
+                            case 'cfg_sma20': return stock.cfg_sma20 || 0;
+                            case 'cfg_ema20': return stock.cfg_ema20 || 0;
+                            case 'cfg_ema45': return stock.cfg_ema45 || 0;
+                            case 'cfg_wma45': return stock.cfg_wma45 || 0;
+                            case 'sma4': return stock.sma4 || 0;
+                            case 'sma9_price': return stock.sma9_price || 0;
+                            case 'sma18': return stock.sma18 || 0;
+                            case 'wma45_close': return stock.wma45_close || 0;
+                            case 'cci': return stock.cci || 0;
+                            case 'cci_ema20': return stock.cci_ema20 || 0;
+                            case 'aroon_up': return stock.aroon_up || 0;
+                            case 'aroon_down': return stock.aroon_down || 0;
+                            case 'rsi_w': return stock.rsi_w || 0;
+                            case 'rsi_3_w': return stock.rsi_3_w || 0;
+                            case 'sma9_rsi_w': return stock.sma9_rsi_w || 0;
+                            case 'wma45_rsi_w': return stock.wma45_rsi_w || 0;
+                            case 'ema45_rsi_w': return stock.ema45_rsi_w || 0;
+                            case 'sma3_rsi3_w': return stock.sma3_rsi3_w || 0;
+                            case 'ema20_sma3_w': return stock.ema20_sma3_w || 0;
+                            case 'sma9_close_w': return stock.sma9_close_w || 0;
+                            case 'high_sma13_w': return stock.high_sma13_w || 0;
+                            case 'low_sma13_w': return stock.low_sma13_w || 0;
+                            case 'high_sma65_w': return stock.high_sma65_w || 0;
+                            case 'low_sma65_w': return stock.low_sma65_w || 0;
+                            case 'the_number_w': return stock.the_number_w || 0;
+                            case 'the_number_hl_w': return stock.the_number_hl_w || 0;
+                            case 'the_number_ll_w': return stock.the_number_ll_w || 0;
+                            case 'rsi_14_9days_ago_w': return stock.rsi_14_9days_ago_w || 0;
+                            case 'stamp_a_value_w': return stock.stamp_a_value_w || 0;
+                            case 'stamp_s9rsi_w': return stock.stamp_s9rsi_w || 0;
+                            case 'stamp_e45cfg_w': return stock.stamp_e45cfg_w || 0;
+                            case 'stamp_e45rsi_w': return stock.stamp_e45rsi_w || 0;
+                            case 'stamp_e20sma3_w': return stock.stamp_e20sma3_w || 0;
+                            case 'cfg_w': return stock.cfg_w || 0;
+                            case 'cfg_sma4_w': return stock.cfg_sma4_w || 0;
+                            case 'cfg_sma9_w': return stock.cfg_sma9_w || 0;
+                            case 'cfg_ema20_w': return stock.cfg_ema20_w || 0;
+                            case 'cfg_ema45_w': return stock.cfg_ema45_w || 0;
+                            case 'cfg_wma45_w': return stock.cfg_wma45_w || 0;
+                            case 'close_w': return stock.close_w || 0;
+                            case 'sma4_w': return stock.sma4_w || 0;
+                            case 'sma9_w': return stock.sma9_w || 0;
+                            case 'sma18_w': return stock.sma18_w || 0;
+                            case 'wma45_close_w': return stock.wma45_close_w || 0;
+                            case 'cci_w': return stock.cci_w || 0;
+                            case 'cci_ema20_w': return stock.cci_ema20_w || 0;
+                            case 'aroon_up_w': return stock.aroon_up_w || 0;
+                            case 'aroon_down_w': return stock.aroon_down_w || 0;
+                            case 'final_signal': return stock.final_signal ? 1 : 0;
+                            case 'stamp_signal': return stock.stamp ? 1 : 0;
+                            case 'trend_signal': return stock.trend_signal ? 1 : 0;
+                            case 'rsi_55_70': return stock.rsi_55_70 ? 1 : 0;
+                            case 'cfg_gt_50_daily': return stock.cfg_gt_50_daily ? 1 : 0;
+                            case 'cfg_gt_50_w': return stock.cfg_gt_50_w ? 1 : 0;
                             default: return 0;
                         }
                     };
@@ -787,7 +1156,21 @@ export default function StockScreenerPage() {
                     case 'percent_off_52w_low': return formatChangePercent(stock.percent_off_52w_low);
                     case 'vol_diff_50_percent': return formatChangePercent(stock.vol_diff_50_percent);
                     case 'trading_view_symbol': return stock.trading_view_symbol || '';
-                    default: return '';
+                    // Technical Screener exports
+                    case 'tech_score': return stock.tech_score ?? '';
+                    case 'final_signal': return stock.final_signal ? 'YES' : 'NO';
+                    case 'stamp_signal': return stock.stamp ? 'YES' : 'NO';
+                    case 'trend_signal': return stock.trend_signal ? 'YES' : 'NO';
+                    case 'rsi_55_70': return stock.rsi_55_70 ? 'YES' : 'NO';
+                    case 'cfg_gt_50_daily': return stock.cfg_gt_50_daily ? 'YES' : 'NO';
+                    case 'cfg_gt_50_w': return stock.cfg_gt_50_w ? 'YES' : 'NO';
+                    default: {
+                        // All other technical columns - numeric values
+                        const techVal = (stock as any)[col.key];
+                        if (techVal === null || techVal === undefined) return '-';
+                        const num = Number(techVal);
+                        return Number.isNaN(num) ? '-' : num.toFixed(2);
+                    }
                 }
             });
         });
@@ -1204,6 +1587,117 @@ export default function StockScreenerPage() {
                             />
                         </FilterAccordion>
 
+                        {/* Technical Screener: Signals & Score */}
+                        <FilterAccordion title="TECHNICAL: SIGNALS & SCORE" collapseSignal={collapseSignal}>
+                            <RangeFilter label="Tech Score" minValue={filters.tech_score_min} maxValue={filters.tech_score_max}
+                                onMinChange={(v) => setFilters(p => ({ ...p, tech_score_min: v }))}
+                                onMaxChange={(v) => setFilters(p => ({ ...p, tech_score_max: v }))}
+                            />
+                            <div className="space-y-2 mt-2">
+                                <CheckboxGroup label="Final Signal" options={['YES', 'NO']} selected={filters.final_signal} onChange={(v) => setFilters(p => ({ ...p, final_signal: v }))} />
+                                <CheckboxGroup label="Stamp Signal" options={['YES', 'NO']} selected={filters.stamp_signal} onChange={(v) => setFilters(p => ({ ...p, stamp_signal: v }))} />
+                                <CheckboxGroup label="Trend Signal" options={['YES', 'NO']} selected={filters.trend_signal} onChange={(v) => setFilters(p => ({ ...p, trend_signal: v }))} />
+                                <CheckboxGroup label="RSI 55-70" options={['YES', 'NO']} selected={filters.rsi_55_70} onChange={(v) => setFilters(p => ({ ...p, rsi_55_70: v }))} />
+                                <CheckboxGroup label="CFG > 50 (Daily)" options={['YES', 'NO']} selected={filters.cfg_gt_50_daily} onChange={(v) => setFilters(p => ({ ...p, cfg_gt_50_daily: v }))} />
+                                <CheckboxGroup label="CFG > 50 (Weekly)" options={['YES', 'NO']} selected={filters.cfg_gt_50_w} onChange={(v) => setFilters(p => ({ ...p, cfg_gt_50_w: v }))} />
+                            </div>
+                        </FilterAccordion>
+
+                        {/* Technical Screener: Daily Indicators */}
+                        <FilterAccordion title="TECHNICAL: DAILY INDICATORS" collapseSignal={collapseSignal}>
+                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 mt-1">RSI Group</div>
+                            <RangeFilter label="RSI (14)" minValue={filters.rsi_14_min} maxValue={filters.rsi_14_max} onMinChange={(v) => setFilters(p => ({ ...p, rsi_14_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, rsi_14_max: v }))} />
+                            <RangeFilter label="RSI (3)" minValue={filters.rsi_3_min} maxValue={filters.rsi_3_max} onMinChange={(v) => setFilters(p => ({ ...p, rsi_3_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, rsi_3_max: v }))} />
+                            <RangeFilter label="SMA9(RSI)" minValue={filters.sma9_rsi_min} maxValue={filters.sma9_rsi_max} onMinChange={(v) => setFilters(p => ({ ...p, sma9_rsi_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, sma9_rsi_max: v }))} />
+                            <RangeFilter label="WMA45(RSI)" minValue={filters.wma45_rsi_min} maxValue={filters.wma45_rsi_max} onMinChange={(v) => setFilters(p => ({ ...p, wma45_rsi_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, wma45_rsi_max: v }))} />
+                            <RangeFilter label="EMA45(RSI)" minValue={filters.ema45_rsi_min} maxValue={filters.ema45_rsi_max} onMinChange={(v) => setFilters(p => ({ ...p, ema45_rsi_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, ema45_rsi_max: v }))} />
+                            <RangeFilter label="SMA3(RSI3)" minValue={filters.sma3_rsi3_min} maxValue={filters.sma3_rsi3_max} onMinChange={(v) => setFilters(p => ({ ...p, sma3_rsi3_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, sma3_rsi3_max: v }))} />
+                            <RangeFilter label="EMA20(SMA3)" minValue={filters.ema20_sma3_min} maxValue={filters.ema20_sma3_max} onMinChange={(v) => setFilters(p => ({ ...p, ema20_sma3_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, ema20_sma3_max: v }))} />
+
+                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 mt-4">The Number Group</div>
+                            <RangeFilter label="The Number" minValue={filters.the_number_min} maxValue={filters.the_number_max} onMinChange={(v) => setFilters(p => ({ ...p, the_number_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, the_number_max: v }))} />
+                            <RangeFilter label="High/Low Used" minValue={filters.the_number_hl_min} maxValue={filters.the_number_hl_max} onMinChange={(v) => setFilters(p => ({ ...p, the_number_hl_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, the_number_hl_max: v }))} />
+                            <RangeFilter label="SMA9(Close)" minValue={filters.sma9_close_min} maxValue={filters.sma9_close_max} onMinChange={(v) => setFilters(p => ({ ...p, sma9_close_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, sma9_close_max: v }))} />
+                            <RangeFilter label="High SMA13" minValue={filters.high_sma13_min} maxValue={filters.high_sma13_max} onMinChange={(v) => setFilters(p => ({ ...p, high_sma13_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, high_sma13_max: v }))} />
+                            <RangeFilter label="Low SMA13" minValue={filters.low_sma13_min} maxValue={filters.low_sma13_max} onMinChange={(v) => setFilters(p => ({ ...p, low_sma13_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, low_sma13_max: v }))} />
+                            <RangeFilter label="High SMA65" minValue={filters.high_sma65_min} maxValue={filters.high_sma65_max} onMinChange={(v) => setFilters(p => ({ ...p, high_sma65_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, high_sma65_max: v }))} />
+                            <RangeFilter label="Low SMA65" minValue={filters.low_sma65_min} maxValue={filters.low_sma65_max} onMinChange={(v) => setFilters(p => ({ ...p, low_sma65_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, low_sma65_max: v }))} />
+
+                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 mt-4">STAMP Components</div>
+                            <RangeFilter label="RSI[9]" minValue={filters.rsi_14_9days_ago_min} maxValue={filters.rsi_14_9days_ago_max} onMinChange={(v) => setFilters(p => ({ ...p, rsi_14_9days_ago_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, rsi_14_9days_ago_max: v }))} />
+                            <RangeFilter label="STAMP.A" minValue={filters.stamp_a_value_min} maxValue={filters.stamp_a_value_max} onMinChange={(v) => setFilters(p => ({ ...p, stamp_a_value_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, stamp_a_value_max: v }))} />
+                            <RangeFilter label="STAMP.S9RSI" minValue={filters.stamp_s9rsi_min} maxValue={filters.stamp_s9rsi_max} onMinChange={(v) => setFilters(p => ({ ...p, stamp_s9rsi_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, stamp_s9rsi_max: v }))} />
+                            <RangeFilter label="STAMP.E45CFG" minValue={filters.stamp_e45cfg_min} maxValue={filters.stamp_e45cfg_max} onMinChange={(v) => setFilters(p => ({ ...p, stamp_e45cfg_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, stamp_e45cfg_max: v }))} />
+                            <RangeFilter label="STAMP.E45RSI" minValue={filters.stamp_e45rsi_min} maxValue={filters.stamp_e45rsi_max} onMinChange={(v) => setFilters(p => ({ ...p, stamp_e45rsi_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, stamp_e45rsi_max: v }))} />
+                            <RangeFilter label="STAMP.E20SMA3" minValue={filters.stamp_e20sma3_min} maxValue={filters.stamp_e20sma3_max} onMinChange={(v) => setFilters(p => ({ ...p, stamp_e20sma3_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, stamp_e20sma3_max: v }))} />
+
+                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 mt-4">CFG Components</div>
+                            <RangeFilter label="CFG Daily" minValue={filters.cfg_daily_min} maxValue={filters.cfg_daily_max} onMinChange={(v) => setFilters(p => ({ ...p, cfg_daily_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, cfg_daily_max: v }))} />
+                            <RangeFilter label="CFG.SMA4" minValue={filters.cfg_sma4_min} maxValue={filters.cfg_sma4_max} onMinChange={(v) => setFilters(p => ({ ...p, cfg_sma4_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, cfg_sma4_max: v }))} />
+                            <RangeFilter label="CFG.SMA9" minValue={filters.cfg_sma9_min} maxValue={filters.cfg_sma9_max} onMinChange={(v) => setFilters(p => ({ ...p, cfg_sma9_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, cfg_sma9_max: v }))} />
+                            <RangeFilter label="CFG.SMA20" minValue={filters.cfg_sma20_min} maxValue={filters.cfg_sma20_max} onMinChange={(v) => setFilters(p => ({ ...p, cfg_sma20_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, cfg_sma20_max: v }))} />
+                            <RangeFilter label="CFG.EMA20" minValue={filters.cfg_ema20_min} maxValue={filters.cfg_ema20_max} onMinChange={(v) => setFilters(p => ({ ...p, cfg_ema20_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, cfg_ema20_max: v }))} />
+                            <RangeFilter label="CFG.EMA45" minValue={filters.cfg_ema45_min} maxValue={filters.cfg_ema45_max} onMinChange={(v) => setFilters(p => ({ ...p, cfg_ema45_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, cfg_ema45_max: v }))} />
+                            <RangeFilter label="CFG.WMA45" minValue={filters.cfg_wma45_min} maxValue={filters.cfg_wma45_max} onMinChange={(v) => setFilters(p => ({ ...p, cfg_wma45_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, cfg_wma45_max: v }))} />
+
+                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 mt-4">Trend Components</div>
+                            <RangeFilter label="SMA4" minValue={filters.sma4_min} maxValue={filters.sma4_max} onMinChange={(v) => setFilters(p => ({ ...p, sma4_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, sma4_max: v }))} />
+                            <RangeFilter label="SMA9(Price)" minValue={filters.sma9_price_min} maxValue={filters.sma9_price_max} onMinChange={(v) => setFilters(p => ({ ...p, sma9_price_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, sma9_price_max: v }))} />
+                            <RangeFilter label="SMA18" minValue={filters.sma18_min} maxValue={filters.sma18_max} onMinChange={(v) => setFilters(p => ({ ...p, sma18_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, sma18_max: v }))} />
+                            <RangeFilter label="WMA45(Price)" minValue={filters.wma45_close_min} maxValue={filters.wma45_close_max} onMinChange={(v) => setFilters(p => ({ ...p, wma45_close_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, wma45_close_max: v }))} />
+                            <RangeFilter label="CCI" minValue={filters.cci_min} maxValue={filters.cci_max} onMinChange={(v) => setFilters(p => ({ ...p, cci_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, cci_max: v }))} />
+                            <RangeFilter label="CCI.EMA20" minValue={filters.cci_ema20_min} maxValue={filters.cci_ema20_max} onMinChange={(v) => setFilters(p => ({ ...p, cci_ema20_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, cci_ema20_max: v }))} />
+                            <RangeFilter label="Aroon Up" minValue={filters.aroon_up_min} maxValue={filters.aroon_up_max} onMinChange={(v) => setFilters(p => ({ ...p, aroon_up_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, aroon_up_max: v }))} />
+                            <RangeFilter label="Aroon Down" minValue={filters.aroon_down_min} maxValue={filters.aroon_down_max} onMinChange={(v) => setFilters(p => ({ ...p, aroon_down_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, aroon_down_max: v }))} />
+                        </FilterAccordion>
+
+                        {/* Technical Screener: Weekly Indicators */}
+                        <FilterAccordion title="TECHNICAL: WEEKLY INDICATORS" collapseSignal={collapseSignal}>
+                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 mt-1">RSI Group (W)</div>
+                            <RangeFilter label="RSI(14)(W)" minValue={filters.rsi_w_min} maxValue={filters.rsi_w_max} onMinChange={(v) => setFilters(p => ({ ...p, rsi_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, rsi_w_max: v }))} />
+                            <RangeFilter label="RSI(3)(W)" minValue={filters.rsi_3_w_min} maxValue={filters.rsi_3_w_max} onMinChange={(v) => setFilters(p => ({ ...p, rsi_3_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, rsi_3_w_max: v }))} />
+                            <RangeFilter label="SMA9(RSI)(W)" minValue={filters.sma9_rsi_w_min} maxValue={filters.sma9_rsi_w_max} onMinChange={(v) => setFilters(p => ({ ...p, sma9_rsi_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, sma9_rsi_w_max: v }))} />
+                            <RangeFilter label="WMA45(RSI)(W)" minValue={filters.wma45_rsi_w_min} maxValue={filters.wma45_rsi_w_max} onMinChange={(v) => setFilters(p => ({ ...p, wma45_rsi_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, wma45_rsi_w_max: v }))} />
+                            <RangeFilter label="EMA45(RSI)(W)" minValue={filters.ema45_rsi_w_min} maxValue={filters.ema45_rsi_w_max} onMinChange={(v) => setFilters(p => ({ ...p, ema45_rsi_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, ema45_rsi_w_max: v }))} />
+                            <RangeFilter label="SMA3(RSI3)(W)" minValue={filters.sma3_rsi3_w_min} maxValue={filters.sma3_rsi3_w_max} onMinChange={(v) => setFilters(p => ({ ...p, sma3_rsi3_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, sma3_rsi3_w_max: v }))} />
+                            <RangeFilter label="EMA20(SMA3)(W)" minValue={filters.ema20_sma3_w_min} maxValue={filters.ema20_sma3_w_max} onMinChange={(v) => setFilters(p => ({ ...p, ema20_sma3_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, ema20_sma3_w_max: v }))} />
+
+                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 mt-4">The Number Group (W)</div>
+                            <RangeFilter label="The Number(W)" minValue={filters.the_number_w_min} maxValue={filters.the_number_w_max} onMinChange={(v) => setFilters(p => ({ ...p, the_number_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, the_number_w_max: v }))} />
+                            <RangeFilter label="High/Low Used(W)" minValue={filters.the_number_hl_w_min} maxValue={filters.the_number_hl_w_max} onMinChange={(v) => setFilters(p => ({ ...p, the_number_hl_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, the_number_hl_w_max: v }))} />
+                            <RangeFilter label="SMA9(Close)(W)" minValue={filters.sma9_close_w_min} maxValue={filters.sma9_close_w_max} onMinChange={(v) => setFilters(p => ({ ...p, sma9_close_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, sma9_close_w_max: v }))} />
+                            <RangeFilter label="High SMA13(W)" minValue={filters.high_sma13_w_min} maxValue={filters.high_sma13_w_max} onMinChange={(v) => setFilters(p => ({ ...p, high_sma13_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, high_sma13_w_max: v }))} />
+                            <RangeFilter label="Low SMA13(W)" minValue={filters.low_sma13_w_min} maxValue={filters.low_sma13_w_max} onMinChange={(v) => setFilters(p => ({ ...p, low_sma13_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, low_sma13_w_max: v }))} />
+                            <RangeFilter label="High SMA65(W)" minValue={filters.high_sma65_w_min} maxValue={filters.high_sma65_w_max} onMinChange={(v) => setFilters(p => ({ ...p, high_sma65_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, high_sma65_w_max: v }))} />
+                            <RangeFilter label="Low SMA65(W)" minValue={filters.low_sma65_w_min} maxValue={filters.low_sma65_w_max} onMinChange={(v) => setFilters(p => ({ ...p, low_sma65_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, low_sma65_w_max: v }))} />
+
+                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 mt-4">STAMP Components (W)</div>
+                            <RangeFilter label="RSI[9](W)" minValue={filters.rsi_14_9days_ago_w_min} maxValue={filters.rsi_14_9days_ago_w_max} onMinChange={(v) => setFilters(p => ({ ...p, rsi_14_9days_ago_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, rsi_14_9days_ago_w_max: v }))} />
+                            <RangeFilter label="STAMP.A(W)" minValue={filters.stamp_a_value_w_min} maxValue={filters.stamp_a_value_w_max} onMinChange={(v) => setFilters(p => ({ ...p, stamp_a_value_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, stamp_a_value_w_max: v }))} />
+                            <RangeFilter label="STAMP.S9RSI(W)" minValue={filters.stamp_s9rsi_w_min} maxValue={filters.stamp_s9rsi_w_max} onMinChange={(v) => setFilters(p => ({ ...p, stamp_s9rsi_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, stamp_s9rsi_w_max: v }))} />
+                            <RangeFilter label="STAMP.E45CFG(W)" minValue={filters.stamp_e45cfg_w_min} maxValue={filters.stamp_e45cfg_w_max} onMinChange={(v) => setFilters(p => ({ ...p, stamp_e45cfg_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, stamp_e45cfg_w_max: v }))} />
+                            <RangeFilter label="STAMP.E45RSI(W)" minValue={filters.stamp_e45rsi_w_min} maxValue={filters.stamp_e45rsi_w_max} onMinChange={(v) => setFilters(p => ({ ...p, stamp_e45rsi_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, stamp_e45rsi_w_max: v }))} />
+                            <RangeFilter label="STAMP.E20SMA3(W)" minValue={filters.stamp_e20sma3_w_min} maxValue={filters.stamp_e20sma3_w_max} onMinChange={(v) => setFilters(p => ({ ...p, stamp_e20sma3_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, stamp_e20sma3_w_max: v }))} />
+
+                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 mt-4">CFG Components (W)</div>
+                            <RangeFilter label="CFG(W)" minValue={filters.cfg_w_min} maxValue={filters.cfg_w_max} onMinChange={(v) => setFilters(p => ({ ...p, cfg_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, cfg_w_max: v }))} />
+                            <RangeFilter label="CFG.SMA4(W)" minValue={filters.cfg_sma4_w_min} maxValue={filters.cfg_sma4_w_max} onMinChange={(v) => setFilters(p => ({ ...p, cfg_sma4_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, cfg_sma4_w_max: v }))} />
+                            <RangeFilter label="CFG.SMA9(W)" minValue={filters.cfg_sma9_w_min} maxValue={filters.cfg_sma9_w_max} onMinChange={(v) => setFilters(p => ({ ...p, cfg_sma9_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, cfg_sma9_w_max: v }))} />
+                            <RangeFilter label="CFG.EMA20(W)" minValue={filters.cfg_ema20_w_min} maxValue={filters.cfg_ema20_w_max} onMinChange={(v) => setFilters(p => ({ ...p, cfg_ema20_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, cfg_ema20_w_max: v }))} />
+                            <RangeFilter label="CFG.EMA45(W)" minValue={filters.cfg_ema45_w_min} maxValue={filters.cfg_ema45_w_max} onMinChange={(v) => setFilters(p => ({ ...p, cfg_ema45_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, cfg_ema45_w_max: v }))} />
+                            <RangeFilter label="CFG.WMA45(W)" minValue={filters.cfg_wma45_w_min} maxValue={filters.cfg_wma45_w_max} onMinChange={(v) => setFilters(p => ({ ...p, cfg_wma45_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, cfg_wma45_w_max: v }))} />
+
+                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 mt-4">Trend Components (W)</div>
+                            <RangeFilter label="SMA4(W)" minValue={filters.sma4_w_min} maxValue={filters.sma4_w_max} onMinChange={(v) => setFilters(p => ({ ...p, sma4_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, sma4_w_max: v }))} />
+                            <RangeFilter label="SMA9(W)" minValue={filters.sma9_w_min} maxValue={filters.sma9_w_max} onMinChange={(v) => setFilters(p => ({ ...p, sma9_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, sma9_w_max: v }))} />
+                            <RangeFilter label="SMA18(W)" minValue={filters.sma18_w_min} maxValue={filters.sma18_w_max} onMinChange={(v) => setFilters(p => ({ ...p, sma18_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, sma18_w_max: v }))} />
+                            <RangeFilter label="WMA45(Close)(W)" minValue={filters.wma45_close_w_min} maxValue={filters.wma45_close_w_max} onMinChange={(v) => setFilters(p => ({ ...p, wma45_close_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, wma45_close_w_max: v }))} />
+                            <RangeFilter label="CCI(W)" minValue={filters.cci_w_min} maxValue={filters.cci_w_max} onMinChange={(v) => setFilters(p => ({ ...p, cci_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, cci_w_max: v }))} />
+                            <RangeFilter label="CCI.EMA20(W)" minValue={filters.cci_ema20_w_min} maxValue={filters.cci_ema20_w_max} onMinChange={(v) => setFilters(p => ({ ...p, cci_ema20_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, cci_ema20_w_max: v }))} />
+                            <RangeFilter label="Aroon Up(W)" minValue={filters.aroon_up_w_min} maxValue={filters.aroon_up_w_max} onMinChange={(v) => setFilters(p => ({ ...p, aroon_up_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, aroon_up_w_max: v }))} />
+                            <RangeFilter label="Aroon Down(W)" minValue={filters.aroon_down_w_min} maxValue={filters.aroon_down_w_max} onMinChange={(v) => setFilters(p => ({ ...p, aroon_down_w_min: v }))} onMaxChange={(v) => setFilters(p => ({ ...p, aroon_down_w_max: v }))} />
+                        </FilterAccordion>
+
                         {/* Open/High/Low */}
                         <FilterAccordion title="OPEN/HIGH/LOW" collapseSignal={collapseSignal}>
                             <RangeFilter
@@ -1580,8 +2074,46 @@ export default function StockScreenerPage() {
                                                             content = <span className="text-gray-900">{formatChangePercent(stock.vol_diff_50_percent)}</span>;
                                                             break;
 
-                                                        default:
-                                                            content = <span>-</span>;
+                                                        // === Technical Screener columns ===
+                                                        case 'tech_score':
+                                                            content = (
+                                                                <span className="px-2 py-0.5 rounded text-white text-xs font-bold" style={{
+                                                                    background: (stock.tech_score || 0) >= 10 ? '#10B981' : (stock.tech_score || 0) >= 5 ? '#F59E0B' : '#EF4444'
+                                                                }}>
+                                                                    {stock.tech_score ?? '-'}
+                                                                </span>
+                                                            );
+                                                            break;
+
+                                                        case 'final_signal':
+                                                            content = stock.final_signal ? <CheckCircle2 size={14} className="text-blue-600 inline" /> : <XCircle size={14} className="text-gray-300 inline" />;
+                                                            break;
+                                                        case 'stamp_signal':
+                                                            content = stock.stamp ? <Shield size={14} className="text-amber-600 inline" /> : <XCircle size={14} className="text-gray-300 inline" />;
+                                                            break;
+                                                        case 'trend_signal':
+                                                            content = stock.trend_signal ? <TrendingUpIcon size={14} className="text-green-600 inline" /> : <XCircle size={14} className="text-gray-300 inline" />;
+                                                            break;
+                                                        case 'rsi_55_70':
+                                                            content = stock.rsi_55_70 ? <CheckCircle2 size={14} className="text-green-600 inline" /> : <XCircle size={14} className="text-red-500 inline" />;
+                                                            break;
+                                                        case 'cfg_gt_50_daily':
+                                                            content = stock.cfg_gt_50_daily ? <CheckCircle2 size={14} className="text-green-600 inline" /> : <XCircle size={14} className="text-red-500 inline" />;
+                                                            break;
+                                                        case 'cfg_gt_50_w':
+                                                            content = stock.cfg_gt_50_w ? <CheckCircle2 size={14} className="text-green-600 inline" /> : <XCircle size={14} className="text-red-500 inline" />;
+                                                            break;
+
+                                                        default: {
+                                                            // All other technical numeric columns
+                                                            const techVal = (stock as any)[col.key];
+                                                            if (techVal === null || techVal === undefined) {
+                                                                content = <span className="text-gray-400">-</span>;
+                                                            } else {
+                                                                const num = Number(techVal);
+                                                                content = <span className="text-gray-900">{Number.isNaN(num) ? '-' : num.toFixed(2)}</span>;
+                                                            }
+                                                        }
                                                     }
 
                                                     return (
