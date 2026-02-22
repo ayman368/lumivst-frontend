@@ -164,7 +164,8 @@ export default function TechnicalScreenerPage() {
             const params = new URLSearchParams();
             if (minScore > 0) params.append('min_score', minScore.toString());
             if (passingOnly) params.append('passing_only', 'true');
-            params.append('limit', '500');
+            params.append('limit', '2000');
+            params.append('latest_only', 'false');
 
             const res = await fetch(
                 `${API_URL}/api/technical-screener/screener?${params.toString()}`,

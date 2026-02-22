@@ -19,7 +19,7 @@ export default function useStocks() {
             const [pricesRes, rsRes, techRes] = await Promise.all([
                 fetch(`${API_URL}/api/prices/latest`, { cache: 'no-store', headers }),
                 fetch(`${API_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', headers }),
-                fetch(`${API_URL}/api/technical-screener/screener?limit=500`, { cache: 'no-store', headers })
+                fetch(`${API_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', headers })
             ]);
 
             if (!pricesRes.ok) throw new Error(`Failed to fetch prices: ${pricesRes.status}`);

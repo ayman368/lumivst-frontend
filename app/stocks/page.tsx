@@ -431,7 +431,7 @@ export default function StockScreenerPage() {
                 const [pricesRes, rsRes, techRes] = await Promise.all([
                     fetch(`${API_URL}/api/prices/latest`, { cache: 'no-store', headers }),
                     fetch(`${API_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', headers }),
-                    fetch(`${API_URL}/api/technical-screener/screener?limit=500`, { cache: 'no-store', headers })
+                    fetch(`${API_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', headers })
                 ]);
 
                 if (!pricesRes.ok) throw new Error(`Failed to fetch prices: ${pricesRes.status}`);
@@ -1079,6 +1079,8 @@ export default function StockScreenerPage() {
                             case 'rsi_55_70': return stock.rsi_55_70 ? 1 : 0;
                             case 'cfg_gt_50_daily': return stock.cfg_gt_50_daily ? 1 : 0;
                             case 'cfg_gt_50_w': return stock.cfg_gt_50_w ? 1 : 0;
+                            case 'stamp_daily': return stock.stamp_daily ? 1 : 0;
+                            case 'stamp_weekly': return stock.stamp_weekly ? 1 : 0;
                             default: return 0;
                         }
                     };
@@ -1597,6 +1599,8 @@ export default function StockScreenerPage() {
                                 <CheckboxGroup label="Final Signal" options={['YES', 'NO']} selected={filters.final_signal} onChange={(v) => setFilters(p => ({ ...p, final_signal: v }))} />
                                 <CheckboxGroup label="Stamp Signal" options={['YES', 'NO']} selected={filters.stamp_signal} onChange={(v) => setFilters(p => ({ ...p, stamp_signal: v }))} />
                                 <CheckboxGroup label="Trend Signal" options={['YES', 'NO']} selected={filters.trend_signal} onChange={(v) => setFilters(p => ({ ...p, trend_signal: v }))} />
+                                <CheckboxGroup label="Stamp Daily" options={['YES', 'NO']} selected={filters.stamp_daily} onChange={(v) => setFilters(p => ({ ...p, stamp_daily: v }))} />
+                                <CheckboxGroup label="Stamp Weekly" options={['YES', 'NO']} selected={filters.stamp_weekly} onChange={(v) => setFilters(p => ({ ...p, stamp_weekly: v }))} />
                                 <CheckboxGroup label="RSI 55-70" options={['YES', 'NO']} selected={filters.rsi_55_70} onChange={(v) => setFilters(p => ({ ...p, rsi_55_70: v }))} />
                                 <CheckboxGroup label="CFG > 50 (Daily)" options={['YES', 'NO']} selected={filters.cfg_gt_50_daily} onChange={(v) => setFilters(p => ({ ...p, cfg_gt_50_daily: v }))} />
                                 <CheckboxGroup label="CFG > 50 (Weekly)" options={['YES', 'NO']} selected={filters.cfg_gt_50_w} onChange={(v) => setFilters(p => ({ ...p, cfg_gt_50_w: v }))} />
