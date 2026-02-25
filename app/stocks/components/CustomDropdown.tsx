@@ -54,7 +54,7 @@ export default function CustomDropdown({
                 </svg>
             </button>
 
-            {isOpen && (
+            {isOpen ? (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-hidden">
                     <div className="p-2 border-b border-gray-100">
                         <div className="relative">
@@ -105,7 +105,7 @@ export default function CustomDropdown({
                         )}
                     </div>
                 </div>
-            )}
+            ) : null}
         </div>
     );
 }

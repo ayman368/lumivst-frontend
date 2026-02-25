@@ -35,11 +35,11 @@ export default function FilterAccordion({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
             </button>
-            {isOpen && (
+            {isOpen ? (
                 <div className="mt-2 space-y-3">
                     {children}
                 </div>
-            )}
+            ) : null}
         </div>
     );
 }

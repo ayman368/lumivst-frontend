@@ -90,14 +90,14 @@ export default function CustomMultiSelect({
                 </svg>
             </button>
 
-            {isOpen && (
+            {isOpen ? (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-hidden">
                     <div className="p-2 border-b border-gray-100">
                         <div className="flex justify-between items-center mb-2">
                             <span className="text-xs font-semibold text-gray-700">
                                 Selected: {selected.length}
                             </span>
-                            {selected.length > 0 && (
+                            {selected.length > 0 ? (
                                 <button
                                     type="button"
                                     onClick={handleClearAll}
@@ -105,7 +105,7 @@ export default function CustomMultiSelect({
                                 >
                                     Clear All
                                 </button>
-                            )}
+                            ) : null}
                         </div>
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -142,11 +142,11 @@ export default function CustomMultiSelect({
                                                     : 'border-gray-300'
                                                 }
                                             `}>
-                                                {selected.includes(option) && (
+                                                {selected.includes(option) ? (
                                                     <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                                     </svg>
-                                                )}
+                                                ) : null}
                                             </div>
                                             <span className="truncate">{option}</span>
                                         </div>
@@ -158,7 +158,7 @@ export default function CustomMultiSelect({
                         )}
                     </div>
                 </div>
-            )}
+            ) : null}
         </div>
     );
 }

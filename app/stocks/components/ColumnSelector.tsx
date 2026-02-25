@@ -21,8 +21,8 @@ export default function ColumnSelector({
 
     return (
         <div
-            className="fixed bg-white rounded-md shadow-lg z-[100] border border-gray-200"
-            style={{ top: '60px', left: '16px', width: '280px', maxHeight: '70vh', overflowY: 'auto' }}
+            className="absolute right-0 top-full mt-1 bg-white rounded-md shadow-lg z-[100] border border-gray-200"
+            style={{ width: '280px', maxHeight: '70vh', overflowY: 'auto' }}
         >
             <div className="p-3">
                 <div className="text-xs font-semibold text-gray-500 mb-2">SELECT COLUMNS</div>

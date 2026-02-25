@@ -53,44 +53,26 @@ export interface Stock {
     trading_view_symbol?: string;
 
     // === Technical Screener Fields ===
-    // Score
-    tech_score?: number;
 
-    // Daily RSI
+    // Daily RSI (kept for display only)
     rsi_14?: number | null;
-    rsi_3?: number | null;
     sma9_rsi?: number | null;
     wma45_rsi?: number | null;
-    ema45_rsi?: number | null;
-    sma3_rsi3?: number | null;
-    ema20_sma3?: number | null;
 
     // Daily The Number
     sma9_close?: number | null;
-    high_sma13?: number | null;
-    low_sma13?: number | null;
-    high_sma65?: number | null;
-    low_sma65?: number | null;
     the_number?: number | null;
     the_number_hl?: number | null;
     the_number_ll?: number | null;
 
     // Daily STAMP
-    rsi_14_9days_ago?: number | null;
-    stamp_a_value?: number | null;
     stamp_s9rsi?: number | null;
     stamp_e45cfg?: number | null;
-    stamp_e45rsi?: number | null;
-    stamp_e20sma3?: number | null;
 
     // Daily CFG
     cfg_daily?: number | null;
     cfg_sma4?: number | null;
-    cfg_sma9?: number | null;
-    cfg_sma20?: number | null;
-    cfg_ema20?: number | null;
     cfg_ema45?: number | null;
-    cfg_wma45?: number | null;
 
     // Daily Trend
     sma4?: number | null;
@@ -104,38 +86,23 @@ export interface Stock {
 
     // Weekly RSI
     rsi_w?: number | null;
-    rsi_3_w?: number | null;
     sma9_rsi_w?: number | null;
     wma45_rsi_w?: number | null;
-    ema45_rsi_w?: number | null;
-    sma3_rsi3_w?: number | null;
-    ema20_sma3_w?: number | null;
 
     // Weekly The Number
     sma9_close_w?: number | null;
-    high_sma13_w?: number | null;
-    low_sma13_w?: number | null;
-    high_sma65_w?: number | null;
-    low_sma65_w?: number | null;
     the_number_w?: number | null;
     the_number_hl_w?: number | null;
     the_number_ll_w?: number | null;
 
     // Weekly STAMP
-    rsi_14_9days_ago_w?: number | null;
-    stamp_a_value_w?: number | null;
     stamp_s9rsi_w?: number | null;
     stamp_e45cfg_w?: number | null;
-    stamp_e45rsi_w?: number | null;
-    stamp_e20sma3_w?: number | null;
 
     // Weekly CFG
     cfg_w?: number | null;
     cfg_sma4_w?: number | null;
-    cfg_sma9_w?: number | null;
-    cfg_ema20_w?: number | null;
     cfg_ema45_w?: number | null;
-    cfg_wma45_w?: number | null;
 
     // Weekly Trend
     close_w?: number | null;
@@ -148,15 +115,6 @@ export interface Stock {
     aroon_up_w?: number | null;
     aroon_down_w?: number | null;
 
-    // Signals & Booleans
-    stamp?: boolean;
-    stamp_daily?: boolean;
-    stamp_weekly?: boolean;
-    trend_signal?: boolean;
-    final_signal?: boolean;
-    rsi_55_70?: boolean;
-    cfg_gt_50_daily?: boolean;
-    cfg_gt_50_w?: boolean;
 }
 
 export interface FilterState {
@@ -233,56 +191,27 @@ export interface FilterState {
     industry: string[];
     sub_industry: string[];
 
-    // === Technical Screener Filters ===
-    // Score
-    tech_score_min: string;
-    tech_score_max: string;
-
-    // Signals (Boolean/Select)
-    final_signal: string[]; // 'YES', 'NO'
-    stamp_signal: string[];
-    trend_signal: string[];
-    rsi_55_70: string[];
-    cfg_gt_50_daily: string[];
-    cfg_gt_50_w: string[];
-    stamp_daily: string[];
-    stamp_weekly: string[];
+    // === Technical Screener Filters (KEPT) ===
 
     // Daily RSI
     rsi_14_min: string; rsi_14_max: string;
-    rsi_3_min: string; rsi_3_max: string;
     sma9_rsi_min: string; sma9_rsi_max: string;
     wma45_rsi_min: string; wma45_rsi_max: string;
-    ema45_rsi_min: string; ema45_rsi_max: string;
-    sma3_rsi3_min: string; sma3_rsi3_max: string;
-    ema20_sma3_min: string; ema20_sma3_max: string;
 
     // Daily The Number
     sma9_close_min: string; sma9_close_max: string;
-    high_sma13_min: string; high_sma13_max: string;
-    low_sma13_min: string; low_sma13_max: string;
-    high_sma65_min: string; high_sma65_max: string;
-    low_sma65_min: string; low_sma65_max: string;
     the_number_min: string; the_number_max: string;
     the_number_hl_min: string; the_number_hl_max: string;
     the_number_ll_min: string; the_number_ll_max: string;
 
-    // Daily STAMP
-    rsi_14_9days_ago_min: string; rsi_14_9days_ago_max: string;
-    stamp_a_value_min: string; stamp_a_value_max: string;
+    // Daily STAMP (kept: s9rsi, e45cfg)
     stamp_s9rsi_min: string; stamp_s9rsi_max: string;
     stamp_e45cfg_min: string; stamp_e45cfg_max: string;
-    stamp_e45rsi_min: string; stamp_e45rsi_max: string;
-    stamp_e20sma3_min: string; stamp_e20sma3_max: string;
 
-    // Daily CFG
+    // Daily CFG (kept: cfg_daily, cfg_sma4, cfg_ema45)
     cfg_daily_min: string; cfg_daily_max: string;
     cfg_sma4_min: string; cfg_sma4_max: string;
-    cfg_sma9_min: string; cfg_sma9_max: string;
-    cfg_sma20_min: string; cfg_sma20_max: string;
-    cfg_ema20_min: string; cfg_ema20_max: string;
     cfg_ema45_min: string; cfg_ema45_max: string;
-    cfg_wma45_min: string; cfg_wma45_max: string;
 
     // Daily Trend
     sma4_min: string; sma4_max: string;
@@ -296,38 +225,23 @@ export interface FilterState {
 
     // Weekly RSI
     rsi_w_min: string; rsi_w_max: string;
-    rsi_3_w_min: string; rsi_3_w_max: string;
     sma9_rsi_w_min: string; sma9_rsi_w_max: string;
     wma45_rsi_w_min: string; wma45_rsi_w_max: string;
-    ema45_rsi_w_min: string; ema45_rsi_w_max: string;
-    sma3_rsi3_w_min: string; sma3_rsi3_w_max: string;
-    ema20_sma3_w_min: string; ema20_sma3_w_max: string;
 
     // Weekly The Number
     sma9_close_w_min: string; sma9_close_w_max: string;
-    high_sma13_w_min: string; high_sma13_w_max: string;
-    low_sma13_w_min: string; low_sma13_w_max: string;
-    high_sma65_w_min: string; high_sma65_w_max: string;
-    low_sma65_w_min: string; low_sma65_w_max: string;
     the_number_w_min: string; the_number_w_max: string;
     the_number_hl_w_min: string; the_number_hl_w_max: string;
     the_number_ll_w_min: string; the_number_ll_w_max: string;
 
-    // Weekly STAMP
-    rsi_14_9days_ago_w_min: string; rsi_14_9days_ago_w_max: string;
-    stamp_a_value_w_min: string; stamp_a_value_w_max: string;
+    // Weekly STAMP (kept: s9rsi_w, e45cfg_w)
     stamp_s9rsi_w_min: string; stamp_s9rsi_w_max: string;
     stamp_e45cfg_w_min: string; stamp_e45cfg_w_max: string;
-    stamp_e45rsi_w_min: string; stamp_e45rsi_w_max: string;
-    stamp_e20sma3_w_min: string; stamp_e20sma3_w_max: string;
 
-    // Weekly CFG
+    // Weekly CFG (kept: cfg_w, cfg_sma4_w, cfg_ema45_w)
     cfg_w_min: string; cfg_w_max: string;
     cfg_sma4_w_min: string; cfg_sma4_w_max: string;
-    cfg_sma9_w_min: string; cfg_sma9_w_max: string;
-    cfg_ema20_w_min: string; cfg_ema20_w_max: string;
     cfg_ema45_w_min: string; cfg_ema45_w_max: string;
-    cfg_wma45_w_min: string; cfg_wma45_w_max: string;
 
     // Weekly Trend
     close_w_min: string; close_w_max: string;
