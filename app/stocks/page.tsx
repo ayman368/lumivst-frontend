@@ -703,8 +703,8 @@ export default function StockScreenerPage() {
                             case 'the_number_ll': return stock.the_number_ll || 0;
                             case 'stamp_s9rsi': return stock.stamp_s9rsi || 0;
                             case 'stamp_e45cfg': return stock.stamp_e45cfg || 0;
-                            case 'stamp_e45rsi': return stock.stamp_e45rsi || 0;
-                            case 'stamp_e20sma3': return stock.stamp_e20sma3 || 0;
+                            // case 'stamp_e45rsi': return stock.stamp_e45rsi || 0;
+                            // case 'stamp_e20sma3': return stock.stamp_e20sma3 || 0;
                             case 'cfg_daily': return stock.cfg_daily || 0;
                             case 'cfg_sma4': return stock.cfg_sma4 || 0;
                             case 'cfg_ema45': return stock.cfg_ema45 || 0;
@@ -725,8 +725,8 @@ export default function StockScreenerPage() {
                             case 'the_number_ll_w': return stock.the_number_ll_w || 0;
                             case 'stamp_s9rsi_w': return stock.stamp_s9rsi_w || 0;
                             case 'stamp_e45cfg_w': return stock.stamp_e45cfg_w || 0;
-                            case 'stamp_e45rsi_w': return stock.stamp_e45rsi_w || 0;
-                            case 'stamp_e20sma3_w': return stock.stamp_e20sma3_w || 0;
+                            // case 'stamp_e45rsi_w': return stock.stamp_e45rsi_w || 0;
+                            // case 'stamp_e20sma3_w': return stock.stamp_e20sma3_w || 0;
                             case 'cfg_w': return stock.cfg_w || 0;
                             case 'cfg_sma4_w': return stock.cfg_sma4_w || 0;
                             case 'cfg_ema45_w': return stock.cfg_ema45_w || 0;
