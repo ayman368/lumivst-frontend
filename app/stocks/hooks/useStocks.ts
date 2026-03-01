@@ -80,6 +80,11 @@ export default function useStocks() {
                     fifty_two_week_low_price: item.fifty_two_week_low,
                     average_volume_50: item.average_volume_50,
 
+                    // Derive SMA values: sma_X = close - price_minus_sma_X
+                    sma_50: item.price_minus_sma_50 != null ? item.close - item.price_minus_sma_50 : undefined,
+                    sma_150: item.price_minus_sma_150 != null ? item.close - item.price_minus_sma_150 : undefined,
+                    sma_200: item.price_minus_sma_200 != null ? item.close - item.price_minus_sma_200 : undefined,
+
                     price_vs_sma_10_percent: item.price_vs_sma_10_percent,
                     price_vs_sma_21_percent: item.price_vs_sma_21_percent,
                     price_vs_sma_50_percent: item.price_vs_sma_50_percent,
