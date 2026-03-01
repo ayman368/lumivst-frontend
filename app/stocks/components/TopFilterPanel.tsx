@@ -419,6 +419,26 @@ export default function TopFilterPanel({
                 <RangeRow label="vs SMA 50%" minVal={f.price_vs_sma_50_min} maxVal={f.price_vs_sma_50_max} onMin={v => s({ price_vs_sma_50_min: v })} onMax={v => s({ price_vs_sma_50_max: v })} />
                 <RangeRow label="vs SMA 150%" minVal={f.price_vs_sma_150_min} maxVal={f.price_vs_sma_150_max} onMin={v => s({ price_vs_sma_150_min: v })} onMax={v => s({ price_vs_sma_150_max: v })} />
                 <RangeRow label="vs SMA 200%" minVal={f.price_vs_sma_200_min} maxVal={f.price_vs_sma_200_max} onMin={v => s({ price_vs_sma_200_min: v })} onMax={v => s({ price_vs_sma_200_max: v })} />
+                <div className="mt-2"></div>
+                <BooleanRow label="Price > 30WMA" value={f.price_gt_30w} onChange={v => s({ price_gt_30w: v })} />
+                <BooleanRow label="Price > 40WMA" value={f.price_gt_40w} onChange={v => s({ price_gt_40w: v })} />
+
+                {/* === Moving Average Comparison Filters === */}
+                <BooleanRow label="10EMA > 50SMA" value={f.ema10_gt_sma50} onChange={v => s({ ema10_gt_sma50: v })} />
+                <BooleanRow label="10EMA > 200SMA" value={f.ema10_gt_sma200} onChange={v => s({ ema10_gt_sma200: v })} />
+                <BooleanRow label="21EMA > 50SMA" value={f.ema21_gt_sma50} onChange={v => s({ ema21_gt_sma50: v })} />
+                <BooleanRow label="21EMA > 200SMA" value={f.ema21_gt_sma200} onChange={v => s({ ema21_gt_sma200: v })} />
+                <BooleanRow label="50SMA > 150SMA" value={f.sma50_gt_sma150} onChange={v => s({ sma50_gt_sma150: v })} />
+                <BooleanRow label="50SMA > 200SMA" value={f.sma50_gt_sma200} onChange={v => s({ sma50_gt_sma200: v })} />
+                <BooleanRow label="150SMA > 200SMA" value={f.sma150_gt_sma200} onChange={v => s({ sma150_gt_sma200: v })} />
+                <BooleanRow label="200SMA > 200SMA 1M Ago" value={f.sma200_gt_sma200_1m_ago} onChange={v => s({ sma200_gt_sma200_1m_ago: v })} />
+                <BooleanRow label="200SMA > 200SMA 2M Ago" value={f.sma200_gt_sma200_2m_ago} onChange={v => s({ sma200_gt_sma200_2m_ago: v })} />
+                <BooleanRow label="200SMA > 200SMA 3M Ago" value={f.sma200_gt_sma200_3m_ago} onChange={v => s({ sma200_gt_sma200_3m_ago: v })} />
+                <BooleanRow label="200SMA > 200SMA 4M Ago" value={f.sma200_gt_sma200_4m_ago} onChange={v => s({ sma200_gt_sma200_4m_ago: v })} />
+                <BooleanRow label="200SMA > 200SMA 5M Ago" value={f.sma200_gt_sma200_5m_ago} onChange={v => s({ sma200_gt_sma200_5m_ago: v })} />
+                <BooleanRow label="30WMA > 40WMA" value={f.wma30_gt_wma40} onChange={v => s({ wma30_gt_wma40: v })} />
+                <BooleanRow label="Price > 10EMA" value={f.price_gt_ema10} onChange={v => s({ price_gt_ema10: v })} />
+                <BooleanRow label="Price > 21EMA" value={f.price_gt_ema21} onChange={v => s({ price_gt_ema21: v })} />
             </div>
         );
     }

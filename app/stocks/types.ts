@@ -302,6 +302,22 @@ export interface FilterState {
     ema_10_21: string;
     price_gt_30w: string;
     price_gt_40w: string;
+    // === Moving Average Comparison Boolean Filters ===
+    ema10_gt_sma50: string;
+    ema10_gt_sma200: string;
+    ema21_gt_sma50: string;
+    ema21_gt_sma200: string;
+    sma50_gt_sma150: string;
+    sma50_gt_sma200: string;
+    sma150_gt_sma200: string;
+    sma200_gt_sma200_1m_ago: string;
+    sma200_gt_sma200_2m_ago: string;
+    sma200_gt_sma200_3m_ago: string;
+    sma200_gt_sma200_4m_ago: string;
+    sma200_gt_sma200_5m_ago: string;
+    wma30_gt_wma40: string;
+    price_gt_ema10: string;
+    price_gt_ema21: string;
 
     ma_comparison_type: string;
     ma_comparison_value: string;
@@ -327,6 +343,10 @@ export interface FilterState {
     aroon_up_gt_70: string;
     aroon_down_lt_30: string;
     ema_10_gt_50sma: string;
+    ema_21_gt_50sma: string;
+    sma_50_gt_150sma: string;
+    sma_50_gt_200sma: string;
+    sma_150_gt_200sma: string;
 
     // New STAMP Tab Boolean filters
     stamp_sma9_gt_wma45: string;

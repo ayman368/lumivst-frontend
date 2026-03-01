@@ -104,6 +104,22 @@ const initialFilterState: FilterState = {
     ema_10_21: 'any',
     price_gt_30w: 'any',
     price_gt_40w: 'any',
+    // === Moving Average Comparison Boolean Filters ===
+    ema10_gt_sma50: 'any',
+    ema10_gt_sma200: 'any',
+    ema21_gt_sma50: 'any',
+    ema21_gt_sma200: 'any',
+    sma50_gt_sma150: 'any',
+    sma50_gt_sma200: 'any',
+    sma150_gt_sma200: 'any',
+    sma200_gt_sma200_1m_ago: 'any',
+    sma200_gt_sma200_2m_ago: 'any',
+    sma200_gt_sma200_3m_ago: 'any',
+    sma200_gt_sma200_4m_ago: 'any',
+    sma200_gt_sma200_5m_ago: 'any',
+    wma30_gt_wma40: 'any',
+    price_gt_ema10: 'any',
+    price_gt_ema21: 'any',
     ma_comparison_type: '',
     ma_comparison_value: 'any',
     ma_200_1m_2m: 'any',
@@ -124,6 +140,10 @@ const initialFilterState: FilterState = {
     aroon_up_gt_70: 'any',
     aroon_down_lt_30: 'any',
     ema_10_gt_50sma: 'any',
+    ema_21_gt_50sma: 'any',
+    sma_50_gt_150sma: 'any',
+    sma_50_gt_200sma: 'any',
+    sma_150_gt_200sma: 'any',
     stamp_sma9_gt_wma45: 'any',
     stamp_sma9rsi_gt_wma45: 'any',
     stamp_ema45rsi_gt_50: 'any',
@@ -722,6 +742,7 @@ export default function StockScreenerPage() {
             if (!checkRange(stock.cfg_w, 'cfg_w_min', 'cfg_w_max', true)) return false;
 
             const c = (state: string, isValid: boolean) => {
+                if (state === 'any') return true; // 'any' means no filter applied
                 if (state === 'yes' && !isValid) return false;
                 if (state === 'no' && isValid) return false;
                 return true;
@@ -741,6 +762,10 @@ export default function StockScreenerPage() {
             if (filters.price_gt_30w !== 'any') { if (!c(filters.price_gt_30w, parseFormattedNumber(stock.price) > (stock.sma_30w ?? 0))) return false; }
             if (filters.price_gt_40w !== 'any') { if (!c(filters.price_gt_40w, parseFormattedNumber(stock.price) > (stock.sma_40w ?? 0))) return false; }
             if (filters.ema_10_gt_50sma !== 'any') { if (!c(filters.ema_10_gt_50sma, (stock.ema_10 ?? 0) > (stock.sma_50 ?? 0))) return false; }
+            if (filters.ema_21_gt_50sma !== 'any') { if (!c(filters.ema_21_gt_50sma, (stock.ema_21 ?? 0) > (stock.sma_50 ?? 0))) return false; }
+            if (filters.sma_50_gt_150sma !== 'any') { if (!c(filters.sma_50_gt_150sma, (stock.price_minus_sma_50 ?? 0) < (stock.price_minus_sma_150 ?? 0))) return false; }
+            if (filters.sma_50_gt_200sma !== 'any') { if (!c(filters.sma_50_gt_200sma, (stock.price_minus_sma_50 ?? 0) < (stock.price_minus_sma_200 ?? 0))) return false; }
+            if (filters.sma_150_gt_200sma !== 'any') { if (!c(filters.sma_150_gt_200sma, (stock.price_minus_sma_150 ?? 0) < (stock.price_minus_sma_200 ?? 0))) return false; }
             if (filters.price_gt_18sma_daily !== 'any') { if (!c(filters.price_gt_18sma_daily, parseFormattedNumber(stock.price) > (stock.sma_18 ?? 0))) return false; }
             if (filters.price_gt_9sma_weekly !== 'any') { if (!c(filters.price_gt_9sma_weekly, parseFormattedNumber(stock.price) > (stock.sma_9w ?? 0))) return false; }
             if (filters.sma_4_9_18_daily !== 'any') { if (!c(filters.sma_4_9_18_daily, (stock.sma_4 ?? 0) > (stock.sma_9 ?? 0) && (stock.sma_9 ?? 0) > (stock.sma_18 ?? 0))) return false; }
@@ -825,6 +850,22 @@ export default function StockScreenerPage() {
             if (!c(filters.wma45rsi_lt_wma45_weekly, w45rsi_w < w45_w)) return false;
             if (!c(filters.wma45rsi_lt_cfgwma45_weekly, w45rsi_w < cfgw45_w)) return false;
             if (!c(filters.wma45rsi_lt_ema20sma3_weekly, w45rsi_w < e20s3_w)) return false;
+            // === Moving Average Comparison Boolean Filters ===
+            if (!c(filters.ema10_gt_sma50, (stock.ema_10 ?? 0) > (stock.sma_50 ?? 0))) return false;
+            if (!c(filters.ema10_gt_sma200, (stock.ema_10 ?? 0) > (stock.sma_200 ?? 0))) return false;
+            if (!c(filters.ema21_gt_sma50, (stock.ema_21 ?? 0) > (stock.sma_50 ?? 0))) return false;
+            if (!c(filters.ema21_gt_sma200, (stock.ema_21 ?? 0) > (stock.sma_200 ?? 0))) return false;
+            if (!c(filters.sma50_gt_sma150, (stock.sma_50 ?? 0) > (stock.sma_150 ?? 0))) return false;
+            if (!c(filters.sma50_gt_sma200, (stock.sma_50 ?? 0) > (stock.sma_200 ?? 0))) return false;
+            if (!c(filters.sma150_gt_sma200, (stock.sma_150 ?? 0) > (stock.sma_200 ?? 0))) return false;
+            if (!c(filters.sma200_gt_sma200_1m_ago, (stock.sma_200 ?? 0) > (stock.sma_200_1m_ago ?? 0))) return false;
+            if (!c(filters.sma200_gt_sma200_2m_ago, (stock.sma_200 ?? 0) > (stock.sma_200_2m_ago ?? 0))) return false;
+            if (!c(filters.sma200_gt_sma200_3m_ago, (stock.sma_200 ?? 0) > (stock.sma_200_3m_ago ?? 0))) return false;
+            if (!c(filters.sma200_gt_sma200_4m_ago, (stock.sma_200 ?? 0) > (stock.sma_200_4m_ago ?? 0))) return false;
+            if (!c(filters.sma200_gt_sma200_5m_ago, (stock.sma_200 ?? 0) > (stock.sma_200_5m_ago ?? 0))) return false;
+            if (!c(filters.wma30_gt_wma40, (stock.sma_30w ?? 0) > (stock.sma_40w ?? 0))) return false;
+            if (!c(filters.price_gt_ema10, p > (stock.ema_10 ?? 0))) return false;
+            if (!c(filters.price_gt_ema21, p > (stock.ema_21 ?? 0))) return false;
             return true;
         });
         if (sortConfigs.length > 0) {
