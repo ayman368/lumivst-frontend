@@ -42,15 +42,42 @@ export interface Stock {
     fifty_two_week_low_price?: number;
     average_volume_50?: number;
 
+    sma_10?: number;
+    sma_21?: number;
+    sma_50?: number;
+    sma_150?: number;
+    sma_200?: number;
+
     price_vs_sma_10_percent?: number;
     price_vs_sma_21_percent?: number;
     price_vs_sma_50_percent?: number;
     price_vs_sma_150_percent?: number;
     price_vs_sma_200_percent?: number;
+    price_vs_ema_10_percent?: number;
+    price_vs_ema_21_percent?: number;
     percent_off_52w_high?: number;
     percent_off_52w_low?: number;
     vol_diff_50_percent?: number;
     trading_view_symbol?: string;
+
+    // === New MA Comparison Indicators ===
+    ema_21?: number;
+    ema_10?: number;
+    sma_3?: number;
+    ema_20_sma3?: number;
+    sma_4?: number;
+    sma_9?: number;
+    sma_18?: number;
+    sma_4w?: number;
+    sma_9w?: number;
+    sma_18w?: number;
+    sma_200_1m_ago?: number;  // 200MA قبل شهر واحد
+    sma_200_2m_ago?: number;  // 200MA قبل شهرين
+    sma_200_3m_ago?: number;  // 200MA قبل 3 أشهر
+    sma_200_4m_ago?: number;  // 200MA قبل 4 أشهر
+    sma_200_5m_ago?: number;  // 200MA قبل 5 أشهر
+    sma_30w?: number;         // 30-Week SMA
+    sma_40w?: number;         // 40-Week SMA
 
     // === Technical Screener Fields ===
 
@@ -68,11 +95,15 @@ export interface Stock {
     // Daily STAMP
     stamp_s9rsi?: number | null;
     stamp_e45cfg?: number | null;
+    stamp_e45rsi?: number | null;
+    stamp_e20sma3?: number | null;
 
     // Daily CFG
     cfg_daily?: number | null;
     cfg_sma4?: number | null;
     cfg_ema45?: number | null;
+    cfg_wma45?: number | null;
+    ema20_sma3?: number | null;
 
     // Daily Trend
     sma4?: number | null;
@@ -81,6 +112,8 @@ export interface Stock {
     wma45_close?: number | null;
     cci?: number | null;
     cci_ema20?: number | null;
+    cci_14?: number | null;
+    cci_ema_20?: number | null;
     aroon_up?: number | null;
     aroon_down?: number | null;
 
@@ -98,11 +131,15 @@ export interface Stock {
     // Weekly STAMP
     stamp_s9rsi_w?: number | null;
     stamp_e45cfg_w?: number | null;
+    stamp_e45rsi_w?: number | null;
+    stamp_e20sma3_w?: number | null;
 
     // Weekly CFG
     cfg_w?: number | null;
     cfg_sma4_w?: number | null;
     cfg_ema45_w?: number | null;
+    cfg_wma45_w?: number | null;
+    ema20_sma3_w?: number | null;
 
     // Weekly Trend
     close_w?: number | null;
@@ -156,10 +193,10 @@ export interface FilterState {
     price_minus_sma_200_min: string;
     price_minus_sma_200_max: string;
 
-    price_vs_sma_10_min: string;
-    price_vs_sma_10_max: string;
-    price_vs_sma_21_min: string;
-    price_vs_sma_21_max: string;
+    price_vs_ema_10_min: string;
+    price_vs_ema_10_max: string;
+    price_vs_ema_21_min: string;
+    price_vs_ema_21_max: string;
     price_vs_sma_50_min: string;
     price_vs_sma_50_max: string;
     price_vs_sma_150_min: string;
@@ -204,9 +241,11 @@ export interface FilterState {
     the_number_hl_min: string; the_number_hl_max: string;
     the_number_ll_min: string; the_number_ll_max: string;
 
-    // Daily STAMP (kept: s9rsi, e45cfg)
+    // Daily STAMP (kept: s9rsi, e45cfg, e45rsi, e20sma3)
     stamp_s9rsi_min: string; stamp_s9rsi_max: string;
     stamp_e45cfg_min: string; stamp_e45cfg_max: string;
+    stamp_e45rsi_min: string; stamp_e45rsi_max: string;
+    stamp_e20sma3_min: string; stamp_e20sma3_max: string;
 
     // Daily CFG (kept: cfg_daily, cfg_sma4, cfg_ema45)
     cfg_daily_min: string; cfg_daily_max: string;
@@ -234,9 +273,11 @@ export interface FilterState {
     the_number_hl_w_min: string; the_number_hl_w_max: string;
     the_number_ll_w_min: string; the_number_ll_w_max: string;
 
-    // Weekly STAMP (kept: s9rsi_w, e45cfg_w)
+    // Weekly STAMP (kept: s9rsi_w, e45cfg_w, e45rsi_w, e20sma3_w)
     stamp_s9rsi_w_min: string; stamp_s9rsi_w_max: string;
     stamp_e45cfg_w_min: string; stamp_e45cfg_w_max: string;
+    stamp_e45rsi_w_min: string; stamp_e45rsi_w_max: string;
+    stamp_e20sma3_w_min: string; stamp_e20sma3_w_max: string;
 
     // Weekly CFG (kept: cfg_w, cfg_sma4_w, cfg_ema45_w)
     cfg_w_min: string; cfg_w_max: string;
@@ -253,4 +294,105 @@ export interface FilterState {
     cci_ema20_w_min: string; cci_ema20_w_max: string;
     aroon_up_w_min: string; aroon_up_w_max: string;
     aroon_down_w_min: string; aroon_down_w_max: string;
+
+    // Moving Average Comparisons
+    ma_10_21_50: string;
+    ma_50_150_200: string;
+    ema_10_21_50: string;
+    ema_10_21: string;
+    price_gt_30w: string;
+    price_gt_40w: string;
+
+    ma_comparison_type: string;
+    ma_comparison_value: string;
+
+    ma_200_1m_2m: string;
+    ma_200_2m_3m: string;
+    ma_200_3m_4m: string;
+    ma_200_4m_5m: string;
+
+    ma_200_now_1m: string;
+    ma_200_now_2m: string;
+    ma_200_now_3m: string;
+    ma_200_now_4m: string;
+
+    // New Technical Filters (Image 3)
+    price_gt_18sma_daily: string;
+    price_gt_9sma_weekly: string;
+    sma_4_9_18_daily: string;
+    sma_4_9_18_weekly: string;
+    cci_gt_100: string;
+    cci_ema20_gt_0_daily: string;
+    cci_ema20_gt_0_weekly: string;
+    aroon_up_gt_70: string;
+    aroon_down_lt_30: string;
+    ema_10_gt_50sma: string;
+
+    // New STAMP Tab Boolean filters
+    stamp_sma9_gt_wma45: string;
+    stamp_sma9rsi_gt_wma45: string;
+    stamp_ema45rsi_gt_50: string;
+    stamp_ema45cfg_gt_50: string;
+    stamp_ema20sma3_gt_50: string;
+    stamp_ema45rsi_lt_stamp_lines: string;
+
+    // RSI Section Cross Filters (Daily)
+    price_gt_the_number_daily: string;
+    price_gt_the_number_hl_daily: string;
+    price_gt_the_number_ll_daily: string;
+    sma9_gt_the_number_daily: string;
+    sma9_gt_the_number_hl_daily: string;
+    sma9_gt_the_number_ll_daily: string;
+    sma9_gt_wma45_daily: string;
+    rsi_gt_sma9rsi_daily: string;
+    rsi_gt_wma45rsi_daily: string;
+    sma9rsi_gt_wma45_daily: string;
+    wma45rsi_lt_sma9rsi_daily: string;
+    wma45rsi_lt_wma45_daily: string;
+    wma45rsi_lt_cfgwma45_daily: string;
+    wma45rsi_lt_ema20sma3_daily: string;
+    ema20_sma3_min: string; ema20_sma3_max: string;
+
+    // RSI Section Cross Filters (Weekly)
+    price_gt_the_number_weekly: string;
+    price_gt_the_number_hl_weekly: string;
+    price_gt_the_number_ll_weekly: string;
+    sma9_gt_the_number_weekly: string;
+    sma9_gt_the_number_hl_weekly: string;
+    sma9_gt_the_number_ll_weekly: string;
+    sma9_gt_wma45_weekly: string;
+    rsi_gt_sma9rsi_weekly: string;
+    rsi_gt_wma45rsi_weekly: string;
+    sma9rsi_gt_wma45_weekly: string;
+    wma45rsi_lt_sma9rsi_weekly: string;
+    wma45rsi_lt_wma45_weekly: string;
+    wma45rsi_lt_cfgwma45_weekly: string;
+    wma45rsi_lt_ema20sma3_weekly: string;
+    ema20_sma3_w_min: string; ema20_sma3_w_max: string;
+
+    // Additional Daily MA indicators (missing filters)
+    ema_10_min: string; ema_10_max: string;
+    ema_21_min: string; ema_21_max: string;
+    sma_3_min: string; sma_3_max: string;
+
+    // Additional Weekly MA indicators (missing filters)
+    sma_4w_min: string; sma_4w_max: string;
+    sma_9w_min: string; sma_9w_max: string;
+    sma_18w_min: string; sma_18w_max: string;
+    sma_30w_min: string; sma_30w_max: string;
+    sma_40w_min: string; sma_40w_max: string;
+
+    // 200MA Historical (missing filters)
+    sma_200_1m_min: string; sma_200_1m_max: string;
+    sma_200_2m_min: string; sma_200_2m_max: string;
+    sma_200_3m_min: string; sma_200_3m_max: string;
+    sma_200_4m_min: string; sma_200_4m_max: string;
+    sma_200_5m_min: string; sma_200_5m_max: string;
+
+    // missing TS backend SMAs, adding to Stock as optional
+    sma_10?: number;
+    sma_21?: number;
+    sma_50?: number;
+    sma_150?: number;
+    sma_200?: number;
 }

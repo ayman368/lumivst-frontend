@@ -28,6 +28,15 @@ export default function useStocks() {
             const rsData = rsRes.ok ? await rsRes.json() : { data: [] };
             const techData = techRes.ok ? await techRes.json() : { data: [] };
 
+            console.log('📊 Prices Data:', pricesData.data?.length ?? 0, 'items');
+            console.log('📊 RS Data:', rsData.data?.length ?? 0, 'items');
+            console.log('📊 Tech Data:', techData.data?.length ?? 0, 'items');
+
+            // Sample RS data to debug
+            if (rsData.data && rsData.data.length > 0) {
+                console.log('🔍 Sample RS Item:', rsData.data[0]);
+            }
+
             const rsMap = new Map((rsData.data || []).map((item: any) => [String(item.symbol), item]));
             const techMap = new Map((techData.data || []).map((item: any) => [String(item.symbol), item]));
 
@@ -54,12 +63,13 @@ export default function useStocks() {
                     no_of_trades: item.no_of_trades,
                     market_cap: item.market_cap,
 
-                    rs_rating: rsInfo.rs_rating || 0,
-                    industry_group_rs: rsInfo.industry_group_rs_rating || '',
-                    sector_rs: rsInfo.sector_rs_rating || '',
-                    industry_rs: rsInfo.industry_rs_rating || '',
-                    sub_industry_rs: rsInfo.sub_industry_rs_rating || '',
-                    acc_dis_rating: rsInfo.acc_dis_rating || '',
+                    // Try to get RS data from prices table first, then from rs-v2 API
+                    rs_rating: rsInfo.rs_rating ?? item.rs_rating ?? 0,
+                    industry_group_rs: rsInfo.industry_group_rs_rating ?? item.industry_group_rs ?? '',
+                    sector_rs: rsInfo.sector_rs_rating ?? item.sector_rs ?? '',
+                    industry_rs: rsInfo.industry_rs_rating ?? item.industry_rs ?? '',
+                    sub_industry_rs: rsInfo.sub_industry_rs_rating ?? item.sub_industry_rs ?? '',
+                    acc_dis_rating: rsInfo.acc_dis_rating ?? item.acc_dis_rating ?? '',
 
                     price_minus_sma_10: item.price_minus_sma_10,
                     price_minus_sma_21: item.price_minus_sma_21,
@@ -79,6 +89,29 @@ export default function useStocks() {
                     percent_off_52w_low: item.percent_off_52w_low,
                     vol_diff_50_percent: item.vol_diff_50_percent,
                     trading_view_symbol: item.trading_view_symbol,
+
+                    // New MA Comparison Indicators (from prices table with fallback from techInfo)
+                    ema_21: item.ema_21 ?? undefined,
+                    ema_10: item.ema_10 ?? undefined,
+                    sma_3: item.sma_3 ?? undefined,
+                    ema_20_sma3: item.ema_20_sma3 ?? undefined,
+                    sma_4: item.sma_4 ?? techInfo.sma4 ?? undefined,
+                    sma_9: item.sma_9 ?? techInfo.sma9 ?? undefined,
+                    sma_18: item.sma_18 ?? techInfo.sma18 ?? undefined,
+                    sma_4w: item.sma_4w ?? techInfo.sma4_w ?? undefined,
+                    sma_9w: item.sma_9w ?? techInfo.sma9_w ?? undefined,
+                    sma_18w: item.sma_18w ?? techInfo.sma18_w ?? undefined,
+                    sma_200_1m_ago: item.sma_200_1m_ago ?? undefined,
+                    sma_200_2m_ago: item.sma_200_2m_ago ?? undefined,
+                    sma_200_3m_ago: item.sma_200_3m_ago ?? undefined,
+                    sma_200_4m_ago: item.sma_200_4m_ago ?? undefined,
+                    sma_200_5m_ago: item.sma_200_5m_ago ?? undefined,
+                    sma_30w: item.sma_30w ?? undefined,
+                    sma_40w: item.sma_40w ?? undefined,
+                    cci_14: item.cci_14 ?? techInfo.cci ?? undefined,
+                    cci_ema_20: item.cci_ema_20 ?? techInfo.cci_ema20 ?? undefined,
+                    aroon_up: item.aroon_up ?? techInfo.aroon_up ?? undefined,
+                    aroon_down: item.aroon_down ?? techInfo.aroon_down ?? undefined,
 
                     // Technical Screener data
                     tech_score: techInfo.score ?? undefined,
@@ -126,8 +159,6 @@ export default function useStocks() {
                     wma45_close: techInfo.wma45_close ?? null,
                     cci: techInfo.cci ?? null,
                     cci_ema20: techInfo.cci_ema20 ?? null,
-                    aroon_up: techInfo.aroon_up ?? null,
-                    aroon_down: techInfo.aroon_down ?? null,
 
                     // Weekly RSI
                     rsi_w: techInfo.rsi_w ?? null,

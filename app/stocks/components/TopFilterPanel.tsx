@@ -25,16 +25,20 @@ type TabId =
     | 'smartselect'
     | 'price_volume'
     | 'moving_averages'
-    | 'technical_daily'
-    | 'technical_weekly'
+    | 'rsi_daily'
+    | 'rsi_weekly'
+    | 'alrayan'
+    | 'stamp_filters'
     | 'industry';
 
 const TABS: { id: TabId; label: string; shortLabel: string }[] = [
     { id: 'smartselect', label: 'SmartSelect Ratings', shortLabel: 'SmartSelect' },
     { id: 'price_volume', label: 'Price & Volume', shortLabel: 'Price & Vol' },
     { id: 'moving_averages', label: 'Moving Averages', shortLabel: 'MAs' },
-    { id: 'technical_daily', label: 'Technical — Daily', shortLabel: 'Tech Daily' },
-    { id: 'technical_weekly', label: 'Technical — Weekly', shortLabel: 'Tech Weekly' },
+    { id: 'rsi_daily', label: 'RSI Daily', shortLabel: 'RSI Daily' },
+    { id: 'rsi_weekly', label: 'RSI Weekly', shortLabel: 'RSI Weekly' },
+    { id: 'alrayan', label: 'Alrayan', shortLabel: 'Alrayan' },
+    { id: 'stamp_filters', label: 'STAMP', shortLabel: 'STAMP' },
     { id: 'industry', label: 'Industry / Sector', shortLabel: 'Industry' },
 ];
 
@@ -44,13 +48,45 @@ function StepperInput({
 }: {
     value: string; onChange: (v: string) => void; placeholder: string;
 }) {
-    const active = value !== '';
-    const step = (dir: number) => {
-        const current = parseFloat(value) || 0;
-        const decimals = value.includes('.') ? value.split('.')[1].length : 0;
-        const next = current + dir;
-        onChange(decimals > 0 ? next.toFixed(decimals) : String(next));
+    const [localValue, setLocalValue] = useState(value);
+
+    // Sync local state with prop value when prop changes (e.g., parent clears filters)
+    useEffect(() => {
+        setLocalValue(value);
+    }, [value]);
+
+    const active = value !== ''; // Use prop value for active state to reflect parent's state
+
+    const commitChange = (val: string) => {
+        // Only commit if the value has actually changed from the last committed value
+        if (val !== value) {
+            onChange(val);
+        }
     };
+
+    const step = (dir: number) => {
+        const current = parseFloat(localValue) || 0;
+        const decimals = localValue.includes('.') ? localValue.split('.')[1].length : 0;
+        const next = current + dir;
+        const newValue = decimals > 0 ? next.toFixed(decimals) : String(next);
+        setLocalValue(newValue); // Update local state immediately
+        commitChange(newValue); // Commit to parent immediately for stepper buttons
+    };
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setLocalValue(e.target.value); // Update local state on every keystroke
+    };
+
+    const handleInputBlur = () => {
+        commitChange(localValue); // Commit to parent on blur
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.currentTarget.blur(); // Trigger blur to commit change
+        }
+    };
+
     return (
         <div className={`inline-flex items-center h-[22px] border rounded-sm overflow-hidden transition-all
             ${active ? 'border-blue-400' : 'border-gray-200 hover:border-gray-300'}`}>
@@ -62,8 +98,10 @@ function StepperInput({
             >−</button>
             <input
                 type="number"
-                value={value}
-                onChange={e => onChange(e.target.value)}
+                value={localValue} // Use local state for input value
+                onChange={handleInputChange}
+                onBlur={handleInputBlur}
+                onKeyDown={handleKeyDown}
                 placeholder={placeholder}
                 style={{ MozAppearance: 'textfield' } as any}
                 className={`w-[48px] h-full px-1 text-[11px] outline-none text-center tabular-nums border-x
@@ -122,6 +160,51 @@ function SectionHead({ children }: { children: React.ReactNode }) {
 // ─── Vertical column separator ────────────────────────────────────────────────
 function ColDivider() {
     return <div className="self-stretch w-px bg-gray-100 flex-shrink-0 mx-3" />;
+}
+
+// ─── Boolean toggle row ───────────────────────────────────────────────────────
+function BooleanRow({
+    label, value, onChange,
+}: {
+    label: string; value: string; onChange: (v: string) => void;
+}) {
+    const active = value !== 'any';
+    return (
+        <div className="flex items-start gap-2 py-[3px] group">
+            <span
+                title={label}
+                className={`text-[11px] min-w-[120px] max-w-[180px] flex-shrink-0 leading-tight transition-colors break-words
+                    ${active ? 'text-blue-700 font-semibold' : 'text-gray-500 group-hover:text-gray-700'}`}
+            >
+                {label}
+            </span>
+            <div className="flex items-center h-[22px] rounded-sm p-[2px] bg-gray-100/80 border border-gray-200 mt-[1px]">
+                <button
+                    type="button"
+                    onClick={() => onChange(value === 'yes' ? 'any' : 'yes')}
+                    className={`px-2.5 h-full rounded-[2px] text-[10px] font-bold uppercase tracking-wider transition-all
+                        ${value === 'yes'
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700 hover:bg-white/60'
+                        }`}
+                >
+                    Yes
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onChange(value === 'no' ? 'any' : 'no')}
+                    className={`px-2.5 h-full rounded-[2px] text-[10px] font-bold uppercase tracking-wider transition-all
+                        ${value === 'no'
+                            ? 'bg-red-500 text-white shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700 hover:bg-white/60'
+                        }`}
+                >
+                    No
+                </button>
+            </div>
+        </div>
+
+    );
 }
 
 // ─── A / B / C / D / E rating toggle row ─────────────────────────────────────
@@ -275,7 +358,7 @@ export default function TopFilterPanel({
     filters, setFilters, filterOptions, activeFiltersCount, clearAllFilters,
 }: TopFilterPanelProps) {
     const [activeTab, setActiveTab] = useState<TabId>('smartselect');
-    const [collapsed, setCollapsed] = useState(false);
+    const [collapsed, setCollapsed] = useState(true);
 
     const f = filters;
     const s = (patch: Partial<FilterState>) => setFilters(prev => ({ ...prev, ...patch }));
@@ -331,8 +414,8 @@ export default function TopFilterPanel({
         return (
             <div className="flex-shrink-0">
                 <SectionHead>Price vs SMA %</SectionHead>
-                <RangeRow label="vs SMA 10%" minVal={f.price_vs_sma_10_min} maxVal={f.price_vs_sma_10_max} onMin={v => s({ price_vs_sma_10_min: v })} onMax={v => s({ price_vs_sma_10_max: v })} />
-                <RangeRow label="vs SMA 21%" minVal={f.price_vs_sma_21_min} maxVal={f.price_vs_sma_21_max} onMin={v => s({ price_vs_sma_21_min: v })} onMax={v => s({ price_vs_sma_21_max: v })} />
+                <RangeRow label="vs EMA 10%" minVal={f.price_vs_ema_10_min} maxVal={f.price_vs_ema_10_max} onMin={v => s({ price_vs_ema_10_min: v })} onMax={v => s({ price_vs_ema_10_max: v })} />
+                <RangeRow label="vs EMA 21%" minVal={f.price_vs_ema_21_min} maxVal={f.price_vs_ema_21_max} onMin={v => s({ price_vs_ema_21_min: v })} onMax={v => s({ price_vs_ema_21_max: v })} />
                 <RangeRow label="vs SMA 50%" minVal={f.price_vs_sma_50_min} maxVal={f.price_vs_sma_50_max} onMin={v => s({ price_vs_sma_50_min: v })} onMax={v => s({ price_vs_sma_50_max: v })} />
                 <RangeRow label="vs SMA 150%" minVal={f.price_vs_sma_150_min} maxVal={f.price_vs_sma_150_max} onMin={v => s({ price_vs_sma_150_min: v })} onMax={v => s({ price_vs_sma_150_max: v })} />
                 <RangeRow label="vs SMA 200%" minVal={f.price_vs_sma_200_min} maxVal={f.price_vs_sma_200_max} onMin={v => s({ price_vs_sma_200_min: v })} onMax={v => s({ price_vs_sma_200_max: v })} />
@@ -343,12 +426,6 @@ export default function TopFilterPanel({
     function ColMAsMinusSma() {
         return (
             <div className="flex-shrink-0">
-                <SectionHead>Price − SMA (Distance)</SectionHead>
-                <RangeRow label="Price − SMA10" minVal={f.price_minus_sma_10_min} maxVal={f.price_minus_sma_10_max} onMin={v => s({ price_minus_sma_10_min: v })} onMax={v => s({ price_minus_sma_10_max: v })} />
-                <RangeRow label="Price − SMA21" minVal={f.price_minus_sma_21_min} maxVal={f.price_minus_sma_21_max} onMin={v => s({ price_minus_sma_21_min: v })} onMax={v => s({ price_minus_sma_21_max: v })} />
-                <RangeRow label="Price − SMA50" minVal={f.price_minus_sma_50_min} maxVal={f.price_minus_sma_50_max} onMin={v => s({ price_minus_sma_50_min: v })} onMax={v => s({ price_minus_sma_50_max: v })} />
-                <RangeRow label="Price − SMA150" minVal={f.price_minus_sma_150_min} maxVal={f.price_minus_sma_150_max} onMin={v => s({ price_minus_sma_150_min: v })} onMax={v => s({ price_minus_sma_150_max: v })} />
-                <RangeRow label="Price − SMA200" minVal={f.price_minus_sma_200_min} maxVal={f.price_minus_sma_200_max} onMin={v => s({ price_minus_sma_200_min: v })} onMax={v => s({ price_minus_sma_200_max: v })} />
                 <SectionHead>52-Week Range</SectionHead>
                 <RangeRow label="52W High" minVal={f.fifty_two_week_high_min} maxVal={f.fifty_two_week_high_max} onMin={v => s({ fifty_two_week_high_min: v })} onMax={v => s({ fifty_two_week_high_max: v })} />
                 <RangeRow label="52W Low" minVal={f.fifty_two_week_low_min} maxVal={f.fifty_two_week_low_max} onMin={v => s({ fifty_two_week_low_min: v })} onMax={v => s({ fifty_two_week_low_max: v })} />
@@ -365,12 +442,30 @@ export default function TopFilterPanel({
                 <RangeRow label="RSI(14)" minVal={f.rsi_14_min} maxVal={f.rsi_14_max} onMin={v => s({ rsi_14_min: v })} onMax={v => s({ rsi_14_max: v })} />
                 <RangeRow label="SMA9(RSI)" minVal={f.sma9_rsi_min} maxVal={f.sma9_rsi_max} onMin={v => s({ sma9_rsi_min: v })} onMax={v => s({ sma9_rsi_max: v })} />
                 <RangeRow label="WMA45(RSI)" minVal={f.wma45_rsi_min} maxVal={f.wma45_rsi_max} onMin={v => s({ wma45_rsi_min: v })} onMax={v => s({ wma45_rsi_max: v })} />
-                <SectionHead>Price MAs</SectionHead>
-                <RangeRow label="SMA4" minVal={f.sma4_min} maxVal={f.sma4_max} onMin={v => s({ sma4_min: v })} onMax={v => s({ sma4_max: v })} />
-                <RangeRow label="SMA9" minVal={f.sma9_price_min} maxVal={f.sma9_price_max} onMin={v => s({ sma9_price_min: v })} onMax={v => s({ sma9_price_max: v })} />
-                <RangeRow label="SMA18" minVal={f.sma18_min} maxVal={f.sma18_max} onMin={v => s({ sma18_min: v })} onMax={v => s({ sma18_max: v })} />
-                <RangeRow label="WMA45(Price)" minVal={f.wma45_close_min} maxVal={f.wma45_close_max} onMin={v => s({ wma45_close_min: v })} onMax={v => s({ wma45_close_max: v })} />
-                <RangeRow label="SMA9(Close)" minVal={f.sma9_close_min} maxVal={f.sma9_close_max} onMin={v => s({ sma9_close_min: v })} onMax={v => s({ sma9_close_max: v })} />
+                <RangeRow label="EMA20(SMA3)" minVal={f.ema20_sma3_min} maxVal={f.ema20_sma3_max} onMin={v => s({ ema20_sma3_min: v })} onMax={v => s({ ema20_sma3_max: v })} />
+                <SectionHead>Price MAs vs The Number</SectionHead>
+                <BooleanRow label="Price > The Number" value={f.price_gt_the_number_daily} onChange={v => s({ price_gt_the_number_daily: v })} />
+                <BooleanRow label="Price > The Number High" value={f.price_gt_the_number_hl_daily} onChange={v => s({ price_gt_the_number_hl_daily: v })} />
+                <BooleanRow label="Price > The Number Low" value={f.price_gt_the_number_ll_daily} onChange={v => s({ price_gt_the_number_ll_daily: v })} />
+                <BooleanRow label="9SMA > The Number" value={f.sma9_gt_the_number_daily} onChange={v => s({ sma9_gt_the_number_daily: v })} />
+                <BooleanRow label="9SMA > The Number High" value={f.sma9_gt_the_number_hl_daily} onChange={v => s({ sma9_gt_the_number_hl_daily: v })} />
+                <BooleanRow label="9SMA > The Number Low" value={f.sma9_gt_the_number_ll_daily} onChange={v => s({ sma9_gt_the_number_ll_daily: v })} />
+                <BooleanRow label="9SMA > WMA45" value={f.sma9_gt_wma45_daily} onChange={v => s({ sma9_gt_wma45_daily: v })} />
+            </div>
+        );
+    }
+
+    function ColTechD_RSI_Cross() {
+        return (
+            <div className="flex-shrink-0">
+                <SectionHead>RSI Indicator Cross</SectionHead>
+                <BooleanRow label="RSI > 9SMA(RSI)" value={f.rsi_gt_sma9rsi_daily} onChange={v => s({ rsi_gt_sma9rsi_daily: v })} />
+                <BooleanRow label="RSI > WMA45(RSI)" value={f.rsi_gt_wma45rsi_daily} onChange={v => s({ rsi_gt_wma45rsi_daily: v })} />
+                <BooleanRow label="9SMA(RSI) > WMA45" value={f.sma9rsi_gt_wma45_daily} onChange={v => s({ sma9rsi_gt_wma45_daily: v })} />
+                <BooleanRow label="WMA45(RSI) < 9SMA(RSI)" value={f.wma45rsi_lt_sma9rsi_daily} onChange={v => s({ wma45rsi_lt_sma9rsi_daily: v })} />
+                <BooleanRow label="WMA45(RSI) < WMA45(Close)" value={f.wma45rsi_lt_wma45_daily} onChange={v => s({ wma45rsi_lt_wma45_daily: v })} />
+                <BooleanRow label="WMA45(RSI) < WMA45(CFG)" value={f.wma45rsi_lt_cfgwma45_daily} onChange={v => s({ wma45rsi_lt_cfgwma45_daily: v })} />
+                <BooleanRow label="WMA45(RSI) < EMA20(SMA3)" value={f.wma45rsi_lt_ema20sma3_daily} onChange={v => s({ wma45rsi_lt_ema20sma3_daily: v })} />
             </div>
         );
     }
@@ -386,11 +481,6 @@ export default function TopFilterPanel({
                 <RangeRow label="THE.NUMBER" minVal={f.the_number_min} maxVal={f.the_number_max} onMin={v => s({ the_number_min: v })} onMax={v => s({ the_number_max: v })} />
                 <RangeRow label="THE.NUMBER.HIGH" minVal={f.the_number_hl_min} maxVal={f.the_number_hl_max} onMin={v => s({ the_number_hl_min: v })} onMax={v => s({ the_number_hl_max: v })} />
                 <RangeRow label="THE.NUMBER.LOW" minVal={f.the_number_ll_min} maxVal={f.the_number_ll_max} onMin={v => s({ the_number_ll_min: v })} onMax={v => s({ the_number_ll_max: v })} />
-                <SectionHead>CCI & Aroon</SectionHead>
-                <RangeRow label="CCI(14)" minVal={f.cci_min} maxVal={f.cci_max} onMin={v => s({ cci_min: v })} onMax={v => s({ cci_max: v })} />
-                <RangeRow label="CCI.EMA20" minVal={f.cci_ema20_min} maxVal={f.cci_ema20_max} onMin={v => s({ cci_ema20_min: v })} onMax={v => s({ cci_ema20_max: v })} />
-                <RangeRow label="AROON.UP" minVal={f.aroon_up_min} maxVal={f.aroon_up_max} onMin={v => s({ aroon_up_min: v })} onMax={v => s({ aroon_up_max: v })} />
-                <RangeRow label="AROON.DOWN" minVal={f.aroon_down_min} maxVal={f.aroon_down_max} onMin={v => s({ aroon_down_min: v })} onMax={v => s({ aroon_down_max: v })} />
             </div>
         );
     }
@@ -412,13 +502,30 @@ export default function TopFilterPanel({
                 <RangeRow label="RSI(14)(W)" minVal={f.rsi_w_min} maxVal={f.rsi_w_max} onMin={v => s({ rsi_w_min: v })} onMax={v => s({ rsi_w_max: v })} />
                 <RangeRow label="SMA9(RSI)(W)" minVal={f.sma9_rsi_w_min} maxVal={f.sma9_rsi_w_max} onMin={v => s({ sma9_rsi_w_min: v })} onMax={v => s({ sma9_rsi_w_max: v })} />
                 <RangeRow label="WMA45(RSI)(W)" minVal={f.wma45_rsi_w_min} maxVal={f.wma45_rsi_w_max} onMin={v => s({ wma45_rsi_w_min: v })} onMax={v => s({ wma45_rsi_w_max: v })} />
-                <SectionHead>Price MAs (Weekly)</SectionHead>
-                <RangeRow label="Close(W)" minVal={f.close_w_min} maxVal={f.close_w_max} onMin={v => s({ close_w_min: v })} onMax={v => s({ close_w_max: v })} />
-                <RangeRow label="SMA4(W)" minVal={f.sma4_w_min} maxVal={f.sma4_w_max} onMin={v => s({ sma4_w_min: v })} onMax={v => s({ sma4_w_max: v })} />
-                <RangeRow label="SMA9(W)" minVal={f.sma9_w_min} maxVal={f.sma9_w_max} onMin={v => s({ sma9_w_min: v })} onMax={v => s({ sma9_w_max: v })} />
-                <RangeRow label="SMA18(W)" minVal={f.sma18_w_min} maxVal={f.sma18_w_max} onMin={v => s({ sma18_w_min: v })} onMax={v => s({ sma18_w_max: v })} />
-                <RangeRow label="WMA45(Price)(W)" minVal={f.wma45_close_w_min} maxVal={f.wma45_close_w_max} onMin={v => s({ wma45_close_w_min: v })} onMax={v => s({ wma45_close_w_max: v })} />
-                <RangeRow label="SMA9(Close)(W)" minVal={f.sma9_close_w_min} maxVal={f.sma9_close_w_max} onMin={v => s({ sma9_close_w_min: v })} onMax={v => s({ sma9_close_w_max: v })} />
+                <RangeRow label="EMA20(SMA3)(W)" minVal={f.ema20_sma3_w_min} maxVal={f.ema20_sma3_w_max} onMin={v => s({ ema20_sma3_w_min: v })} onMax={v => s({ ema20_sma3_w_max: v })} />
+                <SectionHead>Price MAs vs The Number (W)</SectionHead>
+                <BooleanRow label="Price > The Number" value={f.price_gt_the_number_weekly} onChange={v => s({ price_gt_the_number_weekly: v })} />
+                <BooleanRow label="Price > The Number High" value={f.price_gt_the_number_hl_weekly} onChange={v => s({ price_gt_the_number_hl_weekly: v })} />
+                <BooleanRow label="Price > The Number Low" value={f.price_gt_the_number_ll_weekly} onChange={v => s({ price_gt_the_number_ll_weekly: v })} />
+                <BooleanRow label="9SMA > The Number" value={f.sma9_gt_the_number_weekly} onChange={v => s({ sma9_gt_the_number_weekly: v })} />
+                <BooleanRow label="9SMA > The Number High" value={f.sma9_gt_the_number_hl_weekly} onChange={v => s({ sma9_gt_the_number_hl_weekly: v })} />
+                <BooleanRow label="9SMA > The Number Low" value={f.sma9_gt_the_number_ll_weekly} onChange={v => s({ sma9_gt_the_number_ll_weekly: v })} />
+                <BooleanRow label="9SMA > WMA45" value={f.sma9_gt_wma45_weekly} onChange={v => s({ sma9_gt_wma45_weekly: v })} />
+            </div>
+        );
+    }
+
+    function ColTechW_RSI_Cross() {
+        return (
+            <div className="flex-shrink-0">
+                <SectionHead>RSI Indicator Cross (W)</SectionHead>
+                <BooleanRow label="RSI > 9SMA(RSI)" value={f.rsi_gt_sma9rsi_weekly} onChange={v => s({ rsi_gt_sma9rsi_weekly: v })} />
+                <BooleanRow label="RSI > WMA45(RSI)" value={f.rsi_gt_wma45rsi_weekly} onChange={v => s({ rsi_gt_wma45rsi_weekly: v })} />
+                <BooleanRow label="9SMA(RSI) > WMA45" value={f.sma9rsi_gt_wma45_weekly} onChange={v => s({ sma9rsi_gt_wma45_weekly: v })} />
+                <BooleanRow label="WMA45(RSI) < 9SMA(RSI)" value={f.wma45rsi_lt_sma9rsi_weekly} onChange={v => s({ wma45rsi_lt_sma9rsi_weekly: v })} />
+                <BooleanRow label="WMA45(RSI) < WMA45(Close)" value={f.wma45rsi_lt_wma45_weekly} onChange={v => s({ wma45rsi_lt_wma45_weekly: v })} />
+                <BooleanRow label="WMA45(RSI) < WMA45(CFG)" value={f.wma45rsi_lt_cfgwma45_weekly} onChange={v => s({ wma45rsi_lt_cfgwma45_weekly: v })} />
+                <BooleanRow label="WMA45(RSI) < EMA20(SMA3)" value={f.wma45rsi_lt_ema20sma3_weekly} onChange={v => s({ wma45rsi_lt_ema20sma3_weekly: v })} />
             </div>
         );
     }
@@ -434,11 +541,6 @@ export default function TopFilterPanel({
                 <RangeRow label="CFG(W)" minVal={f.cfg_w_min} maxVal={f.cfg_w_max} onMin={v => s({ cfg_w_min: v })} onMax={v => s({ cfg_w_max: v })} />
                 <RangeRow label="CFG.SMA4(W)" minVal={f.cfg_sma4_w_min} maxVal={f.cfg_sma4_w_max} onMin={v => s({ cfg_sma4_w_min: v })} onMax={v => s({ cfg_sma4_w_max: v })} />
                 <RangeRow label="CFG.EMA45(W)" minVal={f.cfg_ema45_w_min} maxVal={f.cfg_ema45_w_max} onMin={v => s({ cfg_ema45_w_min: v })} onMax={v => s({ cfg_ema45_w_max: v })} />
-                <SectionHead>CCI & Aroon (Weekly)</SectionHead>
-                <RangeRow label="CCI(14)(W)" minVal={f.cci_w_min} maxVal={f.cci_w_max} onMin={v => s({ cci_w_min: v })} onMax={v => s({ cci_w_max: v })} />
-                <RangeRow label="CCI.EMA20(W)" minVal={f.cci_ema20_w_min} maxVal={f.cci_ema20_w_max} onMin={v => s({ cci_ema20_w_min: v })} onMax={v => s({ cci_ema20_w_max: v })} />
-                <RangeRow label="AROON.UP(W)" minVal={f.aroon_up_w_min} maxVal={f.aroon_up_w_max} onMin={v => s({ aroon_up_w_min: v })} onMax={v => s({ aroon_up_w_max: v })} />
-                <RangeRow label="AROON.DOWN(W)" minVal={f.aroon_down_w_min} maxVal={f.aroon_down_w_max} onMin={v => s({ aroon_down_w_min: v })} onMax={v => s({ aroon_down_w_max: v })} />
             </div>
         );
     }
@@ -453,12 +555,86 @@ export default function TopFilterPanel({
         );
     }
 
+    function ColStampFilters() {
+        return (
+            <div className="flex-shrink-0 flex flex-col gap-1">
+                <SectionHead>Stamp Indicators</SectionHead>
+                <BooleanRow label="SMA9 > WMA 45" value={f.stamp_sma9_gt_wma45} onChange={v => s({ stamp_sma9_gt_wma45: v })} />
+                <BooleanRow label="SMA9 RSI > WMA45" value={f.stamp_sma9rsi_gt_wma45} onChange={v => s({ stamp_sma9rsi_gt_wma45: v })} />
+                <BooleanRow label="EMA45 RSI > 50" value={f.stamp_ema45rsi_gt_50} onChange={v => s({ stamp_ema45rsi_gt_50: v })} />
+                <BooleanRow label="EMA45 CFG > 50" value={f.stamp_ema45cfg_gt_50} onChange={v => s({ stamp_ema45cfg_gt_50: v })} />
+                <BooleanRow label="EMA20 SMA3 > 50" value={f.stamp_ema20sma3_gt_50} onChange={v => s({ stamp_ema20sma3_gt_50: v })} />
+                <BooleanRow label="EMA45 RSI < STAMP Lines" value={f.stamp_ema45rsi_lt_stamp_lines} onChange={v => s({ stamp_ema45rsi_lt_stamp_lines: v })} />
+            </div>
+        );
+    }
+
+    function ColAlrayanPriceFilters() {
+        return (
+            <div className="flex-shrink-0 flex flex-col gap-1">
+                <SectionHead>PRICE</SectionHead>
+                <RangeRow label="SMA4" minVal={f.sma4_min} maxVal={f.sma4_max} onMin={v => s({ sma4_min: v })} onMax={v => s({ sma4_max: v })} />
+                <RangeRow label="SMA9" minVal={f.sma9_price_min} maxVal={f.sma9_price_max} onMin={v => s({ sma9_price_min: v })} onMax={v => s({ sma9_price_max: v })} />
+                <RangeRow label="SMA18" minVal={f.sma18_min} maxVal={f.sma18_max} onMin={v => s({ sma18_min: v })} onMax={v => s({ sma18_max: v })} />
+                <BooleanRow label="Price > 18 SMA (Daily)" value={f.price_gt_18sma_daily} onChange={v => s({ price_gt_18sma_daily: v })} />
+                <BooleanRow label="SMA 4 > SMA 9 > SMA 18 (Daily)" value={f.sma_4_9_18_daily} onChange={v => s({ sma_4_9_18_daily: v })} />
+                <div className="my-1 border-t border-gray-100"></div>
+                <RangeRow label="SMA4(W)" minVal={f.sma4_w_min} maxVal={f.sma4_w_max} onMin={v => s({ sma4_w_min: v })} onMax={v => s({ sma4_w_max: v })} />
+                <RangeRow label="SMA9(W)" minVal={f.sma9_w_min} maxVal={f.sma9_w_max} onMin={v => s({ sma9_w_min: v })} onMax={v => s({ sma9_w_max: v })} />
+                <RangeRow label="SMA18(W)" minVal={f.sma18_w_min} maxVal={f.sma18_w_max} onMin={v => s({ sma18_w_min: v })} onMax={v => s({ sma18_w_max: v })} />
+                <BooleanRow label="Price > 9 SMA (Weekly)" value={f.price_gt_9sma_weekly} onChange={v => s({ price_gt_9sma_weekly: v })} />
+                <BooleanRow label="SMA 4 > SMA 9 > SMA 18 (Weekly)" value={f.sma_4_9_18_weekly} onChange={v => s({ sma_4_9_18_weekly: v })} />
+            </div>
+        );
+    }
+
+    function ColAlrayanCCIFilters() {
+        return (
+            <div className="flex-shrink-0 flex flex-col gap-1">
+                <SectionHead>CCI</SectionHead>
+                <RangeRow label="CCI(14)" minVal={f.cci_min} maxVal={f.cci_max} onMin={v => s({ cci_min: v })} onMax={v => s({ cci_max: v })} />
+                <RangeRow label="CCI.EMA20" minVal={f.cci_ema20_min} maxVal={f.cci_ema20_max} onMin={v => s({ cci_ema20_min: v })} onMax={v => s({ cci_ema20_max: v })} />
+                <BooleanRow label="CCI(14) > 100" value={f.cci_gt_100} onChange={v => s({ cci_gt_100: v })} />
+                <BooleanRow label="CCI(14) EMA(20) > 0 (Daily) (same day or after CCI > 100)" value={f.cci_ema20_gt_0_daily} onChange={v => s({ cci_ema20_gt_0_daily: v })} />
+                <div className="my-1 border-t border-gray-100"></div>
+                <RangeRow label="CCI(14)(W)" minVal={f.cci_w_min} maxVal={f.cci_w_max} onMin={v => s({ cci_w_min: v })} onMax={v => s({ cci_w_max: v })} />
+                <RangeRow label="CCI.EMA20(W)" minVal={f.cci_ema20_w_min} maxVal={f.cci_ema20_w_max} onMin={v => s({ cci_ema20_w_min: v })} onMax={v => s({ cci_ema20_w_max: v })} />
+                <BooleanRow label="CCI(14) EMA(20) > 0 (Weekly) (same day CCI > 100)" value={f.cci_ema20_gt_0_weekly} onChange={v => s({ cci_ema20_gt_0_weekly: v })} />
+            </div>
+        );
+    }
+
+    function ColAlrayanAroonFilters() {
+        return (
+            <div className="flex-shrink-0 flex flex-col gap-1">
+                <SectionHead>AROON</SectionHead>
+                <RangeRow label="AROON.UP" minVal={f.aroon_up_min} maxVal={f.aroon_up_max} onMin={v => s({ aroon_up_min: v })} onMax={v => s({ aroon_up_max: v })} />
+                <RangeRow label="AROON.DOWN" minVal={f.aroon_down_min} maxVal={f.aroon_down_max} onMin={v => s({ aroon_down_min: v })} onMax={v => s({ aroon_down_max: v })} />
+                <BooleanRow label="Aroon Up > 70%" value={f.aroon_up_gt_70} onChange={v => s({ aroon_up_gt_70: v })} />
+                <BooleanRow label="Aroon Down < 30% after/same as Aroon Up" value={f.aroon_down_lt_30} onChange={v => s({ aroon_down_lt_30: v })} />
+                <div className="my-1 border-t border-gray-100"></div>
+                <RangeRow label="AROON.UP(W)" minVal={f.aroon_up_w_min} maxVal={f.aroon_up_w_max} onMin={v => s({ aroon_up_w_min: v })} onMax={v => s({ aroon_up_w_max: v })} />
+                <RangeRow label="AROON.DOWN(W)" minVal={f.aroon_down_w_min} maxVal={f.aroon_down_w_max} onMin={v => s({ aroon_down_w_min: v })} onMax={v => s({ aroon_down_w_max: v })} />
+            </div>
+        );
+    }
+
     const tabContent: Record<TabId, React.ReactNode> = {
         smartselect: <><ColSmartSelect /></>,
         price_volume: <><ColPriceLeft /><ColDivider /><ColPriceRight /></>,
         moving_averages: <><ColMAsVsSma /><ColDivider /><ColMAsMinusSma /></>,
-        technical_daily: <><ColTechD_RSI /><ColDivider /><ColTechD_CFG /><ColDivider /><ColTechD_Stamp /></>,
-        technical_weekly: <><ColTechW_RSI /><ColDivider /><ColTechW_NUM /><ColDivider /><ColTechW_Stamp /></>,
+        rsi_daily: <><ColTechD_RSI /><ColDivider /><ColTechD_RSI_Cross /><ColDivider /><ColTechD_CFG /><ColDivider /><ColTechD_Stamp /></>,
+        rsi_weekly: <><ColTechW_RSI /><ColDivider /><ColTechW_RSI_Cross /><ColDivider /><ColTechW_NUM /><ColDivider /><ColTechW_Stamp /></>,
+        alrayan: (
+            <>
+                <ColAlrayanPriceFilters />
+                <ColDivider />
+                <ColAlrayanCCIFilters />
+                <ColDivider />
+                <ColAlrayanAroonFilters />
+            </>
+        ),
+        stamp_filters: <><ColStampFilters /></>,
         industry: (
             <div className="flex flex-wrap gap-2 items-start">
                 <MultiSelect label="Sectors" options={filterOptions.sectors} selected={f.sector} onChange={v => s({ sector: v })} />
