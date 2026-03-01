@@ -691,6 +691,35 @@ export default function StockScreenerPage() {
             if (!checkRange(stock.sma_200_3m_ago, 'sma_200_3m_min', 'sma_200_3m_max', true)) return false;
             if (!checkRange(stock.sma_200_4m_ago, 'sma_200_4m_min', 'sma_200_4m_max', true)) return false;
             if (!checkRange(stock.sma_200_5m_ago, 'sma_200_5m_min', 'sma_200_5m_max', true)) return false;
+            if (!checkRange(stock.sma_3, 'sma_3_min', 'sma_3_max', true)) return false;
+            if (!checkRange(stock.sma_4, 'sma4_min', 'sma4_max', true)) return false;
+            if (!checkRange(stock.sma9_price, 'sma9_price_min', 'sma9_price_max', true)) return false;
+            if (!checkRange(stock.sma_18, 'sma18_min', 'sma18_max', true)) return false;
+            if (!checkRange(stock.cci_14, 'cci_min', 'cci_max', true)) return false;
+            if (!checkRange(stock.cci_ema_20, 'cci_ema20_min', 'cci_ema20_max', true)) return false;
+            if (!checkRange(stock.aroon_up, 'aroon_up_min', 'aroon_up_max', true)) return false;
+            if (!checkRange(stock.aroon_down, 'aroon_down_min', 'aroon_down_max', true)) return false;
+            if (!checkRange(stock.cfg_sma4, 'cfg_sma4_min', 'cfg_sma4_max', true)) return false;
+            if (!checkRange(stock.cfg_ema45, 'cfg_ema45_min', 'cfg_ema45_max', true)) return false;
+            if (!checkRange(stock.cfg_sma4_w, 'cfg_sma4_w_min', 'cfg_sma4_w_max', true)) return false;
+            if (!checkRange(stock.cfg_ema45_w, 'cfg_ema45_w_min', 'cfg_ema45_w_max', true)) return false;
+            if (!checkRange(stock.stamp_s9rsi, 'stamp_s9rsi_min', 'stamp_s9rsi_max', true)) return false;
+            if (!checkRange(stock.stamp_e45cfg, 'stamp_e45cfg_min', 'stamp_e45cfg_max', true)) return false;
+            if (!checkRange(stock.stamp_s9rsi_w, 'stamp_s9rsi_w_min', 'stamp_s9rsi_w_max', true)) return false;
+            if (!checkRange(stock.stamp_e45cfg_w, 'stamp_e45cfg_w_min', 'stamp_e45cfg_w_max', true)) return false;
+            if (!checkRange(stock.cci_w, 'cci_w_min', 'cci_w_max', true)) return false;
+            if (!checkRange(stock.cci_ema20_w, 'cci_ema20_w_min', 'cci_ema20_w_max', true)) return false;
+            if (!checkRange(stock.aroon_up_w, 'aroon_up_w_min', 'aroon_up_w_max', true)) return false;
+            if (!checkRange(stock.aroon_down_w, 'aroon_down_w_min', 'aroon_down_w_max', true)) return false;
+            if (!checkRange(stock.ema20_sma3, 'ema20_sma3_min', 'ema20_sma3_max', true)) return false;
+            if (!checkRange(stock.ema20_sma3_w, 'ema20_sma3_w_min', 'ema20_sma3_w_max', true)) return false;
+            if (!checkRange(stock.sma9_rsi_w, 'sma9_rsi_w_min', 'sma9_rsi_w_max', true)) return false;
+            if (!checkRange(stock.wma45_rsi_w, 'wma45_rsi_w_min', 'wma45_rsi_w_max', true)) return false;
+            if (!checkRange(stock.the_number_hl, 'the_number_hl_min', 'the_number_hl_max', true)) return false;
+            if (!checkRange(stock.the_number_ll, 'the_number_ll_min', 'the_number_ll_max', true)) return false;
+            if (!checkRange(stock.the_number_hl_w, 'the_number_hl_w_min', 'the_number_hl_w_max', true)) return false;
+            if (!checkRange(stock.the_number_ll_w, 'the_number_ll_w_min', 'the_number_ll_w_max', true)) return false;
+            if (!checkRange(stock.cfg_w, 'cfg_w_min', 'cfg_w_max', true)) return false;
 
             const c = (state: string, isValid: boolean) => {
                 if (state === 'yes' && !isValid) return false;
@@ -717,6 +746,38 @@ export default function StockScreenerPage() {
             if (filters.sma_4_9_18_daily !== 'any') { if (!c(filters.sma_4_9_18_daily, (stock.sma_4 ?? 0) > (stock.sma_9 ?? 0) && (stock.sma_9 ?? 0) > (stock.sma_18 ?? 0))) return false; }
             if (filters.sma_4_9_18_weekly !== 'any') { if (!c(filters.sma_4_9_18_weekly, (stock.sma_4w ?? 0) > (stock.sma_9w ?? 0) && (stock.sma_9w ?? 0) > (stock.sma_18w ?? 0))) return false; }
             if (filters.cci_gt_100 !== 'any') { if (!c(filters.cci_gt_100, (stock.cci_14 ?? 0) > 100)) return false; }
+
+            // CCI EMA20 > 0 (Daily) - REQUIRES CCI > 100
+            if (filters.cci_ema20_gt_0_daily !== 'any') {
+                const cci100Valid = (stock.cci_14 ?? 0) > 100;
+                const cciEma20Valid = (stock.cci_ema_20 ?? 0) > 0;
+                const isValid = cci100Valid && cciEma20Valid;
+                if (!c(filters.cci_ema20_gt_0_daily, isValid)) return false;
+            }
+
+            // CCI EMA20 > 0 (Weekly) - REQUIRES CCI > 100
+            if (filters.cci_ema20_gt_0_weekly !== 'any') {
+                const cci100Valid = (stock.cci_14 ?? 0) > 100;
+                const cciEma20Valid = (stock.cci_ema_20 ?? 0) > 0;
+                const isValid = cci100Valid && cciEma20Valid;
+                if (!c(filters.cci_ema20_gt_0_weekly, isValid)) return false;
+            }
+
+            // AROON FILTERS
+            if (filters.aroon_up_gt_70 !== 'any') {
+                const aroonPct = ((stock.aroon_up ?? 0) / 14) * 100;
+                const isValid = aroonPct > 70;
+                if (!c(filters.aroon_up_gt_70, isValid)) return false;
+            }
+
+            // Aroon Down < 30% - REQUIRES Aroon Up > 70%
+            if (filters.aroon_down_lt_30 !== 'any') {
+                const aroonUpPct = ((stock.aroon_up ?? 0) / 14) * 100;
+                const aroonDownPct = ((stock.aroon_down ?? 0) / 14) * 100;
+                const isValid = aroonUpPct > 70 && aroonDownPct < 30;
+                if (!c(filters.aroon_down_lt_30, isValid)) return false;
+            }
+
             if (filters.stamp_sma9_gt_wma45 !== 'any') { if (!c(filters.stamp_sma9_gt_wma45, (stock.sma9_price ?? 0) > (stock.wma45_close ?? 0))) return false; }
             if (filters.stamp_sma9rsi_gt_wma45 !== 'any') { if (!c(filters.stamp_sma9rsi_gt_wma45, (stock.sma9_rsi ?? 0) > (stock.wma45_rsi ?? 0))) return false; }
             if (filters.stamp_ema45rsi_gt_50 !== 'any') { if (!c(filters.stamp_ema45rsi_gt_50, (stock.stamp_e45rsi ?? 0) > 50)) return false; }
