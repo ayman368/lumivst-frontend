@@ -150,6 +150,12 @@ const initialFilterState: FilterState = {
     stamp_ema45cfg_gt_50: 'any',
     stamp_ema20sma3_gt_50: 'any',
     stamp_ema45rsi_lt_stamp_lines: 'any',
+    stamp_sma9_gt_wma45_weekly: 'any',
+    stamp_sma9rsi_gt_wma45_weekly: 'any',
+    stamp_ema45rsi_gt_50_weekly: 'any',
+    stamp_ema45cfg_gt_50_weekly: 'any',
+    stamp_ema20sma3_gt_50_weekly: 'any',
+    stamp_ema45rsi_lt_stamp_lines_weekly: 'any',
     price_gt_the_number_daily: 'any',
     price_gt_the_number_hl_daily: 'any',
     price_gt_the_number_ll_daily: 'any',
@@ -395,6 +401,10 @@ export default function StockScreenerPage() {
                         price_minus_sma_10: item.price_minus_sma_10, price_minus_sma_21: item.price_minus_sma_21,
                         price_minus_sma_50: item.price_minus_sma_50, price_minus_sma_150: item.price_minus_sma_150,
                         price_minus_sma_200: item.price_minus_sma_200,
+                        // SMA values — directly from API (prices table has them)
+                        sma_50: item.sma_50 ?? undefined,
+                        sma_150: item.sma_150 ?? undefined,
+                        sma_200: item.sma_200 ?? undefined,
                         fifty_two_week_high_price: item.fifty_two_week_high, fifty_two_week_low_price: item.fifty_two_week_low,
                         average_volume_50: item.average_volume_50,
                         price_vs_sma_10_percent: item.price_vs_sma_10_percent, price_vs_sma_21_percent: item.price_vs_sma_21_percent,
@@ -404,22 +414,45 @@ export default function StockScreenerPage() {
                         price_vs_ema_21_percent: item.ema_21 ? ((item.close - item.ema_21) / item.ema_21) * 100 : 0,
                         percent_off_52w_high: item.percent_off_52w_high, percent_off_52w_low: item.percent_off_52w_low,
                         vol_diff_50_percent: item.vol_diff_50_percent, trading_view_symbol: item.trading_view_symbol,
+                        // EMA / SMA from prices table
+                        ema_10: item.ema_10 ?? undefined,
+                        ema_21: item.ema_21 ?? undefined,
+                        sma_3: item.sma_3 ?? undefined,
+                        ema_20_sma3: item.ema_20_sma3 ?? undefined,
+                        sma_4: item.sma_4 ?? techInfo.sma4 ?? undefined,
+                        sma_9: item.sma_9 ?? techInfo.sma9 ?? undefined,
+                        sma_18: item.sma_18 ?? techInfo.sma18 ?? undefined,
+                        sma_4w: item.sma_4w ?? undefined,
+                        sma_9w: item.sma_9w ?? undefined,
+                        sma_18w: item.sma_18w ?? undefined,
+                        sma_30w: item.sma_30w ?? undefined,
+                        sma_40w: item.sma_40w ?? undefined,
+                        sma_200_1m_ago: item.sma_200_1m_ago ?? undefined,
+                        sma_200_2m_ago: item.sma_200_2m_ago ?? undefined,
+                        sma_200_3m_ago: item.sma_200_3m_ago ?? undefined,
+                        sma_200_4m_ago: item.sma_200_4m_ago ?? undefined,
+                        sma_200_5m_ago: item.sma_200_5m_ago ?? undefined,
+                        cci_14: item.cci_14 ?? techInfo.cci ?? undefined,
+                        cci_ema_20: item.cci_ema_20 ?? techInfo.cci_ema20 ?? undefined,
+                        aroon_up: item.aroon_up ?? techInfo.aroon_up ?? undefined,
+                        aroon_down: item.aroon_down ?? techInfo.aroon_down ?? undefined,
                         rsi_14: techInfo.rsi_14 ?? null, sma9_rsi: techInfo.sma9_rsi ?? null,
                         wma45_rsi: techInfo.wma45_rsi ?? null, sma9_close: techInfo.sma9_close ?? null,
                         the_number: techInfo.the_number ?? null, the_number_hl: techInfo.the_number_hl ?? null,
                         the_number_ll: techInfo.the_number_ll ?? null, stamp_s9rsi: techInfo.stamp_s9rsi ?? null,
                         stamp_e45cfg: techInfo.stamp_e45cfg ?? null, cfg_daily: techInfo.cfg_daily ?? null,
                         cfg_sma4: techInfo.cfg_sma4 ?? null, cfg_ema45: techInfo.cfg_ema45 ?? null,
+                        cfg_wma45: techInfo.cfg_wma45 ?? null,
                         sma4: techInfo.sma4 ?? null, sma9_price: techInfo.sma9 ?? null,
                         sma18: techInfo.sma18 ?? null, wma45_close: techInfo.wma45_close ?? null,
                         cci: techInfo.cci ?? null, cci_ema20: techInfo.cci_ema20 ?? null,
-                        aroon_up: techInfo.aroon_up ?? null, aroon_down: techInfo.aroon_down ?? null,
                         rsi_w: techInfo.rsi_w ?? null, sma9_rsi_w: techInfo.sma9_rsi_w ?? null,
                         wma45_rsi_w: techInfo.wma45_rsi_w ?? null, sma9_close_w: techInfo.sma9_close_w ?? null,
                         the_number_w: techInfo.the_number_w ?? null, the_number_hl_w: techInfo.the_number_hl_w ?? null,
                         the_number_ll_w: techInfo.the_number_ll_w ?? null, stamp_s9rsi_w: techInfo.stamp_s9rsi_w ?? null,
                         stamp_e45cfg_w: techInfo.stamp_e45cfg_w ?? null, cfg_w: techInfo.cfg_w ?? null,
                         cfg_sma4_w: techInfo.cfg_sma4_w ?? null, cfg_ema45_w: techInfo.cfg_ema45_w ?? null,
+                        cfg_wma45_w: techInfo.cfg_wma45_w ?? null,
                         close_w: techInfo.close_w ?? techInfo.close ?? null, sma4_w: techInfo.sma4_w ?? null,
                         sma9_w: techInfo.sma9_w ?? null, sma18_w: techInfo.sma18_w ?? null,
                         wma45_close_w: techInfo.wma45_close_w ?? null, cci_w: techInfo.cci_w ?? null,
@@ -427,7 +460,10 @@ export default function StockScreenerPage() {
                         aroon_down_w: techInfo.aroon_down_w ?? null,
                         stamp_e45rsi: techInfo.stamp_e45rsi ?? null, stamp_e20sma3: techInfo.stamp_e20sma3 ?? null,
                         stamp_e45rsi_w: techInfo.stamp_e45rsi_w ?? null, stamp_e20sma3_w: techInfo.stamp_e20sma3_w ?? null,
+                        ema20_sma3: techInfo.ema20_sma3 ?? null,
+                        ema20_sma3_w: techInfo.ema20_sma3_w ?? null,
                     };
+
                 });
                 setStocks(mappedStocks);
                 setMetadata({ exchange: 'Tadawul', currency: 'SAR', datetime: pricesData.date ? pricesData.date.toString() : new Date().toISOString().split('T')[0], timezone: 'Asia/Riyadh' });
@@ -753,10 +789,10 @@ export default function StockScreenerPage() {
             if (filters.ma_200_2m_3m !== 'any') { if (!c(filters.ma_200_2m_3m, (stock.sma_200_2m_ago ?? 0) > (stock.sma_200_3m_ago ?? 0))) return false; }
             if (filters.ma_200_3m_4m !== 'any') { if (!c(filters.ma_200_3m_4m, (stock.sma_200_3m_ago ?? 0) > (stock.sma_200_4m_ago ?? 0))) return false; }
             if (filters.ma_200_4m_5m !== 'any') { if (!c(filters.ma_200_4m_5m, (stock.sma_200_4m_ago ?? 0) > (stock.sma_200_5m_ago ?? 0))) return false; }
-            if (filters.ma_200_now_1m !== 'any') { if (!c(filters.ma_200_now_1m, (stock.price_minus_sma_200 ?? 0) > (stock.sma_200_1m_ago ?? 0))) return false; }
-            if (filters.ma_200_now_2m !== 'any') { if (!c(filters.ma_200_now_2m, (stock.price_minus_sma_200 ?? 0) > (stock.sma_200_2m_ago ?? 0))) return false; }
-            if (filters.ma_200_now_3m !== 'any') { if (!c(filters.ma_200_now_3m, (stock.price_minus_sma_200 ?? 0) > (stock.sma_200_3m_ago ?? 0))) return false; }
-            if (filters.ma_200_now_4m !== 'any') { if (!c(filters.ma_200_now_4m, (stock.price_minus_sma_200 ?? 0) > (stock.sma_200_4m_ago ?? 0))) return false; }
+            if (filters.ma_200_now_1m !== 'any') { if (!c(filters.ma_200_now_1m, (stock.sma_200 ?? 0) > (stock.sma_200_1m_ago ?? 0))) return false; }
+            if (filters.ma_200_now_2m !== 'any') { if (!c(filters.ma_200_now_2m, (stock.sma_200 ?? 0) > (stock.sma_200_2m_ago ?? 0))) return false; }
+            if (filters.ma_200_now_3m !== 'any') { if (!c(filters.ma_200_now_3m, (stock.sma_200 ?? 0) > (stock.sma_200_3m_ago ?? 0))) return false; }
+            if (filters.ma_200_now_4m !== 'any') { if (!c(filters.ma_200_now_4m, (stock.sma_200 ?? 0) > (stock.sma_200_4m_ago ?? 0))) return false; }
             if (filters.ema_10_21_50 !== 'any') { if (!c(filters.ema_10_21_50, (stock.ema_10 ?? 0) > (stock.ema_21 ?? 0) && (stock.ema_21 ?? 0) > (stock.sma_50 ?? 0))) return false; }
             if (filters.ema_10_21 !== 'any') { if (!c(filters.ema_10_21, (stock.ema_10 ?? 0) > (stock.ema_21 ?? 0))) return false; }
             if (filters.price_gt_30w !== 'any') { if (!c(filters.price_gt_30w, parseFormattedNumber(stock.price) > (stock.sma_30w ?? 0))) return false; }
@@ -788,18 +824,17 @@ export default function StockScreenerPage() {
                 if (!c(filters.cci_ema20_gt_0_weekly, isValid)) return false;
             }
 
-            // AROON FILTERS
+            // AROON FILTERS (values are already 0-100 from backend)
             if (filters.aroon_up_gt_70 !== 'any') {
-                const aroonPct = ((stock.aroon_up ?? 0) / 14) * 100;
-                const isValid = aroonPct > 70;
+                const isValid = (stock.aroon_up ?? 0) > 70;
                 if (!c(filters.aroon_up_gt_70, isValid)) return false;
             }
 
-            // Aroon Down < 30% - REQUIRES Aroon Up > 70%
+            // Aroon Down < 30 - REQUIRES Aroon Up > 70%
             if (filters.aroon_down_lt_30 !== 'any') {
-                const aroonUpPct = ((stock.aroon_up ?? 0) / 14) * 100;
-                const aroonDownPct = ((stock.aroon_down ?? 0) / 14) * 100;
-                const isValid = aroonUpPct > 70 && aroonDownPct < 30;
+                const aroonUpValid = (stock.aroon_up ?? 0) > 70;
+                const aroonDownValid = (stock.aroon_down ?? 0) < 30;
+                const isValid = aroonUpValid && aroonDownValid;
                 if (!c(filters.aroon_down_lt_30, isValid)) return false;
             }
 
@@ -809,6 +844,14 @@ export default function StockScreenerPage() {
             if (filters.stamp_ema45cfg_gt_50 !== 'any') { if (!c(filters.stamp_ema45cfg_gt_50, (stock.stamp_e45cfg ?? 0) > 50)) return false; }
             if (filters.stamp_ema20sma3_gt_50 !== 'any') { if (!c(filters.stamp_ema20sma3_gt_50, (stock.stamp_e20sma3 ?? 0) > 50)) return false; }
             if (filters.stamp_ema45rsi_lt_stamp_lines !== 'any') { if (!c(filters.stamp_ema45rsi_lt_stamp_lines, (stock.stamp_e45rsi ?? 0) < (stock.sma9_rsi ?? 0) && (stock.stamp_e45rsi ?? 0) < (stock.wma45_rsi ?? 0))) return false; }
+            
+            // STAMP Filters (Weekly)
+            if (filters.stamp_sma9_gt_wma45_weekly !== 'any') { if (!c(filters.stamp_sma9_gt_wma45_weekly, (stock.sma9_w ?? 0) > (stock.wma45_close_w ?? 0))) return false; }
+            if (filters.stamp_sma9rsi_gt_wma45_weekly !== 'any') { if (!c(filters.stamp_sma9rsi_gt_wma45_weekly, (stock.sma9_rsi_w ?? 0) > (stock.wma45_rsi_w ?? 0))) return false; }
+            if (filters.stamp_ema45rsi_gt_50_weekly !== 'any') { if (!c(filters.stamp_ema45rsi_gt_50_weekly, (stock.stamp_e45rsi_w ?? 0) > 50)) return false; }
+            if (filters.stamp_ema45cfg_gt_50_weekly !== 'any') { if (!c(filters.stamp_ema45cfg_gt_50_weekly, (stock.stamp_e45cfg_w ?? 0) > 50)) return false; }
+            if (filters.stamp_ema20sma3_gt_50_weekly !== 'any') { if (!c(filters.stamp_ema20sma3_gt_50_weekly, (stock.stamp_e20sma3_w ?? 0) > 50)) return false; }
+            if (filters.stamp_ema45rsi_lt_stamp_lines_weekly !== 'any') { if (!c(filters.stamp_ema45rsi_lt_stamp_lines_weekly, (stock.stamp_e45rsi_w ?? 0) < (stock.sma9_rsi_w ?? 0) && (stock.stamp_e45rsi_w ?? 0) < (stock.wma45_rsi_w ?? 0))) return false; }
 
             const p = parseFormattedNumber(stock.price);
             const p_w = stock.close_w ?? p;

@@ -348,13 +348,21 @@ export interface FilterState {
     sma_50_gt_200sma: string;
     sma_150_gt_200sma: string;
 
-    // New STAMP Tab Boolean filters
+    // New STAMP Tab Boolean filters (Daily)
     stamp_sma9_gt_wma45: string;
     stamp_sma9rsi_gt_wma45: string;
     stamp_ema45rsi_gt_50: string;
     stamp_ema45cfg_gt_50: string;
     stamp_ema20sma3_gt_50: string;
     stamp_ema45rsi_lt_stamp_lines: string;
+    
+    // STAMP Tab Boolean filters (Weekly)
+    stamp_sma9_gt_wma45_weekly: string;
+    stamp_sma9rsi_gt_wma45_weekly: string;
+    stamp_ema45rsi_gt_50_weekly: string;
+    stamp_ema45cfg_gt_50_weekly: string;
+    stamp_ema20sma3_gt_50_weekly: string;
+    stamp_ema45rsi_lt_stamp_lines_weekly: string;
 
     // RSI Section Cross Filters (Daily)
     price_gt_the_number_daily: string;

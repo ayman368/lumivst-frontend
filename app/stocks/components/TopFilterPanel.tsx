@@ -420,10 +420,19 @@ export default function TopFilterPanel({
                 <RangeRow label="vs SMA 150%" minVal={f.price_vs_sma_150_min} maxVal={f.price_vs_sma_150_max} onMin={v => s({ price_vs_sma_150_min: v })} onMax={v => s({ price_vs_sma_150_max: v })} />
                 <RangeRow label="vs SMA 200%" minVal={f.price_vs_sma_200_min} maxVal={f.price_vs_sma_200_max} onMin={v => s({ price_vs_sma_200_min: v })} onMax={v => s({ price_vs_sma_200_max: v })} />
                 <div className="mt-2"></div>
+                <BooleanRow label="Price > 10EMA" value={f.price_gt_ema10} onChange={v => s({ price_gt_ema10: v })} />
+                <BooleanRow label="Price > 21EMA" value={f.price_gt_ema21} onChange={v => s({ price_gt_ema21: v })} />
                 <BooleanRow label="Price > 30WMA" value={f.price_gt_30w} onChange={v => s({ price_gt_30w: v })} />
                 <BooleanRow label="Price > 40WMA" value={f.price_gt_40w} onChange={v => s({ price_gt_40w: v })} />
+                <BooleanRow label="30WMA > 40WMA" value={f.wma30_gt_wma40} onChange={v => s({ wma30_gt_wma40: v })} />
+            </div>
+        );
+    }
 
-                {/* === Moving Average Comparison Filters === */}
+    function ColMAsComparison() {
+        return (
+            <div className="flex-shrink-0">
+                <SectionHead>MA Comparison</SectionHead>
                 <BooleanRow label="10EMA > 50SMA" value={f.ema10_gt_sma50} onChange={v => s({ ema10_gt_sma50: v })} />
                 <BooleanRow label="10EMA > 200SMA" value={f.ema10_gt_sma200} onChange={v => s({ ema10_gt_sma200: v })} />
                 <BooleanRow label="21EMA > 50SMA" value={f.ema21_gt_sma50} onChange={v => s({ ema21_gt_sma50: v })} />
@@ -431,14 +440,12 @@ export default function TopFilterPanel({
                 <BooleanRow label="50SMA > 150SMA" value={f.sma50_gt_sma150} onChange={v => s({ sma50_gt_sma150: v })} />
                 <BooleanRow label="50SMA > 200SMA" value={f.sma50_gt_sma200} onChange={v => s({ sma50_gt_sma200: v })} />
                 <BooleanRow label="150SMA > 200SMA" value={f.sma150_gt_sma200} onChange={v => s({ sma150_gt_sma200: v })} />
+                <div className="mt-2 text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1 px-1">200SMA Trend</div>
                 <BooleanRow label="200SMA > 200SMA 1M Ago" value={f.sma200_gt_sma200_1m_ago} onChange={v => s({ sma200_gt_sma200_1m_ago: v })} />
                 <BooleanRow label="200SMA > 200SMA 2M Ago" value={f.sma200_gt_sma200_2m_ago} onChange={v => s({ sma200_gt_sma200_2m_ago: v })} />
                 <BooleanRow label="200SMA > 200SMA 3M Ago" value={f.sma200_gt_sma200_3m_ago} onChange={v => s({ sma200_gt_sma200_3m_ago: v })} />
                 <BooleanRow label="200SMA > 200SMA 4M Ago" value={f.sma200_gt_sma200_4m_ago} onChange={v => s({ sma200_gt_sma200_4m_ago: v })} />
                 <BooleanRow label="200SMA > 200SMA 5M Ago" value={f.sma200_gt_sma200_5m_ago} onChange={v => s({ sma200_gt_sma200_5m_ago: v })} />
-                <BooleanRow label="30WMA > 40WMA" value={f.wma30_gt_wma40} onChange={v => s({ wma30_gt_wma40: v })} />
-                <BooleanRow label="Price > 10EMA" value={f.price_gt_ema10} onChange={v => s({ price_gt_ema10: v })} />
-                <BooleanRow label="Price > 21EMA" value={f.price_gt_ema21} onChange={v => s({ price_gt_ema21: v })} />
             </div>
         );
     }
@@ -483,7 +490,6 @@ export default function TopFilterPanel({
                 <BooleanRow label="RSI > WMA45(RSI)" value={f.rsi_gt_wma45rsi_daily} onChange={v => s({ rsi_gt_wma45rsi_daily: v })} />
                 <BooleanRow label="9SMA(RSI) > WMA45" value={f.sma9rsi_gt_wma45_daily} onChange={v => s({ sma9rsi_gt_wma45_daily: v })} />
                 <BooleanRow label="WMA45(RSI) < 9SMA(RSI)" value={f.wma45rsi_lt_sma9rsi_daily} onChange={v => s({ wma45rsi_lt_sma9rsi_daily: v })} />
-                <BooleanRow label="WMA45(RSI) < WMA45(Close)" value={f.wma45rsi_lt_wma45_daily} onChange={v => s({ wma45rsi_lt_wma45_daily: v })} />
                 <BooleanRow label="WMA45(RSI) < WMA45(CFG)" value={f.wma45rsi_lt_cfgwma45_daily} onChange={v => s({ wma45rsi_lt_cfgwma45_daily: v })} />
                 <BooleanRow label="WMA45(RSI) < EMA20(SMA3)" value={f.wma45rsi_lt_ema20sma3_daily} onChange={v => s({ wma45rsi_lt_ema20sma3_daily: v })} />
             </div>
@@ -543,7 +549,6 @@ export default function TopFilterPanel({
                 <BooleanRow label="RSI > WMA45(RSI)" value={f.rsi_gt_wma45rsi_weekly} onChange={v => s({ rsi_gt_wma45rsi_weekly: v })} />
                 <BooleanRow label="9SMA(RSI) > WMA45" value={f.sma9rsi_gt_wma45_weekly} onChange={v => s({ sma9rsi_gt_wma45_weekly: v })} />
                 <BooleanRow label="WMA45(RSI) < 9SMA(RSI)" value={f.wma45rsi_lt_sma9rsi_weekly} onChange={v => s({ wma45rsi_lt_sma9rsi_weekly: v })} />
-                <BooleanRow label="WMA45(RSI) < WMA45(Close)" value={f.wma45rsi_lt_wma45_weekly} onChange={v => s({ wma45rsi_lt_wma45_weekly: v })} />
                 <BooleanRow label="WMA45(RSI) < WMA45(CFG)" value={f.wma45rsi_lt_cfgwma45_weekly} onChange={v => s({ wma45rsi_lt_cfgwma45_weekly: v })} />
                 <BooleanRow label="WMA45(RSI) < EMA20(SMA3)" value={f.wma45rsi_lt_ema20sma3_weekly} onChange={v => s({ wma45rsi_lt_ema20sma3_weekly: v })} />
             </div>
@@ -553,14 +558,14 @@ export default function TopFilterPanel({
     function ColTechW_NUM() {
         return (
             <div className="flex-shrink-0">
-                <SectionHead>The Number (Weekly)</SectionHead>
-                <RangeRow label="THE.NUMBER(W)" minVal={f.the_number_w_min} maxVal={f.the_number_w_max} onMin={v => s({ the_number_w_min: v })} onMax={v => s({ the_number_w_max: v })} />
-                <RangeRow label="THE.NUMBER.HIGH(W)" minVal={f.the_number_hl_w_min} maxVal={f.the_number_hl_w_max} onMin={v => s({ the_number_hl_w_min: v })} onMax={v => s({ the_number_hl_w_max: v })} />
-                <RangeRow label="THE.NUMBER.LOW(W)" minVal={f.the_number_ll_w_min} maxVal={f.the_number_ll_w_max} onMin={v => s({ the_number_ll_w_min: v })} onMax={v => s({ the_number_ll_w_max: v })} />
                 <SectionHead>CFG (Weekly)</SectionHead>
                 <RangeRow label="CFG(W)" minVal={f.cfg_w_min} maxVal={f.cfg_w_max} onMin={v => s({ cfg_w_min: v })} onMax={v => s({ cfg_w_max: v })} />
                 <RangeRow label="CFG.SMA4(W)" minVal={f.cfg_sma4_w_min} maxVal={f.cfg_sma4_w_max} onMin={v => s({ cfg_sma4_w_min: v })} onMax={v => s({ cfg_sma4_w_max: v })} />
                 <RangeRow label="CFG.EMA45(W)" minVal={f.cfg_ema45_w_min} maxVal={f.cfg_ema45_w_max} onMin={v => s({ cfg_ema45_w_min: v })} onMax={v => s({ cfg_ema45_w_max: v })} />
+                <SectionHead>The Number (Weekly)</SectionHead>
+                <RangeRow label="THE.NUMBER(W)" minVal={f.the_number_w_min} maxVal={f.the_number_w_max} onMin={v => s({ the_number_w_min: v })} onMax={v => s({ the_number_w_max: v })} />
+                <RangeRow label="THE.NUMBER.HIGH(W)" minVal={f.the_number_hl_w_min} maxVal={f.the_number_hl_w_max} onMin={v => s({ the_number_hl_w_min: v })} onMax={v => s({ the_number_hl_w_max: v })} />
+                <RangeRow label="THE.NUMBER.LOW(W)" minVal={f.the_number_ll_w_min} maxVal={f.the_number_ll_w_max} onMin={v => s({ the_number_ll_w_min: v })} onMax={v => s({ the_number_ll_w_max: v })} />
             </div>
         );
     }
@@ -575,16 +580,30 @@ export default function TopFilterPanel({
         );
     }
 
-    function ColStampFilters() {
+    function ColStampFiltersDaily() {
         return (
             <div className="flex-shrink-0 flex flex-col gap-1">
-                <SectionHead>Stamp Indicators</SectionHead>
+                <SectionHead>Stamp Indicators (Daily)</SectionHead>
                 <BooleanRow label="SMA9 > WMA 45" value={f.stamp_sma9_gt_wma45} onChange={v => s({ stamp_sma9_gt_wma45: v })} />
                 <BooleanRow label="SMA9 RSI > WMA45" value={f.stamp_sma9rsi_gt_wma45} onChange={v => s({ stamp_sma9rsi_gt_wma45: v })} />
                 <BooleanRow label="EMA45 RSI > 50" value={f.stamp_ema45rsi_gt_50} onChange={v => s({ stamp_ema45rsi_gt_50: v })} />
                 <BooleanRow label="EMA45 CFG > 50" value={f.stamp_ema45cfg_gt_50} onChange={v => s({ stamp_ema45cfg_gt_50: v })} />
                 <BooleanRow label="EMA20 SMA3 > 50" value={f.stamp_ema20sma3_gt_50} onChange={v => s({ stamp_ema20sma3_gt_50: v })} />
                 <BooleanRow label="EMA45 RSI < STAMP Lines" value={f.stamp_ema45rsi_lt_stamp_lines} onChange={v => s({ stamp_ema45rsi_lt_stamp_lines: v })} />
+            </div>
+        );
+    }
+
+    function ColStampFiltersWeekly() {
+        return (
+            <div className="flex-shrink-0 flex flex-col gap-1">
+                <SectionHead>Stamp Indicators (Weekly)</SectionHead>
+                <BooleanRow label="SMA9 > WMA 45 (W)" value={f.stamp_sma9_gt_wma45_weekly} onChange={v => s({ stamp_sma9_gt_wma45_weekly: v })} />
+                <BooleanRow label="SMA9 RSI > WMA45 (W)" value={f.stamp_sma9rsi_gt_wma45_weekly} onChange={v => s({ stamp_sma9rsi_gt_wma45_weekly: v })} />
+                <BooleanRow label="EMA45 RSI > 50 (W)" value={f.stamp_ema45rsi_gt_50_weekly} onChange={v => s({ stamp_ema45rsi_gt_50_weekly: v })} />
+                <BooleanRow label="EMA45 CFG > 50 (W)" value={f.stamp_ema45cfg_gt_50_weekly} onChange={v => s({ stamp_ema45cfg_gt_50_weekly: v })} />
+                <BooleanRow label="EMA20 SMA3 > 50 (W)" value={f.stamp_ema20sma3_gt_50_weekly} onChange={v => s({ stamp_ema20sma3_gt_50_weekly: v })} />
+                <BooleanRow label="EMA45 RSI < STAMP Lines (W)" value={f.stamp_ema45rsi_lt_stamp_lines_weekly} onChange={v => s({ stamp_ema45rsi_lt_stamp_lines_weekly: v })} />
             </div>
         );
     }
@@ -642,9 +661,9 @@ export default function TopFilterPanel({
     const tabContent: Record<TabId, React.ReactNode> = {
         smartselect: <><ColSmartSelect /></>,
         price_volume: <><ColPriceLeft /><ColDivider /><ColPriceRight /></>,
-        moving_averages: <><ColMAsVsSma /><ColDivider /><ColMAsMinusSma /></>,
-        rsi_daily: <><ColTechD_RSI /><ColDivider /><ColTechD_RSI_Cross /><ColDivider /><ColTechD_CFG /><ColDivider /><ColTechD_Stamp /></>,
-        rsi_weekly: <><ColTechW_RSI /><ColDivider /><ColTechW_RSI_Cross /><ColDivider /><ColTechW_NUM /><ColDivider /><ColTechW_Stamp /></>,
+        moving_averages: <><ColMAsVsSma /><ColDivider /><ColMAsComparison /><ColDivider /><ColMAsMinusSma /></>,
+        rsi_daily: <><ColTechD_RSI /><ColDivider /><ColTechD_RSI_Cross /><ColDivider /><ColTechD_CFG /></>,
+        rsi_weekly: <><ColTechW_RSI /><ColDivider /><ColTechW_RSI_Cross /><ColDivider /><ColTechW_NUM /></>,
         alrayan: (
             <>
                 <ColAlrayanPriceFilters />
@@ -654,7 +673,7 @@ export default function TopFilterPanel({
                 <ColAlrayanAroonFilters />
             </>
         ),
-        stamp_filters: <><ColStampFilters /></>,
+        stamp_filters: <><ColStampFiltersDaily /><ColDivider /><ColStampFiltersWeekly /></>,
         industry: (
             <div className="flex flex-wrap gap-2 items-start">
                 <MultiSelect label="Sectors" options={filterOptions.sectors} selected={f.sector} onChange={v => s({ sector: v })} />
