@@ -63,6 +63,11 @@ export interface Stock {
     // === New MA Comparison Indicators ===
     ema_21?: number;
     ema_10?: number;
+    ema10?: number;            // ✅ EMA10 (from API)
+    ema21?: number;            // ✅ EMA21 (from API)
+    sma50?: number;            // ✅ SMA50 (from API)
+    sma150?: number;           // ✅ SMA150 (from API)
+    sma200?: number;           // ✅ SMA200 (from API)
     sma_3?: number;
     ema_20_sma3?: number;
     sma_4?: number;
@@ -78,6 +83,20 @@ export interface Stock {
     sma_200_5m_ago?: number;  // 200MA قبل 5 أشهر
     sma_30w?: number;         // 30-Week SMA
     sma_40w?: number;         // 40-Week SMA
+    
+    // ✅ MA COMPARISON CONDITIONS (Boolean)
+    ema10_gt_sma50?: boolean;
+    ema10_gt_sma200?: boolean;
+    ema21_gt_sma50?: boolean;
+    ema21_gt_sma200?: boolean;
+    sma50_gt_sma150?: boolean;
+    sma50_gt_sma200?: boolean;
+    sma150_gt_sma200?: boolean;
+    sma200_gt_sma200_1m_ago?: boolean;
+    sma200_gt_sma200_2m_ago?: boolean;
+    sma200_gt_sma200_3m_ago?: boolean;
+    sma200_gt_sma200_4m_ago?: boolean;
+    sma200_gt_sma200_5m_ago?: boolean;
 
     // === Technical Screener Fields ===
 
