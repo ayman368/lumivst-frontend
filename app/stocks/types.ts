@@ -212,6 +212,10 @@ export interface FilterState {
     price_minus_sma_200_min: string;
     price_minus_sma_200_max: string;
 
+    price_vs_sma_10_min: string;
+    price_vs_sma_10_max: string;
+    price_vs_sma_21_min: string;
+    price_vs_sma_21_max: string;
     price_vs_ema_10_min: string;
     price_vs_ema_10_max: string;
     price_vs_ema_21_min: string;

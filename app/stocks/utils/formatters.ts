@@ -38,6 +38,18 @@ export function formatNumber(value: any): string {
     });
 }
 
+export function formatNumberOneDecimal(value: any): string {
+    if (value === null || value === undefined || value === 'N/A') return 'N/A';
+
+    const num = parseFormattedNumber(value);
+    if (isNaN(num)) return 'N/A';
+
+    return num.toLocaleString('en-US', {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1
+    });
+}
+
 export function formatChange(value: any): string {
     if (value === null || value === undefined || value === 'N/A') return 'N/A';
 
@@ -61,6 +73,16 @@ export function formatChangePercent(value: any): string {
 
     const absNum = Math.abs(num);
     return num < 0 ? `(${absNum.toFixed(2)}%)` : `${absNum.toFixed(2)}%`;
+}
+
+export function formatChangePercentOneDecimal(value: any): string {
+    if (value === null || value === undefined || value === 'N/A') return 'N/A';
+
+    const num = parseFormattedNumber(value);
+    if (isNaN(num)) return 'N/A';
+
+    const absNum = Math.abs(num);
+    return num < 0 ? `(${absNum.toFixed(1)}%)` : `${absNum.toFixed(1)}%`;
 }
 
 export function formatText(value: any): string {

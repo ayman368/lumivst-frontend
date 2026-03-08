@@ -413,7 +413,9 @@ export default function TopFilterPanel({
     function ColMAsVsSma() {
         return (
             <div className="flex-shrink-0">
-                <SectionHead>Price vs SMA %</SectionHead>
+                <SectionHead>Price vs Averages %</SectionHead>
+                <RangeRow label="vs SMA 10%" minVal={f.price_vs_sma_10_min} maxVal={f.price_vs_sma_10_max} onMin={v => s({ price_vs_sma_10_min: v })} onMax={v => s({ price_vs_sma_10_max: v })} />
+                <RangeRow label="vs SMA 21%" minVal={f.price_vs_sma_21_min} maxVal={f.price_vs_sma_21_max} onMin={v => s({ price_vs_sma_21_min: v })} onMax={v => s({ price_vs_sma_21_max: v })} />
                 <RangeRow label="vs EMA 10%" minVal={f.price_vs_ema_10_min} maxVal={f.price_vs_ema_10_max} onMin={v => s({ price_vs_ema_10_min: v })} onMax={v => s({ price_vs_ema_10_max: v })} />
                 <RangeRow label="vs EMA 21%" minVal={f.price_vs_ema_21_min} maxVal={f.price_vs_ema_21_max} onMin={v => s({ price_vs_ema_21_min: v })} onMax={v => s({ price_vs_ema_21_max: v })} />
                 <RangeRow label="vs SMA 50%" minVal={f.price_vs_sma_50_min} maxVal={f.price_vs_sma_50_max} onMin={v => s({ price_vs_sma_50_min: v })} onMax={v => s({ price_vs_sma_50_max: v })} />

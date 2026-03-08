@@ -90,6 +90,8 @@ export default function useStocks() {
                     price_vs_sma_50_percent: item.price_vs_sma_50_percent,
                     price_vs_sma_150_percent: item.price_vs_sma_150_percent,
                     price_vs_sma_200_percent: item.price_vs_sma_200_percent,
+                    price_vs_ema_10_percent: item.price_vs_ema_10_percent,
+                    price_vs_ema_21_percent: item.price_vs_ema_21_percent,
                     percent_off_52w_high: item.percent_off_52w_high,
                     percent_off_52w_low: item.percent_off_52w_low,
                     vol_diff_50_percent: item.vol_diff_50_percent,

@@ -2,22 +2,23 @@
 import Link from 'next/link';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Filter, ChevronLeft, ChevronRight, PanelLeft, Search, CheckCircle2, XCircle, Shield, TrendingUp as TrendingUpIcon } from 'lucide-react';
-import RatingBadge from './components/RatingBadge';
-import CustomMultiSelect from './components/CustomMultiSelect';
-import RangeFilter from './components/RangeFilter';
-import CustomDropdown from './components/CustomDropdown';
-import CheckboxGroup from './components/CheckboxGroup';
-import ActiveFilterBadge from './components/ActiveFilterBadge';
-import FilterAccordion from './components/FilterAccordion';
-import ExportMenu from './components/ExportMenu';
-import ColumnSelector from './components/ColumnSelector';
-import FilterSidebar from './components/FilterSidebar';
-import StockTable from './components/StockTable';
-import TopFilterPanel from './components/TopFilterPanel';
-import useStocks from './hooks/useStocks';
-import type { Stock, StockMetadata, FilterState } from './types';
+import RatingBadge from '../components/RatingBadge';
+import CustomMultiSelect from '../components/CustomMultiSelect';
+import RangeFilter from '../components/RangeFilter';
+import CustomDropdown from '../components/CustomDropdown';
+import CheckboxGroup from '../components/CheckboxGroup';
+import ActiveFilterBadge from '../components/ActiveFilterBadge';
+import FilterAccordion from '../components/FilterAccordion';
+import ExportMenu from '../components/ExportMenu';
+import ColumnSelector from '../components/ColumnSelector';
+// import FilterSidebar from '../components/FilterSidebar';
+// import TopFilterPanel from '../components/TopFilterPanel';
+import useStocks from '../hooks/useStocks';
+import type { Stock, StockMetadata, FilterState } from '../types';
 import * as XLSX from 'xlsx';
-import { cleanSymbol, cleanName, parseFormattedNumber, formatNumber, formatNumberOneDecimal, formatChange, formatChangePercent, formatChangePercentOneDecimal, formatText, displayRawValue } from './utils/formatters';
+import { cleanSymbol, cleanName, parseFormattedNumber, formatNumber, formatChange, formatChangePercent, formatText, displayRawValue } from '../utils/formatters';
+import LightweightChart from '../components/LightweightChart';
+import SymbolSearchModal from '../components/SymbolSearchModal';
 const initialFilterState: FilterState = {
     rs_rating_min: '', rs_rating_max: '',
     acc_dis_rating: [], industry_group_rs: [], sector_rs: [], industry_rs: [], sub_industry_rs: [],
@@ -35,8 +36,6 @@ const initialFilterState: FilterState = {
     price_minus_sma_50_min: '', price_minus_sma_50_max: '',
     price_minus_sma_150_min: '', price_minus_sma_150_max: '',
     price_minus_sma_200_min: '', price_minus_sma_200_max: '',
-    price_vs_sma_10_min: '', price_vs_sma_10_max: '',
-    price_vs_sma_21_min: '', price_vs_sma_21_max: '',
     price_vs_ema_10_min: '', price_vs_ema_10_max: '',
     price_vs_ema_21_min: '', price_vs_ema_21_max: '',
     price_vs_sma_50_min: '', price_vs_sma_50_max: '',
@@ -210,9 +209,11 @@ export default function StockScreenerPage() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [columnSearch, setColumnSearch] = useState('');
     const [collapseSignal, setCollapseSignal] = useState(0);
-    const columnMenuRef = useRef<HTMLButtonElement>(null);
+    const [selectedSymbol, setSelectedSymbol] = useState<string>('');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
     const exportMenuRef = useRef<HTMLDivElement>(null);
-    const [showTable, setShowTable] = useState(true);
+
     const selectStyles = `
         w-full pl-10 pr-8 py-2.5 text-xs bg-gray-50 border border-gray-200 rounded-lg 
         focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white
@@ -246,8 +247,6 @@ export default function StockScreenerPage() {
         { key: 'fifty_two_week_high_price', label: '52 Week High', visibleKey: 'fifty_two_week_high_price' },
         { key: 'fifty_two_week_low_price', label: '52 Week Low', visibleKey: 'fifty_two_week_low_price' },
         { key: 'average_volume_50', label: 'Avg Volume 50', visibleKey: 'average_volume_50' },
-        { key: 'price_vs_sma_10_percent', label: 'Price vs SMA10 %', visibleKey: 'price_vs_sma_10_percent' },
-        { key: 'price_vs_sma_21_percent', label: 'Price vs SMA21 %', visibleKey: 'price_vs_sma_21_percent' },
         { key: 'price_vs_ema_10_percent', label: 'Price vs EMA10 %', visibleKey: 'price_vs_ema_10_percent' },
         { key: 'price_vs_ema_21_percent', label: 'Price vs EMA21 %', visibleKey: 'price_vs_ema_21_percent' },
         { key: 'price_vs_sma_50_percent', label: 'Price vs SMA50 %', visibleKey: 'price_vs_sma_50_percent' },
@@ -298,8 +297,6 @@ export default function StockScreenerPage() {
         { key: 'rsi_w', label: 'RSI(14)(W)', visibleKey: 'rsi_w' },
         { key: 'sma9_rsi_w', label: 'SMA9(RSI)(W)', visibleKey: 'sma9_rsi_w' },
         { key: 'wma45_rsi_w', label: 'WMA45(RSI)(W)', visibleKey: 'wma45_rsi_w' },
-        { key: 'ema45_rsi_w', label: 'EMA45(RSI)(W)', visibleKey: 'ema45_rsi_w' },
-        { key: 'ema20_sma3_w', label: 'EMA20(SMA3)(W)', visibleKey: 'ema20_sma3_w' },
         { key: 'sma9_close_w', label: 'SMA9(Close)(W)', visibleKey: 'sma9_close_w' },
         { key: 'the_number_w', label: 'THE.NUMBER(W)', visibleKey: 'the_number_w' },
         { key: 'the_number_hl_w', label: 'THE.NUMBER.HIGH(W)', visibleKey: 'the_number_hl_w' },
@@ -323,9 +320,8 @@ export default function StockScreenerPage() {
     ];
     const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
         const defaultVisible: Record<string, boolean> = {};
-        const alwaysVisible = ['symbol', 'name', 'quote_rate', 'change', 'change_percent', 'price_vs_sma_10_percent', 'price_vs_sma_21_percent', 'price_vs_ema_10_percent', 'price_vs_ema_21_percent', 'price_vs_sma_50_percent', 'rsi_14'];
         columnDefinitions.forEach((col, index) => {
-            defaultVisible[col.visibleKey] = alwaysVisible.includes(col.visibleKey) || index < 15;
+            defaultVisible[col.visibleKey] = index < 15;
         });
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('stocksVisibleColumns');
@@ -429,7 +425,7 @@ export default function StockScreenerPage() {
                         sma50: techInfo.sma50 ?? item.sma_50 ?? undefined,      // ✅ SMA50
                         sma150: techInfo.sma150 ?? item.sma_150 ?? undefined,   // ✅ SMA150
                         sma200: techInfo.sma200 ?? item.sma_200 ?? undefined,   // ✅ SMA200
-                        sma_3: techInfo.sma3_rsi3 ?? techInfo.sma_3 ?? undefined,
+                        sma_3: techInfo.sma3_rsi3 ?? undefined,
                         ema_20_sma3: techInfo.ema20_sma3 ?? undefined,
                         sma_4: techInfo.sma4 ?? item.sma_4 ?? undefined,
                         sma_9: techInfo.sma9_close ?? item.sma_9 ?? undefined,
@@ -472,8 +468,7 @@ export default function StockScreenerPage() {
                         sma18: techInfo.sma18 ?? null, wma45_close: techInfo.wma45_close ?? null,
                         cci: techInfo.cci ?? null, cci_ema20: techInfo.cci_ema20 ?? null,
                         rsi_w: techInfo.rsi_w ?? null, sma9_rsi_w: techInfo.sma9_rsi_w ?? null,
-                        wma45_rsi_w: techInfo.wma45_rsi_w ?? null, ema45_rsi_w: techInfo.ema45_rsi_w ?? null,
-                        sma9_close_w: techInfo.sma9_close_w ?? null,
+                        wma45_rsi_w: techInfo.wma45_rsi_w ?? null, sma9_close_w: techInfo.sma9_close_w ?? null,
                         the_number_w: techInfo.the_number_w ?? null, the_number_hl_w: techInfo.the_number_hl_w ?? null,
                         the_number_ll_w: techInfo.the_number_ll_w ?? null, stamp_s9rsi_w: techInfo.stamp_s9rsi_w ?? null,
                         stamp_e45cfg_w: techInfo.stamp_e45cfg_w ?? null, cfg_w: techInfo.cfg_w ?? null,
@@ -743,13 +738,12 @@ export default function StockScreenerPage() {
             if (!checkRange(stock.price_minus_sma_50, 'price_minus_sma_50_min', 'price_minus_sma_50_max', true)) return false;
             if (!checkRange(stock.price_minus_sma_150, 'price_minus_sma_150_min', 'price_minus_sma_150_max', true)) return false;
             if (!checkRange(stock.price_minus_sma_200, 'price_minus_sma_200_min', 'price_minus_sma_200_max', true)) return false;
-            if (!checkRange(stock.price_vs_sma_10_percent, 'price_vs_sma_10_min', 'price_vs_sma_10_max', true)) return false;
-            if (!checkRange(stock.price_vs_sma_21_percent, 'price_vs_sma_21_min', 'price_vs_sma_21_max', true)) return false;
             if (!checkRange(stock.price_vs_ema_10_percent, 'price_vs_ema_10_min', 'price_vs_ema_10_max', true)) return false;
             if (!checkRange(stock.price_vs_ema_21_percent, 'price_vs_ema_21_min', 'price_vs_ema_21_max', true)) return false;
             if (!checkRange(stock.price_vs_sma_50_percent, 'price_vs_sma_50_min', 'price_vs_sma_50_max', true)) return false;
             if (!checkRange(stock.price_vs_sma_150_percent, 'price_vs_sma_150_min', 'price_vs_sma_150_max', true)) return false;
             if (!checkRange(stock.price_vs_sma_200_percent, 'price_vs_sma_200_min', 'price_vs_sma_200_max', true)) return false;
+            if (!checkRange(stock.fifty_two_week_high_price, 'fifty_two_week_high_min', 'fifty_two_week_high_max')) return false;
             if (!checkRange(stock.fifty_two_week_low_price, 'fifty_two_week_low_min', 'fifty_two_week_low_max')) return false;
             if (!checkRange(stock.average_volume_50, 'average_volume_50_min', 'average_volume_50_max')) return false;
             if (!checkRange(stock.vol_diff_50_percent, 'vol_diff_50_percent_min', 'vol_diff_50_percent_max', true)) return false;
@@ -1004,9 +998,24 @@ export default function StockScreenerPage() {
         setShowExportMenu(false);
     }, [filteredAndSortedStocks, visibleColumns]);
 
+    // Automatically select the first stock if the filtered list changes and the selected symbol is not in it
+    useEffect(() => {
+        if (filteredAndSortedStocks.length > 0) {
+            const isCurrentlySelectedValid = filteredAndSortedStocks.some(s => s.symbol === selectedSymbol);
+            if (!isCurrentlySelectedValid) {
+                setSelectedSymbol(filteredAndSortedStocks[0].symbol);
+            }
+        } else {
+            setSelectedSymbol('');
+        }
+    }, [filteredAndSortedStocks, selectedSymbol]);
+
     if (loading) return (<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div><h2 className="mt-4 text-lg font-semibold text-gray-700">Loading Data...</h2><p className="text-gray-500">Please wait</p></div></div>);
     if (error) return (<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-center text-red-600"><h2 className="text-lg font-semibold">Error fetching data</h2><p>{error}</p></div></div>);
     if (stocks.length === 0) return (<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-center text-gray-500"><h2 className="text-lg font-semibold">No Data Available</h2><p>No stock data found</p></div></div>);
+
+    const activeChartStock = filteredAndSortedStocks.find(s => s.symbol === selectedSymbol) || filteredAndSortedStocks[0];
+    const tradingViewSymbol = activeChartStock ? (activeChartStock.trading_view_symbol || `TADAWUL:${cleanSymbol(activeChartStock.symbol)}`) : '';
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col h-screen">
@@ -1019,20 +1028,20 @@ export default function StockScreenerPage() {
             `}</style>
 
             {/* ═══ TOP FILTER PANEL ═══ */}
-            <TopFilterPanel filters={filters} setFilters={setFilters} filterOptions={filterOptions} activeFiltersCount={activeFilters.length} clearAllFilters={clearAllFilters} />
+            {/* <TopFilterPanel filters={filters} setFilters={setFilters} filterOptions={filterOptions} activeFiltersCount={activeFilters.length} clearAllFilters={clearAllFilters} /> */}
 
             {/* ═══ CONTENT AREA ═══ */}
             <div className="flex-1 flex overflow-hidden">
 
                 {/* ── Sidebar ── */}
-                <FilterSidebar isOpen={isSidebarOpen} filters={filters} setFilters={setFilters} filterOptions={filterOptions} collapseSignal={collapseSignal} onCollapseAll={() => setCollapseSignal(prev => prev + 1)} onClearAll={clearAllFilters} />
+                {/* <FilterSidebar isOpen={isSidebarOpen} filters={filters} setFilters={setFilters} filterOptions={filterOptions} collapseSignal={collapseSignal} onCollapseAll={() => setCollapseSignal(prev => prev + 1)} onClearAll={clearAllFilters} /> */}
 
                 {/* ── MAIN CONTENT ── */}
                 <div className="flex-1 flex flex-col overflow-hidden">
 
                     {/* Toolbar */}
                     <div className="bg-white border-b border-gray-200 px-4 py-2 flex-shrink-0">
-                        <div className="flex justify-between items-center">
+                        <div className="flex justify-between items-center gap-4 flex-wrap">
                             <div className="flex items-center space-x-4">
                                 <div className="flex items-center space-x-2">
                                     <span className="text-sm font-medium text-gray-700">Market Results: <span className="font-bold">{filteredAndSortedStocks.length}</span> stocks</span>
@@ -1040,42 +1049,22 @@ export default function StockScreenerPage() {
                                 </div>
                                 <div className="text-sm text-gray-500">{metadata?.datetime}</div>
                             </div>
-                            <div className="flex items-center space-x-2">
-                                <button
-                                    onClick={() => setIsSidebarOpen(prev => !prev)}
-                                    className={`px-3 py-1.5 text-xs font-medium rounded border transition-all
-                                            ${isSidebarOpen
-                                            ? 'bg-blue-50 border-blue-200 text-blue-700'
-                                            : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'
-                                        }`}
-                                >
-                                    Filters
-                                </button>
 
-                                <button
-                                    onClick={() => setShowTable(prev => !prev)}
-                                    className={`px-3 py-1.5 text-xs font-medium rounded border transition-all
-                                            ${showTable
-                                            ? 'bg-blue-50 border-blue-200 text-blue-700'
-                                            : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'
-                                        }`}
+                            {/* <div className="flex-1 max-w-md flex items-center relative">
+                                <Search className="w-4 h-4 text-gray-400 absolute left-3" />
+                                <select
+                                    className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                    value={selectedSymbol}
+                                    onChange={(e) => setSelectedSymbol(e.target.value)}
                                 >
-                                    {showTable ? 'Hide Table' : 'Show Table'}
-                                </button>
-
-                                <div className="relative" ref={exportMenuRef}>
-                                    <button onClick={() => setShowExportMenu(!showExportMenu)} className="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 flex items-center space-x-1 transition-all">
-                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                        <span>Export</span>
-                                    </button>
-                                    <ExportMenu show={showExportMenu} onExport={handleExport} onClose={() => setShowExportMenu(false)} filteredStocks={filteredAndSortedStocks} />
-                                </div>
-                                {/* ✅ Columns button — NO wrapper div, ColumnSelector is outside layout below */}
-                                <button ref={columnMenuRef} onClick={() => setShowColumnMenu(!showColumnMenu)} className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded hover:bg-gray-200 flex items-center space-x-1 transition-all">
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-                                    <span>Columns</span>
-                                </button>
-                            </div>
+                                    <option value="" disabled>Select a stock from filtered results...</option>
+                                    {filteredAndSortedStocks.map(stock => (
+                                        <option key={stock.symbol} value={stock.symbol}>
+                                            {cleanSymbol(stock.symbol)} - {cleanName(stock.name || '')}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div> */}
                         </div>
                     </div>
 
@@ -1088,121 +1077,58 @@ export default function StockScreenerPage() {
                         </div>
                     )}
 
-                    {/* Table */}
-                    <div className={`flex-1 overflow-auto border-t border-gray-200 bg-white transition-all duration-300 ${showTable ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
-                        <table className="min-w-full bg-white text-[10px] border-separate border-spacing-0">
-                            <thead className="bg-gray-50 sticky top-0 z-40 shadow-sm">
-                                <tr>
-                                    {columnDefinitions.filter(col => visibleColumns[col.visibleKey]).map((col) => {
-                                        const sortIndex = sortConfigs.findIndex(c => c.key === col.key);
-                                        const isSorted = sortIndex !== -1;
-                                        const sortPriority = sortIndex + 1;
-                                        const sortDir = isSorted ? sortConfigs[sortIndex].direction : null;
-                                        let stickyClass = '';
-                                        if (col.key === 'symbol') stickyClass = 'sticky left-0 z-50 bg-gray-50 border-r border-gray-200 min-w-[70px] w-[70px] max-w-[70px]';
-                                        else if (col.key === 'name') stickyClass = `sticky z-50 bg-gray-50 border-r border-gray-200 min-w-[180px] w-[180px] max-w-[180px] ${visibleColumns['symbol'] ? 'left-[70px]' : 'left-0'}`;
-                                        return (
-                                            <th key={col.key} className={`px-1 py-1 text-center text-[12px] font-sans font-bold text-gray-900 border-b border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors whitespace-nowrap ${stickyClass} ${isSorted ? 'bg-blue-50 text-blue-900 border-b-2 border-b-blue-500' : ''}`} onClick={() => handleSort(col.key)}>
-                                                <div className="flex items-center justify-center space-x-1">
-                                                    <span className="font-semibold">{col.label}</span>
-                                                    <div className="flex flex-col">
-                                                        {isSorted ? <span className="text-xs font-bold">{sortDir === 'asc' ? '▲' : '▼'}</span> : <span className="text-[10px] text-gray-400 opacity-50 block leading-[8px]">▲<br />▼</span>}
-                                                    </div>
-                                                    {isSorted && <span className="ml-1 inline-flex items-center justify-center w-4 h-4 bg-blue-600 text-white text-[10px] font-bold rounded-full flex-shrink-0">{sortPriority}</span>}
-                                                </div>
-                                            </th>
-                                        );
-                                    })}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {filteredAndSortedStocks.map((stock) => {
-                                    const cleanSym = cleanSymbol(stock.symbol);
-                                    const changeNum = parseFormattedNumber(stock.change, true);
-                                    const changePercentNum = parseFormattedNumber(stock.percent_change);
-                                    const isChangeNegative = changeNum < 0;
-                                    const isPercentNegative = changePercentNum < 0;
-                                    return (
-                                        <tr key={stock.symbol} className="hover:bg-gray-50 transition-colors group">
-                                            {columnDefinitions.filter(col => visibleColumns[col.visibleKey]).map((col) => {
-                                                let content;
-                                                let stickyClass = '';
-                                                if (col.key === 'symbol') stickyClass = 'sticky left-0 z-30 bg-white group-hover:bg-gray-50 border-r border-gray-100 min-w-[70px] w-[70px] max-w-[70px]';
-                                                else if (col.key === 'name') stickyClass = `sticky z-30 bg-white group-hover:bg-gray-50 border-r border-gray-100 min-w-[180px] w-[180px] max-w-[180px] ${visibleColumns['symbol'] ? 'left-[70px]' : 'left-0'}`;
-                                                switch (col.key) {
-                                                    case 'symbol': content = <Link href={`/stocks/${cleanSym}/financials?period=annual&country=Saudi Arabia`} className="font-bold text-blue-600 hover:text-blue-800 hover:underline block truncate">{cleanSym}</Link>; break;
-                                                    case 'name': content = <Link href={`/stocks/${cleanSym}/financials?period=annual&country=Saudi Arabia`} className="text-gray-900 font-medium hover:text-blue-600 block truncate" title={cleanName(stock.name)}>{cleanName(stock.name)}</Link>; break;
-                                                    case 'charts': content = <button className="text-gray-400 hover:text-blue-600"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg></button>; break;
-                                                    case 'rs_rating': content = <span className={`font-bold ${(stock.rs_rating || 0) >= 80 ? 'text-green-600' : (stock.rs_rating || 0) >= 70 ? 'text-yellow-600' : 'text-gray-500'}`}>{stock.rs_rating || '-'}</span>; break;
-                                                    case 'acc_dis_rating': content = <RatingBadge value={stock.acc_dis_rating} />; break;
-                                                    case 'industry_group_rs': content = <RatingBadge value={stock.industry_group_rs} />; break;
-                                                    case 'sector_rs': content = <RatingBadge value={stock.sector_rs} />; break;
-                                                    case 'industry_rs': content = <RatingBadge value={stock.industry_rs} />; break;
-                                                    case 'sub_industry_rs': content = <RatingBadge value={stock.sub_industry_rs} />; break;
-                                                    case 'price': content = <span className="font-medium">{formatNumber(stock.price)}</span>; break;
-                                                    case 'change': content = <span className={isChangeNegative ? 'text-red-600' : 'text-green-600'}>{formatChange(stock.change)}</span>; break;
-                                                    case 'percent_change': content = <span className={isPercentNegative ? 'text-red-600' : 'text-green-600'}>{formatChangePercent(stock.percent_change)}</span>; break;
-                                                    case 'volume': content = <span>{formatNumber(stock.volume)}</span>; break;
-                                                    case 'turnover': content = <span className="text-gray-900">{formatNumber(stock.turnover)}</span>; break;
-                                                    case 'no_of_trades': content = <span className="text-gray-900">{formatNumber(stock.no_of_trades)}</span>; break;
-                                                    case 'market_cap': content = <span className="text-gray-900">{displayRawValue(stock.market_cap)}</span>; break;
-                                                    case 'industry_group': content = <span className="text-gray-900">{formatText(stock.industry_group)}</span>; break;
-                                                    case 'sector': content = <span className="text-gray-900">{formatText(stock.sector)}</span>; break;
-                                                    case 'industry': content = <span className="text-gray-900">{formatText(stock.industry)}</span>; break;
-                                                    case 'sub_industry': content = <span className="text-gray-900">{formatText(stock.sub_industry)}</span>; break;
-                                                    case 'open': content = <span className="text-gray-900">{formatNumber(stock.open)}</span>; break;
-                                                    case 'high': content = <span className="text-gray-900">{formatNumber(stock.high)}</span>; break;
-                                                    case 'low': content = <span className="text-gray-900">{formatNumber(stock.low)}</span>; break;
-                                                    case 'fifty_two_week_high_price': content = <span className="text-gray-900">{formatNumberOneDecimal(stock.fifty_two_week_high_price)}</span>; break;
-                                                    case 'fifty_two_week_low_price': content = <span className="text-gray-900">{formatNumberOneDecimal(stock.fifty_two_week_low_price)}</span>; break;
-                                                    case 'average_volume_50': content = <span className="text-gray-900">{formatNumberOneDecimal(stock.average_volume_50)}</span>; break;
-                                                    case 'price_vs_sma_50_percent': content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.price_vs_sma_50_percent)}</span>; break;
-                                                    case 'price_vs_sma_150_percent': content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.price_vs_sma_150_percent)}</span>; break;
-                                                    case 'price_vs_sma_200_percent': content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.price_vs_sma_200_percent)}</span>; break;
-                                                    case 'price_vs_ema_10_percent': content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.price_vs_ema_10_percent)}</span>; break;
-                                                    case 'price_vs_ema_21_percent': content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.price_vs_ema_21_percent)}</span>; break;
-                                                    case 'percent_off_52w_high': content = <span className={(stock.percent_off_52w_high || 0) < 0 ? 'text-red-600' : 'text-gray-900'}>{formatChangePercent(stock.percent_off_52w_high)}</span>; break;
-                                                    case 'percent_off_52w_low': content = <span className="text-gray-900">{formatChangePercent(stock.percent_off_52w_low)}</span>; break;
-                                                    case 'vol_diff_50_percent': content = <span className="text-gray-900">{formatChangePercent(stock.vol_diff_50_percent)}</span>; break;
-                                                    default: {
-                                                        const techVal = (stock as any)[col.key];
-                                                        if (techVal === null || techVal === undefined || techVal === '') content = <span className="text-gray-400">-</span>;
-                                                        else {
-                                                            const num = Number(techVal);
-                                                            if (Number.isNaN(num)) {
-                                                                content = <span className="text-gray-900">{String(techVal)}</span>;
-                                                            } else {
-                                                                const isMA = /sma|ema|wma|the_number/i.test(col.key);
-                                                                content = <span className="text-gray-900">{isMA ? num.toFixed(1) : num.toFixed(2)}</span>;
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                                return <td key={col.key} className={`px-1 py-0.5 text-center ${stickyClass}`}>{content}</td>;
-                                            })}
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                    {/* Single Chart Area */}
+                    <div className="flex-1 bg-gray-100 p-4 transition-all duration-300 overflow-hidden flex flex-col">
+                        {activeChartStock ? (
+                            <div className="flex-1 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm flex flex-col">
+                                <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex justify-between items-center whitespace-nowrap overflow-hidden">
+                                    <button
+                                        onClick={() => setIsSearchModalOpen(true)}
+                                        className="flex items-center gap-3 hover:bg-gray-200 px-3 py-1.5 -ml-3 rounded-md transition-colors focus:outline-none group"
+                                        title="Click to search for a symbol"
+                                    >
+                                        <span className="font-bold text-gray-800 text-lg group-hover:text-blue-600 transition-colors">{cleanSymbol(activeChartStock.symbol)}</span>
+                                        <span className="text-sm font-medium text-gray-600">{cleanName(activeChartStock.name || '')}</span>
+                                        <Search className="w-4 h-4 text-gray-400 group-hover:text-blue-500 ml-1" />
+                                    </button>
+                                    <div className="flex gap-4 text-sm">
+                                        <span className="font-semibold">{formatNumber(activeChartStock.price)}</span>
+                                        <span className={parseFormattedNumber(activeChartStock.change, true) < 0 ? 'text-red-500' : 'text-green-500'}>
+                                            {formatChange(activeChartStock.change)} ({formatChangePercent(activeChartStock.percent_change)})
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="flex-1 w-full min-h-0 p-1 relative">
+                                    <LightweightChart
+                                        key={cleanSymbol(activeChartStock.symbol)}
+                                        symbol={cleanSymbol(activeChartStock.symbol)}
+                                        height={undefined}
+                                        showVolume={true}
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex-1 flex items-center justify-center text-gray-500">
+                                No stocks match the current filters.
+                            </div>
+                        )}
                     </div>
 
                 </div>
                 {/* ─── END MAIN CONTENT ─── */}
 
+                <SymbolSearchModal
+                    isOpen={isSearchModalOpen}
+                    onClose={() => setIsSearchModalOpen(false)}
+                    stocks={filteredAndSortedStocks} // only search within currently filtered stocks
+                    onSelect={(symbol) => {
+                        setSelectedSymbol(symbol);
+                        setIsSearchModalOpen(false);
+                    }}
+                />
+
             </div>
             {/* ─── END CONTENT AREA ─── */}
-
-            {/* ✅ ColumnSelector خارج الـ layout تماماً — fixed positioning يشتغل صح */}
-            <ColumnSelector
-                show={showColumnMenu}
-                columnDefinitions={columnDefinitions}
-                visibleColumns={visibleColumns}
-                toggleColumn={toggleColumn}
-                setVisibleColumns={setVisibleColumns}
-                onClose={() => setShowColumnMenu(false)}
-                triggerRef={columnMenuRef}
-            />
 
         </div>
     );
