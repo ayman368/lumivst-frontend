@@ -257,15 +257,11 @@ export default function FilterSidebar({
                 <FilterAccordion title="STAMP FILTERS" collapseSignal={collapseSignal}>
                     <div className="mb-3">
                         <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-2">STAMP (Daily)</div>
-                        <RangeFilter label="STAMP.SMA9(RSI)" minValue={filters.stamp_s9rsi_min} maxValue={filters.stamp_s9rsi_max} onMinChange={(v) => set({ stamp_s9rsi_min: v })} onMaxChange={(v) => set({ stamp_s9rsi_max: v })} />
-                        <RangeFilter label="STAMP.EMA45(CFG)" minValue={filters.stamp_e45cfg_min} maxValue={filters.stamp_e45cfg_max} onMinChange={(v) => set({ stamp_e45cfg_min: v })} onMaxChange={(v) => set({ stamp_e45cfg_max: v })} />
                         <RangeFilter label="STAMP.EMA45(RSI)" minValue={filters.stamp_e45rsi_min} maxValue={filters.stamp_e45rsi_max} onMinChange={(v) => set({ stamp_e45rsi_min: v })} onMaxChange={(v) => set({ stamp_e45rsi_max: v })} />
                         <RangeFilter label="STAMP.EMA20(SMA3)" minValue={filters.stamp_e20sma3_min} maxValue={filters.stamp_e20sma3_max} onMinChange={(v) => set({ stamp_e20sma3_min: v })} onMaxChange={(v) => set({ stamp_e20sma3_max: v })} />
                     </div>
                     <div className="mb-3">
                         <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-2">STAMP (Weekly)</div>
-                        <RangeFilter label="STAMP.SMA9(RSI)(W)" minValue={filters.stamp_s9rsi_w_min} maxValue={filters.stamp_s9rsi_w_max} onMinChange={(v) => set({ stamp_s9rsi_w_min: v })} onMaxChange={(v) => set({ stamp_s9rsi_w_max: v })} />
-                        <RangeFilter label="STAMP.EMA45(CFG)(W)" minValue={filters.stamp_e45cfg_w_min} maxValue={filters.stamp_e45cfg_w_max} onMinChange={(v) => set({ stamp_e45cfg_w_min: v })} onMaxChange={(v) => set({ stamp_e45cfg_w_max: v })} />
                         <RangeFilter label="STAMP.EMA45(RSI)(W)" minValue={filters.stamp_e45rsi_w_min} maxValue={filters.stamp_e45rsi_w_max} onMinChange={(v) => set({ stamp_e45rsi_w_min: v })} onMaxChange={(v) => set({ stamp_e45rsi_w_max: v })} />
                         <RangeFilter label="STAMP.EMA20(SMA3)(W)" minValue={filters.stamp_e20sma3_w_min} maxValue={filters.stamp_e20sma3_w_max} onMinChange={(v) => set({ stamp_e20sma3_w_min: v })} onMaxChange={(v) => set({ stamp_e20sma3_w_max: v })} />
                     </div>

@@ -517,8 +517,6 @@ export default function TopFilterPanel({
         return (
             <div className="flex-shrink-0">
                 <SectionHead>Stamp</SectionHead>
-                <RangeRow label="STAMP.SMA9(RSI)" minVal={f.stamp_s9rsi_min} maxVal={f.stamp_s9rsi_max} onMin={v => s({ stamp_s9rsi_min: v })} onMax={v => s({ stamp_s9rsi_max: v })} />
-                <RangeRow label="STAMP.EMA45(CFG)" minVal={f.stamp_e45cfg_min} maxVal={f.stamp_e45cfg_max} onMin={v => s({ stamp_e45cfg_min: v })} onMax={v => s({ stamp_e45cfg_max: v })} />
             </div>
         );
     }
@@ -576,8 +574,6 @@ export default function TopFilterPanel({
         return (
             <div className="flex-shrink-0">
                 <SectionHead>Stamp (Weekly)</SectionHead>
-                <RangeRow label="STAMP.SMA9(RSI)(W)" minVal={f.stamp_s9rsi_w_min} maxVal={f.stamp_s9rsi_w_max} onMin={v => s({ stamp_s9rsi_w_min: v })} onMax={v => s({ stamp_s9rsi_w_max: v })} />
-                <RangeRow label="STAMP.EMA45(CFG)(W)" minVal={f.stamp_e45cfg_w_min} maxVal={f.stamp_e45cfg_w_max} onMin={v => s({ stamp_e45cfg_w_min: v })} onMax={v => s({ stamp_e45cfg_w_max: v })} />
             </div>
         );
     }

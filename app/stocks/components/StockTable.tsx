@@ -237,47 +237,47 @@ export default function StockTable({
                                                 break;
 
                                             case 'price_minus_sma_10':
-                                                content = <span className="text-gray-900">{formatNumberOneDecimal(stock.price_minus_sma_10)}</span>;
+                                                content = <span className="text-gray-900">{formatNumber(stock.price_minus_sma_10)}</span>;
                                                 break;
 
                                             case 'price_minus_sma_21':
-                                                content = <span className="text-gray-900">{formatNumberOneDecimal(stock.price_minus_sma_21)}</span>;
+                                                content = <span className="text-gray-900">{formatNumber(stock.price_minus_sma_21)}</span>;
                                                 break;
 
                                             case 'price_minus_sma_50':
-                                                content = <span className="text-gray-900">{formatNumberOneDecimal(stock.price_minus_sma_50)}</span>;
+                                                content = <span className="text-gray-900">{formatNumber(stock.price_minus_sma_50)}</span>;
                                                 break;
 
                                             case 'price_minus_sma_150':
-                                                content = <span className="text-gray-900">{formatNumberOneDecimal(stock.price_minus_sma_150)}</span>;
+                                                content = <span className="text-gray-900">{formatNumber(stock.price_minus_sma_150)}</span>;
                                                 break;
 
                                             case 'price_minus_sma_200':
-                                                content = <span className="text-gray-900">{formatNumberOneDecimal(stock.price_minus_sma_200)}</span>;
+                                                content = <span className="text-gray-900">{formatNumber(stock.price_minus_sma_200)}</span>;
                                                 break;
 
                                             case 'fifty_two_week_high_price':
-                                                content = <span className="text-gray-900">{formatNumberOneDecimal(stock.fifty_two_week_high_price)}</span>;
+                                                content = <span className="text-gray-900">{formatNumber(stock.fifty_two_week_high_price)}</span>;
                                                 break;
 
                                             case 'fifty_two_week_low_price':
-                                                content = <span className="text-gray-900">{formatNumberOneDecimal(stock.fifty_two_week_low_price)}</span>;
+                                                content = <span className="text-gray-900">{formatNumber(stock.fifty_two_week_low_price)}</span>;
                                                 break;
 
                                             case 'average_volume_50':
-                                                content = <span className="text-gray-900">{formatNumberOneDecimal(stock.average_volume_50)}</span>;
+                                                content = <span className="text-gray-900">{formatNumber(stock.average_volume_50)}</span>;
                                                 break;
 
                                             case 'price_vs_sma_10_percent':
-                                                content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.price_vs_sma_10_percent)}</span>;
+                                                content = <span className="text-gray-900">{formatChangePercent(stock.price_vs_sma_10_percent)}</span>;
                                                 break;
 
                                             case 'price_vs_sma_21_percent':
-                                                content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.price_vs_sma_21_percent)}</span>;
+                                                content = <span className="text-gray-900">{formatChangePercent(stock.price_vs_sma_21_percent)}</span>;
                                                 break;
 
                                             case 'price_vs_sma_50_percent':
-                                                content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.price_vs_sma_50_percent)}</span>;
+                                                content = <span className="text-gray-900">{formatChangePercent(stock.price_vs_sma_50_percent)}</span>;
                                                 break;
 
                                             case 'price_vs_sma_150_percent':
@@ -289,15 +289,15 @@ export default function StockTable({
                                                 break;
 
                                             case 'percent_off_52w_high':
-                                                content = <span className={(stock.percent_off_52w_high || 0) < 0 ? 'text-red-600' : 'text-gray-900'}>{formatChangePercent(stock.percent_off_52w_high)}</span>;
+                                                content = <span className={(stock.percent_off_52w_high || 0) < 0 ? 'text-red-600' : 'text-gray-900'}>{formatChangePercentOneDecimal(stock.percent_off_52w_high)}</span>;
                                                 break;
 
                                             case 'percent_off_52w_low':
-                                                content = <span className="text-gray-900">{formatChangePercent(stock.percent_off_52w_low)}</span>;
+                                                content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.percent_off_52w_low)}</span>;
                                                 break;
 
                                             case 'vol_diff_50_percent':
-                                                content = <span className="text-gray-900">{formatChangePercent(stock.vol_diff_50_percent)}</span>;
+                                                content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.vol_diff_50_percent)}</span>;
                                                 break;
 
                                             default: {
@@ -305,11 +305,15 @@ export default function StockTable({
                                                 if (val === undefined || val === null || val === '') {
                                                     content = <span>-</span>;
                                                 } else if (typeof val === 'number' || !isNaN(parseFloat(String(val).replace(/,/g, '').replace(/%/g, '')))) {
-                                                    // Average/Moving Average/Indicators keys -> 1 decimal
-                                                    const isMA = /sma|ema|wma|the_number/i.test(col.key);
+                                                    const oneDecimalKeys = new Set([
+                                                        'sma9_close', 'the_number', 'the_number_hl', 'the_number_ll',
+                                                        'sma4', 'sma9_price', 'sma18', 'wma45_close',
+                                                        'sma9_close_w', 'the_number_w', 'the_number_hl_w', 'the_number_ll_w',
+                                                        'sma4_w', 'sma9_w', 'sma18_w', 'wma45_close_w',
+                                                    ]);
                                                     content = (
                                                         <span className="text-gray-900">
-                                                            {isMA ? formatNumberOneDecimal(val) : formatNumber(val)}
+                                                            {oneDecimalKeys.has(col.key) ? formatNumberOneDecimal(val) : formatNumber(val)}
                                                         </span>
                                                     );
                                                 } else {

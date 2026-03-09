@@ -263,8 +263,6 @@ export default function StockScreenerPage() {
         { key: 'the_number', label: 'THE.NUMBER', visibleKey: 'the_number' },
         { key: 'the_number_hl', label: 'THE.NUMBER.HIGH', visibleKey: 'the_number_hl' },
         { key: 'the_number_ll', label: 'THE.NUMBER.LOW', visibleKey: 'the_number_ll' },
-        { key: 'stamp_s9rsi', label: 'STAMP.SMA9(RSI)', visibleKey: 'stamp_s9rsi' },
-        { key: 'stamp_e45cfg', label: 'STAMP.EMA45(CFG)', visibleKey: 'stamp_e45cfg' },
         { key: 'stamp_e45rsi', label: 'STAMP.EMA45(RSI)', visibleKey: 'stamp_e45rsi' },
         { key: 'stamp_e20sma3', label: 'STAMP.EMA20(SMA3)', visibleKey: 'stamp_e20sma3' },
         { key: 'cfg_daily', label: 'CFG', visibleKey: 'cfg_daily' },
@@ -304,8 +302,6 @@ export default function StockScreenerPage() {
         { key: 'the_number_w', label: 'THE.NUMBER(W)', visibleKey: 'the_number_w' },
         { key: 'the_number_hl_w', label: 'THE.NUMBER.HIGH(W)', visibleKey: 'the_number_hl_w' },
         { key: 'the_number_ll_w', label: 'THE.NUMBER.LOW(W)', visibleKey: 'the_number_ll_w' },
-        { key: 'stamp_s9rsi_w', label: 'STAMP.SMA9(RSI)(W)', visibleKey: 'stamp_s9rsi_w' },
-        { key: 'stamp_e45cfg_w', label: 'STAMP.EMA45(CFG)(W)', visibleKey: 'stamp_e45cfg_w' },
         { key: 'stamp_e45rsi_w', label: 'STAMP.EMA45(RSI)(W)', visibleKey: 'stamp_e45rsi_w' },
         { key: 'stamp_e20sma3_w', label: 'STAMP.EMA20(SMA3)(W)', visibleKey: 'stamp_e20sma3_w' },
         { key: 'cfg_w', label: 'CFG(W)', visibleKey: 'cfg_w' },
@@ -1153,17 +1149,17 @@ export default function StockScreenerPage() {
                                                     case 'open': content = <span className="text-gray-900">{formatNumber(stock.open)}</span>; break;
                                                     case 'high': content = <span className="text-gray-900">{formatNumber(stock.high)}</span>; break;
                                                     case 'low': content = <span className="text-gray-900">{formatNumber(stock.low)}</span>; break;
-                                                    case 'fifty_two_week_high_price': content = <span className="text-gray-900">{formatNumberOneDecimal(stock.fifty_two_week_high_price)}</span>; break;
-                                                    case 'fifty_two_week_low_price': content = <span className="text-gray-900">{formatNumberOneDecimal(stock.fifty_two_week_low_price)}</span>; break;
-                                                    case 'average_volume_50': content = <span className="text-gray-900">{formatNumberOneDecimal(stock.average_volume_50)}</span>; break;
-                                                    case 'price_vs_sma_50_percent': content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.price_vs_sma_50_percent)}</span>; break;
+                                                    case 'fifty_two_week_high_price': content = <span className="text-gray-900">{formatNumber(stock.fifty_two_week_high_price)}</span>; break;
+                                                    case 'fifty_two_week_low_price': content = <span className="text-gray-900">{formatNumber(stock.fifty_two_week_low_price)}</span>; break;
+                                                    case 'average_volume_50': content = <span className="text-gray-900">{formatNumber(stock.average_volume_50)}</span>; break;
+                                                    case 'price_vs_sma_50_percent': content = <span className="text-gray-900">{formatChangePercent(stock.price_vs_sma_50_percent)}</span>; break;
                                                     case 'price_vs_sma_150_percent': content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.price_vs_sma_150_percent)}</span>; break;
                                                     case 'price_vs_sma_200_percent': content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.price_vs_sma_200_percent)}</span>; break;
-                                                    case 'price_vs_ema_10_percent': content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.price_vs_ema_10_percent)}</span>; break;
-                                                    case 'price_vs_ema_21_percent': content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.price_vs_ema_21_percent)}</span>; break;
-                                                    case 'percent_off_52w_high': content = <span className={(stock.percent_off_52w_high || 0) < 0 ? 'text-red-600' : 'text-gray-900'}>{formatChangePercent(stock.percent_off_52w_high)}</span>; break;
-                                                    case 'percent_off_52w_low': content = <span className="text-gray-900">{formatChangePercent(stock.percent_off_52w_low)}</span>; break;
-                                                    case 'vol_diff_50_percent': content = <span className="text-gray-900">{formatChangePercent(stock.vol_diff_50_percent)}</span>; break;
+                                                    case 'price_vs_ema_10_percent': content = <span className="text-gray-900">{formatChangePercent(stock.price_vs_ema_10_percent)}</span>; break;
+                                                    case 'price_vs_ema_21_percent': content = <span className="text-gray-900">{formatChangePercent(stock.price_vs_ema_21_percent)}</span>; break;
+                                                    case 'percent_off_52w_high': content = <span className={(stock.percent_off_52w_high || 0) < 0 ? 'text-red-600' : 'text-gray-900'}>{formatChangePercentOneDecimal(stock.percent_off_52w_high)}</span>; break;
+                                                    case 'percent_off_52w_low': content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.percent_off_52w_low)}</span>; break;
+                                                    case 'vol_diff_50_percent': content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.vol_diff_50_percent)}</span>; break;
                                                     default: {
                                                         const techVal = (stock as any)[col.key];
                                                         if (techVal === null || techVal === undefined || techVal === '') content = <span className="text-gray-400">-</span>;
@@ -1172,8 +1168,13 @@ export default function StockScreenerPage() {
                                                             if (Number.isNaN(num)) {
                                                                 content = <span className="text-gray-900">{String(techVal)}</span>;
                                                             } else {
-                                                                const isMA = /sma|ema|wma|the_number/i.test(col.key);
-                                                                content = <span className="text-gray-900">{isMA ? num.toFixed(1) : num.toFixed(2)}</span>;
+                                                                const oneDecimalKeys = new Set([
+                                                                    'sma9_close', 'the_number', 'the_number_hl', 'the_number_ll',
+                                                                    'sma4', 'sma9_price', 'sma18', 'wma45_close',
+                                                                    'sma9_close_w', 'the_number_w', 'the_number_hl_w', 'the_number_ll_w',
+                                                                    'sma4_w', 'sma9_w', 'sma18_w', 'wma45_close_w',
+                                                                ]);
+                                                                content = <span className="text-gray-900">{oneDecimalKeys.has(col.key) ? num.toFixed(1) : num.toFixed(2)}</span>;
                                                             }
                                                         }
                                                     }
