@@ -268,9 +268,6 @@ export default function StockScreenerPage() {
         { key: 'cfg_daily', label: 'CFG', visibleKey: 'cfg_daily' },
         { key: 'cfg_sma4', label: 'CFG.SMA4', visibleKey: 'cfg_sma4' },
         { key: 'cfg_ema45', label: 'CFG.EMA45', visibleKey: 'cfg_ema45' },
-        { key: 'sma4', label: 'SMA4', visibleKey: 'sma4' },
-        { key: 'sma9_price', label: 'SMA9', visibleKey: 'sma9_price' },
-        { key: 'sma18', label: 'SMA18', visibleKey: 'sma18' },
         { key: 'wma45_close', label: 'WMA45(Price)', visibleKey: 'wma45_close' },
         { key: 'cci_14', label: 'CCI(14)', visibleKey: 'cci_14' },
         { key: 'cci_ema_20', label: 'CCI.EMA20', visibleKey: 'cci_ema_20' },
@@ -413,8 +410,8 @@ export default function StockScreenerPage() {
                         price_vs_sma_10_percent: item.price_vs_sma_10_percent, price_vs_sma_21_percent: item.price_vs_sma_21_percent,
                         price_vs_sma_50_percent: item.price_vs_sma_50_percent, price_vs_sma_150_percent: item.price_vs_sma_150_percent,
                         price_vs_sma_200_percent: item.price_vs_sma_200_percent,
-                        price_vs_ema_10_percent: item.ema_10 ? ((item.close - item.ema_10) / item.ema_10) * 100 : 0,
-                        price_vs_ema_21_percent: item.ema_21 ? ((item.close - item.ema_21) / item.ema_21) * 100 : 0,
+                        price_vs_ema_10_percent: (() => { const e = techInfo.ema10 ?? techInfo.ema_10 ?? item.ema_10; return e ? ((item.close - e) / e) * 100 : (item.price_vs_ema_10_percent ?? 0); })(),
+                        price_vs_ema_21_percent: (() => { const e = techInfo.ema21 ?? techInfo.ema_21 ?? item.ema_21; return e ? ((item.close - e) / e) * 100 : (item.price_vs_ema_21_percent ?? 0); })(),
                         percent_off_52w_high: item.percent_off_52w_high, percent_off_52w_low: item.percent_off_52w_low,
                         vol_diff_50_percent: item.vol_diff_50_percent, trading_view_symbol: item.trading_view_symbol,
                         // EMA / SMA from prices table
@@ -455,8 +452,8 @@ export default function StockScreenerPage() {
                         sma200_gt_sma200_5m_ago: techInfo.sma200_gt_sma200_5m_ago ?? false,
                         cci_14: item.cci_14 ?? techInfo.cci ?? undefined,
                         cci_ema_20: item.cci_ema_20 ?? techInfo.cci_ema20 ?? undefined,
-                        aroon_up: item.aroon_up ?? techInfo.aroon_up ?? undefined,
-                        aroon_down: item.aroon_down ?? techInfo.aroon_down ?? undefined,
+                        aroon_up: techInfo.aroon_up ?? item.aroon_up ?? undefined,
+                        aroon_down: techInfo.aroon_down ?? item.aroon_down ?? undefined,
                         rsi_14: techInfo.rsi_14 ?? null, sma9_rsi: techInfo.sma9_rsi ?? null,
                         wma45_rsi: techInfo.wma45_rsi ?? null, sma9_close: techInfo.sma9_close ?? null,
                         the_number: techInfo.the_number ?? null, the_number_hl: techInfo.the_number_hl ?? null,
@@ -1170,9 +1167,9 @@ export default function StockScreenerPage() {
                                                             } else {
                                                                 const oneDecimalKeys = new Set([
                                                                     'sma9_close', 'the_number', 'the_number_hl', 'the_number_ll',
-                                                                    'sma4', 'sma9_price', 'sma18', 'wma45_close',
+                                                                    'sma_4', 'sma_9', 'sma_18', 'wma45_close',
                                                                     'sma9_close_w', 'the_number_w', 'the_number_hl_w', 'the_number_ll_w',
-                                                                    'sma4_w', 'sma9_w', 'sma18_w', 'wma45_close_w',
+                                                                    'sma_4w', 'sma_9w', 'sma_18w', 'wma45_close_w',
                                                                 ]);
                                                                 content = <span className="text-gray-900">{oneDecimalKeys.has(col.key) ? num.toFixed(1) : num.toFixed(2)}</span>;
                                                             }

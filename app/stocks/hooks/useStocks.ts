@@ -90,8 +90,8 @@ export default function useStocks() {
                     price_vs_sma_50_percent: item.price_vs_sma_50_percent,
                     price_vs_sma_150_percent: item.price_vs_sma_150_percent,
                     price_vs_sma_200_percent: item.price_vs_sma_200_percent,
-                    price_vs_ema_10_percent: item.price_vs_ema_10_percent,
-                    price_vs_ema_21_percent: item.price_vs_ema_21_percent,
+                    price_vs_ema_10_percent: (() => { const e = techInfo.ema10 ?? techInfo.ema_10 ?? item.ema_10; return e ? ((item.close - e) / e) * 100 : (item.price_vs_ema_10_percent ?? 0); })(),
+                    price_vs_ema_21_percent: (() => { const e = techInfo.ema21 ?? techInfo.ema_21 ?? item.ema_21; return e ? ((item.close - e) / e) * 100 : (item.price_vs_ema_21_percent ?? 0); })(),
                     percent_off_52w_high: item.percent_off_52w_high,
                     percent_off_52w_low: item.percent_off_52w_low,
                     vol_diff_50_percent: item.vol_diff_50_percent,
@@ -117,8 +117,8 @@ export default function useStocks() {
                     sma_40w: item.sma_40w ?? undefined,
                     cci_14: item.cci_14 ?? techInfo.cci ?? undefined,
                     cci_ema_20: item.cci_ema_20 ?? techInfo.cci_ema20 ?? undefined,
-                    aroon_up: item.aroon_up ?? techInfo.aroon_up ?? undefined,
-                    aroon_down: item.aroon_down ?? techInfo.aroon_down ?? undefined,
+                    aroon_up: techInfo.aroon_up ?? item.aroon_up ?? undefined,
+                    aroon_down: techInfo.aroon_down ?? item.aroon_down ?? undefined,
 
                     // Technical Screener data
                     tech_score: techInfo.score ?? undefined,

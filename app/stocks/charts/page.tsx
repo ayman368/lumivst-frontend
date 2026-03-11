@@ -200,6 +200,10 @@ const initialFilterState: FilterState = {
     sma_200_3m_min: '', sma_200_3m_max: '',
     sma_200_4m_min: '', sma_200_4m_max: '',
     sma_200_5m_min: '', sma_200_5m_max: '',
+    price_vs_sma_10_min: '',
+    price_vs_sma_10_max: '',
+    price_vs_sma_21_min: '',
+    price_vs_sma_21_max: ''
 };
 export default function StockScreenerPage() {
     const { stocks, metadata, loading, error, setStocks, setMetadata, setLoading, setError, refetch } = useStocks();
