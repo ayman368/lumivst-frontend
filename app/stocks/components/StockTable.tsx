@@ -309,7 +309,7 @@ export default function StockTable({
                                                         'sma9_close', 'the_number', 'the_number_hl', 'the_number_ll',
                                                         'sma4', 'sma9_price', 'sma18', 'wma45_close',
                                                         'sma9_close_w', 'the_number_w', 'the_number_hl_w', 'the_number_ll_w',
-                                                        'sma4_w', 'sma9_w', 'sma18_w', 'wma45_close_w',
+                                                        'sma_4w', 'sma_9w', 'sma_18w', 'wma45_close_w',
                                                     ]);
                                                     content = (
                                                         <span className="text-gray-900">
