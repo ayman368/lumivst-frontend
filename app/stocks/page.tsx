@@ -268,6 +268,9 @@ export default function StockScreenerPage() {
         { key: 'cfg_daily', label: 'CFG', visibleKey: 'cfg_daily' },
         { key: 'cfg_sma4', label: 'CFG.SMA4', visibleKey: 'cfg_sma4' },
         { key: 'cfg_ema45', label: 'CFG.EMA45', visibleKey: 'cfg_ema45' },
+        { key: 'sma4', label: 'SMA4', visibleKey: 'sma4' },
+        { key: 'sma9_price', label: 'SMA9', visibleKey: 'sma9_price' },
+        { key: 'sma18', label: 'SMA18', visibleKey: 'sma18' },
         { key: 'wma45_close', label: 'WMA45(Price)', visibleKey: 'wma45_close' },
         { key: 'cci_14', label: 'CCI(14)', visibleKey: 'cci_14' },
         { key: 'cci_ema_20', label: 'CCI.EMA20', visibleKey: 'cci_ema_20' },
@@ -305,9 +308,6 @@ export default function StockScreenerPage() {
         { key: 'cfg_sma4_w', label: 'CFG.SMA4(W)', visibleKey: 'cfg_sma4_w' },
         { key: 'cfg_ema45_w', label: 'CFG.EMA45(W)', visibleKey: 'cfg_ema45_w' },
         { key: 'close_w', label: 'Close(W)', visibleKey: 'close_w' },
-        { key: 'sma4_w', label: 'SMA4(W)', visibleKey: 'sma4_w' },
-        { key: 'sma9_w', label: 'SMA9(W)', visibleKey: 'sma9_w' },
-        { key: 'sma18_w', label: 'SMA18(W)', visibleKey: 'sma18_w' },
         { key: 'wma45_close_w', label: 'WMA45(Price)(W)', visibleKey: 'wma45_close_w' },
         { key: 'cci_w', label: 'CCI(14)(W)', visibleKey: 'cci_w' },
         { key: 'cci_ema20_w', label: 'CCI.EMA20(W)', visibleKey: 'cci_ema20_w' },
@@ -913,22 +913,32 @@ export default function StockScreenerPage() {
             if (!c(filters.wma45rsi_lt_wma45_weekly, w45rsi_w < w45_w)) return false;
             if (!c(filters.wma45rsi_lt_cfgwma45_weekly, w45rsi_w < cfgw45_w)) return false;
             if (!c(filters.wma45rsi_lt_ema20sma3_weekly, w45rsi_w < e20s3_w)) return false;
-            // === Moving Average Comparison Boolean Filters ===
-            if (filters.ema10_gt_sma50 !== 'any' && !c(filters.ema10_gt_sma50, stock.ema10_gt_sma50 ?? false)) return false;
-            if (filters.ema10_gt_sma200 !== 'any' && !c(filters.ema10_gt_sma200, stock.ema10_gt_sma200 ?? false)) return false;
-            if (filters.ema21_gt_sma50 !== 'any' && !c(filters.ema21_gt_sma50, stock.ema21_gt_sma50 ?? false)) return false;
-            if (filters.ema21_gt_sma200 !== 'any' && !c(filters.ema21_gt_sma200, stock.ema21_gt_sma200 ?? false)) return false;
-            if (filters.sma50_gt_sma150 !== 'any' && !c(filters.sma50_gt_sma150, stock.sma50_gt_sma150 ?? false)) return false;
-            if (filters.sma50_gt_sma200 !== 'any' && !c(filters.sma50_gt_sma200, stock.sma50_gt_sma200 ?? false)) return false;
-            if (filters.sma150_gt_sma200 !== 'any' && !c(filters.sma150_gt_sma200, stock.sma150_gt_sma200 ?? false)) return false;
-            if (filters.sma200_gt_sma200_1m_ago !== 'any' && !c(filters.sma200_gt_sma200_1m_ago, stock.sma200_gt_sma200_1m_ago ?? false)) return false;
-            if (filters.sma200_gt_sma200_2m_ago !== 'any' && !c(filters.sma200_gt_sma200_2m_ago, stock.sma200_gt_sma200_2m_ago ?? false)) return false;
-            if (filters.sma200_gt_sma200_3m_ago !== 'any' && !c(filters.sma200_gt_sma200_3m_ago, stock.sma200_gt_sma200_3m_ago ?? false)) return false;
-            if (filters.sma200_gt_sma200_4m_ago !== 'any' && !c(filters.sma200_gt_sma200_4m_ago, stock.sma200_gt_sma200_4m_ago ?? false)) return false;
-            if (filters.sma200_gt_sma200_5m_ago !== 'any' && !c(filters.sma200_gt_sma200_5m_ago, stock.sma200_gt_sma200_5m_ago ?? false)) return false;
-            if (!c(filters.wma30_gt_wma40, (stock.sma_30w ?? 0) > (stock.sma_40w ?? 0))) return false;
-            if (!c(filters.price_gt_ema10, p > (stock.ema10 ?? 0))) return false;
-            if (!c(filters.price_gt_ema21, p > (stock.ema21 ?? 0))) return false;
+            // === Moving Average Comparison Boolean Filters (live-calculated) ===
+            const _ema10 = parseFloat(String(stock.ema10 ?? stock.ema_10 ?? 0)) || 0;
+            const _ema21 = parseFloat(String(stock.ema21 ?? stock.ema_21 ?? 0)) || 0;
+            const _sma50 = parseFloat(String(stock.sma50 ?? stock.sma_50 ?? 0)) || 0;
+            const _sma150 = parseFloat(String(stock.sma150 ?? stock.sma_150 ?? 0)) || 0;
+            const _sma200 = parseFloat(String(stock.sma200 ?? stock.sma_200 ?? 0)) || 0;
+            const _sma200_1m = parseFloat(String(stock.sma_200_1m_ago ?? 0)) || 0;
+            const _sma200_2m = parseFloat(String(stock.sma_200_2m_ago ?? 0)) || 0;
+            const _sma200_3m = parseFloat(String(stock.sma_200_3m_ago ?? 0)) || 0;
+            const _sma200_4m = parseFloat(String(stock.sma_200_4m_ago ?? 0)) || 0;
+            const _sma200_5m = parseFloat(String(stock.sma_200_5m_ago ?? 0)) || 0;
+            if (filters.ema10_gt_sma50 !== 'any' && !c(filters.ema10_gt_sma50, _ema10 > _sma50)) return false;
+            if (filters.ema10_gt_sma200 !== 'any' && !c(filters.ema10_gt_sma200, _ema10 > _sma200)) return false;
+            if (filters.ema21_gt_sma50 !== 'any' && !c(filters.ema21_gt_sma50, _ema21 > _sma50)) return false;
+            if (filters.ema21_gt_sma200 !== 'any' && !c(filters.ema21_gt_sma200, _ema21 > _sma200)) return false;
+            if (filters.sma50_gt_sma150 !== 'any' && !c(filters.sma50_gt_sma150, _sma50 > _sma150)) return false;
+            if (filters.sma50_gt_sma200 !== 'any' && !c(filters.sma50_gt_sma200, _sma50 > _sma200)) return false;
+            if (filters.sma150_gt_sma200 !== 'any' && !c(filters.sma150_gt_sma200, _sma150 > _sma200)) return false;
+            if (filters.sma200_gt_sma200_1m_ago !== 'any' && !c(filters.sma200_gt_sma200_1m_ago, _sma200 > _sma200_1m)) return false;
+            if (filters.sma200_gt_sma200_2m_ago !== 'any' && !c(filters.sma200_gt_sma200_2m_ago, _sma200 > _sma200_2m)) return false;
+            if (filters.sma200_gt_sma200_3m_ago !== 'any' && !c(filters.sma200_gt_sma200_3m_ago, _sma200 > _sma200_3m)) return false;
+            if (filters.sma200_gt_sma200_4m_ago !== 'any' && !c(filters.sma200_gt_sma200_4m_ago, _sma200 > _sma200_4m)) return false;
+            if (filters.sma200_gt_sma200_5m_ago !== 'any' && !c(filters.sma200_gt_sma200_5m_ago, _sma200 > _sma200_5m)) return false;
+            if (!c(filters.wma30_gt_wma40, parseFloat(String(stock.sma_30w ?? 0)) > parseFloat(String(stock.sma_40w ?? 0)))) return false;
+            if (!c(filters.price_gt_ema10, p > _ema10)) return false;
+            if (!c(filters.price_gt_ema21, p > _ema21)) return false;
             return true;
         });
         if (sortConfigs.length > 0) {
@@ -1167,9 +1177,9 @@ export default function StockScreenerPage() {
                                                             } else {
                                                                 const oneDecimalKeys = new Set([
                                                                     'sma9_close', 'the_number', 'the_number_hl', 'the_number_ll',
-                                                                    'sma_4', 'sma_9', 'sma_18', 'wma45_close',
+                                                                    'sma4', 'sma9_price', 'sma18', 'wma45_close',
                                                                     'sma9_close_w', 'the_number_w', 'the_number_hl_w', 'the_number_ll_w',
-                                                                    'sma_4w', 'sma_9w', 'sma_18w', 'wma45_close_w',
+                                                                    'sma4_w', 'sma9_w', 'sma18_w', 'wma45_close_w',
                                                                 ]);
                                                                 content = <span className="text-gray-900">{oneDecimalKeys.has(col.key) ? num.toFixed(1) : num.toFixed(2)}</span>;
                                                             }

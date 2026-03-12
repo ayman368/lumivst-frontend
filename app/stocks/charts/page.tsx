@@ -918,22 +918,32 @@ export default function StockScreenerPage() {
             if (!c(filters.wma45rsi_lt_wma45_weekly, w45rsi_w < w45_w)) return false;
             if (!c(filters.wma45rsi_lt_cfgwma45_weekly, w45rsi_w < cfgw45_w)) return false;
             if (!c(filters.wma45rsi_lt_ema20sma3_weekly, w45rsi_w < e20s3_w)) return false;
-            // === Moving Average Comparison Boolean Filters ===
-            if (filters.ema10_gt_sma50 !== 'any' && !c(filters.ema10_gt_sma50, stock.ema10_gt_sma50 ?? false)) return false;
-            if (filters.ema10_gt_sma200 !== 'any' && !c(filters.ema10_gt_sma200, stock.ema10_gt_sma200 ?? false)) return false;
-            if (filters.ema21_gt_sma50 !== 'any' && !c(filters.ema21_gt_sma50, stock.ema21_gt_sma50 ?? false)) return false;
-            if (filters.ema21_gt_sma200 !== 'any' && !c(filters.ema21_gt_sma200, stock.ema21_gt_sma200 ?? false)) return false;
-            if (filters.sma50_gt_sma150 !== 'any' && !c(filters.sma50_gt_sma150, stock.sma50_gt_sma150 ?? false)) return false;
-            if (filters.sma50_gt_sma200 !== 'any' && !c(filters.sma50_gt_sma200, stock.sma50_gt_sma200 ?? false)) return false;
-            if (filters.sma150_gt_sma200 !== 'any' && !c(filters.sma150_gt_sma200, stock.sma150_gt_sma200 ?? false)) return false;
-            if (filters.sma200_gt_sma200_1m_ago !== 'any' && !c(filters.sma200_gt_sma200_1m_ago, stock.sma200_gt_sma200_1m_ago ?? false)) return false;
-            if (filters.sma200_gt_sma200_2m_ago !== 'any' && !c(filters.sma200_gt_sma200_2m_ago, stock.sma200_gt_sma200_2m_ago ?? false)) return false;
-            if (filters.sma200_gt_sma200_3m_ago !== 'any' && !c(filters.sma200_gt_sma200_3m_ago, stock.sma200_gt_sma200_3m_ago ?? false)) return false;
-            if (filters.sma200_gt_sma200_4m_ago !== 'any' && !c(filters.sma200_gt_sma200_4m_ago, stock.sma200_gt_sma200_4m_ago ?? false)) return false;
-            if (filters.sma200_gt_sma200_5m_ago !== 'any' && !c(filters.sma200_gt_sma200_5m_ago, stock.sma200_gt_sma200_5m_ago ?? false)) return false;
-            if (!c(filters.wma30_gt_wma40, (stock.sma_30w ?? 0) > (stock.sma_40w ?? 0))) return false;
-            if (!c(filters.price_gt_ema10, p > (stock.ema10 ?? 0))) return false;
-            if (!c(filters.price_gt_ema21, p > (stock.ema21 ?? 0))) return false;
+            // === Moving Average Comparison Boolean Filters (live-calculated) ===
+            const _ema10 = parseFloat(String(stock.ema10 ?? stock.ema_10 ?? 0)) || 0;
+            const _ema21 = parseFloat(String(stock.ema21 ?? stock.ema_21 ?? 0)) || 0;
+            const _sma50 = parseFloat(String(stock.sma50 ?? stock.sma_50 ?? 0)) || 0;
+            const _sma150 = parseFloat(String(stock.sma150 ?? stock.sma_150 ?? 0)) || 0;
+            const _sma200 = parseFloat(String(stock.sma200 ?? stock.sma_200 ?? 0)) || 0;
+            const _sma200_1m = parseFloat(String(stock.sma_200_1m_ago ?? 0)) || 0;
+            const _sma200_2m = parseFloat(String(stock.sma_200_2m_ago ?? 0)) || 0;
+            const _sma200_3m = parseFloat(String(stock.sma_200_3m_ago ?? 0)) || 0;
+            const _sma200_4m = parseFloat(String(stock.sma_200_4m_ago ?? 0)) || 0;
+            const _sma200_5m = parseFloat(String(stock.sma_200_5m_ago ?? 0)) || 0;
+            if (filters.ema10_gt_sma50 !== 'any' && !c(filters.ema10_gt_sma50, _ema10 > _sma50)) return false;
+            if (filters.ema10_gt_sma200 !== 'any' && !c(filters.ema10_gt_sma200, _ema10 > _sma200)) return false;
+            if (filters.ema21_gt_sma50 !== 'any' && !c(filters.ema21_gt_sma50, _ema21 > _sma50)) return false;
+            if (filters.ema21_gt_sma200 !== 'any' && !c(filters.ema21_gt_sma200, _ema21 > _sma200)) return false;
+            if (filters.sma50_gt_sma150 !== 'any' && !c(filters.sma50_gt_sma150, _sma50 > _sma150)) return false;
+            if (filters.sma50_gt_sma200 !== 'any' && !c(filters.sma50_gt_sma200, _sma50 > _sma200)) return false;
+            if (filters.sma150_gt_sma200 !== 'any' && !c(filters.sma150_gt_sma200, _sma150 > _sma200)) return false;
+            if (filters.sma200_gt_sma200_1m_ago !== 'any' && !c(filters.sma200_gt_sma200_1m_ago, _sma200 > _sma200_1m)) return false;
+            if (filters.sma200_gt_sma200_2m_ago !== 'any' && !c(filters.sma200_gt_sma200_2m_ago, _sma200 > _sma200_2m)) return false;
+            if (filters.sma200_gt_sma200_3m_ago !== 'any' && !c(filters.sma200_gt_sma200_3m_ago, _sma200 > _sma200_3m)) return false;
+            if (filters.sma200_gt_sma200_4m_ago !== 'any' && !c(filters.sma200_gt_sma200_4m_ago, _sma200 > _sma200_4m)) return false;
+            if (filters.sma200_gt_sma200_5m_ago !== 'any' && !c(filters.sma200_gt_sma200_5m_ago, _sma200 > _sma200_5m)) return false;
+            if (!c(filters.wma30_gt_wma40, parseFloat(String(stock.sma_30w ?? 0)) > parseFloat(String(stock.sma_40w ?? 0)))) return false;
+            if (!c(filters.price_gt_ema10, p > _ema10)) return false;
+            if (!c(filters.price_gt_ema21, p > _ema21)) return false;
             return true;
         });
         if (sortConfigs.length > 0) {
