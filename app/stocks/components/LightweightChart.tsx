@@ -59,7 +59,7 @@ interface CandleData {
     aroon_down?: number | null;
 }
 
-type OscTab = 'rsi' | 'rsi_w' | 'cci' | 'cci_w' | 'cfg' | 'cfg_w' | 'the_number' | 'the_number_w' | 'stamp' | 'aroon';
+type OscTab = 'rsi' | 'rsi_w' | 'cci' | 'cci_w' | 'cfg' | 'cfg_w' | 'the_number' | 'the_number_w' | 'stamp' | 'aroon' | 'volume' | 'price_stats';
 
 const OSC_TABS: { id: OscTab; label: string }[] = [
     { id: 'rsi', label: 'RSI' },
@@ -72,23 +72,33 @@ const OSC_TABS: { id: OscTab; label: string }[] = [
     { id: 'the_number_w', label: 'THE.NUM(W)' },
     { id: 'stamp', label: 'STAMP' },
     { id: 'aroon', label: 'AROON' },
+    { id: 'volume', label: 'Volume Stats' },
+    { id: 'price_stats', label: 'Price Stats' },
 ];
 
 interface Props {
     symbol: string;
     height?: number;
     showVolume?: boolean;
-    overlays?: ('sma10' | 'sma21' | 'sma50' | 'sma150' | 'sma200' | 'ema10' | 'ema21')[];
+    overlays?: ('sma10' | 'sma21' | 'sma50' | 'sma150' | 'sma200' | 'ema10' | 'ema21' | 'sma4' | 'sma9' | 'sma18' | 'wma45_close' | 'ema21_sma50' | 'ema21_sma200')[];
 }
 
 const MA_CONFIG: Record<string, { key: keyof CandleData; label: string; color: string }> = {
+    sma4: { key: 'sma4', label: 'SMA4', color: '#22c55e' },
+    sma9: { key: 'sma9', label: 'SMA9', color: '#84cc16' },
     sma10: { key: 'sma_10', label: 'SMA10', color: '#3b82f6' },
+    sma18: { key: 'sma18', label: 'SMA18', color: '#eab308' },
     sma21: { key: 'sma_21', label: 'SMA21', color: '#f59e0b' },
     sma50: { key: 'sma_50', label: 'SMA50', color: '#10b981' },
     sma150: { key: 'sma_150', label: 'SMA150', color: '#8b5cf6' },
     sma200: { key: 'sma_200', label: 'SMA200', color: '#ef4444' },
     ema10: { key: 'ema_10', label: 'EMA10', color: '#06b6d4' },
     ema21: { key: 'ema_21', label: 'EMA21', color: '#f97316' },
+    wma45_close: { key: 'wma45_close', label: 'WMA45', color: '#ec4899' },
+    // Weekly averages
+    sma4_w: { key: 'sma4_w', label: 'SMA4(W)', color: '#16a34a' },
+    sma9_w: { key: 'sma9_w', label: 'SMA9(W)', color: '#65a30d' },
+    sma18_w: { key: 'sma18_w', label: 'SMA18(W)', color: '#ca8a04' },
 };
 
 const DEFAULT_OVERLAYS: Props['overlays'] = ['sma50', 'sma150', 'sma200', 'ema10', 'ema21'];
@@ -111,9 +121,15 @@ export default function LightweightChart({
     const [data, setData] = useState<CandleData[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [maPage, setMaPage] = useState(0);
     const [activeOverlays, setActiveOverlays] = useState<Props['overlays']>(overlays);
     const [crosshairData, setCrosshairData] = useState<CandleData | null>(null);
     const [activeOsc, setActiveOsc] = useState<OscTab>('rsi');
+    const MA_PER_PAGE = 8;
+    const maEntries = Object.entries(MA_CONFIG);
+    const totalMaPages = Math.ceil(maEntries.length / MA_PER_PAGE);
+
+    const currentMaEntries = maEntries.slice(maPage * MA_PER_PAGE, (maPage + 1) * MA_PER_PAGE);
 
     // ── Fetch ─────────────────────────────────────────────────────────────────
     useEffect(() => {
@@ -128,13 +144,42 @@ export default function LightweightChart({
         const headers: HeadersInit = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        fetch(`${API_URL}/api/prices/history/${symbol}?limit=1000`, { headers, signal: ctrl.signal })
+        fetch(`${API_URL}/api/prices/history/${symbol}?limit=10000`, { headers, signal: ctrl.signal })
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
             .then(json => setData(json.data || []))
             .catch(err => { if (err.name !== 'AbortError') setError(err.message); })
             .finally(() => setLoading(false));
 
         return () => ctrl.abort();
+    }, [symbol]);
+
+    // حفظ تفضيلات المستخدم
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(`chart_overlays_${symbol}`, JSON.stringify(activeOverlays || []));
+            localStorage.setItem(`chart_osc_${symbol}`, activeOsc);
+        }
+    }, [activeOverlays, activeOsc, symbol]);
+
+    // تحميل تفضيلات المستخدم
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const savedOverlays = localStorage.getItem(`chart_overlays_${symbol}`);
+            const savedOsc = localStorage.getItem(`chart_osc_${symbol}`);
+
+            if (savedOverlays) {
+                try {
+                    const parsed = JSON.parse(savedOverlays);
+                    setActiveOverlays(parsed);
+                } catch (e) {
+                    console.warn('Failed to parse saved overlays:', e);
+                }
+            }
+
+            if (savedOsc && OSC_TABS.some(tab => tab.id === savedOsc)) {
+                setActiveOsc(savedOsc as OscTab);
+            }
+        }
     }, [symbol]);
 
     // ── Main chart (candlestick + volume + MAs) ────────────────────────────────
@@ -177,6 +222,7 @@ export default function LightweightChart({
         cs.setData(
             data
                 .filter(d => d.open !== null && d.high !== null && d.low !== null && d.close !== null)
+                .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()) // ترتيب تصاعدي حسب الوقت
                 .map(d => ({ time: d.time as any, open: d.open!, high: d.high!, low: d.low!, close: d.close! }))
         );
 
@@ -186,7 +232,9 @@ export default function LightweightChart({
                 color: '#94a3b8', priceFormat: { type: 'volume' }, priceScaleId: 'vol',
             });
             chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
-            vs.setData(data.map(d => ({
+            vs.setData(data
+                .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()) // ترتيب تصاعدي حسب الوقت
+                .map(d => ({
                 time: d.time as any,
                 value: d.volume || 0,
                 color: (d.close ?? 0) >= (d.open ?? 0) ? '#86efac80' : '#fca5a580',
@@ -203,6 +251,7 @@ export default function LightweightChart({
             });
             ls.setData(
                 data.filter(d => d[cfg.key] != null)
+                    .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()) // ترتيب تصاعدي حسب الوقت
                     .map(d => ({ time: d.time as any, value: d[cfg.key] as number }))
             );
         });
@@ -260,6 +309,7 @@ export default function LightweightChart({
             });
             s.setData(
                 data.filter(d => d[key] != null)
+                    .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()) // ترتيب تصاعدي حسب الوقت
                     .map(d => ({ time: d.time as any, value: d[key] as number }))
             );
             return s;
@@ -313,6 +363,18 @@ export default function LightweightChart({
         } else if (activeOsc === 'aroon') {
             line('aroon_up', '#10b981', 2, 'AROON↑');
             line('aroon_down', '#ef4444', 2, 'AROON↓');
+        } else if (activeOsc === 'volume') {
+            // Volume statistics - show as percentage change
+            const volLine = line('vol_diff_50_percent', '#6366f1', 2, 'Vol % vs 50MA');
+            hline(volLine, 0, '#9ca3af50');
+            hline(volLine, 50, '#f59e0b70');
+            hline(volLine, -50, '#10b98170');
+        } else if (activeOsc === 'price_stats') {
+            // Price statistics vs 52W
+            const highLine = line('percent_off_52w_high', '#ef4444', 2, '% Off 52W High');
+            const lowLine = line('percent_off_52w_low', '#10b981', 1, '% Off 52W Low');
+            hline(highLine, -20, '#f59e0b70'); // Oversold zone
+            hline(lowLine, 20, '#f59e0b70');  // Overbought zone
         }
 
         // Sync timescales between main and osc
@@ -393,7 +455,17 @@ export default function LightweightChart({
                         <span className="text-gray-500">L: <b className="text-red-500">{displayCandle.low?.toFixed(2) ?? '–'}</b></span>
                         <span className="text-gray-500">C: <b className={changeColor}>{displayCandle.close?.toFixed(2) ?? '–'}</b></span>
                         <span className="text-gray-400">Vol: <b className="text-gray-600">{displayCandle.volume?.toLocaleString() ?? '–'}</b></span>
-                        {(activeOverlays || []).map(key => {
+
+                        {/* إضافة معلومات إضافية */}
+                        {displayCandle.fifty_two_week_high && (
+                            <span className="text-gray-400">52W High: <b className="text-emerald-600">{displayCandle.fifty_two_week_high.toFixed(2)}</b></span>
+                        )}
+                        {displayCandle.fifty_two_week_low && (
+                            <span className="text-gray-400">52W Low: <b className="text-red-500">{displayCandle.fifty_two_week_low.toFixed(2)}</b></span>
+                        )}
+
+                        {/* عرض المتوسطات النشطة */}
+                        {(activeOverlays || []).slice(0, 3).map(key => { // أظهر أول 3 فقط لتوفير المساحة
                             const cfg = MA_CONFIG[key];
                             const val = displayCandle[cfg.key];
                             return val != null
@@ -407,24 +479,96 @@ export default function LightweightChart({
             </div>
 
             {/* ── MA toggles ────────────────────────────────────────────── */}
-            <div className="flex flex-wrap items-center gap-1.5 px-3 py-1 border-b border-gray-100 shrink-0">
-                {Object.entries(MA_CONFIG).map(([key, cfg]) => {
-                    const active = (activeOverlays || []).includes(key as any);
-                    return (
-                        <button
-                            key={key}
-                            onClick={() => toggleOverlay(key as any)}
-                            className="px-2 py-0.5 rounded text-[11px] font-bold border transition-all"
-                            style={{
-                                background: active ? cfg.color : 'transparent',
-                                borderColor: cfg.color,
-                                color: active ? '#fff' : cfg.color,
-                            }}
-                        >
-                            {cfg.label}
-                        </button>
-                    );
-                })}
+            <div className="flex items-center justify-between px-3 py-1 border-b border-gray-100 shrink-0">
+                <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-gray-600">Moving Averages:</span>
+                    <div className="flex flex-wrap gap-1">
+                        {currentMaEntries.map(([key, cfg]) => {
+                            const active = (activeOverlays || []).includes(key as any);
+                            return (
+                                <button
+                                    key={key}
+                                    onClick={() => toggleOverlay(key as any)}
+                                    className="px-2 py-0.5 rounded text-[10px] font-bold border transition-all hover:opacity-80"
+                                    style={{
+                                        background: active ? cfg.color : 'transparent',
+                                        borderColor: cfg.color,
+                                        color: active ? '#fff' : cfg.color,
+                                    }}
+                                >
+                                    {cfg.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* أزرار التنقل بين الصفحات */}
+                    {totalMaPages > 1 && (
+                        <div className="flex items-center gap-1 ml-2">
+                            <button
+                                onClick={() => setMaPage(Math.max(0, maPage - 1))}
+                                disabled={maPage === 0}
+                                className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Previous"
+                            >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                            </button>
+                            <span className="text-[10px] text-gray-500 px-1">
+                                {maPage + 1}/{totalMaPages}
+                            </span>
+                            <button
+                                onClick={() => setMaPage(Math.min(totalMaPages - 1, maPage + 1))}
+                                disabled={maPage === totalMaPages - 1}
+                                className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Next"
+                            >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                            </button>
+                        </div>
+                    )}
+
+                    <button
+                        onClick={() => setActiveOverlays([])}
+                        className="px-2 py-0.5 text-[10px] text-gray-500 hover:text-gray-700 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                    >
+                        Clear All
+                    </button>
+                </div>
+
+                {/* أزرار التحكم في الرسم البياني */}
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={() => mainChartRef.current?.timeScale().zoomIn()}
+                        className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                        title="Zoom In"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                        </svg>
+                    </button>
+                    <button
+                        onClick={() => mainChartRef.current?.timeScale().zoomOut()}
+                        className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                        title="Zoom Out"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+                        </svg>
+                    </button>
+                    <button
+                        onClick={() => mainChartRef.current?.timeScale().fitContent()}
+                        className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                        title="Fit Content"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 1v4m0 0h-4m4 0l-5-5" />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             {/* ── Chart wrapper ─────────────────────────────────────────── */}
