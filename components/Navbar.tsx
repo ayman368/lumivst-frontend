@@ -41,9 +41,19 @@ export default function Navbar() {
       items: [
         { en: 'My Watchlist', href: '/watchlist' },
         { en: 'RS Screener', href: '/rs-screener' },
-        { en: 'RS Analysis', href: '/rs-analysis' }
+        { en: 'RS Analysis', href: '/rs-analysis' },
       ],
     },
+    // learn: {
+    //   en: 'Learn',
+    //   href: '/learn',
+    //   items: [
+    //     { en: "Dan's 10 Golden Rules", href: '/learn/golden-rules' },
+    //     { en: 'Understanding Chart Patterns', href: '/learn/chart-patterns' },
+    //     { en: 'Useful Stock Sources', href: '/useful-stock-sources' },
+    //     { en: 'Recommended Reading', href: '/recommended-reading' },
+    //   ],
+    // },
     market: {
       en: 'Market',
       href: '/market',

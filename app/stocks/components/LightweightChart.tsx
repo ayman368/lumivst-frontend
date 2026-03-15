@@ -55,11 +55,31 @@ interface CandleData {
     stamp_s9rsi_w?: number | null;
     stamp_e45cfg_w?: number | null;
     stamp_e45rsi_w?: number | null;
+    stamp_e20sma3_w?: number | null;
     aroon_up?: number | null;
     aroon_down?: number | null;
+    aroon_up_w?: number | null;
+    aroon_down_w?: number | null;
+    sma_3?: number | null;
+    sma_30w?: number | null;
+    sma_40w?: number | null;
+    ema_20_sma3?: number | null;
+    sma4?: number | null;
+    sma9?: number | null;
+    sma18?: number | null;
+    sma4_w?: number | null;
+    sma9_w?: number | null;
+    sma18_w?: number | null;
+    wma45_close?: number | null;
+    vol_diff_50_percent?: number | null;
+    percent_off_52w_high?: number | null;
+    percent_off_52w_low?: number | null;
+    fifty_two_week_high?: number | null;
+    fifty_two_week_low?: number | null;
+    average_volume_50?: number | null;
 }
 
-type OscTab = 'rsi' | 'rsi_w' | 'cci' | 'cci_w' | 'cfg' | 'cfg_w' | 'the_number' | 'the_number_w' | 'stamp' | 'aroon' | 'volume' | 'price_stats';
+type OscTab = 'rsi' | 'rsi_w' | 'cci' | 'cci_w' | 'cfg' | 'cfg_w' | 'the_number' | 'the_number_w' | 'stamp' | 'stamp_w' | 'aroon' | 'aroon_w' | 'volume' | 'price_stats';
 
 const OSC_TABS: { id: OscTab; label: string }[] = [
     { id: 'rsi', label: 'RSI' },
@@ -71,7 +91,9 @@ const OSC_TABS: { id: OscTab; label: string }[] = [
     { id: 'the_number', label: 'THE.NUM' },
     { id: 'the_number_w', label: 'THE.NUM(W)' },
     { id: 'stamp', label: 'STAMP' },
+    { id: 'stamp_w', label: 'STAMP (W)' },
     { id: 'aroon', label: 'AROON' },
+    { id: 'aroon_w', label: 'AROON (W)' },
     { id: 'volume', label: 'Volume Stats' },
     { id: 'price_stats', label: 'Price Stats' },
 ];
@@ -99,6 +121,11 @@ const MA_CONFIG: Record<string, { key: keyof CandleData; label: string; color: s
     sma4_w: { key: 'sma4_w', label: 'SMA4(W)', color: '#16a34a' },
     sma9_w: { key: 'sma9_w', label: 'SMA9(W)', color: '#65a30d' },
     sma18_w: { key: 'sma18_w', label: 'SMA18(W)', color: '#ca8a04' },
+    // Missing averages
+    sma3: { key: 'sma_3', label: 'SMA3', color: '#06b6d4' },
+    sma30w: { key: 'sma_30w', label: 'SMA30W', color: '#14b8a6' },
+    sma40w: { key: 'sma_40w', label: 'SMA40W', color: '#0891b2' },
+    ema20_sma3: { key: 'ema_20_sma3', label: 'EMA20(SMA3)', color: '#a78bfa' },
 };
 
 const DEFAULT_OVERLAYS: Props['overlays'] = ['sma50', 'sma150', 'sma200', 'ema10', 'ema21'];
@@ -303,8 +330,8 @@ export default function LightweightChart({
             const s = osc.addSeries(LineSeries, {
                 color, lineWidth: lw,
                 priceLineVisible: false,
-                lastValueVisible: lw === 2,
-                crosshairMarkerVisible: lw === 2,
+                lastValueVisible: true,
+                crosshairMarkerVisible: true,
                 title,
             });
             s.setData(
@@ -316,7 +343,7 @@ export default function LightweightChart({
         };
 
         const hline = (s: ReturnType<typeof line>, price: number, color: string) =>
-            s.createPriceLine({ price, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: String(price) });
+            s.createPriceLine({ price, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
 
         // Build the correct oscillator based on active tab
         if (activeOsc === 'rsi') {
@@ -360,9 +387,17 @@ export default function LightweightChart({
             line('stamp_e45cfg', '#10b981', 1, 'E45CFG');
             line('stamp_e45rsi', '#f59e0b', 1, 'E45RSI');
             line('stamp_e20sma3', '#1f2937', 1, 'E20SMA3');
+        } else if (activeOsc === 'stamp_w') {
+            line('stamp_s9rsi_w', '#ef4444', 2, 'S9RSI(W)');
+            line('stamp_e45cfg_w', '#10b981', 1, 'E45CFG(W)');
+            line('stamp_e45rsi_w', '#f59e0b', 1, 'E45RSI(W)');
+            line('stamp_e20sma3_w', '#1f2937', 1, 'E20SMA3(W)');
         } else if (activeOsc === 'aroon') {
             line('aroon_up', '#10b981', 2, 'AROON↑');
             line('aroon_down', '#ef4444', 2, 'AROON↓');
+        } else if (activeOsc === 'aroon_w') {
+            line('aroon_up_w', '#10b981', 2, 'AROON↑(W)');
+            line('aroon_down_w', '#ef4444', 2, 'AROON↓(W)');
         } else if (activeOsc === 'volume') {
             // Volume statistics - show as percentage change
             const volLine = line('vol_diff_50_percent', '#6366f1', 2, 'Vol % vs 50MA');
@@ -435,11 +470,13 @@ export default function LightweightChart({
                 activeOsc === 'cci' ? [{ label: 'CCI', val: displayCandle.cci, color: '#0ea5e9' }, { label: 'EMA20', val: displayCandle.cci_ema20, color: '#f97316' }] :
                     activeOsc === 'cci_w' ? [{ label: 'CCI(W)', val: displayCandle.cci_w, color: '#0ea5e9' }, { label: 'EMA20(W)', val: displayCandle.cci_ema20_w, color: '#f97316' }] :
                         activeOsc === 'cfg' ? [{ label: 'CFG', val: displayCandle.cfg, color: '#8b5cf6' }, { label: 'SMA4', val: displayCandle.cfg_sma4, color: '#06b6d4' }, { label: 'EMA45', val: displayCandle.cfg_ema45, color: '#f59e0b' }] :
-                            activeOsc === 'cfg_w' ? [{ label: 'CFG(W)', val: displayCandle.cfg_w, color: '#8b5cf6' }] :
-                                activeOsc === 'the_number' ? [{ label: 'THE.NUM', val: displayCandle.the_number, color: '#10b981' }, { label: 'HI', val: displayCandle.the_number_hl, color: '#3b82f6' }, { label: 'LO', val: displayCandle.the_number_ll, color: '#ef4444' }] :
-                                    activeOsc === 'the_number_w' ? [{ label: 'THE.N(W)', val: displayCandle.the_number_w, color: '#10b981' }] :
-                                        activeOsc === 'stamp' ? [{ label: 'S9RSI', val: displayCandle.stamp_s9rsi, color: '#ef4444' }, { label: 'E45CFG', val: displayCandle.stamp_e45cfg, color: '#10b981' }] :
-                                            activeOsc === 'aroon' ? [{ label: 'UP', val: displayCandle.aroon_up, color: '#10b981' }, { label: 'DOWN', val: displayCandle.aroon_down, color: '#ef4444' }] : []
+                        activeOsc === 'cfg_w' ? [{ label: 'CFG(W)', val: displayCandle.cfg_w, color: '#8b5cf6' }, { label: 'SMA4(W)', val: displayCandle.cfg_sma4_w, color: '#06b6d4' }, { label: 'EMA45(W)', val: displayCandle.cfg_ema45_w, color: '#f59e0b' }] :
+                            activeOsc === 'the_number' ? [{ label: 'THE.NUM', val: displayCandle.the_number, color: '#10b981' }, { label: 'HI', val: displayCandle.the_number_hl, color: '#3b82f6' }, { label: 'LO', val: displayCandle.the_number_ll, color: '#ef4444' }] :
+                                activeOsc === 'the_number_w' ? [{ label: 'THE.N(W)', val: displayCandle.the_number_w, color: '#10b981' }] :
+                                    activeOsc === 'stamp' ? [{ label: 'S9RSI', val: displayCandle.stamp_s9rsi, color: '#ef4444' }, { label: 'E45CFG', val: displayCandle.stamp_e45cfg, color: '#10b981' }] :
+                                        activeOsc === 'stamp_w' ? [{ label: 'S9RSI(W)', val: displayCandle.stamp_s9rsi_w, color: '#ef4444' }, { label: 'E45CFG(W)', val: displayCandle.stamp_e45cfg_w, color: '#10b981' }] :
+                                            activeOsc === 'aroon' ? [{ label: 'UP', val: displayCandle.aroon_up, color: '#10b981' }, { label: 'DOWN', val: displayCandle.aroon_down, color: '#ef4444' }] :
+                                                activeOsc === 'aroon_w' ? [{ label: 'UP(W)', val: displayCandle.aroon_up_w, color: '#10b981' }, { label: 'DOWN(W)', val: displayCandle.aroon_down_w, color: '#ef4444' }] : []
     ) : [];
 
     return (
@@ -542,7 +579,17 @@ export default function LightweightChart({
                 {/* أزرار التحكم في الرسم البياني */}
                 <div className="flex items-center gap-1">
                     <button
-                        onClick={() => mainChartRef.current?.timeScale().zoomIn()}
+                        onClick={() => {
+                            const timeScale = mainChartRef.current?.timeScale();
+                            const range = timeScale?.getVisibleLogicalRange();
+                            if (range && timeScale) {
+                                const delta = (range.to - range.from) * 0.1;
+                                timeScale.setVisibleLogicalRange({
+                                    from: range.from + delta,
+                                    to: range.to - delta
+                                });
+                            }
+                        }}
                         className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
                         title="Zoom In"
                     >
@@ -551,7 +598,17 @@ export default function LightweightChart({
                         </svg>
                     </button>
                     <button
-                        onClick={() => mainChartRef.current?.timeScale().zoomOut()}
+                        onClick={() => {
+                            const timeScale = mainChartRef.current?.timeScale();
+                            const range = timeScale?.getVisibleLogicalRange();
+                            if (range && timeScale) {
+                                const delta = (range.to - range.from) * 0.1;
+                                timeScale.setVisibleLogicalRange({
+                                    from: range.from - delta,
+                                    to: range.to + delta
+                                });
+                            }
+                        }}
                         className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
                         title="Zoom Out"
                     >
