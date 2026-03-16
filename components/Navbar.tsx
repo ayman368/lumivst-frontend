@@ -29,7 +29,7 @@ export default function Navbar() {
       en: 'Screeners',
       href: '/screeners',
       items: [
-        { en: 'Stock Screeners', href: '/screeners' },
+        // { en: 'Stock Screeners', href: '/screeners' },
         { en: 'Fundamental', href: '/screeners/fundamental' },
         { en: 'Technical Screener', href: '/technical-screener' },
         { en: 'Top Traders', href: '/screeners/top-traders' },
