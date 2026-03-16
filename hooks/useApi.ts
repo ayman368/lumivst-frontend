@@ -1,0 +1,63 @@
+import { useState } from 'react';
+
+interface ApiResponse<T = any> {
+  data: T;
+  status: number;
+  message?: string;
+}
+
+export const useApi = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const apiCall = async <T = any>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<ApiResponse<T>> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Use a mutable Record so we can safely add headers later
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...((options.headers as Record<string, string>) || {}),
+      };
+
+      // Get token from localStorage if available
+      if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('token');
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
+        ...options,
+        headers,
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return {
+        data,
+        status: response.status,
+      };
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    apiCall,
+    loading,
+    error,
+  };
+};

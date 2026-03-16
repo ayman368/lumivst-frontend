@@ -1017,7 +1017,9 @@ export default function StockScreenerPage() {
         if (filteredAndSortedStocks.length > 0) {
             const isCurrentlySelectedValid = filteredAndSortedStocks.some(s => s.symbol === selectedSymbol);
             if (!isCurrentlySelectedValid) {
-                setSelectedSymbol(filteredAndSortedStocks[0].symbol);
+                // Default to symbol 1010 on initial load (if present), otherwise pick first available
+                const defaultSymbol = filteredAndSortedStocks.find(s => s.symbol === '1010')?.symbol;
+                setSelectedSymbol(defaultSymbol || filteredAndSortedStocks[0].symbol);
             }
         } else {
             setSelectedSymbol('');

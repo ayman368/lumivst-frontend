@@ -29,6 +29,7 @@ export default function Navbar() {
       en: 'Screeners',
       href: '/screeners',
       items: [
+        { en: 'Stock Screeners', href: '/screeners' },
         { en: 'Fundamental', href: '/screeners/fundamental' },
         { en: 'Technical Screener', href: '/technical-screener' },
         { en: 'Top Traders', href: '/screeners/top-traders' },
@@ -185,6 +186,9 @@ export default function Navbar() {
           <div className={styles['navbar-auth']}>
             <Link href="/stocks" className={styles['navbar-link']}>
               Stocks
+            </Link>
+            <Link href="/stocks/charts" className={styles['navbar-link']}>
+              Charts
             </Link>
             <Link href="/industry-groups" className={styles['navbar-link']}>
               Industry Groups

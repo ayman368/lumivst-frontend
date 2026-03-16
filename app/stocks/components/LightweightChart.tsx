@@ -152,6 +152,8 @@ export default function LightweightChart({
     const [activeOverlays, setActiveOverlays] = useState<Props['overlays']>(overlays);
     const [crosshairData, setCrosshairData] = useState<CandleData | null>(null);
     const [activeOsc, setActiveOsc] = useState<OscTab>('rsi');
+    const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
     const MA_PER_PAGE = 8;
     const maEntries = Object.entries(MA_CONFIG);
     const totalMaPages = Math.ceil(maEntries.length / MA_PER_PAGE);
@@ -185,8 +187,9 @@ export default function LightweightChart({
         if (typeof window !== 'undefined') {
             localStorage.setItem(`chart_overlays_${symbol}`, JSON.stringify(activeOverlays || []));
             localStorage.setItem(`chart_osc_${symbol}`, activeOsc);
+            localStorage.setItem(`chart_theme_${symbol}`, theme);
         }
-    }, [activeOverlays, activeOsc, symbol]);
+    }, [activeOverlays, activeOsc, theme, symbol]);
 
     // تحميل تفضيلات المستخدم
     useEffect(() => {
@@ -210,7 +213,7 @@ export default function LightweightChart({
     }, [symbol]);
 
     // ── Main chart (candlestick + volume + MAs) ────────────────────────────────
-    // Rebuilt only when data / overlays / volume / height changes (NOT activeOsc)
+    // Rebuilt only when data / overlays / volume / height / theme changes
     useEffect(() => {
         if (!mainContRef.current || !wrapperRef.current || data.length === 0) return;
 
@@ -225,16 +228,23 @@ export default function LightweightChart({
 
         mainCont.style.height = `${mainH}px`;
 
+        // Theme-dependent colors
+        const isDark = theme === 'dark';
+        const bgColor = isDark ? '#1f2937' : '#ffffff';
+        const textColor = isDark ? '#f9fafb' : '#374151';
+        const gridColor = isDark ? '#374151' : '#f3f4f6';
+        const borderColor = isDark ? '#4b5563' : '#e5e7eb';
+
         const chart = createChart(mainCont, {
             layout: {
-                background: { type: ColorType.Solid, color: '#ffffff' },
-                textColor: '#374151',
+                background: { type: ColorType.Solid, color: bgColor },
+                textColor: textColor,
                 fontFamily: "'Inter', 'Segoe UI', sans-serif",
             },
-            grid: { vertLines: { color: '#f3f4f6' }, horzLines: { color: '#f3f4f6' } },
+            grid: { vertLines: { color: gridColor }, horzLines: { color: gridColor } },
             crosshair: { mode: CrosshairMode.Normal },
-            rightPriceScale: { borderColor: '#e5e7eb' },
-            timeScale: { borderColor: '#e5e7eb', timeVisible: true, secondsVisible: false, visible: false },
+            rightPriceScale: { borderColor: borderColor },
+            timeScale: { borderColor: borderColor, timeVisible: true, secondsVisible: false, visible: false },
             width: wrapW,
             height: mainH,
         });
@@ -294,7 +304,7 @@ export default function LightweightChart({
             mainChartRef.current?.remove();
             mainChartRef.current = null;
         };
-    }, [data, activeOverlays, showVolume, height]);
+    }, [data, activeOverlays, showVolume, height, theme]);
 
     // ── Oscillator chart (rebuilt when data OR activeOsc changes) ─────────────
     useEffect(() => {
@@ -310,16 +320,23 @@ export default function LightweightChart({
 
         oscCont.style.height = `${OSC_H}px`;
 
+        // Theme-dependent colors for oscillator
+        const isDark = theme === 'dark';
+        const bgColor = isDark ? '#1f2937' : '#ffffff';
+        const textColor = isDark ? '#f9fafb' : '#374151';
+        const gridColor = isDark ? '#374151' : '#f3f4f6';
+        const borderColor = isDark ? '#4b5563' : '#e5e7eb';
+
         const osc = createChart(oscCont, {
             layout: {
-                background: { type: ColorType.Solid, color: '#ffffff' },
-                textColor: '#374151',
+                background: { type: ColorType.Solid, color: bgColor },
+                textColor: textColor,
                 fontFamily: "'Inter', 'Segoe UI', sans-serif",
             },
-            grid: { vertLines: { color: '#f3f4f6' }, horzLines: { color: '#f3f4f6' } },
+            grid: { vertLines: { color: gridColor }, horzLines: { color: gridColor } },
             crosshair: { mode: CrosshairMode.Normal },
-            rightPriceScale: { borderColor: '#e5e7eb', scaleMargins: { top: 0.05, bottom: 0.1 } },
-            timeScale: { borderColor: '#e5e7eb', timeVisible: true, secondsVisible: false, visible: true },
+            rightPriceScale: { borderColor: borderColor, scaleMargins: { top: 0.05, bottom: 0.1 } },
+            timeScale: { borderColor: borderColor, timeVisible: true, secondsVisible: false, visible: true },
             width: wrapW,
             height: OSC_H,
         });
@@ -424,7 +441,7 @@ export default function LightweightChart({
             oscChartRef.current?.remove();
             oscChartRef.current = null;
         };
-    }, [data, activeOsc]);
+    }, [data, activeOsc, theme]);
 
     // ── Resize observer (persistent, manages both charts) ─────────────────────
     useEffect(() => {
@@ -480,10 +497,10 @@ export default function LightweightChart({
     ) : [];
 
     return (
-        <div className="flex flex-col w-full h-full bg-white rounded-xl overflow-hidden">
+        <div className={`flex flex-col w-full h-full ${theme === 'dark' ? 'bg-gray-900' : 'bg-white'} rounded-xl overflow-hidden`}>
 
             {/* ── OHLCV bar ─────────────────────────────────────────────── */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-1.5 bg-gray-50 border-b border-gray-100 text-[11px] shrink-0">
+            <div className={`flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-1.5 ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-100'} border-b text-[11px] shrink-0`}>
                 {displayCandle ? (
                     <>
                         <span className="text-gray-400 font-mono">{displayCandle.time}</span>
@@ -516,9 +533,9 @@ export default function LightweightChart({
             </div>
 
             {/* ── MA toggles ────────────────────────────────────────────── */}
-            <div className="flex items-center justify-between px-3 py-1 border-b border-gray-100 shrink-0">
+            <div className={`flex items-center justify-between px-3 py-1 border-b ${theme === 'dark' ? 'border-gray-700' : 'border-gray-100'} shrink-0`}>
                 <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-gray-600">Moving Averages:</span>
+                    <span className={`text-xs font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>Moving Averages:</span>
                     <div className="flex flex-wrap gap-1">
                         {currentMaEntries.map(([key, cfg]) => {
                             const active = (activeOverlays || []).includes(key as any);
@@ -625,6 +642,21 @@ export default function LightweightChart({
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 1v4m0 0h-4m4 0l-5-5" />
                         </svg>
                     </button>
+                    <button
+                        onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                        className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                        title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+                    >
+                        {theme === 'light' ? (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                            </svg>
+                        ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                        )}
+                    </button>
                 </div>
             </div>
 
@@ -632,10 +664,10 @@ export default function LightweightChart({
             <div ref={wrapperRef} className="flex-1 relative" style={{ minHeight: 0 }}>
 
                 {loading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+                    <div className={`absolute inset-0 flex items-center justify-center ${theme === 'dark' ? 'bg-gray-900/80' : 'bg-white/80'} z-10`}>
                         <div className="flex flex-col items-center gap-2">
                             <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                            <span className="text-xs text-gray-500">Loading...</span>
+                            <span className={`text-xs ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>Loading...</span>
                         </div>
                     </div>
                 )}
@@ -646,7 +678,7 @@ export default function LightweightChart({
                 )}
                 {!loading && !error && data.length === 0 && (
                     <div className="absolute inset-0 flex items-center justify-center z-10">
-                        <p className="text-sm text-gray-400">No data for {symbol}</p>
+                        <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>No data available for {symbol}</p>
                     </div>
                 )}
 
