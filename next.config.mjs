@@ -4,7 +4,7 @@ const nextConfig = {
   poweredByHeader: false,
   compress: true,
   images: {
-    domains: ['your-domain.com'],
+    domains: ['your-domain.com', 'images-na.ssl-images-amazon.com', 'images.amazon.com'],
   },
 }
 

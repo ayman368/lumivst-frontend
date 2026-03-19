@@ -141,15 +141,67 @@
   font-size: 13px;
   border-bottom: 1px solid #f0f0f0;
   transition: all 0.2s ease;
+  width: 100%;
+  text-align: left;
 }
 
 .navbar-dropdown-link:hover {
-  background-color: var(--dropdown-hover);
-  color: var(--navbar-bg);
+  background-color: rgba(0, 0, 0, 0.02);
 }
 
 .navbar-dropdown-link:last-child {
   border-bottom: none;
+}
+
+/* Nested Dropdown Styles */
+.dropdown-item-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.dropdown-item-wrapper>.navbar-dropdown-link {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.dropdown-arrow {
+  width: 16px;
+  height: 16px;
+  margin-left: 8px;
+  transition: transform 0.3s ease;
+}
+
+.dropdown-item-wrapper:hover .dropdown-arrow {
+  transform: translateX(4px);
+}
+
+.navbar-nested-dropdown {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  background: var(--dropdown-bg);
+  border: 1px solid var(--dropdown-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+  z-index: 1002;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-10px);
+  transition: all 0.3s ease;
+  margin-left: 8px;
+}
+
+.navbar-nested-dropdown.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
 }
 
 .navbar-actions {
@@ -269,6 +321,37 @@
     color: var(--navbar-text);
     border-bottom: 1px solid var(--navbar-border);
     padding-left: 32px;
+  }
+
+  /* Mobile nested dropdown styles */
+  .navbar-nested-dropdown {
+    position: static;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    max-height: 0;
+    overflow: hidden;
+    margin-left: 0;
+    box-shadow: none;
+    border: none;
+    background: transparent;
+    transition: max-height 0.3s ease;
+  }
+
+  .navbar-nested-dropdown.show {
+    max-height: 300px;
+  }
+
+  .navbar-nested-dropdown .navbar-dropdown-link {
+    padding-left: 48px;
+  }
+
+  .dropdown-arrow {
+    transform: rotate(90deg);
+  }
+
+  .dropdown-item-wrapper:hover .dropdown-arrow {
+    transform: rotate(90deg) translateX(4px);
   }
 }
 

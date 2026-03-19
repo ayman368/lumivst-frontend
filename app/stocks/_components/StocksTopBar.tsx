@@ -12,7 +12,7 @@ export function StocksTopBar() {
     const searchParams = useSearchParams();
 
     // Get symbol from route params OR query string (for dashboard/financials)
-    const currentSymbol = (params?.symbol as string) || searchParams.get('symbol') || '4322';
+    const currentSymbol = (params?.symbol as string) || searchParams.get('symbol') || '1010';
     const [query, setQuery] = useState('');
 
     const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -41,7 +41,7 @@ export function StocksTopBar() {
             <div className="relative max-w-md w-full">
                 <input
                     type="text"
-                    placeholder="Search Symbols (e.g. 4322, 1120)..."
+                    placeholder="Search Symbols (e.g. 1010, 1120)..."
                     className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
@@ -61,7 +61,7 @@ export function StocksTopBar() {
                 </Link>
 
                 <Link
-                    href={`/stocks/${currentSymbol || '4322'}/reports`}
+                    href={`/stocks/${currentSymbol || '1010'}/reports`}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:text-red-600 hover:bg-red-50 transition-all"
                 >
                     <FileText className="w-4 h-4" />
@@ -69,7 +69,7 @@ export function StocksTopBar() {
                 </Link>
 
                 <Link
-                    href={`/stocks/${currentSymbol || '4322'}/details`}
+                    href={`/stocks/${currentSymbol || '1010'}/details`}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:text-green-600 hover:bg-green-50 transition-all"
                 >
                     <Table className="w-4 h-4" />

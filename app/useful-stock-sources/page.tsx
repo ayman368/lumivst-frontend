@@ -6,19 +6,19 @@ const sources = [
   {
     title: 'US Earnings Calendar',
     description: 'Track upcoming earnings reports for US-listed companies. Stay ahead of market-moving announcements.',
-    url: 'https://finance.yahoo.com/calendar/earnings',
+    url: '/us-earnings-calendar',
     color: '#6c5ce7',
   },
   {
     title: 'Economic Calendar',
     description: 'Monitor key economic events, indicators, and data releases that impact global markets.',
-    url: 'https://finance.yahoo.com/calendar/economic',
+    url: '/economic-calendar',
     color: '#0984e3',
   },
   {
     title: 'Initial Public Offerings',
     description: 'Discover upcoming IPOs, pricing details, and performance tracking for newly listed companies.',
-    url: 'https://www.iposcoop.com/',
+    url: '/initial-public-offerings',
     color: '#00b894',
   },
 ];

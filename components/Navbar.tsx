@@ -5,6 +5,82 @@ import { useAuth } from '../app/providers/AuthProvider'
 import styles from '../app/styles/Navbar.module.css'
 import { User, LogOut } from 'lucide-react'
 
+// Recursive Dropdown Component for nested menus
+function DropdownItem({
+  item,
+  index,
+  activeMobile,
+  setActiveMobile,
+  setActiveDropdown,
+  parentShowNested,
+  styles
+}: any) {
+  const [showNested, setShowNested] = useState(false);
+
+  // Update nested visibility based on parent
+  useEffect(() => {
+    if (parentShowNested !== undefined) {
+      setShowNested(parentShowNested);
+    }
+  }, [parentShowNested]);
+
+  return (
+    <div
+      key={index}
+      className={styles['dropdown-item-wrapper']}
+      onMouseEnter={() => !activeMobile && setShowNested(true)}
+      onMouseLeave={() => !activeMobile && setShowNested(false)}
+    >
+      {item.items ? (
+        <>
+          <button className={styles['navbar-dropdown-link']}>
+            {item.en}
+            <svg
+              className={styles['dropdown-arrow']}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </button>
+          {/* Nested Dropdown */}
+          <div className={`${styles['navbar-nested-dropdown']} ${showNested ? styles['show'] : ''}`}>
+            {item.items.map((nestedItem: any, nestedIndex: number) => (
+              <DropdownItem
+                key={nestedIndex}
+                item={nestedItem}
+                index={nestedIndex}
+                activeMobile={activeMobile}
+                setActiveMobile={setActiveMobile}
+                setActiveDropdown={setActiveDropdown}
+                parentShowNested={showNested}
+                styles={styles}
+              />
+            ))}
+          </div>
+        </>
+      ) : (
+        <Link
+          href={item.href}
+          className={styles['navbar-dropdown-link']}
+          onClick={() => {
+            setActiveMobile(false)
+            setActiveDropdown(null)
+          }}
+        >
+          {item.en}
+        </Link>
+      )}
+    </div>
+  )
+}
+
 export default function Navbar() {
   const [activeMobile, setActiveMobile] = useState(false)
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
@@ -29,7 +105,6 @@ export default function Navbar() {
       en: 'Screeners',
       href: '/screeners',
       items: [
-        // { en: 'Stock Screeners', href: '/screeners' },
         { en: 'Fundamental', href: '/screeners/fundamental' },
         { en: 'Technical Screener', href: '/technical-screener' },
         { en: 'Top Traders', href: '/screeners/top-traders' },
@@ -45,16 +120,22 @@ export default function Navbar() {
         { en: 'RS Analysis', href: '/rs-analysis' },
       ],
     },
-    learn: {
-      en: 'Learn',
-      href: '/learn',
-      items: [
-        { en: "Dan's 10 Golden Rules", href: '/learn/golden-rules' },
-        { en: 'Understanding Chart Patterns', href: '/learn/chart-patterns' },
-        { en: 'Useful Stock Sources', href: '/useful-stock-sources' },
-        { en: 'Recommended Reading', href: '/recommended-reading' },
-      ],
-    },
+    // learn: {
+    //   en: 'Learn',
+    //   href: '/learn',
+    //   items: [
+    //     { en: "Dan's 10 Golden Rules", href: '/learn/golden-rules' },
+    //     {
+    //       en: 'Dan Zanger',
+    //       href: '#',
+    //       items: [
+    //         { en: 'Understanding Chart Patterns', href: '/learn/chart-patterns' },
+    //         { en: 'Useful Stock Sources', href: '/useful-stock-sources' },
+    //         { en: 'Recommended Reading', href: '/recommended-reading' },
+    //       ]
+    //     },
+    //   ],
+    // },
     market: {
       en: 'Market',
       href: '/market',
@@ -115,8 +196,6 @@ export default function Navbar() {
     }
   }, [])
 
-
-
   return (
     <nav
       className={styles['navbar-gf']}
@@ -163,18 +242,17 @@ export default function Navbar() {
 
               {/* Dropdown Menu */}
               <div className={styles['navbar-dropdown']}>
-                {item.items.map((subItem, index) => (
-                  <Link
+                {item.items.map((subItem: any, index: number) => (
+                  <DropdownItem
                     key={index}
-                    href={subItem.href}
-                    className={styles['navbar-dropdown-link']}
-                    onClick={() => {
-                      setActiveMobile(false)
-                      setActiveDropdown(null)
-                    }}
-                  >
-                    {subItem.en}
-                  </Link>
+                    item={subItem}
+                    index={index}
+                    activeMobile={activeMobile}
+                    setActiveMobile={setActiveMobile}
+                    setActiveDropdown={setActiveDropdown}
+                    parentShowNested={activeDropdown === key}
+                    styles={styles}
+                  />
                 ))}
               </div>
             </div>
