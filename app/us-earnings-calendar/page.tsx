@@ -391,7 +391,7 @@ export default function USEarningsCalendarPage() {
   };
 
   const getValueColor = (value: number | string) => {
-    if (typeof value === 'string' || value === '-') return '#787b86';
+    if (typeof value === 'string') return '#787b86';
     if (value > 0) return '#00b894';
     if (value < 0) return '#ff7675';
     return '#d1d4dc';
