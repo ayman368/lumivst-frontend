@@ -9,9 +9,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Card } from '@/components/ui/card';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
-import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, FileSpreadsheet, Layers, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface StockResult {
   symbol: string;
@@ -52,52 +52,23 @@ export default function ScreenerTable({
 
   const formatNumber = (value: number | null | undefined, decimals = 2) => {
     if (value === null || value === undefined) return 'N/A';
-    return value.toFixed(decimals);
+    return value.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   };
 
   const formatPercent = (value: number | null | undefined) => {
-    if (value === null || value === undefined) return 'N/A';
-    return value.toFixed(2) + '%';
+    if (value === null || value === undefined) return '0.00%';
+    const val = value.toFixed(2);
+    return `${parseFloat(val) > 0 ? '+' : ''}${val}%`;
   };
 
   const exportToCSV = () => {
-    const headers = [
-      'رمز السهم',
-      'اسم الشركة',
-      'السعر الحالي',
-      'SMA 50',
-      'SMA 150',
-      'SMA 200',
-      'RS 12 شهر',
-      'بعيد عن الأعلى 52 أسبوع',
-      'بعيد عن الأدنى 52 أسبوع',
-    ];
-
-    const rows = data.map((stock) => [
-      stock.symbol,
-      stock.company_name,
-      stock.close.toFixed(2),
-      stock.sma_50.toFixed(2),
-      stock.sma_150.toFixed(2),
-      stock.sma_200.toFixed(2),
-      stock.rs_12m.toFixed(2),
-      (stock.percent_off_52w_high).toFixed(2) + '%',
-      (stock.percent_off_52w_low).toFixed(2) + '%',
-    ]);
-
-    const csv = [
-      headers.join(','),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
-    ].join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-
-    link.setAttribute('href', url);
-    link.setAttribute('download', `screener-${Date.now()}.csv`);
-    link.style.visibility = 'hidden';
-
+    const headers = ['Symbol', 'Company Name', 'Price', 'SMA 50', 'SMA 150', 'SMA 200', 'RS 12M', 'Off 52W High', 'Off 52W Low'];
+    const rows = data.map(s => [s.symbol, s.company_name, s.close, s.sma_50, s.sma_150, s.sma_200, s.rs_12m, s.percent_off_52w_high, s.percent_off_52w_low]);
+    const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Market_Intel_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -105,213 +76,207 @@ export default function ScreenerTable({
 
   if (loading && data.length === 0) {
     return (
-      <Card className="bg-slate-800 border-slate-700 p-8">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 mb-4 rounded-full bg-slate-700">
-              <svg
-                className="w-8 h-8 text-slate-400 animate-spin"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-            </div>
-            <p className="text-slate-400">جاري تحميل البيانات...</p>
-          </div>
+      <div className="flex flex-col items-center justify-center h-96 bg-white/[0.02] border border-white/[0.05] rounded-3xl backdrop-blur-sm">
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-2 border-slate-700"></div>
+          <div className="absolute inset-0 rounded-full border-2 border-t-blue-500 animate-spin"></div>
         </div>
-      </Card>
-    );
-  }
-
-  if (data.length === 0) {
-    return (
-      <Card className="bg-slate-800 border-slate-700 p-8">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <p className="text-slate-400 text-lg">
-              لم يتم العثور على أسهم تطابق معايير البحث 📭
-            </p>
-          </div>
-        </div>
-      </Card>
+        <p className="mt-6 text-slate-500 font-medium tracking-wide animate-pulse">Syncing Global Data Assets...</p>
+      </div>
     );
   }
 
   return (
-    <div className="w-full">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between mb-4 p-4 bg-slate-800 rounded-lg border border-slate-700">
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-slate-400">
-            عرض {startRecord} إلى {endRecord} من {total}
+    <div className="space-y-6">
+      {/* Table Control Bar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 bg-white/[0.03] border border-white/[0.05] rounded-2xl backdrop-blur-md shadow-xl">
+        <div className="flex items-center gap-3">
+          <div className="flex bg-white/[0.05] rounded-lg p-0.5 border border-white/[0.05]">
+            {[25, 50, 100].map((val) => (
+              <button
+                key={val}
+                onClick={() => onLimitChange(val)}
+                className={`px-4 py-1.5 text-[11px] font-bold transition-all rounded-md ${limit === val ? 'bg-white/[0.1] text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+              >
+                {val}
+              </button>
+            ))}
+          </div>
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest hidden lg:inline">
+            Records Per Page
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <select
-            value={limit}
-            onChange={(e) => onLimitChange(Number(e.target.value))}
-            className="px-3 py-2 text-sm bg-slate-700 text-white border border-slate-600 rounded hover:border-slate-500"
-          >
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-            <option value={250}>250</option>
-          </select>
+
+        <div className="flex items-center gap-4">
+          <div className="text-[11px] font-mono text-slate-500 bg-white/[0.02] px-3 py-1.5 rounded-lg border border-white/[0.05]">
+            MATCHED: <span className="text-white font-bold">{total}</span>
+          </div>
           <Button
             onClick={exportToCSV}
-            className="gap-2 bg-green-600 hover:bg-green-700"
-            size="sm"
+            variant="outline"
+            className="h-9 px-4 rounded-xl bg-white/[0.05] border-white/[0.1] hover:bg-white/[0.1] hover:border-white/[0.2] transition-all group"
           >
-            <Download className="w-4 h-4" />
-            تنزيل
+            <Download className="w-4 h-4 mr-2 text-blue-400 group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-bold tracking-tight">Export Intel</span>
           </Button>
         </div>
       </div>
 
-      {/* Table */}
-      <Card className="bg-slate-800 border-slate-700 overflow-hidden">
-        <div className="overflow-x-auto">
+      {/* Main Table Container */}
+      <div className="bg-white/[0.02] border border-white/[0.05] rounded-3xl overflow-hidden shadow-2xl backdrop-blur-xl">
+        <div className="overflow-x-auto custom-scrollbar">
           <Table>
             <TableHeader>
-              <TableRow className="border-slate-700 hover:bg-slate-800">
-                <TableHead className="text-right text-slate-300 font-bold w-20">
-                  #
+              <TableRow className="border-white/[0.05] bg-white/[0.03] hover:bg-white/[0.03]">
+                <TableHead className="py-5 px-6 text-left whitespace-nowrap">
+                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">#</span>
                 </TableHead>
-                <TableHead className="text-right text-slate-300 font-bold">
-                  رمز السهم
+                <TableHead className="py-5 px-6 text-left whitespace-nowrap">
+                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Symbol</span>
                 </TableHead>
-                <TableHead className="text-right text-slate-300 font-bold">
-                  اسم الشركة
+                <TableHead className="py-5 px-6 text-left whitespace-nowrap">
+                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Company Name</span>
                 </TableHead>
-                <TableHead className="text-right text-slate-300 font-bold">
-                  السعر
+                <TableHead className="py-5 px-6 text-right whitespace-nowrap">
+                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Price</span>
                 </TableHead>
-                <TableHead className="text-right text-slate-300 font-bold">
-                  SMA 50
+                <TableHead className="py-5 px-4 text-right whitespace-nowrap">
+                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">SMA 50</span>
                 </TableHead>
-                <TableHead className="text-right text-slate-300 font-bold">
-                  SMA 150
+                <TableHead className="py-5 px-4 text-right whitespace-nowrap">
+                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">SMA 150</span>
                 </TableHead>
-                <TableHead className="text-right text-slate-300 font-bold">
-                  SMA 200
+                <TableHead className="py-5 px-4 text-right whitespace-nowrap">
+                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">SMA 200</span>
                 </TableHead>
-                <TableHead className="text-right text-slate-300 font-bold">
-                  RS 12M
+                <TableHead className="py-5 px-6 text-right whitespace-nowrap">
+                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">RS 12M</span>
                 </TableHead>
-                <TableHead className="text-right text-slate-300 font-bold">
-                  من الأعلى 52W
+                <TableHead className="py-5 px-6 text-right whitespace-nowrap">
+                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Off 52W High</span>
                 </TableHead>
-                <TableHead className="text-right text-slate-300 font-bold">
-                  من الأدنى 52W
+                <TableHead className="py-5 px-6 text-right whitespace-nowrap">
+                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Off 52W Low</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((stock, index) => (
-                <TableRow
-                  key={stock.symbol}
-                  className="border-slate-700 hover:bg-slate-700 transition-colors"
-                >
-                  <TableCell className="text-slate-400 font-medium text-right w-20">
-                    {page * limit + index + 1}
-                  </TableCell>
-                  <TableCell
-                    className="font-bold text-right"
-                    style={{ color: screenerColor }}
+              <AnimatePresence initial={false}>
+                {data.map((stock, index) => (
+                  <motion.tr
+                    key={stock.symbol}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.2, delay: index * 0.02 }}
+                    className="border-white/[0.05] hover:bg-white/[0.04] transition-all group cursor-pointer"
                   >
-                    {stock.symbol}
-                  </TableCell>
-                  <TableCell className="text-slate-300 text-right">
-                    {stock.company_name}
-                  </TableCell>
-                  <TableCell className="text-slate-300 text-right font-medium">
-                    {formatNumber(stock.close)}
-                  </TableCell>
-                  <TableCell className="text-slate-300 text-right">
-                    {formatNumber(stock.sma_50)}
-                  </TableCell>
-                  <TableCell className="text-slate-300 text-right">
-                    {formatNumber(stock.sma_150)}
-                  </TableCell>
-                  <TableCell className="text-slate-300 text-right">
-                    {formatNumber(stock.sma_200)}
-                  </TableCell>
-                  <TableCell
-                    className="text-right font-bold"
-                    style={{
-                      color: stock.rs_12m > 70 ? '#22c55e' : '#f59e0b',
-                    }}
-                  >
-                    {formatNumber(stock.rs_12m)}
-                  </TableCell>
-                  <TableCell
-                    className="text-right"
-                    style={{
-                      color:
-                        stock.percent_off_52w_high > -15.0
-                          ? '#ef4444'
-                          : '#22c55e',
-                    }}
-                  >
-                    {formatPercent(stock.percent_off_52w_high)}
-                  </TableCell>
-                  <TableCell
-                    className="text-right"
-                    style={{
-                      color:
-                        stock.percent_off_52w_low < 30.0
-                          ? '#ef4444'
-                          : '#22c55e',
-                    }}
-                  >
-                    {formatPercent(stock.percent_off_52w_low)}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    <TableCell className="py-4 px-6 text-[11px] font-mono text-slate-500 whitespace-nowrap">
+                      {(page * limit + index + 1).toString().padStart(3, '0')}
+                    </TableCell>
+                    
+                    <TableCell className="py-4 px-6 whitespace-nowrap">
+                        <span className="text-sm font-black tracking-tighter text-white group-hover:text-blue-400 transition-colors" style={{ color: screenerColor }}>
+                          {stock.symbol}
+                        </span>
+                    </TableCell>
+
+                    <TableCell className="py-4 px-6">
+                        <span className="text-[10px] font-medium text-slate-500 uppercase tracking-tight line-clamp-1 max-w-[150px]">
+                          {stock.company_name}
+                        </span>
+                    </TableCell>
+
+                    <TableCell className="py-4 px-6 text-right whitespace-nowrap">
+                      <div className="flex flex-col items-end">
+                        <span className="text-sm font-bold text-white tabular-nums">
+                          {formatNumber(stock.close)}
+                        </span>
+                        <span className="text-[9px] text-slate-600 font-bold uppercase tracking-widest text-right w-full">SAR</span>
+                      </div>
+                    </TableCell>
+
+                    <TableCell className="py-4 px-4 text-right whitespace-nowrap">
+                        <span className="text-[10px] font-mono font-bold text-slate-400 tabular-nums text-right">{formatNumber(stock.sma_50)}</span>
+                    </TableCell>
+
+                    <TableCell className="py-4 px-4 text-right whitespace-nowrap">
+                        <span className="text-[10px] font-mono font-bold text-slate-400 tabular-nums text-right">{formatNumber(stock.sma_150)}</span>
+                    </TableCell>
+
+                    <TableCell className="py-4 px-4 text-right whitespace-nowrap">
+                        <span className="text-[10px] font-mono font-bold text-slate-400 tabular-nums text-right">{formatNumber(stock.sma_200)}</span>
+                    </TableCell>
+
+                    <TableCell className="py-4 px-6 text-right whitespace-nowrap">
+                      <div 
+                        className="inline-flex items-center px-3 py-1.5 rounded-xl font-black text-xs shadow-inner"
+                        style={{ 
+                          backgroundColor: stock.rs_12m > 85 ? 'rgba(34, 197, 94, 0.15)' : 'rgba(245, 158, 11, 0.1)',
+                          color: stock.rs_12m > 85 ? '#4ade80' : '#fbbf24'
+                        }}
+                      >
+                        {formatNumber(stock.rs_12m, 1)}
+                      </div>
+                    </TableCell>
+
+                    <TableCell className="py-4 px-6 text-right whitespace-nowrap">
+                      <div className={`flex items-center justify-end gap-1.5 font-bold tabular-nums text-xs ${stock.percent_off_52w_high > -5 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                        {stock.percent_off_52w_high > -5 ? <TrendingUp className="w-3 h-3" /> : null}
+                        {formatPercent(stock.percent_off_52w_high)}
+                      </div>
+                    </TableCell>
+
+                    <TableCell className="py-4 px-6 text-right whitespace-nowrap">
+                      <div className={`flex items-center justify-end gap-1.5 font-bold tabular-nums text-xs ${stock.percent_off_52w_low > 100 ? 'text-emerald-500' : 'text-blue-500'}`}>
+                        {formatPercent(stock.percent_off_52w_low)}
+                      </div>
+                    </TableCell>
+                  </motion.tr>
+                ))}
+              </AnimatePresence>
             </TableBody>
           </Table>
         </div>
-      </Card>
+      </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between mt-4 p-4 bg-slate-800 rounded-lg border border-slate-700">
-        <Button
-          onClick={() => onPageChange(page - 1)}
-          disabled={page === 0}
-          variant="outline"
-          className="gap-2"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          السابق
-        </Button>
-
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-400">
-            الصفحة {page + 1} من {totalPages}
-          </span>
+      {/* Pagination Footer */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-6 px-1 py-4">
+        <div className="flex items-center gap-1">
+           {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+             const pageNum = i; 
+             return (
+               <button 
+                key={i}
+                onClick={() => onPageChange(pageNum)}
+                className={`w-10 h-10 rounded-xl text-[11px] font-black transition-all border ${page === pageNum ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-white/[0.03] border-white/[0.05] text-slate-500 hover:bg-white/[0.07] hover:border-white/[0.1]'}`}
+               >
+                 {pageNum + 1}
+               </button>
+             )
+           })}
+           {totalPages > 5 && <span className="px-2 text-slate-600">...</span>}
         </div>
 
-        <Button
-          onClick={() => onPageChange(page + 1)}
-          disabled={page >= totalPages - 1}
-          className="gap-2"
-        >
-          التالي
-          <ChevronRight className="w-4 h-4" />
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={() => onPageChange(page - 1)}
+            disabled={page === 0}
+            variant="outline"
+            className="h-10 px-4 rounded-xl bg-white/[0.03] border-white/[0.05] hover:bg-white/[0.08] disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+          >
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            <span className="text-[11px] font-black uppercase tracking-widest">Prev</span>
+          </Button>
+
+          <Button
+            onClick={() => onPageChange(page + 1)}
+            disabled={page >= totalPages - 1}
+            className="h-10 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-xl shadow-blue-600/20 border-0 transition-all group"
+          >
+            <span className="text-[11px] font-black uppercase tracking-widest">Forward</span>
+            <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-0.5 transition-transform" />
+          </Button>
+        </div>
       </div>
     </div>
   );

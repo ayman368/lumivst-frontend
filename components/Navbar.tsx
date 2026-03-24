@@ -106,6 +106,7 @@ export default function Navbar() {
       href: '/screeners',
       items: [
         { en: 'Fundamental', href: '/screeners/fundamental' },
+        { en: 'Stock Screeners', href: '/screeners' },
         { en: 'Technical Screener', href: '/technical-screener' },
         { en: 'Top Traders', href: '/screeners/top-traders' },
         { en: 'Screeners', href: '/screeners/my-screens' },
@@ -124,14 +125,14 @@ export default function Navbar() {
     //   en: 'Learn',
     //   href: '/learn',
     //   items: [
-    //     { en: "Dan's 10 Golden Rules", href: '/learn/golden-rules' },
     //     {
     //       en: 'Dan Zanger',
     //       href: '#',
     //       items: [
+    //         { en: "Dan's 10 Golden Rules", href: '/learn/golden-rules' },
     //         { en: 'Understanding Chart Patterns', href: '/learn/chart-patterns' },
-    //         { en: 'Useful Stock Sources', href: '/useful-stock-sources' },
-    //         { en: 'Recommended Reading', href: '/recommended-reading' },
+    //         { en: 'Useful Stock Resources', href: '/learn/useful-stock-sources' },
+    //         { en: 'Recommended Reading', href: '/learn/recommended-reading' },
     //       ]
     //     },
     //   ],
@@ -265,6 +266,9 @@ export default function Navbar() {
             <Link href="/stocks" className={styles['navbar-link']}>
               Stocks
             </Link>
+            {/* <Link href="/stocks/market-breadth" className={styles['navbar-link']}>
+              Market Breadth
+            </Link> */}
             <Link href="/stocks/charts" className={styles['navbar-link']}>
               Charts
             </Link>

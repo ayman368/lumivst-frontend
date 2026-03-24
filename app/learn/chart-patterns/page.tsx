@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ExternalLink, TrendingUp, ImageIcon } from 'lucide-react';
+import { TrendingUp, ImageIcon, ChevronRight, BookOpen, ArrowLeft } from 'lucide-react';
 
 /* ─────────────────────────── Pattern Data ─────────────────────────── */
 
@@ -168,7 +168,7 @@ const chartPatterns = [
     id: 10,
     name: 'Head & Shoulders',
     slug: 'head-and-shoulders',
-    color: '#f1c40f', // Use an energetic bright color to match the style
+    color: '#f1c40f',
     diagramImg: '/images/chart-patterns/head_shoulder1.gif',
     sampleImg:  '/images/chart-patterns/head_shoulder2.gif',
     diagramPosition: 'bottom',
@@ -191,7 +191,7 @@ const chartPatterns = [
     id: 11,
     name: 'Inverted Head & Shoulders',
     slug: 'inverted-head-and-shoulders',
-    color: '#f1c40f',
+    color: '#00cec9',
     diagramImg: '/images/chart-patterns/inverted_hs1.gif',
     sampleImg:  '/images/chart-patterns/inverted_hs2.gif',
     diagramPosition: 'bottom',
@@ -220,20 +220,28 @@ function ImgPlaceholder({ label, height = 220 }: { label: string; height?: numbe
       width: '100%',
       height: `${height}px`,
       background: 'rgba(20,24,32,0.6)',
-      border: '2px dashed rgba(120,123,134,0.25)',
-      borderRadius: '10px',
+      border: '2px dashed rgba(120,123,134,0.15)',
+      borderRadius: '12px',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       gap: '8px',
-      color: '#4a4f5e',
+      color: '#3a3f50',
     }}>
-      <ImageIcon size={28} strokeWidth={1.5} />
+      <ImageIcon size={28} strokeWidth={1.2} />
       <span style={{ fontSize: '12px', fontWeight: 500 }}>{label}</span>
     </div>
   );
 }
+
+/* ─────────────────────────── Shared image style ─────────────────────────── */
+const imgStyle: React.CSSProperties = {
+  maxWidth: '100%',
+  borderRadius: '12px',
+  display: 'inline-block',
+  border: '1px solid rgba(255,255,255,0.06)',
+};
 
 /* ─────────────────────────── Page Component ─────────────────────────── */
 
@@ -244,450 +252,415 @@ export default function ChartPatternsPage() {
   return (
     <div style={{
       minHeight: 'calc(100vh - 64px)',
-      background: 'linear-gradient(160deg, #0d1117 0%, #131722 60%, #0d1117 100%)',
-      padding: '32px 24px 60px',
+      background: '#0a0c10',
+      padding: '0',
       fontFamily: "'Inter', sans-serif",
+      position: 'relative',
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-        @keyframes fadeSlideIn {
-          from { opacity: 0; transform: translateY(14px); }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(16px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        .pat-btn { transition: all 0.18s ease; border-left: 3px solid transparent; }
-        .pat-btn:hover { background: rgba(255,255,255,0.04) !important; }
+        @keyframes glowPulse {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 0.7; }
+        }
+        .pat-btn { transition: all 0.2s ease; }
+        .pat-btn:hover { background: rgba(255,255,255,0.03) !important; }
+        .pat-btn:hover .pat-name { color: #d1d4dc !important; }
+        .detail-section { animation: fadeUp 0.35s ease; }
+        .img-hover { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .img-hover:hover { transform: scale(1.01); box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
       `}</style>
 
+      {/* Ambient glow blobs */}
       <div style={{
-        maxWidth: '1200px',
-        margin: '0 auto',
+        position: 'fixed', top: '-100px', right: '-100px',
+        width: '500px', height: '500px',
+        background: 'radial-gradient(circle, rgba(240,185,11,0.07) 0%, transparent 70%)',
+        animation: 'glowPulse 6s ease-in-out infinite',
+        pointerEvents: 'none', zIndex: 0,
+      }} />
+      <div style={{
+        position: 'fixed', bottom: '-100px', left: '-100px',
+        width: '400px', height: '400px',
+        background: 'radial-gradient(circle, rgba(108,92,231,0.07) 0%, transparent 70%)',
+        animation: 'glowPulse 8s ease-in-out infinite 2s',
+        pointerEvents: 'none', zIndex: 0,
+      }} />
+
+      {/* Page Header */}
+      <div style={{
+        borderBottom: '1px solid rgba(255,255,255,0.05)',
+        background: 'rgba(13,17,23,0.8)',
+        backdropFilter: 'blur(20px)',
+        padding: '28px 32px',
+        position: 'relative', zIndex: 1,
+      }}>
+        <div style={{ maxWidth: '1240px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: '32px', height: '32px', borderRadius: '8px',
+              background: 'linear-gradient(135deg, #f0b90b22, #f0b90b08)',
+              border: '1px solid rgba(240,185,11,0.2)',
+            }}>
+              <BookOpen size={15} color="#f0b90b" />
+            </div>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: '#f0b90b', letterSpacing: '2px', textTransform: 'uppercase' }}>
+              Learn
+            </span>
+          </div>
+          <h1 style={{
+            margin: 0, fontSize: '28px', fontWeight: 800,
+            background: 'linear-gradient(90deg, #e8eaed 30%, #f0b90b 100%)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            letterSpacing: '-0.5px',
+          }}>
+            Understanding Chart Patterns
+          </h1>
+          <p style={{ margin: '6px 0 0', color: '#4a4f5e', fontSize: '14px', fontWeight: 400 }}>
+            11 essential formations every trader should master
+          </p>
+        </div>
+      </div>
+
+      {/* Main layout */}
+      <div style={{
+        maxWidth: '1240px', margin: '0 auto',
         display: 'grid',
-        gridTemplateColumns: '1fr 290px',
-        gap: '32px',
+        gridTemplateColumns: '1fr 280px',
+        gap: '0',
         alignItems: 'start',
+        position: 'relative', zIndex: 1,
       }}>
 
-        {/* ══════════════ LEFT ══════════════ */}
-        <div>
+        {/* ══════════════ LEFT — Content Area ══════════════ */}
+        <div style={{ padding: '32px 36px 60px 32px' }}>
 
-          {/* ── Intro header (always visible) ── */}
+          {/* ── Intro ── */}
           {!active && (
-            <div style={{ animation: 'fadeSlideIn 0.35s ease' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-                <div style={{
-                  width: '36px', height: '36px',
-                  background: 'linear-gradient(135deg,#f0b90b,#f8d44a)',
-                  borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: '0 4px 14px rgba(240,185,11,0.35)',
-                }}>
-                  <TrendingUp size={19} color="#0d1117" strokeWidth={2.5}/>
-                </div>
-                <p style={{ margin: 0, color: '#f0b90b', fontSize: '11px', fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase' }}>
-                  Charting Programs
-                </p>
-              </div>
-
-              <h1 style={{
-                fontSize: '32px', fontWeight: 800, margin: '0 0 24px 0',
-                background: 'linear-gradient(90deg,#e8eaed 0%,#f0b90b 100%)',
-                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-              }}>
-                Understanding Chart Patterns
-              </h1>
-
+            <div className="detail-section">
               <div style={{
-                background: 'rgba(30,34,45,0.8)',
-                border: '1px solid rgba(240,185,11,0.15)',
-                borderRadius: '16px', padding: '28px 32px',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                background: 'rgba(16,20,28,0.7)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '16px',
+                padding: '32px',
+                marginBottom: '20px',
+                backdropFilter: 'blur(10px)',
               }}>
                 {[
                   "Identifying chart patterns is simply a system for predicting stock market trends and turns! Hundreds of years of price charts have shown that prices tend to move in trends. (I'm sure we've all heard the saying, 'the trend is your friend.') Well, a trend is merely an indicator of an imbalance in the supply and demand. These changes can be seen by market action through changes in price.",
                   "These price changes often form meaningful chart patterns that can act as signals in trying to determine possible future trend developments. Research has proven that some patterns have high forecasting probabilities. These patterns include: The Cup & Handle, Flat Base, Ascending and Descending Triangles, Parabolic/Symmetrical Triangles, Wedges, Flags and Pennants, Channels and the Head and Shoulders Patterns. In my opinion, these are some of the best patterns to trade.",
                   "This section is designed to introduce you to some of these chart patterns, as well as teach you to identify repetitions in the market qualities, to make timely and more accurate decisions when predicting market trends.",
                 ].map((p, i) => (
-                  <p key={i} style={{ color: '#b0b3bc', fontSize: '15px', lineHeight: '1.85', margin: i < 2 ? '0 0 18px 0' : '0' }}>{p}</p>
+                  <p key={i} style={{ color: '#8a8f9e', fontSize: '15px', lineHeight: '1.9', margin: i < 2 ? '0 0 18px 0' : '0', fontWeight: 400 }}>{p}</p>
                 ))}
               </div>
 
-              <div style={{
-                marginTop: '20px', padding: '14px 20px',
-                background: 'rgba(240,185,11,0.05)',
-                border: '1px dashed rgba(240,185,11,0.2)',
-                borderRadius: '12px', color: '#6c7080', fontSize: '14px', textAlign: 'center',
-              }}>
-                👈 Select a pattern from the list to learn more
-              </div>
+
             </div>
           )}
 
           {/* ── Pattern Detail ── */}
           {active && (
-            <div key={active.id} style={{ animation: 'fadeSlideIn 0.35s ease' }}>
+            <div key={active.id} className="detail-section">
 
-              {/* Breadcrumb */}
-              <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: '#4a4f5e' }}>
-                <span style={{ color: '#787b86', cursor: 'pointer' }} onClick={() => setActiveId(null)}>
-                  Chart Patterns
-                </span>
-                {' → '}
+              {/* Back breadcrumb */}
+              <button
+                onClick={() => setActiveId(null)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  color: '#4a4f5e', fontSize: '13px', fontWeight: 500,
+                  padding: '0', marginBottom: '24px',
+                  transition: 'color 0.2s',
+                }}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#787b86'}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = '#4a4f5e'}
+              >
+                <ArrowLeft size={14} />
+                Chart Patterns
+                <span style={{ margin: '0 4px', color: '#2a2f3e' }}>/</span>
                 <span style={{ color: active.color }}>{active.name}</span>
-              </p>
+              </button>
 
-              {/* Title */}
-              <h1 style={{
-                fontSize: '34px', fontWeight: 800, margin: '0 0 28px 0',
-                background: `linear-gradient(90deg, #e8eaed 20%, ${active.color} 100%)`,
-                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              {/* Title with accent bar */}
+              <div style={{ marginBottom: '28px' }}>
+                <div style={{
+                  width: '40px', height: '3px', borderRadius: '99px',
+                  background: active.color, marginBottom: '14px',
+                  boxShadow: `0 0 12px ${active.color}66`,
+                }} />
+                <h2 style={{
+                  fontSize: '30px', fontWeight: 800, margin: 0,
+                  background: `linear-gradient(90deg, #e8eaed 20%, ${active.color} 100%)`,
+                  WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                  letterSpacing: '-0.5px',
+                }}>
+                  The {active.name} Pattern
+                </h2>
+              </div>
+
+              {/* Content body */}
+              <div style={{
+                background: 'rgba(16,20,28,0.6)',
+                border: '1px solid rgba(255,255,255,0.05)',
+                borderRadius: '16px', padding: '28px 32px',
+                backdropFilter: 'blur(10px)', marginBottom: '24px',
               }}>
-                The {active.name} Pattern
-              </h1>
-
-              {/* Pattern Layout Check */}
-              {/* @ts-ignore - TS infers optional types for objects */}
-              {active.diagramPosition === 'bottom' ? (
-                <div style={{ marginBottom: '24px' }}>
-                  {/* Paragraphs TOP */}
-                  <div style={{ marginBottom: '16px' }}>
+                {/* @ts-ignore */}
+                {active.diagramPosition === 'bottom' ? (
+                  <>
+                    <div style={{ marginBottom: '24px' }}>
+                      {active.paragraphs.map((p, i) => (
+                        <p key={i} style={{ color: '#8a8f9e', fontSize: '15px', lineHeight: '1.9', margin: i < active.paragraphs.length - 1 ? '0 0 16px 0' : '0' }}>{p}</p>
+                      ))}
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      {active.diagramImg
+                        ? <img src={active.diagramImg} alt={`${active.name} diagram`} style={imgStyle} className="img-hover" />
+                        : <ImgPlaceholder label={`${active.name} Diagram`} height={250} />}
+                    </div>
+                  </>
+                ) : active.diagramPosition === 'top' ? (
+                  <>
+                    <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                      {active.diagramImg
+                        ? <img src={active.diagramImg} alt={`${active.name} diagram`} style={imgStyle} className="img-hover" />
+                        : <ImgPlaceholder label={`${active.name} Diagram`} height={250} />}
+                    </div>
                     {active.paragraphs.map((p, i) => (
-                      <p key={i} style={{
-                        color: '#b0b3bc', fontSize: '15px', lineHeight: '1.85',
-                        margin: i < active.paragraphs.length - 1 ? '0 0 16px 0' : '0',
-                      }}>
-                        {p}
-                      </p>
+                      <p key={i} style={{ color: '#8a8f9e', fontSize: '15px', lineHeight: '1.9', margin: i < active.paragraphs.length - 1 ? '0 0 16px 0' : '0' }}>{p}</p>
                     ))}
-                  </div>
-                  {/* Diagram BELOW */}
-                  <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                    {active.diagramImg ? (
-                      <img
-                        src={active.diagramImg}
-                        alt={`${active.name} diagram`}
-                        style={{ maxWidth: '100%', borderRadius: '10px', display: 'inline-block' }}
-                      />
-                    ) : (
-                      <ImgPlaceholder label={`${active.name} Diagram`} height={250} />
-                    )}
-                  </div>
-                </div>
-              ) : active.diagramPosition === 'top' ? (
-                <div style={{ marginBottom: '24px' }}>
-                  {/* Diagram TOP */}
-                  <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                    {active.diagramImg ? (
-                      <img
-                        src={active.diagramImg}
-                        alt={`${active.name} diagram`}
-                        style={{ maxWidth: '100%', borderRadius: '10px', display: 'inline-block' }}
-                      />
-                    ) : (
-                      <ImgPlaceholder label={`${active.name} Diagram`} height={250} />
-                    )}
-                  </div>
-                  {/* Paragraphs BELOW */}
-                  <div>
-                    {active.paragraphs.map((p, i) => (
-                      <p key={i} style={{
-                        color: '#b0b3bc', fontSize: '15px', lineHeight: '1.85',
-                        margin: i < active.paragraphs.length - 1 ? '0 0 16px 0' : '0',
-                      }}>
-                        {p}
-                      </p>
+                  </>
+                ) : active.diagramPosition === 'middle' ? (
+                  <>
+                    <p style={{ color: '#8a8f9e', fontSize: '15px', lineHeight: '1.9', margin: '0 0 20px 0' }}>{active.paragraphs[0]}</p>
+                    <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                      {active.diagramImg && <img src={active.diagramImg} alt={`${active.name} diagram`} style={imgStyle} className="img-hover" />}
+                    </div>
+                    {active.paragraphs.slice(1).map((p, i) => (
+                      <p key={i} style={{ color: '#8a8f9e', fontSize: '15px', lineHeight: '1.9', margin: i < active.paragraphs.length - 2 ? '0 0 16px 0' : '0' }}>{p}</p>
                     ))}
-                  </div>
-                </div>
-              ) : active.diagramPosition === 'middle' ? (
-                <div style={{ marginBottom: '24px' }}>
-                  <p style={{ color: '#b0b3bc', fontSize: '15px', lineHeight: '1.85', margin: '0 0 16px 0' }}>{active.paragraphs[0]}</p>
-                  <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-                    {active.diagramImg && (
-                      <img src={active.diagramImg} alt={`${active.name} diagram`} style={{ maxWidth: '100%', borderRadius: '10px', display: 'inline-block' }} />
-                    )}
-                  </div>
-                  {active.paragraphs.slice(1).map((p, i) => (
-                    <p key={i} style={{
-                      color: '#b0b3bc', fontSize: '15px', lineHeight: '1.85',
-                      margin: i < active.paragraphs.length - 2 ? '0 0 16px 0' : '0',
-                    }}>
-                      {p}
-                    </p>
-                  ))}
-                </div>
-              ) : active.diagramPosition === 'pennant_custom' ? (
-                <div style={{ marginBottom: '24px' }}>
-                  <p style={{ color: '#b0b3bc', fontSize: '15px', lineHeight: '1.85', margin: '0 0 16px 0' }}>{active.paragraphs[0]}</p>
-                  <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                    {active.diagramImg && (
-                      <img src={active.diagramImg} alt="Pennants" style={{ maxWidth: '100%', borderRadius: '10px', display: 'inline-block' }} />
-                    )}
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(150px, auto) 1fr', gap: '32px', alignItems: 'start', marginBottom: '24px' }}>
-                    <div>
+                  </>
+                ) : active.diagramPosition === 'pennant_custom' ? (
+                  <>
+                    <p style={{ color: '#8a8f9e', fontSize: '15px', lineHeight: '1.9', margin: '0 0 20px 0' }}>{active.paragraphs[0]}</p>
+                    <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                       {/* @ts-ignore */}
-                      {active.extraImg && (
-                        // @ts-ignore
-                        <img src={active.extraImg} alt="Flags" style={{ maxWidth: '100%', borderRadius: '10px', display: 'block' }} />
-                      )}
+                      {active.diagramImg && <img src={active.diagramImg} alt="Pennants" style={imgStyle} className="img-hover" />}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(150px,auto) 1fr', gap: '32px', alignItems: 'start', marginBottom: '24px' }}>
+                      <div>
+                        {/* @ts-ignore */}
+                        {active.extraImg && <img src={active.extraImg} alt="Flags" style={{ ...imgStyle, width: '100%' }} className="img-hover" />}
+                      </div>
+                      <div>
+                        {active.bullets && (
+                          <ol style={{ margin: 0, paddingLeft: '22px', listStyleType: 'decimal' }}>
+                            {active.bullets.map((b: string, i: number) => (
+                              <li key={i} style={{ color: '#8a8f9e', fontSize: '15px', lineHeight: '1.85', marginBottom: i < active.bullets!.length - 1 ? '14px' : '0' }}>{b}</li>
+                            ))}
+                          </ol>
+                        )}
+                      </div>
+                    </div>
+                    <p style={{ color: '#8a8f9e', fontSize: '15px', lineHeight: '1.9', margin: 0 }}>{active.paragraphs[1]}</p>
+                  </>
+                ) : active.diagramPosition === 'wedge_custom' ? (
+                  <>
+                    <p style={{ color: '#8a8f9e', fontSize: '15px', lineHeight: '1.9', margin: '0 0 20px 0' }}>{active.paragraphs[0]}</p>
+                    <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                      {active.diagramImg && <img src={active.diagramImg} alt="Falling Wedge" style={imgStyle} className="img-hover" />}
+                    </div>
+                    <p style={{ color: '#8a8f9e', fontSize: '15px', lineHeight: '1.9', margin: '0 0 20px 0' }}>{active.paragraphs[1]}</p>
+                    <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                      {/* @ts-ignore */}
+                      {active.extraImg && <img src={active.extraImg} alt="Rising Wedge" style={imgStyle} className="img-hover" />}
+                    </div>
+                    <p style={{ color: '#8a8f9e', fontSize: '15px', lineHeight: '1.9', margin: 0 }}>{active.paragraphs[2]}</p>
+                  </>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px', gap: '28px', alignItems: 'start' }}>
+                    <div>
+                      {active.paragraphs.map((p, i) => (
+                        <p key={i} style={{ color: '#8a8f9e', fontSize: '15px', lineHeight: '1.9', margin: i < active.paragraphs.length - 1 ? '0 0 16px 0' : '0' }}>{p}</p>
+                      ))}
                     </div>
                     <div>
-                      {active.bullets && (
-                        <ol style={{ margin: '0', paddingLeft: '22px', listStyleType: 'decimal' }}>
-                          {active.bullets.map((b: string, i: number) => (
-                            <li key={i} style={{ color: '#b0b3bc', fontSize: '15px', lineHeight: '1.85', marginBottom: i < active.bullets!.length - 1 ? '16px' : '0' }}>
-                              {b}
-                            </li>
-                          ))}
-                        </ol>
-                      )}
+                      {active.diagramImg
+                        ? <img src={active.diagramImg} alt={`${active.name} diagram`} style={{ ...imgStyle, width: '100%' }} className="img-hover" />
+                        : <ImgPlaceholder label={`${active.name} Diagram`} height={180} />}
                     </div>
                   </div>
-                  <p style={{ color: '#b0b3bc', fontSize: '15px', lineHeight: '1.85', margin: '0' }}>{active.paragraphs[1]}</p>
-                </div>
-              ) : active.diagramPosition === 'wedge_custom' ? (
-                <div style={{ marginBottom: '24px' }}>
-                  {/* Specific interleaved layout for Wedge Formation */}
-                  <p style={{ color: '#b0b3bc', fontSize: '15px', lineHeight: '1.85', margin: '0 0 16px 0' }}>
-                    {active.paragraphs[0]}
-                  </p>
-                  <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-                    {active.diagramImg && (
-                      <img src={active.diagramImg} alt="Falling Wedge" style={{ maxWidth: '100%', borderRadius: '10px', display: 'inline-block' }} />
-                    )}
-                  </div>
-                  <p style={{ color: '#b0b3bc', fontSize: '15px', lineHeight: '1.85', margin: '0 0 16px 0' }}>
-                    {active.paragraphs[1]}
-                  </p>
-                  <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-                    {/* @ts-ignore */}
-                    {active.extraImg && (
-                      // @ts-ignore
-                      <img src={active.extraImg} alt="Rising Wedge" style={{ maxWidth: '100%', borderRadius: '10px', display: 'inline-block' }} />
-                    )}
-                  </div>
-                  <p style={{ color: '#b0b3bc', fontSize: '15px', lineHeight: '1.85', margin: '0' }}>
-                    {active.paragraphs[2]}
-                  </p>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px', gap: '24px', marginBottom: '24px', alignItems: 'start' }}>
-                  <div>
-                    {active.paragraphs.map((p, i) => (
-                      <p key={i} style={{
-                        color: '#b0b3bc', fontSize: '15px', lineHeight: '1.85',
-                        margin: i < active.paragraphs.length - 1 ? '0 0 16px 0' : '0',
-                      }}>
-                        {p}
-                      </p>
-                    ))}
-                  </div>
-                  {/* Diagram image — real or placeholder */}
-                  <div>
-                    {active.diagramImg ? (
-                      <img
-                        src={active.diagramImg}
-                        alt={`${active.name} diagram`}
-                        style={{ width: '100%', borderRadius: '10px', display: 'block' }}
-                      />
-                    ) : (
-                      <ImgPlaceholder label={`${active.name} Diagram`} height={180} />
-                    )}
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
 
-              {/* Numbered bullet list — full width below */}
+              {/* Bullet list */}
               {/* @ts-ignore */}
               {active.bullets && active.diagramPosition !== 'pennant_custom' && (
-                <ol style={{ margin: '0 0 20px 0', paddingLeft: '22px', listStyleType: 'decimal' }}>
-                  {active.bullets.map((b: string, i: number) => (
-                    <li key={i} style={{
-                      color: i === active.bullets!.length - 1 ? '#4caf50' : '#b0b3bc',
-                      fontSize: '15px', lineHeight: '1.8',
-                      marginBottom: i < active.bullets!.length - 1 ? '10px' : '0',
-                      fontWeight: i === active.bullets!.length - 1 ? 600 : 400,
-                      paddingLeft: '4px',
-                    }}>
-                      {b}
-                    </li>
-                  ))}
-                </ol>
+                <div style={{
+                  background: 'rgba(16,20,28,0.5)',
+                  border: '1px solid rgba(255,255,255,0.05)',
+                  borderRadius: '14px', padding: '24px 28px',
+                  marginBottom: '16px',
+                }}>
+                  <ol style={{ margin: 0, paddingLeft: '22px', listStyleType: 'decimal' }}>
+                    {active.bullets.map((b: string, i: number) => (
+                      <li key={i} style={{
+                        color: i === active.bullets!.length - 1 ? '#4caf50' : '#8a8f9e',
+                        fontSize: '15px', lineHeight: '1.8',
+                        marginBottom: i < active.bullets!.length - 1 ? '12px' : '0',
+                        fontWeight: i === active.bullets!.length - 1 ? 600 : 400,
+                        paddingLeft: '6px',
+                      }}>
+                        {b}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
               )}
 
-              {/* Note box — full width */}
+              {/* Note box */}
               {active.note && (
                 <div style={{
-                  padding: '14px 18px',
-                  background: 'rgba(162,155,254,0.08)',
-                  border: '1px solid rgba(162,155,254,0.25)',
+                  padding: '18px 22px',
+                  background: `${active.color}08`,
+                  border: `1px solid ${active.color}22`,
+                  borderLeft: `3px solid ${active.color}`,
                   borderRadius: '10px',
-                  color: '#9ba0ab',
+                  color: '#6c7080',
                   fontSize: '13.5px',
-                  lineHeight: '1.7',
+                  lineHeight: '1.75',
                   fontStyle: 'italic',
-                  marginBottom: '24px',
+                  marginBottom: '20px',
                 }}>
                   {active.note}
                 </div>
               )}
 
-              {/* After-note paragraph — full width */}
+              {/* After-note paragraph */}
               {/* @ts-ignore */}
               {active.afterNoteParagraph && (
-                <p style={{
-                  color: '#b0b3bc', fontSize: '15px', lineHeight: '1.85', margin: '0 0 24px 0',
-                }}>
+                <p style={{ color: '#8a8f9e', fontSize: '15px', lineHeight: '1.9', margin: '0 0 24px 0' }}>
                   {/* @ts-ignore */}
                   {active.afterNoteParagraph}
                 </p>
               )}
 
-              {/* Sample chart section — only shown when a real image exists */}
+              {/* Sample chart */}
               {active.sampleImg && (
                 <div style={{
-                  borderTop: `1px solid ${active.color}25`,
-                  paddingTop: '28px',
+                  borderTop: '1px solid rgba(255,255,255,0.05)',
+                  paddingTop: '28px', marginTop: '8px',
                 }}>
-                  <p style={{
-                    fontSize: '14px', fontWeight: 700, letterSpacing: '1px',
-                    color: '#d1d4dc', textTransform: 'uppercase', textAlign: 'center',
-                    margin: '0 0 20px 0',
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    marginBottom: '20px',
                   }}>
-                    HERE IS A SAMPLE CHART WITH A {active.sampleLabel?.toUpperCase() || `${active.name.toUpperCase()} PATTERN`}
-                  </p>
-                  <img
-                    src={active.sampleImg}
-                    alt={`${active.name} sample chart`}
-                    style={{ width: '100%', borderRadius: '10px', display: 'block' }}
-                  />
+                    <div style={{ height: '1px', flex: 1, background: 'rgba(255,255,255,0.05)' }} />
+                    <span style={{
+                      fontSize: '11px', fontWeight: 700, letterSpacing: '2px',
+                      color: '#3a3f50', textTransform: 'uppercase', whiteSpace: 'nowrap',
+                    }}>
+                      Sample Chart — {active.sampleLabel?.toUpperCase() || active.name.toUpperCase()}
+                    </span>
+                    <div style={{ height: '1px', flex: 1, background: 'rgba(255,255,255,0.05)' }} />
+                  </div>
+                  <img src={active.sampleImg} alt={`${active.name} sample chart`} style={{ ...imgStyle, width: '100%' }} className="img-hover" />
                 </div>
               )}
 
 
-              {/* External link */}
-              <div style={{ marginTop: '28px', textAlign: 'center' }}>
-                <a
-                  href="https://www.chartpattern.com/chart-patterns.cfm"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '7px',
-                    padding: '11px 22px',
-                    background: `${active.color}18`,
-                    border: `1px solid ${active.color}45`,
-                    borderRadius: '10px',
-                    color: active.color,
-                    textDecoration: 'none',
-                    fontSize: '13px', fontWeight: 600,
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLElement).style.background = `${active.color}28`;
-                    (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLElement).style.background = `${active.color}18`;
-                    (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
-                  }}
-                >
-                  <ExternalLink size={14}/> View more on chartpattern.com
-                </a>
-              </div>
             </div>
           )}
         </div>
 
         {/* ══════════════ RIGHT — Pattern List ══════════════ */}
         <div style={{
-          background: 'rgba(28,32,42,0.9)',
-          border: '1px solid rgba(240,185,11,0.2)',
-          borderRadius: '16px',
-          overflow: 'hidden',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
           position: 'sticky',
           top: '80px',
+          height: 'fit-content',
+          borderLeft: '1px solid rgba(255,255,255,0.05)',
+          paddingTop: '24px',
+          paddingBottom: '16px',
         }}>
-          {/* Header */}
+          {/* Panel Header */}
           <div style={{
-            padding: '16px 20px',
-            background: 'linear-gradient(135deg,rgba(240,185,11,0.14),rgba(240,185,11,0.04))',
-            borderBottom: '1px solid rgba(240,185,11,0.18)',
+            padding: '4px 20px 16px',
+            borderBottom: '1px solid rgba(255,255,255,0.05)',
+            marginBottom: '4px',
           }}>
-            <p style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#f0b90b', lineHeight: 1.3 }}>
-              11 Most Common Stock
-            </p>
-            <p style={{ margin: '3px 0 0 0', fontSize: '13px', color: '#787b86' }}>
-              Chart Patterns
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <TrendingUp size={13} color="#f0b90b" strokeWidth={2.5} />
+              <span style={{ fontSize: '10px', fontWeight: 700, color: '#f0b90b', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                11 Chart Patterns
+              </span>
+            </div>
           </div>
 
-          {/* Items */}
-          <div style={{ padding: '8px 0' }}>
-            {chartPatterns.map((p) => {
+          {/* Pattern list */}
+          <div style={{ padding: '4px 0' }}>
+            {chartPatterns.map((p, index) => {
               const isActive = activeId === p.id;
               return (
                 <button
                   key={p.id}
                   className="pat-btn"
                   onClick={() => setActiveId(isActive ? null : p.id)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '11px',
-                    width: '100%', padding: '10px 16px',
-                    background: isActive ? `${p.color}12` : 'transparent',
+                style={{
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    width: '100%', padding: '9px 20px',
+                    background: isActive ? `${p.color}10` : 'transparent',
                     border: 'none',
-                    borderLeft: isActive ? `3px solid ${p.color}` : '3px solid transparent',
+                    borderLeft: isActive ? `2px solid ${p.color}` : '2px solid transparent',
                     cursor: 'pointer', textAlign: 'left',
                   }}
                 >
+                  {/* Number badge */}
                   <span style={{
-                    width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
-                    background: isActive
-                      ? `linear-gradient(135deg,${p.color},${p.color}bb)`
-                      : 'rgba(120,123,134,0.13)',
-                    color: isActive ? '#0d1117' : '#6c7080',
-                    fontSize: '11px', fontWeight: 700,
+                    minWidth: '22px', height: '22px', borderRadius: '6px', flexShrink: 0,
+                    background: isActive ? p.color : 'rgba(255,255,255,0.04)',
+                    color: isActive ? '#0a0c10' : '#2a2f3e',
+                    fontSize: '10px', fontWeight: 800,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    transition: 'all 0.18s ease',
+                    transition: 'all 0.2s ease',
                   }}>
                     {p.id}
                   </span>
-                  <span style={{
-                    fontSize: '13px',
-                    fontWeight: isActive ? 600 : 400,
-                    color: isActive ? p.color : '#8a8f9e',
-                    transition: 'color 0.18s ease',
-                    lineHeight: 1.35,
-                  }}>
+
+                  {/* Name */}
+                  <span
+                    className="pat-name"
+                    style={{
+                      fontSize: '12.5px', fontWeight: isActive ? 600 : 400,
+                      color: isActive ? p.color : '#3a4050',
+                      transition: 'color 0.2s ease', lineHeight: 1.4, flex: 1,
+                    }}
+                  >
                     {p.name}
                   </span>
+
+                  {/* Arrow indicator */}
+                  <ChevronRight
+                    size={13}
+                    style={{
+                      color: isActive ? p.color : '#2a2f3e',
+                      transform: isActive ? 'translateX(2px)' : 'none',
+                      transition: 'all 0.2s ease',
+                      flexShrink: 0,
+                    }}
+                  />
                 </button>
               );
             })}
           </div>
 
-          {/* Footer */}
-          <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-            <a
-              href="https://www.chartpattern.com/chart-patterns.cfm"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                padding: '9px',
-                background: 'rgba(240,185,11,0.08)',
-                border: '1px solid rgba(240,185,11,0.2)',
-                borderRadius: '8px',
-                color: '#f0b90b', textDecoration: 'none',
-                fontSize: '12px', fontWeight: 600, transition: 'background 0.2s',
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(240,185,11,0.16)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(240,185,11,0.08)'; }}
-            >
-              <ExternalLink size={13}/> chartpattern.com
-            </a>
-          </div>
-        </div>
 
+        </div>
       </div>
     </div>
   );
