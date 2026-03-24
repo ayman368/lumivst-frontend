@@ -79,15 +79,15 @@ export default function MarketBreadthPage() {
         crosshair: {
             mode: CrosshairMode.Normal,
             vertLine: {
-                width: 1,
+                width: 1 as any,
                 color: '#6b7280',
-                style: 3,
+                style: 3 as any,
                 labelBackgroundColor: '#374151',
             },
             horzLine: {
-                width: 1,
+                width: 1 as any,
                 color: '#6b7280',
-                style: 3,
+                style: 3 as any,
                 labelBackgroundColor: '#374151',
             },
         },
@@ -135,7 +135,7 @@ export default function MarketBreadthPage() {
             lineColor: lineColor,
             topColor: topColor,
             bottomColor: bottomColor,
-            lineWidth: 2,
+            lineWidth: 2 as any,
             title: title,
             crosshairMarkerVisible: true,
             lastValueVisible: true,
