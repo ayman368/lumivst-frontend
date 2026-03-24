@@ -266,9 +266,9 @@ export default function Navbar() {
             <Link href="/stocks" className={styles['navbar-link']}>
               Stocks
             </Link>
-            <Link href="/stocks/market-breadth" className={styles['navbar-link']}>
+            {/* <Link href="/stocks/market-breadth" className={styles['navbar-link']}>
               Market Breadth
-            </Link>
+            </Link> */}
             <Link href="/stocks/charts" className={styles['navbar-link']}>
               Charts
             </Link>
