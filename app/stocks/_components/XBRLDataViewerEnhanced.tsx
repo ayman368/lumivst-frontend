@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react';
-import { Loader2, FileSpreadsheet, AlertCircle, Settings, Eye, EyeOff, Menu, TrendingUp, BarChart3, ChevronRight, Search, Filter, X } from 'lucide-react';
+import { Loader2, FileSpreadsheet, AlertCircle, Menu, BarChart3, Search, X, TrendingUp } from 'lucide-react';
 
 interface MetricRecord {
     key: string;
@@ -12,16 +12,6 @@ interface MetricRecord {
 
 interface MetricsBySection {
     [section: string]: MetricRecord[];
-}
-
-interface MetricDisplaySetting {
-    metric_name: string;
-    section: string;
-    subsection?: string;
-    description_en?: string;
-    is_visible: boolean;
-    custom_display_label?: string;
-    unit: string;
 }
 
 interface XBRLDataViewerEnhancedProps {
@@ -35,7 +25,7 @@ const getSectionTitle = (section: string): string => {
         .join(' ');
 };
 
-const getSectionIcon = (section: string): string => {
+const getSectionIcon = (section: string): React.ReactNode => {
     const icons: Record<string, string> = {
         income_statement: '📈',
         balance_sheet: '🏦',
@@ -45,18 +35,17 @@ const getSectionIcon = (section: string): string => {
         notes: '📋',
     };
     const key = Object.keys(icons).find(k => section.toLowerCase().includes(k.replace('_', '')));
-    return key ? icons[key] : '📁';
+    return <span>{key ? icons[key] : '📁'}</span>;
 };
 
 export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhancedProps) {
     const [data, setData] = useState<Record<string, MetricsBySection> | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
     const [selectedSection, setSelectedSection] = useState<string | null>(null);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [hoveredRow, setHoveredRow] = useState<string | null>(null);
+    const [periodDisplayMode, setPeriodDisplayMode] = useState<'all' | 'annual' | 'quarterly'>('all');
 
     useEffect(() => {
         async function fetchData() {
@@ -66,8 +55,6 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
                 if (!dataRes.ok) throw new Error("Failed to fetch financial data");
                 const jsonData = await dataRes.json();
                 setData(jsonData);
-                const periods = Object.keys(jsonData);
-                if (periods.length > 0) setSelectedPeriod(periods[0]);
             } catch (err) {
                 console.error(err);
                 setError("No detailed data available for this company yet.");
@@ -79,15 +66,23 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
     }, [symbol]);
 
     useEffect(() => {
-        if (data && selectedPeriod && !selectedSection) {
-            const sections = Object.keys(data[selectedPeriod] || {}).sort();
+        if (data && !selectedSection) {
+            // Get all sections across all periods
+            const allSections = new Set<string>();
+            Object.values(data).forEach(periodData => {
+                Object.keys(periodData).forEach(sec => allSections.add(sec));
+            });
+            const sections = Array.from(allSections).sort();
             if (sections.length > 0) setSelectedSection(sections[0]);
         }
-    }, [data, selectedPeriod, selectedSection]);
+    }, [data, selectedSection]);
 
     const fmt = (val: any) => {
         if (val === null || val === undefined || val === "") return "—";
-        if (typeof val === 'number') return val.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        if (typeof val === 'number') {
+            // Format numbers nicely, adding commas
+            return val.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        }
         if (!isNaN(Number(val)) && val.toString().length > 4) {
             return Number(val).toLocaleString(undefined, { maximumFractionDigits: 2 });
         }
@@ -102,200 +97,176 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
     };
 
     if (loading) return (
-        <div className="flex h-96 items-center justify-center bg-[#0a0e1a]">
-            <div className="flex flex-col items-center gap-4">
+        <div className="flex h-[600px] items-center justify-center bg-[#070B14] rounded-3xl border border-gray-800/60 shadow-2xl">
+            <div className="flex flex-col items-center gap-5">
                 <div className="relative">
-                    <div className="w-16 h-16 rounded-full border-2 border-[#1e2d4a] flex items-center justify-center">
-                        <div className="w-12 h-12 rounded-full border-2 border-transparent border-t-[#00d4ff] animate-spin" />
+                    <div className="w-20 h-20 rounded-full border-[3px] border-[#1e2d4a]/40 flex items-center justify-center">
+                        <div className="absolute w-full h-full rounded-full border-[3px] border-transparent border-t-[#3b82f6] animate-[spin_1s_cubic-bezier(0.5,0.1,0.5,0.9)_infinite]" />
+                        <BarChart3 className="w-8 h-8 text-[#3b82f6] opacity-80" />
                     </div>
-                    <BarChart3 className="absolute inset-0 m-auto w-6 h-6 text-[#00d4ff]" />
                 </div>
                 <div className="text-center">
-                    <p className="text-[#e8f4ff] font-semibold tracking-wider text-sm">LOADING XBRL DATA</p>
-                    <p className="text-[#4a6080] text-xs mt-1 tracking-widest">{symbol}</p>
+                    <p className="text-gray-200 font-bold tracking-[0.2em] text-sm uppercase">Loading Financial Data</p>
+                    <p className="text-[#3b82f6] text-xs mt-1.5 tracking-widest font-mono">{symbol}</p>
                 </div>
             </div>
         </div>
     );
 
     if (error) return (
-        <div className="flex items-center gap-3 p-5 bg-[#0a0e1a] border border-[#ff4d4d]/20 rounded-xl">
-            <div className="w-10 h-10 rounded-full bg-[#ff4d4d]/10 flex items-center justify-center flex-shrink-0">
-                <AlertCircle size={18} className="text-[#ff4d4d]" />
+        <div className="flex items-center gap-4 p-6 bg-[#0f172a] border border-red-500/20 rounded-2xl shadow-2xl max-w-2xl mx-auto mt-20">
+            <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-6 h-6 text-red-400" />
             </div>
             <div>
-                <p className="text-[#ff4d4d] font-medium text-sm">Data Unavailable</p>
-                <p className="text-[#4a6080] text-xs mt-0.5">{error}</p>
+                <p className="text-red-400 font-bold text-base tracking-wide">Data Unavailable</p>
+                <p className="text-gray-400 text-sm mt-1 leading-relaxed">{error}</p>
             </div>
         </div>
     );
 
-    if (!data || !selectedPeriod) return null;
+    if (!data) return null;
 
-    const currentPeriodData = data[selectedPeriod] || {};
-    const sections = Object.keys(currentPeriodData).sort();
-    const periods = Object.keys(data).sort().reverse();
-    const selectedSectionMetrics = selectedSection ? currentPeriodData[selectedSection] || [] : [];
-
-    const filteredMetrics = selectedSectionMetrics.filter(m => {
-        const matchesSearch = searchQuery === '' ||
-            m.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            m.key.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesSearch;
+    // Aggregate periods and sections
+    let periods = Object.keys(data).sort((a, b) => {
+        // Simple sort descending by year. The key looks like "2024 ANNUAL::source"
+        return b.localeCompare(a);
     });
 
-    const visibleCounts: Record<string, { visible: number; total: number }> = {};
-    sections.forEach(section => {
-        const metrics = currentPeriodData[section] || [];
-        visibleCounts[section] = {
-            visible: metrics.length,
-            total: metrics.length
-        };
+    if (periodDisplayMode === 'annual') {
+        periods = periods.filter(p => p.toLowerCase().includes('annual') || p.toLowerCase().includes('year'));
+    } else if (periodDisplayMode === 'quarterly') {
+        // Assume anything that isn't annual/year is quarterly (e.g., Q1, Q2, Q3, 9M, 6M)
+        periods = periods.filter(p => !p.toLowerCase().includes('annual') && !p.toLowerCase().includes('year'));
+    }
+
+    const allSections = new Set<string>();
+    Object.values(data).forEach(periodData => {
+        Object.keys(periodData).forEach(sec => allSections.add(sec));
     });
+    const sections = Array.from(allSections).sort();
+
+    // Gather unique metrics for the selected section
+    const uniqueMetricsMap = new Map<string, { key: string, label: string }>();
+    periods.forEach(p => {
+        const sectionMetrics = data[p][selectedSection || ''] || [];
+        sectionMetrics.forEach(m => {
+            if (!uniqueMetricsMap.has(m.key)) {
+                uniqueMetricsMap.set(m.key, { key: m.key, label: m.label });
+            }
+        });
+    });
+
+    const uniqueMetrics = Array.from(uniqueMetricsMap.values());
+    
+    // Filter rows by search
+    const filteredMetrics = uniqueMetrics.filter(m => 
+        searchQuery === '' || 
+        m.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        m.key.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     return (
-        <div className="w-full font-[system-ui] overflow-hidden rounded-2xl shadow-2xl flex flex-col"
+        <div className="w-full font-[system-ui] overflow-hidden rounded-[20px] shadow-2xl flex flex-col bg-[#0f172a]"
             style={{ 
-                height: 'calc(100vh - 110px)',
-                background: 'linear-gradient(135deg, #0a0e1a 0%, #0d1526 50%, #0a1020 100%)', 
-                border: '1px solid rgba(0,212,255,0.08)' 
+                height: 'calc(100vh - 100px)',
+                border: '1px solid rgba(59,130,246,0.15)' 
             }}>
 
             {/* Top Header Bar */}
-            <div style={{ background: 'linear-gradient(90deg, #0d1830 0%, #0a1525 100%)', borderBottom: '1px solid rgba(0,212,255,0.1)' }}
-                className="px-6 py-4">
+            <div className="px-6 py-5 bg-[#0B1120]/90 backdrop-blur-xl border-b border-gray-800/60 sticky top-0 z-30">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-5">
                         {/* Logo/Brand Area */}
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-lg flex items-center justify-center"
-                                style={{ background: 'linear-gradient(135deg, #00d4ff22, #0066ff22)', border: '1px solid rgba(0,212,255,0.3)' }}>
-                                <FileSpreadsheet className="w-5 h-5 text-[#00d4ff]" />
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-white font-bold text-base tracking-tight">XBRL</span>
-                                    <span className="text-[#00d4ff] font-light text-base tracking-tight">Financial Data</span>
-                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-widest"
-                                        style={{ background: 'rgba(0,212,255,0.12)', color: '#00d4ff', border: '1px solid rgba(0,212,255,0.2)' }}>
-                                        LIVE
-                                    </span>
-                                </div>
-                                <p className="text-[#3a5070] text-xs tracking-widest font-medium mt-0.5">{symbol} · SEC FILINGS</p>
-                            </div>
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/10"
+                            style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.1), rgba(37,99,235,0.05))', border: '1px solid rgba(59,130,246,0.2)' }}>
+                            <FileSpreadsheet className="w-6 h-6 text-blue-400" />
                         </div>
-
-                        {/* Period Tabs */}
-                        <div 
-                            className="flex items-center gap-1 p-1 rounded-lg overflow-x-auto flex-nowrap" 
-                            style={{ 
-                                background: 'rgba(255,255,255,0.03)', 
-                                border: '1px solid rgba(255,255,255,0.06)',
-                                maxWidth: '45vw',
-                                scrollbarWidth: 'thin',
-                                scrollbarColor: '#1a2840 transparent'
-                            }}
-                        >
-                            {periods.map(p => (
-                                <button
-                                    key={p}
-                                    onClick={() => setSelectedPeriod(p)}
-                                    className="px-3 py-1.5 rounded-md text-xs font-semibold tracking-wide transition-all duration-200 flex-shrink-0"
-                                    style={selectedPeriod === p ? {
-                                        background: 'linear-gradient(135deg, rgba(0,212,255,0.2), rgba(0,102,255,0.15))',
-                                        color: '#00d4ff',
-                                        border: '1px solid rgba(0,212,255,0.3)',
-                                        boxShadow: '0 0 12px rgba(0,212,255,0.15)'
-                                    } : {
-                                        color: '#4a6080',
-                                        border: '1px solid transparent'
-                                    }}
-                                >
-                                    {p}
-                                </button>
-                            ))}
+                        <div>
+                            <div className="flex items-center gap-3">
+                                <h1 className="text-white font-black text-xl tracking-tight">Financial Statements</h1>
+                                <span className="px-2.5 py-1 rounded-md text-[10px] font-bold tracking-widest"
+                                    style={{ background: 'rgba(16,185,129,0.1)', color: '#34d399', border: '1px solid rgba(16,185,129,0.2)' }}>
+                                    DATAGRID 2.0
+                                </span>
+                            </div>
+                            <p className="text-gray-400 text-xs tracking-widest font-medium mt-1 uppercase flex items-center gap-2">
+                                <span className="text-blue-400">{symbol}</span>
+                                <span>•</span>
+                                <span>Interactive Matrix</span>
+                            </p>
                         </div>
                     </div>
 
-                    {/* Right Controls hidden to prevent user edit */}
+                    {/* Quick Stats */}
+                    <div className="hidden sm:flex items-center gap-6 text-sm">
+                         <div className="flex flex-col items-end">
+                            <span className="text-gray-500 text-xs font-semibold uppercase tracking-widest">Total Periods</span>
+                            <span className="text-white font-bold">{periods.length}</span>
+                         </div>
+                         <div className="w-px h-8 bg-gray-800/60" />
+                         <div className="flex flex-col items-end">
+                            <span className="text-gray-500 text-xs font-semibold uppercase tracking-widest">Data Points</span>
+                            <span className="text-blue-400 font-bold">{filteredMetrics.length}</span>
+                         </div>
+                    </div>
                 </div>
             </div>
 
             {/* Main Layout */}
-            <div className="flex flex-1 min-h-0">
+            <div className="flex flex-1 min-h-0 relative">
+                
+                {/* Fixed Background Gradients */}
+                <div className="absolute inset-0 bg-gradient-to-br from-[#0f172a] via-[#0B1120] to-[#070B14] pointer-events-none" />
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-900/10 via-transparent to-transparent pointer-events-none" />
 
                 {/* Sidebar */}
                 <div
-                    className="flex-shrink-0 transition-all duration-300 flex flex-col"
-                    style={{
-                        width: sidebarCollapsed ? '60px' : '220px',
-                        background: 'linear-gradient(180deg, #080c18 0%, #0a0f1e 100%)',
-                        borderRight: '1px solid rgba(0,212,255,0.06)'
-                    }}
+                    className="flex-shrink-0 transition-all duration-300 flex flex-col relative z-20 backdrop-blur-md bg-[#0f172a]/60 border-r border-gray-800/60"
+                    style={{ width: sidebarCollapsed ? '72px' : '260px' }}
                 >
                     {/* Sidebar Toggle */}
-                    <div className="flex items-center justify-between p-3"
-                        style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <div className="flex items-center justify-between p-4 border-b border-gray-800/40">
                         {!sidebarCollapsed && (
-                            <span className="text-[10px] font-bold tracking-[0.2em] text-[#2a4060] uppercase">Sections</span>
+                            <span className="text-xs font-bold tracking-[0.2em] text-gray-500 uppercase ml-2">Statements</span>
                         )}
                         <button
                             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                            className="w-7 h-7 rounded-md flex items-center justify-center transition-all ml-auto"
-                            style={{ background: 'rgba(255,255,255,0.04)', color: '#3a5070' }}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:bg-white/5 mx-auto text-gray-400 hover:text-white"
                         >
-                            <Menu className="w-3.5 h-3.5" />
+                            <Menu className="w-4 h-4" />
                         </button>
                     </div>
 
                     {/* Section List */}
-                    <div className="p-2 space-y-0.5 flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+                    <div className="p-3 space-y-1.5 flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
                         {sections.map((section) => {
-                            const counts = visibleCounts[section] || { visible: 0, total: 0 };
                             const isSelected = selectedSection === section;
-                            const pct = counts.total > 0 ? (counts.visible / counts.total) * 100 : 0;
-
                             return (
                                 <button
                                     key={section}
                                     onClick={() => setSelectedSection(section)}
-                                    className="w-full text-left rounded-lg transition-all duration-200 group"
+                                    className="w-full text-left transition-all duration-300 group rounded-xl relative overflow-hidden"
                                     style={{
-                                        padding: sidebarCollapsed ? '10px 8px' : '10px 12px',
-                                        background: isSelected
-                                            ? 'linear-gradient(90deg, rgba(0,212,255,0.12), rgba(0,102,255,0.06))'
-                                            : 'transparent',
-                                        borderLeft: isSelected ? '2px solid #00d4ff' : '2px solid transparent',
+                                        padding: sidebarCollapsed ? '12px' : '12px 16px',
+                                        background: isSelected ? 'rgba(59,130,246,0.1)' : 'transparent',
+                                        border: isSelected ? '1px solid rgba(59,130,246,0.2)' : '1px solid transparent',
                                     }}
                                 >
+                                    {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.8)]" />}
+                                    
                                     {sidebarCollapsed ? (
-                                        <div className="flex items-center justify-center">
-                                            <span className="text-base">{getSectionIcon(section)}</span>
+                                        <div className="flex items-center justify-center text-xl filter drop-shadow opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all">
+                                            {getSectionIcon(section)}
                                         </div>
                                     ) : (
-                                        <div>
-                                            <div className="flex items-center justify-between mb-1.5">
-                                                <span className="text-xs font-semibold truncate"
-                                                    style={{ color: isSelected ? '#e0f4ff' : '#3a5878', maxWidth: '130px' }}>
-                                                    {getSectionTitle(section)}
-                                                </span>
-                                                <span className="text-[10px] font-bold ml-1 flex-shrink-0"
-                                                    style={{ color: isSelected ? '#00d4ff' : '#2a4060' }}>
-                                                    {counts.visible}/{counts.total}
-                                                </span>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`text-lg filter drop-shadow flex-shrink-0 transition-all ${isSelected ? 'scale-110 opacity-100' : 'opacity-70 group-hover:opacity-100'}`}>
+                                                {getSectionIcon(section)}
                                             </div>
-                                            {/* Mini progress bar */}
-                                            <div className="h-0.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                                                <div
-                                                    className="h-full rounded-full transition-all duration-500"
-                                                    style={{
-                                                        width: `${pct}%`,
-                                                        background: isSelected
-                                                            ? 'linear-gradient(90deg, #00d4ff, #0066ff)'
-                                                            : 'rgba(74,96,128,0.5)'
-                                                    }}
-                                                />
-                                            </div>
+                                            <span className={`text-xs font-bold tracking-wide truncate transition-all ${isSelected ? 'text-blue-100' : 'text-gray-400 group-hover:text-gray-200'}`}>
+                                                {getSectionTitle(section)}
+                                            </span>
                                         </div>
                                     )}
                                 </button>
@@ -304,177 +275,158 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
                     </div>
                 </div>
 
-                {/* Main Content */}
-                <div className="flex-1 flex flex-col overflow-hidden">
-
-                    {/* Section Header + Search Bar */}
-                    <div style={{ background: '#080c18', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                        className="px-6 py-4">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                {selectedSection && (
-                                    <>
-                                        <span className="text-lg">{getSectionIcon(selectedSection)}</span>
-                                        <div>
-                                            <h2 className="text-white font-bold text-lg leading-tight">
-                                                {getSectionTitle(selectedSection)}
-                                            </h2>
-                                            <p className="text-[#2a4060] text-xs mt-0.5">
-                                                <span className="text-[#00d4ff] font-semibold">{filteredMetrics.length}</span>
-                                                <span> visible · </span>
-                                                <span>{selectedSectionMetrics.length} total fields</span>
-                                            </p>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-
-                            {/* Search */}
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#2a4060]" />
-                                <input
-                                    type="text"
-                                    placeholder="Search metrics..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="pl-9 pr-8 py-2 text-xs rounded-lg outline-none transition-all"
-                                    style={{
-                                        background: 'rgba(255,255,255,0.04)',
-                                        border: '1px solid rgba(255,255,255,0.08)',
-                                        color: '#a0b8cc',
-                                        width: '220px'
-                                    }}
-                                />
-                                {searchQuery && (
-                                    <button onClick={() => setSearchQuery('')}
-                                        className="absolute right-2.5 top-1/2 -translate-y-1/2">
-                                        <X className="w-3 h-3 text-[#3a5070]" />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Settings Panel removed for users */}
-
-                    {/* Data Table */}
-                    <div className="flex-1 overflow-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#1a2840 transparent' }}>
-                        <table className="w-full border-collapse">
-                            <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-                                <tr style={{ background: '#060a14', borderBottom: '1px solid rgba(0,212,255,0.08)' }}>
-                                    <th className="text-left px-6 py-3 text-[10px] font-bold tracking-[0.15em] uppercase"
-                                        style={{ color: '#2a4060', width: '75%' }}>
-                                        Metric
-                                    </th>
-                                    <th className="text-right px-6 py-3 text-[10px] font-bold tracking-[0.15em] uppercase"
-                                        style={{ color: '#2a4060', width: '25%' }}>
-                                        Value
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredMetrics.map((metric, idx) => {
-                                    const rawVal = metric.value ?? metric.text;
-                                    const isPos = isPositiveValue(rawVal);
-                                    const isHovered = hoveredRow === metric.key;
-
-                                    return (
-                                        <tr
-                                            key={`${metric.key}-${idx}`}
-                                            onMouseEnter={() => setHoveredRow(metric.key)}
-                                            onMouseLeave={() => setHoveredRow(null)}
-                                            style={{
-                                                borderBottom: '1px solid rgba(255,255,255,0.03)',
-                                                background: isHovered
-                                                    ? 'linear-gradient(90deg, rgba(0,212,255,0.04), rgba(0,102,255,0.02))'
-                                                    : idx % 2 === 0 ? 'rgba(255,255,255,0.008)' : 'transparent',
-                                                transition: 'background 0.15s ease'
-                                            }}
-                                        >
-                                            {/* Metric Label */}
-                                            <td className="px-6 py-3.5">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-sm font-medium"
-                                                        style={{ color: isHovered ? '#c8e8f8' : '#7090a8' }}>
-                                                        {metric.label}
-                                                    </span>
-                                                </div>
-                                            </td>
-
-                                            {/* Value */}
-                                            <td className="px-6 py-3.5 text-right">
-                                                <span className="text-sm font-bold font-mono"
-                                                    style={{
-                                                        color: rawVal === null || rawVal === undefined || rawVal === ''
-                                                            ? '#2a4060'
-                                                            : isPos === true
-                                                                ? '#00d4a0'
-                                                                : isPos === false
-                                                                    ? '#ff6b6b'
-                                                                    : '#c8e8f8'
-                                                    }}>
-                                                    {fmt(rawVal)}
-                                                </span>
-                                            </td>
-
-                                            {/* Key */}
-                                            {/* <td className="px-6 py-3.5">
-                                                <code className="text-[10px] px-2 py-0.5 rounded tracking-wide"
-                                                    style={{
-                                                        background: 'rgba(0,212,255,0.05)',
-                                                        color: '#2a5070',
-                                                        border: '1px solid rgba(0,212,255,0.08)',
-                                                        fontFamily: 'monospace'
-                                                    }}>
-                                                    {metric.key}
-                                                </code>
-                                            </td> */}
-
-                                        </tr>
-                                    );
-                                })}
-
-                                {filteredMetrics.length === 0 && (
-                                    <tr>
-                                        <td colSpan={2} className="px-6 py-20 text-center">
-                                            <div className="flex flex-col items-center gap-3">
-                                                <div className="w-12 h-12 rounded-xl flex items-center justify-center"
-                                                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                                                    <BarChart3 className="w-5 h-5 text-[#2a4060]" />
-                                                </div>
-                                                <div>
-                                                    <p className="text-[#3a5878] text-sm font-semibold">No metrics to display</p>
-                                                    <p className="text-[#1e3050] text-xs mt-1">
-                                                        {searchQuery ? 'Try a different search term' : 'Enable fields using Manage Fields'}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Footer Status Bar */}
-                    <div style={{ background: '#060a14', borderTop: '1px solid rgba(0,212,255,0.06)' }}
-                        className="px-6 py-2.5 flex items-center justify-between">
+                {/* Main Content Area */}
+                <div className="flex-1 flex flex-col overflow-hidden relative z-10">
+                    
+                    {/* Controls Header */}
+                    <div className="px-6 py-4 bg-[#0B1120]/40 backdrop-blur-md border-b border-gray-800/40 flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-1.5">
-                                <div className="w-1.5 h-1.5 rounded-full bg-[#00d4a0]" />
-                                <span className="text-[10px] text-[#2a4060] tracking-wide">XBRL Verified</span>
-                            </div>
-                            <span className="text-[10px] text-[#1a3050]">·</span>
-                            <span className="text-[10px] text-[#2a4060]">Period: <span className="text-[#4a7090]">{selectedPeriod}</span></span>
+                            <span className="text-xl filter drop-shadow">{selectedSection ? getSectionIcon(selectedSection) : ''}</span>
+                            <h2 className="text-gray-100 font-bold tracking-tight text-lg">
+                                {selectedSection ? getSectionTitle(selectedSection) : 'Select Statement'}
+                            </h2>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-[#1a3050]">
-                                {filteredMetrics.length} / {selectedSectionMetrics.length} fields
-                            </span>
+                        
+                        {/* Controls Container */}
+                        <div className="flex items-center gap-4">
+                            
+                            {/* Period Filter Toggle */}
+                            <div className="flex items-center gap-1 bg-black/40 border border-gray-700/50 rounded-xl p-1 shadow-inner">
+                                <button 
+                                    onClick={() => setPeriodDisplayMode('all')}
+                                    className={`px-3 py-1.5 text-xs font-bold tracking-wide rounded-lg transition-all ${periodDisplayMode === 'all' ? 'bg-blue-600/30 text-blue-400 shadow-sm border border-blue-500/20' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 border border-transparent'}`}>
+                                    All
+                                </button>
+                                <button 
+                                    onClick={() => setPeriodDisplayMode('annual')}
+                                    className={`px-3 py-1.5 text-xs font-bold tracking-wide rounded-lg transition-all ${periodDisplayMode === 'annual' ? 'bg-emerald-600/30 text-emerald-400 shadow-sm border border-emerald-500/20' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 border border-transparent'}`}>
+                                    Annual
+                                </button>
+                                <button 
+                                    onClick={() => setPeriodDisplayMode('quarterly')}
+                                    className={`px-3 py-1.5 text-xs font-bold tracking-wide rounded-lg transition-all ${periodDisplayMode === 'quarterly' ? 'bg-purple-600/30 text-purple-400 shadow-sm border border-purple-500/20' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 border border-transparent'}`}>
+                                    Quarterly
+                                </button>
+                            </div>
+
+                            {/* Search Bar */}
+                            <div className="relative group">
+                                <div className="absolute inset-0 bg-blue-500/20 rounded-xl blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                <div className="relative flex items-center bg-[#0f172a] border border-gray-700/50 rounded-xl overflow-hidden focus-within:border-blue-500/50 transition-all shadow-inner">
+                                    <div className="pl-3 pr-2">
+                                        <Search className="w-4 h-4 text-gray-400" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        placeholder="Search specific metric..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="bg-transparent text-sm text-gray-200 py-2.5 pr-4 w-[240px] focus:outline-none focus:ring-0 placeholder-gray-600 font-medium"
+                                    />
+                                    {searchQuery && (
+                                        <button onClick={() => setSearchQuery('')} className="pr-3 text-gray-500 hover:text-gray-300">
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Matrix Grid / Table */}
+                    <div className="flex-1 overflow-auto custom-scrollbar" style={{ scrollbarColor: 'rgba(59,130,246,0.2) transparent' }}>
+                        <div className="min-w-max pb-8">
+                            <table className="w-full text-left border-collapse">
+                                <thead className="sticky top-0 z-30">
+                                    <tr className="bg-[#0B1120]/95 backdrop-blur-xl shadow-md">
+                                        <th className="sticky left-0 z-40 bg-[#0B1120]/95 backdrop-blur-xl px-6 py-4 font-bold text-xs uppercase tracking-[0.15em] text-gray-400 border-b border-r border-gray-800/60 min-w-[300px] max-w-[300px] shadow-[4px_0_15px_-3px_rgba(0,0,0,0.5)]">
+                                            Statement of {selectedSection ? getSectionTitle(selectedSection) : 'Items'}
+                                        </th>
+                                        {periods.map(p => {
+                                            // p is "2024 ANNUAL::source1". We clean it for display
+                                            let displayTitle = p.split('::')[0]; // e.g., "2024 ANNUAL"
+                                            // Replace ' ANNUAL' with empty string if it exists for cleaner view
+                                            displayTitle = displayTitle.replace(' ANNUAL', '');
+                                            return (
+                                                <th key={p} className="px-6 py-4 font-bold text-xs uppercase tracking-widest text-center border-b border-gray-800/60 min-w-[140px] max-w-[250px]">
+                                                    <div className="flex flex-col items-center gap-1">
+                                                        <span className="text-gray-200 bg-white/5 px-4 py-1.5 rounded-lg border border-white/5 shadow-inner">{displayTitle}</span>
+                                                    </div>
+                                                </th>
+                                            );
+                                        })}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredMetrics.map((metric, idx) => (
+                                        <tr key={metric.key} className="group transition-colors duration-150 hover:bg-white/[0.02]">
+                                            {/* Row Header (Metric Label) */}
+                                            <td className="sticky left-0 z-20 px-6 py-4 border-b border-r border-gray-800/40 min-w-[300px] max-w-[300px] bg-[#0f172a] group-hover:bg-[#131c31] transition-colors shadow-[4px_0_15px_-3px_rgba(0,0,0,0.3)] align-top">
+                                                <div className="font-semibold text-sm text-gray-300 leading-relaxed pr-4 whitespace-normal break-words">
+                                                    {metric.label}
+                                                </div>
+                                            </td>
+                                            
+                                            {/* Data Cells per period */}
+                                            {periods.map(p => {
+                                                const pData = data[p][selectedSection || ''] || [];
+                                                const mData = pData.find(m => m.key === metric.key);
+                                                const rawVal = mData ? (mData.value ?? mData.text) : null;
+                                                const isPos = isPositiveValue(rawVal);
+                                                
+                                                return (
+                                                    <td key={`${metric.key}-${p}`} className="px-6 py-4 border-b border-gray-800/20 text-right min-w-[140px] max-w-[250px] align-top">
+                                                        <div className={`font-mono text-[13px] font-medium whitespace-normal break-words leading-relaxed ${
+                                                            rawVal === null || rawVal === undefined || rawVal === ''
+                                                                ? 'text-gray-600'
+                                                                : isPos === true
+                                                                    ? 'text-emerald-400'
+                                                                    : isPos === false
+                                                                        ? 'text-red-400'
+                                                                        : 'text-gray-300'
+                                                        }`}>
+                                                            {fmt(rawVal)}
+                                                        </div>
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    ))}
+                                    
+                                    {filteredMetrics.length === 0 && (
+                                        <tr>
+                                            <td colSpan={periods.length + 1} className="py-24 text-center">
+                                                <div className="inline-flex flex-col items-center opacity-50">
+                                                    <Search className="w-10 h-10 mb-4 text-gray-500" />
+                                                    <span className="text-gray-400 font-semibold tracking-wide">No metrics match your search.</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
             </div>
+            
+            <style jsx global>{`
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 10px;
+                    height: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: rgba(59, 130, 246, 0.2);
+                    border-radius: 10px;
+                    border: 2px solid #0f172a;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: rgba(59, 130, 246, 0.4);
+                }
+            `}</style>
         </div>
     );
 }

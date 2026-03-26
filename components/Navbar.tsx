@@ -106,10 +106,27 @@ export default function Navbar() {
       href: '/screeners',
       items: [
         { en: 'Fundamental', href: '/screeners/fundamental' },
-        { en: 'Stock Screeners', href: '/screeners' },
         { en: 'Technical Screener', href: '/technical-screener' },
-        { en: 'Top Traders', href: '/screeners/top-traders' },
-        { en: 'Screeners', href: '/screeners/my-screens' },
+        { en: 'My Screeners', href: '/screeners/my-screens' },
+        {
+          en: 'Top Trader',
+          href: '#',
+          items: [
+            {
+              en: 'Mark Minervini',
+              href: '#',
+              items: [
+                { en: 'Trend - 1 Month', href: '/screeners?tab=trend-1-month' },
+                { en: 'Trend - 2 Months', href: '/screeners?tab=trend-2-months' },
+                { en: 'Trend - 4 Months', href: '/screeners?tab=trend-4-months' },
+                { en: 'Trend - 5 Months', href: '/screeners?tab=trend-5-months' },
+                { en: 'Trend - 5 Month Wide', href: '/screeners?tab=trend-5-months-wide' },
+                { en: 'Power Play', href: '/screeners?tab=power-play' },
+              ]
+            }
+          ]
+        },
+
       ],
     },
     watchlist: {

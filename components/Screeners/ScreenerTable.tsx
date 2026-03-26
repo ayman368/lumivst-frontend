@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Table,
   TableBody,
@@ -11,7 +11,8 @@ import {
 } from '@/components/ui/table';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
-import { ChevronLeft, ChevronRight, Download, FileSpreadsheet, Layers, TrendingUp, TrendingDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, FileSpreadsheet, Layers, TrendingUp, TrendingDown, ChevronDown, CheckCircle2 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 interface StockResult {
   symbol: string;
@@ -46,6 +47,19 @@ export default function ScreenerTable({
   onLimitChange,
   screenerColor = '#3B82F6',
 }: ScreenerTableProps) {
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setShowExportMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const totalPages = Math.ceil(total / limit);
   const startRecord = page * limit + 1;
   const endRecord = Math.min((page + 1) * limit, total);
@@ -61,18 +75,27 @@ export default function ScreenerTable({
     return `${parseFloat(val) > 0 ? '+' : ''}${val}%`;
   };
 
-  const exportToCSV = () => {
+  const handleExport = useCallback((format: 'csv' | 'xls' | 'xlsx' | 'txt') => {
     const headers = ['Symbol', 'Company Name', 'Price', 'SMA 50', 'SMA 150', 'SMA 200', 'RS 12M', 'Off 52W High', 'Off 52W Low'];
     const rows = data.map(s => [s.symbol, s.company_name, s.close, s.sma_50, s.sma_150, s.sma_200, s.rs_12m, s.percent_off_52w_high, s.percent_off_52w_low]);
-    const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Market_Intel_${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+    const filename = `LUMI_SCREENER_${Date.now()}`;
+
+    if (format === 'csv' || format === 'txt') {
+      const separator = format === 'csv' ? ',' : '\t';
+      const content = [headers.join(separator), ...rows.map(row => row.join(separator))].join('\n');
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${filename}.${format}`;
+      link.click();
+    } else {
+      const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Screener Data");
+      XLSX.writeFile(workbook, `${filename}.${format}`, { bookType: format === 'xls' ? 'biff8' : 'xlsx' });
+    }
+    setShowExportMenu(false);
+  }, [data]);
 
   if (loading && data.length === 0) {
     return (
@@ -89,7 +112,7 @@ export default function ScreenerTable({
   return (
     <div className="space-y-6">
       {/* Table Control Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 bg-white/[0.03] border border-white/[0.05] rounded-2xl backdrop-blur-md shadow-xl">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 bg-white/[0.03] border border-white/[0.05] rounded-2xl backdrop-blur-md shadow-xl relative z-50">
         <div className="flex items-center gap-3">
           <div className="flex bg-white/[0.05] rounded-lg p-0.5 border border-white/[0.05]">
             {[25, 50, 100].map((val) => (
@@ -111,14 +134,56 @@ export default function ScreenerTable({
           <div className="text-[11px] font-mono text-slate-500 bg-white/[0.02] px-3 py-1.5 rounded-lg border border-white/[0.05]">
             MATCHED: <span className="text-white font-bold">{total}</span>
           </div>
-          <Button
-            onClick={exportToCSV}
-            variant="outline"
-            className="h-9 px-4 rounded-xl bg-white/[0.05] border-white/[0.1] hover:bg-white/[0.1] hover:border-white/[0.2] transition-all group"
-          >
-            <Download className="w-4 h-4 mr-2 text-blue-400 group-hover:scale-110 transition-transform" />
-            <span className="text-xs font-bold tracking-tight">Export Intel</span>
-          </Button>
+          <div className="relative" ref={exportMenuRef}>
+            <Button
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border-none shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              <span className="text-xs font-bold tracking-tight">Export</span>
+              <ChevronDown className={`w-3 h-3 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
+            </Button>
+
+            <AnimatePresence>
+              {showExportMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute right-0 top-full mt-2 w-64 bg-slate-900 border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] py-2 z-[200] backdrop-blur-2xl"
+                >
+                  <button
+                    onClick={() => handleExport('csv')}
+                    className="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 flex items-center gap-3 transition-colors"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                    comma delimited (.csv)
+                  </button>
+                  <button
+                    onClick={() => handleExport('xls')}
+                    className="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 flex items-center gap-3 transition-colors"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                    excel 97-2003 (.xls)
+                  </button>
+                  <button
+                    onClick={() => handleExport('xlsx')}
+                    className="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 flex items-center gap-3 transition-colors"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-emerald-600 shadow-[0_0_8px_rgba(5,150,105,0.5)]" />
+                    excel (.xlsx)
+                  </button>
+                  <button
+                    onClick={() => handleExport('txt')}
+                    className="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 flex items-center gap-3 transition-colors"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-slate-500 shadow-[0_0_8px_rgba(100,116,139,0.5)]" />
+                    Text (.txt)
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 

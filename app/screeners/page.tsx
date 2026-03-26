@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import ScreenerTable from '@/components/Screeners/ScreenerTable';
 import { useApi } from '@/hooks/useApi';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -169,14 +169,28 @@ const SCREENERS = [
   },
 ];
 
-export default function ScreenersPage() {
-  const [activeTab, setActiveTab] = useState('trend-1-month');
+function ScreenersContent() {
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  
+  const [activeTab, setActiveTab] = useState(
+    tabParam && SCREENERS.find(s => s.id === tabParam) ? tabParam : 'trend-1-month'
+  );
+  
   const [data, setData] = useState<StockResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(50);
   const { apiCall } = useApi();
+
+  // Sync tab with URL search parameter if it changes from external navigation
+  useEffect(() => {
+    if (tabParam && SCREENERS.find(s => s.id === tabParam)) {
+      setActiveTab(tabParam);
+      setPage(0);
+    }
+  }, [tabParam]);
 
   useEffect(() => {
     fetchScreenerData();
@@ -244,96 +258,81 @@ export default function ScreenersPage() {
 
       {/* Main Container */}
       <div className="p-8 pb-20">
-        <div className="max-w-7xl mx-auto">
-          <Tabs value={activeTab} onValueChange={(val) => { setActiveTab(val); setPage(0); }} className="w-full">
-            {/* Navigational Tabs (The Switcher) */}
-            <div className="mb-10 overflow-x-auto pb-2 custom-scrollbar">
-              <TabsList className="flex flex-nowrap h-auto gap-4 bg-transparent p-1 mb-8 border-b border-white/[0.05] min-w-max">
-                {SCREENERS.map((screener) => (
-                  <TabsTrigger
-                    key={screener.id}
-                    value={screener.id}
-                    className="relative px-6 py-4 rounded-xl text-sm font-bold tracking-tight transition-all
-                              data-[state=active]:text-white 
-                              text-slate-500 hover:text-slate-200
-                              flex items-center gap-3 group"
-                  >
-                    {screener.label}
-                    {/* Active Accent Bar */}
-                    {activeTab === screener.id && (
-                      <motion.div 
-                        layoutId="activeTab"
-                        className="absolute bottom-[-5px] left-0 right-0 h-1 bg-blue-500 rounded-full z-10"
-                        style={{ backgroundColor: screener.color }}
-                      />
-                    )}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </div>
+        <div className="max-w-[1600px] mx-auto w-full flex flex-col xl:flex-row gap-8">
 
-            {/* Strategy Insight Card (Glass Effect) */}
+            {/* Strategy Insight Card (Glass Effect) - LEFT SIDEBAR */}
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, x: -15 }}
+                animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, scale: 0.98 }}
-                className="mb-8 p-6 rounded-3xl border border-white/[0.05] bg-gradient-to-br from-white/[0.03] to-white/[0.01] backdrop-blur-md relative overflow-hidden group shadow-2xl"
+                className="w-full xl:w-[400px] flex-shrink-0 mb-8 xl:mb-0 p-6 rounded-3xl border border-white/[0.05] bg-gradient-to-br from-white/[0.03] to-white/[0.01] backdrop-blur-md relative overflow-hidden group shadow-2xl h-fit xl:sticky xl:top-8"
               >
                 {/* Background Glow */}
                 <div 
-                  className="absolute top-0 right-0 w-64 h-64 -mr-16 -mt-16 blur-3xl opacity-10 transition-colors duration-700"
+                  className="absolute top-0 left-0 w-full h-64 -mt-16 blur-[100px] opacity-10 transition-colors duration-700"
                   style={{ backgroundColor: activeScreener?.color }}
                 />
 
-                <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
+                <div className="relative flex flex-col gap-6">
+                  {/* Header: Icon, Title & Match Count */}
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-3">
                       <div 
                         className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg"
                         style={{ backgroundColor: `${activeScreener?.color}15`, color: activeScreener?.color }}
                       >
                         {activeScreener?.icon}
                       </div>
-                      <h2 className="text-xl font-bold text-white tracking-wide">
-                        {activeScreener?.label} <span className="text-slate-500 font-light ml-2">Intelligence</span>
+                      <h2 className="text-xl font-bold text-white tracking-wide leading-tight">
+                        {activeScreener?.label} <br />
+                        <span className="text-slate-500 font-light text-sm">Intelligence</span>
                       </h2>
                     </div>
-                    <p className="text-slate-400 text-sm leading-relaxed max-w-2xl mb-6">
-                      {activeScreener?.description}
-                    </p>
-                    
-                    {/* Condition Badges */}
+
+                    <div className="flex flex-col items-end">
+                      <div className="text-[32px] font-black text-white leading-none tracking-tighter tabular-nums">
+                        {total}
+                      </div>
+                      <div className="text-[9px] uppercase font-bold tracking-[0.2em] text-slate-500 mt-1">Assets</div>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-slate-400 text-sm leading-relaxed">
+                    {activeScreener?.description}
+                  </p>
+                  
+                  {/* Action / Status */}
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 text-[11px] font-bold border border-emerald-500/20 w-fit">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    Strict Check Passed
+                  </div>
+
+                  <div className="h-px w-full bg-white/[0.05]" />
+
+                  {/* Condition Badges */}
+                  <div>
+                    <h3 className="text-[10px] uppercase font-bold tracking-[0.2em] text-slate-500 mb-3">Technical Conditions</h3>
                     <div className="flex flex-wrap gap-2">
                       {activeScreener?.conditions.map((cond, idx) => (
                         <div 
                           key={idx}
-                          className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center gap-2 group-hover:border-white/[0.15] transition-colors"
+                          className="px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center gap-2 group-hover:border-white/[0.15] transition-colors"
                         >
-                          <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">{cond.label}</span>
+                          <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">{cond.label}</span>
                           <span className="text-[10px] font-mono font-black" style={{ color: activeScreener?.color }}>{cond.value}</span>
                         </div>
                       ))}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-center lg:items-end p-4 lg:p-0">
-                    <div className="text-[40px] font-black text-white leading-none mb-1 tracking-tighter tabular-nums">
-                      {total}
-                    </div>
-                    <div className="text-[10px] uppercase font-bold tracking-[0.25em] text-slate-500">Matching Assets</div>
-                    <div className="mt-4 flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20">
-                      <ShieldCheck className="w-3 h-3" />
-                      Strict Check Passed
                     </div>
                   </div>
                 </div>
               </motion.div>
             </AnimatePresence>
 
-            {/* Table Content */}
-            <div className="relative">
+            {/* Table Content - RIGHT SIDE */}
+            <div className="relative flex-1 min-w-0">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeTab}
@@ -354,7 +353,6 @@ export default function ScreenersPage() {
                 </motion.div>
               </AnimatePresence>
             </div>
-          </Tabs>
         </div>
       </div>
       
@@ -368,5 +366,18 @@ export default function ScreenersPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function ScreenersPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0a0c10] flex flex-col items-center justify-center text-[#e2e8f0]">
+        <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
+        <p className="text-sm font-bold tracking-widest text-slate-500 uppercase">Loading Screener Engine</p>
+      </div>
+    }>
+      <ScreenersContent />
+    </Suspense>
   );
 }
