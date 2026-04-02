@@ -1,315 +1,216 @@
 'use client';
 
-import { ExternalLink } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const readings = [
   {
     title: 'Momentum Masters - A Roundtable Insight',
-    author: 'Mark Minervin, Bo...',
+    author: 'Mark Minervini, Bo...',
     bestPrice: '$27.00',
     asin: '0996307907',
+    isbn: '9780996307901',
     url: 'https://www.amazon.com/dp/0996307907/ref=as_sl_pc_tf_lc?tag=chartpatter0b-20&camp=14573&creative=327641&linkCode=as1&creativeASIN=0996307907',
-    color: '#3e5c76',
-    hasImage: true,
+    localImage: '/images/recommended-readingpage/Momentum Masters.jpg',
   },
   {
     title: 'How to Make Money in Stocks',
-    author: 'William O\'Neil',
+    author: "William O'Neil",
     bestPrice: '$4.50',
-    asin: 'B001929QGW',
+    asin: '0071614133',
+    isbn: '9780071614139',
     url: 'https://www.amazon.com/gp/product/B001929QGW/ref=as_li_tl?ie=UTF8&tag=chartpatter0b-20&camp=1789&creative=9325&linkCode=as2&creativeASIN=B001929QGW',
-    color: '#c0392b',
-    hasImage: true,
   },
   {
     title: 'Reminiscences of a Stock Operator',
     author: 'Edwin Lefèvre, Ro...',
     bestPrice: '$4.99',
     asin: '0471770884',
+    isbn: '9780471770886',
     url: 'https://www.amazon.com/dp/0471770884/ref=as_sl_pc_tf_lc?tag=chartpatter0b-20&camp=14573&creative=327641&linkCode=as1&creativeASIN=0471770884',
-    color: '#8b7355',
-    hasImage: true,
   },
   {
     title: 'How Technical Analysis Works',
     author: 'Bruce M. Kamich',
     bestPrice: '$31.21',
     asin: '0735202702',
+    isbn: '9780735202702',
     url: 'https://www.amazon.com/dp/0735202702/ref=as_sl_pc_tf_lc?tag=chartpatter0b-20&camp=14573&creative=327641&linkCode=as1&creativeASIN=0735202702',
-    color: '#2c3e50',
-    hasImage: true,
   },
   {
     title: 'How I Made $2,000,000 in the Stock Market',
     author: 'Nicolas Darvas',
     bestPrice: '$3.98',
     asin: '1578988446',
+    isbn: '9781578988440',
     url: 'https://www.amazon.com/dp/1578988446/ref=as_sl_pc_tf_lc?tag=chartpatter0b-20&camp=14573&creative=327641&linkCode=as1&creativeASIN=1578988446',
-    color: '#d35400',
-    hasImage: true,
   },
   {
     title: 'Japanese Candlestick Charting Techniques',
     author: 'Steve Nison',
     bestPrice: '$43.76',
     asin: '0735201811',
+    isbn: '9780735201811',
     url: 'https://www.amazon.com/dp/0735201811/ref=as_sl_pc_tf_lc?tag=chartpatter0b-20&camp=14573&creative=327641&linkCode=as1&creativeASIN=0735201811',
-    color: '#e67e22',
-    hasImage: true,
   },
   {
     title: 'Trading for a Living',
     author: 'Alexander Elder',
     bestPrice: '$1.52',
     asin: '0471592242',
+    isbn: '9780471592242',
     url: 'https://www.amazon.com/dp/0471592242/ref=as_sl_pc_tf_lc?tag=chartpatter0b-20&camp=14573&creative=327641&linkCode=as1&creativeASIN=0471592242',
-    color: '#8b0000',
-    hasImage: true,
   },
   {
     title: 'Getting Started in Technical Analysis',
     author: 'Jack D. Schwager',
     bestPrice: '$0.01',
     asin: '0471295426',
+    isbn: '9780471295426',
     url: 'https://www.amazon.com/dp/0471295426/ref=as_sl_pc_tf_lc?tag=chartpatter0b-20&camp=14573&creative=327641&linkCode=as1&creativeASIN=0471295426',
-    color: '#1e5a96',
-    hasImage: true,
   },
   {
     title: 'Encyclopedia of Chart Patterns',
     author: 'Thomas N. Bulkowski',
     bestPrice: '$49.51',
     asin: '0471668265',
+    isbn: '9780471668268',
     url: 'https://www.amazon.com/dp/0471668265/ref=as_sl_pc_tf_lc?tag=chartpatter0b-20&camp=14573&creative=327641&linkCode=as1&creativeASIN=0471668265',
-    color: '#27ae60',
-    hasImage: true,
+    localImage: '/images/recommended-readingpage/Encyclopedia of Chart Patterns.jpg',
   },
 ];
 
+function getImageUrls(asin: string, isbn: string, localImage?: string): string[] {
+  const urls = [];
+  if (localImage) urls.push(localImage);
+  urls.push(
+    `https://images-na.ssl-images-amazon.com/images/P/${asin}.01.LZZZZZZZ.jpg`,
+    `https://images-na.ssl-images-amazon.com/images/P/${asin}.01.L.jpg`,
+    `https://m.media-amazon.com/images/P/${asin}.01.L.jpg`,
+    `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`,
+    `https://books.google.com/books/content?vid=ISBN${isbn}&printsec=frontcover&img=1&zoom=1`
+  );
+  return urls;
+}
+
+function BookCard({ book, index }: { book: typeof readings[0] & { localImage?: string }; index: number }) {
+  const imageUrls = getImageUrls(book.asin, book.isbn, book.localImage);
+
+  const handleError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    const attempt = parseInt(img.dataset.attempt || '0');
+    if (attempt < imageUrls.length - 1) {
+      img.dataset.attempt = (attempt + 1).toString();
+      img.src = imageUrls[attempt + 1];
+    } else {
+      const parent = img.parentElement;
+      if (parent) {
+        parent.innerHTML = `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#EDE8DC;gap:8px;padding:12px;box-sizing:border-box;">
+          <span style="font-size:40px;">📚</span>
+          <span style="font-size:11px;color:#A09880;text-align:center;">${book.title}</span>
+        </div>`;
+      }
+    }
+  };
+
+  return (
+    <motion.a
+      href={book.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05 }}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: '#FDFAF5',
+        border: '1px solid #D9D2C3',
+        borderRadius: '16px',
+        overflow: 'hidden',
+        textDecoration: 'none',
+        transition: 'all 0.3s ease',
+        cursor: 'pointer',
+        boxShadow: '0 2px 8px rgba(44,36,22,0.06)',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = '#2962FF';
+        e.currentTarget.style.transform = 'translateY(-4px)';
+        e.currentTarget.style.boxShadow = '0 8px 24px rgba(41,98,255,0.15)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = '#D9D2C3';
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = '0 2px 8px rgba(44,36,22,0.06)';
+      }}
+    >
+      <div style={{
+        width: '100%', height: '400px',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden',
+      }}>
+        <img
+          src={imageUrls[0]}
+          alt={book.title}
+          data-attempt="0"
+          onError={handleError}
+          style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+        />
+      </div>
+
+      <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+        <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#2C2416', lineHeight: 1.4, margin: 0, minHeight: '40px' }}>
+          {book.title}
+        </h3>
+        <p style={{ fontSize: '12px', color: '#A09880', margin: 0, flex: 1 }}>
+          {book.author}
+        </p>
+
+        <div style={{ paddingTop: '8px', borderTop: '1px solid #E8E2D5' }}>
+          <button
+            style={{
+              width: '100%', padding: '8px 12px',
+              backgroundColor: '#FF9900', border: 'none', borderRadius: '8px',
+              color: '#000', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+              transition: 'background 0.2s ease',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#FBB81C'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#FF9900'; }}
+          >
+            Buy from Amazon
+          </button>
+        </div>
+      </div>
+    </motion.a>
+  );
+}
+
 export default function RecommendedReadingPage() {
   return (
-    <div style={{
-      minHeight: 'calc(100vh - 64px)',
-      background: '#131722',
-      padding: '40px 24px',
-    }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ marginBottom: '40px' }}>
-          <h1 style={{
-            fontSize: '28px',
-            fontWeight: 700,
-            color: '#d1d4dc',
-            marginBottom: '8px',
-            fontFamily: 'Inter, sans-serif',
-          }}>
-            Recommended Reading
+    <div style={{ minHeight: 'calc(100vh - 64px)', backgroundColor: '#EDE8DC', color: '#2C2416', fontFamily: 'system-ui, sans-serif' }}>
+
+      <div style={{ padding: '40px 32px 32px', borderBottom: '1px solid #D9D2C3', backgroundColor: '#1C3D2E', boxShadow: '0 2px 8px rgba(28,61,46,0.2)' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+          <div style={{ marginBottom: '8px' }}>
+            <span style={{ padding: '3px 12px', borderRadius: '999px', backgroundColor: 'rgba(212,237,218,0.15)', color: '#A8D5B5', fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', border: '1px solid rgba(168,213,181,0.3)' }}>
+              Education • Books
+            </span>
+          </div>
+          <h1 style={{ fontSize: '40px', fontWeight: 900, letterSpacing: '-0.02em', color: '#F5F0E8', marginBottom: '8px' }}>
+            Recommended <span style={{ color: '#A8D5B5' }}>Reading</span>
           </h1>
-          <p style={{
-            fontSize: '15px',
-            color: '#787b86',
-            fontFamily: 'Inter, sans-serif',
-          }}>
+          <p style={{ fontSize: '14px', color: 'rgba(212,237,218,0.7)', maxWidth: '480px', lineHeight: 1.6, margin: 0 }}>
             Essential books for trading and technical analysis from industry experts.
           </p>
         </div>
+      </div>
 
-        {/* Books Grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-          gap: '24px',
-        }}>
-          {readings.map((book) => (
-            <a
-              key={book.title}
-              href={book.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                padding: '20px',
-                background: '#1e222d',
-                borderRadius: '12px',
-                border: `1px solid ${book.color}40`,
-                textDecoration: 'none',
-                transition: 'all 0.3s ease',
-                cursor: 'pointer',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = book.color;
-                e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.boxShadow = `0 8px 24px ${book.color}30`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = `${book.color}40`;
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              {/* Book Cover Image or Placeholder */}
-              {book.hasImage ? (
-                <div style={{
-                  width: '100%',
-                  height: '220px',
-                  borderRadius: '8px',
-                  marginBottom: '16px',
-                  overflow: 'hidden',
-                  background: '#2a2e39',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  <img 
-                    src={`https://images-na.ssl-images-amazon.com/images/P/${book.asin}.01.L.jpg`}
-                    alt={book.title}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      borderRadius: '8px',
-                    }}
-                    onError={(e) => {
-                      const img = e.currentTarget;
-                      const parent = img.parentElement;
-                      const attempts = [
-                        `https://m.media-amazon.com/images/P/${book.asin}.01.L.jpg`,
-                        `https://images.amazon.com/images/P/${book.asin}.01.L.jpg`,
-                        `https://images.amazon.com/images/P/${book.asin}.02.L.jpg`,
-                        `https://images-eu.ssl-images-amazon.com/images/P/${book.asin}.01.L.jpg`,
-                      ];
-                      
-                      // محاولة URLs مختلفة
-                      let currentAttempt = parseInt(img.dataset.attempt || '0');
-                      if (currentAttempt < attempts.length) {
-                        img.src = attempts[currentAttempt];
-                        img.dataset.attempt = (currentAttempt + 1).toString();
-                      } else {
-                        // إذا فشل كل شيء، عرض placeholder
-                        if (parent) {
-                          parent.innerHTML = `
-                            <div style="
-                              width: 100%;
-                              height: 100%;
-                              background: linear-gradient(135deg, ${book.color}30 0%, ${book.color}10 100%);
-                              display: flex;
-                              align-items: center;
-                              justify-content: center;
-                              border: 2px dashed ${book.color}60;
-                            ">
-                              <div style="text-align: center; color: ${book.color}; font-size: 48px; font-weight: 600;">📚</div>
-                            </div>
-                          `;
-                        }
-                      }
-                    }}
-                  />
-                </div>
-              ) : (
-                <div style={{
-                  width: '100%',
-                  height: '220px',
-                  borderRadius: '8px',
-                  marginBottom: '16px',
-                  background: `linear-gradient(135deg, ${book.color}30 0%, ${book.color}10 100%)`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: `2px dashed ${book.color}60`,
-                }}>
-                  <div style={{
-                    textAlign: 'center',
-                    color: book.color,
-                    fontSize: '48px',
-                    fontWeight: 600,
-                  }}>
-                    📚
-                  </div>
-                </div>
-              )}
-
-              {/* Book Info */}
-              <h3 style={{
-                fontSize: '14px',
-                fontWeight: 600,
-                color: '#d1d4dc',
-                marginBottom: '8px',
-                fontFamily: 'Inter, sans-serif',
-                lineHeight: '1.4',
-                minHeight: '40px',
-              }}>
-                {book.title}
-              </h3>
-
-              <p style={{
-                fontSize: '12px',
-                color: '#787b86',
-                fontFamily: 'Inter, sans-serif',
-                marginBottom: '12px',
-                flex: 1,
-              }}>
-                {book.author}
-              </p>
-
-              {/* Price and Amazon Button */}
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-              }}>
-                <div style={{
-                  fontSize: '12px',
-                  color: '#00b894',
-                  fontWeight: 600,
-                }}>
-                  Best Price {book.bestPrice}
-                </div>
-
-                <button style={{
-                  padding: '8px 12px',
-                  background: '#FF9900',
-                  border: 'none',
-                  borderRadius: '6px',
-                  color: '#000',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  fontFamily: 'Inter, sans-serif',
-                  transition: 'all 0.3s ease',
-                }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#FBB81C';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#FF9900';
-                  }}>
-                  Buy from Amazon
-                </button>
-              </div>
-
-              {/* Privacy Info */}
-              <div style={{
-                fontSize: '11px',
-                color: '#787b86',
-                marginTop: '12px',
-                borderTop: `1px solid #2a2e39`,
-                paddingTop: '12px',
-                display: 'block',
-                transition: 'all 0.3s ease',
-                cursor: 'pointer',
-              }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = book.color;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = '#787b86';
-                }}
-              >
-                Privacy Information
-              </div>
-            </a>
-          ))}
+      <div style={{ padding: '40px 32px 80px' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+            {readings.map((book, index) => (
+              <BookCard key={book.asin} book={book} index={index} />
+            ))}
+          </div>
         </div>
       </div>
     </div>

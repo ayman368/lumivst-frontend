@@ -12,12 +12,12 @@ import FilterAccordion from './components/FilterAccordion';
 import ExportMenu from './components/ExportMenu';
 import ColumnSelector from './components/ColumnSelector';
 import FilterSidebar from './components/FilterSidebar';
-import StockTable from './components/StockTable';
+// import StockTable from './components/StockTable';
 import TopFilterPanel from './components/TopFilterPanel';
 import useStocks from './hooks/useStocks';
 import type { Stock, StockMetadata, FilterState } from './types';
 import * as XLSX from 'xlsx';
-import { cleanSymbol, cleanName, parseFormattedNumber, formatNumber, formatNumberOneDecimal, formatChange, formatChangePercent, formatChangePercentOneDecimal, formatText, displayRawValue } from './utils/formatters';
+import { cleanSymbol, cleanName, parseFormattedNumber, formatNumber, formatNumberOneDecimal, formatChange, formatChangePercent, formatChangePercentOneDecimal, formatText, displayRawValue, formatPurgeAmount, formatMarginable, formatShariahApproval } from './utils/formatters';
 const initialFilterState: FilterState = {
     rs_rating_min: '', rs_rating_max: '',
     acc_dis_rating: [], industry_group_rs: [], sector_rs: [], industry_rs: [], sub_industry_rs: [],
@@ -30,6 +30,9 @@ const initialFilterState: FilterState = {
     percent_off_52w_high_min: '', percent_off_52w_high_max: '',
     percent_off_52w_low_min: '', percent_off_52w_low_max: '',
     market_cap_min: '', market_cap_max: '',
+    approval_with_controls: '',
+    purge_amount_min: '', purge_amount_max: '',
+    marginable_percent_min: '', marginable_percent_max: '',
     price_minus_sma_10_min: '', price_minus_sma_10_max: '',
     price_minus_sma_21_min: '', price_minus_sma_21_max: '',
     price_minus_sma_50_min: '', price_minus_sma_50_max: '',
@@ -240,6 +243,9 @@ export default function StockScreenerPage() {
         { key: 'sector', label: 'Sector', visibleKey: 'sector' },
         { key: 'industry', label: 'Industry', visibleKey: 'industry' },
         { key: 'sub_industry', label: 'Sub Industry', visibleKey: 'sub_industry' },
+        { key: 'approval_with_controls', label: 'Shariah Status', visibleKey: 'approval_with_controls' },
+        { key: 'purge_amount', label: 'Purge Amount', visibleKey: 'purge_amount' },
+        { key: 'marginable_percent', label: 'Marginable %', visibleKey: 'marginable_percent' },
         { key: 'open', label: 'Open', visibleKey: 'open' },
         { key: 'high', label: 'High', visibleKey: 'high' },
         { key: 'low', label: 'Low', visibleKey: 'low' },
@@ -256,6 +262,7 @@ export default function StockScreenerPage() {
         { key: 'percent_off_52w_high', label: '% Off 52W High', visibleKey: 'percent_off_52w_high' },
         { key: 'percent_off_52w_low', label: '% Off 52W Low', visibleKey: 'percent_off_52w_low' },
         { key: 'vol_diff_50_percent', label: 'Vol Diff 50 %', visibleKey: 'vol_diff_50_percent' },
+        { key: 'beta', label: 'Beta', visibleKey: 'beta' },
         { key: 'rsi_14', label: 'RSI(14)', visibleKey: 'rsi_14' },
         { key: 'sma9_rsi', label: 'SMA9(RSI)', visibleKey: 'sma9_rsi' },
         { key: 'wma45_rsi', label: 'WMA45(RSI)', visibleKey: 'wma45_rsi' },
@@ -313,7 +320,7 @@ export default function StockScreenerPage() {
     ];
     const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
         const defaultVisible: Record<string, boolean> = {};
-        const alwaysVisible = ['symbol', 'name', 'quote_rate', 'change', 'change_percent', 'price_vs_sma_10_percent', 'price_vs_sma_21_percent', 'price_vs_ema_10_percent', 'price_vs_ema_21_percent', 'price_vs_sma_50_percent', 'rsi_14'];
+        const alwaysVisible = ['symbol', 'name', 'quote_rate', 'change', 'change_percent', 'price_vs_sma_10_percent', 'price_vs_sma_21_percent', 'price_vs_ema_10_percent', 'price_vs_ema_21_percent', 'price_vs_sma_50_percent', 'rsi_14', 'beta', 'approval_with_controls', 'purge_amount', 'marginable_percent'];
         columnDefinitions.forEach((col, index) => {
             defaultVisible[col.visibleKey] = alwaysVisible.includes(col.visibleKey) || index < 15;
         });
@@ -389,6 +396,12 @@ export default function StockScreenerPage() {
                         volume: item.volume_traded, turnover: item.value_traded_sar,
                         open: item.open, high: item.high, low: item.low,
                         no_of_trades: item.no_of_trades, market_cap: item.market_cap,
+
+                        // Static Info
+                        approval_with_controls: item.approval_with_controls || null,
+                        purge_amount: item.purge_amount !== undefined && item.purge_amount !== null ? Number(item.purge_amount) : null,
+                        marginable_percent: item.marginable_percent !== undefined && item.marginable_percent !== null ? Number(item.marginable_percent) : null,
+
                         rs_rating: rsInfo.rs_rating || 0,
                         industry_group_rs: rsInfo.industry_group_rs_rating || '',
                         sector_rs: rsInfo.sector_rs_rating || '',
@@ -1155,6 +1168,9 @@ export default function StockScreenerPage() {
                                                     case 'sector': content = <span className="text-gray-900">{formatText(stock.sector)}</span>; break;
                                                     case 'industry': content = <span className="text-gray-900">{formatText(stock.industry)}</span>; break;
                                                     case 'sub_industry': content = <span className="text-gray-900">{formatText(stock.sub_industry)}</span>; break;
+                                                    case 'approval_with_controls': content = <span className="text-gray-900">{formatShariahApproval(stock.approval_with_controls)}</span>; break;
+                                                    case 'purge_amount': content = <span className="text-gray-900">{formatPurgeAmount(stock.purge_amount)}</span>; break;
+                                                    case 'marginable_percent': content = <span className="font-bold text-gray-900">{formatMarginable(stock.marginable_percent)}</span>; break;
                                                     case 'open': content = <span className="text-gray-900">{formatNumber(stock.open)}</span>; break;
                                                     case 'high': content = <span className="text-gray-900">{formatNumber(stock.high)}</span>; break;
                                                     case 'low': content = <span className="text-gray-900">{formatNumber(stock.low)}</span>; break;
@@ -1169,6 +1185,7 @@ export default function StockScreenerPage() {
                                                     case 'percent_off_52w_high': content = <span className={(stock.percent_off_52w_high || 0) < 0 ? 'text-red-600' : 'text-gray-900'}>{formatChangePercentOneDecimal(stock.percent_off_52w_high)}</span>; break;
                                                     case 'percent_off_52w_low': content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.percent_off_52w_low)}</span>; break;
                                                     case 'vol_diff_50_percent': content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.vol_diff_50_percent)}</span>; break;
+                                                    case 'beta': content = <span className="text-gray-900 tooltip-trigger" title="Volatility vs TASI Benchmark">{formatNumber(stock.beta)}</span>; break;
                                                     default: {
                                                         const techVal = (stock as any)[col.key];
                                                         if (techVal === null || techVal === undefined || techVal === '') content = <span className="text-gray-400">-</span>;

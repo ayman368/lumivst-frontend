@@ -1,21 +1,91 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart } from 'recharts';
+import { createChart, ColorType, CrosshairMode, AreaSeries } from 'lightweight-charts';
 import { Calendar, TrendingUp, TrendingDown, Search, Filter, X, ChevronRight, BarChart3, Sparkles, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react';
+
+// ─── DESIGN TOKENS: Warm Cream × Forest Green ────────────────────────────────
+// Page bg:         #EDE8DC   Sidebar/Card bg: #FDFAF5
+// Border:          #D9D2C3   Border-light:    #E8E2D5
+// Navbar/Accent:   #1C3D2E   Accent mid:      #2D6A4F
+// Text primary:    #2C2416   Text secondary:  #7A7060   Text muted: #A09880
+// Badge green bg:  #D4EDDA   text: #1C7A3F   border: #A8D5B5
+// Badge red bg:    #FADADD   text: #C0392B   border: #F5AAAF
+// Badge amber bg:  #FEF3C7   text: #92400E   border: #FCD37A
+// ─────────────────────────────────────────────────────────────────────────────
+
+function RSHistoryChart({ data, period }: { data: any[], period: string }) {
+    const chartContainerRef = useRef<HTMLDivElement>(null);
+    const chartRef = useRef<any>(null);
+
+    useEffect(() => {
+        if (!chartContainerRef.current || data.length === 0) return;
+        if (chartRef.current) { chartRef.current.remove(); chartRef.current = null; }
+
+        const chart = createChart(chartContainerRef.current, {
+            layout: {
+                background: { type: ColorType.Solid, color: 'transparent' },
+                textColor: '#7A7060',
+                fontFamily: 'system-ui, sans-serif',
+            },
+            grid: {
+                vertLines: { color: 'rgba(217,210,195,0.6)' },
+                horzLines: { color: 'rgba(217,210,195,0.6)' },
+            },
+            crosshair: {
+                mode: CrosshairMode.Magnet,
+                vertLine: { labelBackgroundColor: '#1C3D2E' },
+                horzLine: { labelBackgroundColor: '#1C3D2E' },
+            },
+            rightPriceScale: { borderColor: '#D9D2C3' },
+            timeScale: { borderColor: '#D9D2C3', timeVisible: false, fixLeftEdge: true, fixRightEdge: true },
+        });
+
+        const areaSeries = chart.addSeries(AreaSeries, {
+            lineColor: '#2D6A4F',
+            topColor: 'rgba(45,106,79,0.18)',
+            bottomColor: 'rgba(45,106,79,0.0)',
+            lineWidth: 2,
+            priceLineVisible: false,
+            crosshairMarkerVisible: true,
+            crosshairMarkerRadius: 5,
+        });
+
+        const uniqueData = new Map();
+        [...data]
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .forEach(d => {
+                let timeStr = d.date;
+                if (timeStr.includes('T')) timeStr = timeStr.split('T')[0];
+                uniqueData.set(timeStr, { time: timeStr, value: d.rs_rating });
+            });
+
+        areaSeries.setData(Array.from(uniqueData.values()));
+        chart.timeScale().fitContent();
+        chartRef.current = chart;
+
+        const ro = new ResizeObserver((entries) => {
+            if (chartContainerRef.current && chartRef.current) {
+                const { width, height } = entries[0].contentRect;
+                chartRef.current.applyOptions({ width, height });
+            }
+        });
+        ro.observe(chartContainerRef.current);
+        return () => {
+            ro.disconnect();
+            if (chartRef.current) { chartRef.current.remove(); chartRef.current = null; }
+        };
+    }, [data, period]);
+
+    return <div ref={chartContainerRef} className="w-full h-full" />;
+}
 
 interface StockRS {
     symbol: string;
     company_name?: string;
     rs_rating: number;
-    rank_3m: number;
-    rank_6m: number;
-    rank_9m: number;
-    rank_12m: number;
-    return_3m: number;
-    return_6m: number;
-    return_9m: number;
-    return_12m: number;
+    rank_3m: number; rank_6m: number; rank_9m: number; rank_12m: number;
+    return_3m: number; return_6m: number; return_9m: number; return_12m: number;
 }
 
 const PERIOD_OPTIONS = [
@@ -30,40 +100,28 @@ const PERIOD_OPTIONS = [
 ];
 
 const getLocalDateString = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
 };
 
-const calculateStartDate = (periodOption: { label: string; type: string; value: number }): Date => {
+const calculateStartDate = (opt: { label: string; type: string; value: number }): Date => {
     const today = new Date();
     const result = new Date(today);
-
-    switch (periodOption.type) {
-        case 'days':
-            result.setDate(result.getDate() - periodOption.value);
-            break;
+    switch (opt.type) {
+        case 'days': result.setDate(result.getDate() - opt.value); break;
         case 'months':
-            result.setMonth(result.getMonth() - periodOption.value);
-            if (result.getDate() !== today.getDate()) {
-                result.setDate(0);
-            }
+            result.setMonth(result.getMonth() - opt.value);
+            if (result.getDate() !== today.getDate()) result.setDate(0);
             break;
         case 'years':
-            result.setFullYear(result.getFullYear() - periodOption.value);
-            if (result.getMonth() !== today.getMonth() || result.getDate() !== today.getDate()) {
-                result.setDate(0);
-            }
+            result.setFullYear(result.getFullYear() - opt.value);
+            if (result.getMonth() !== today.getMonth() || result.getDate() !== today.getDate()) result.setDate(0);
             break;
-        case 'ytd':
-            result.setMonth(0, 1);
-            break;
-        case 'max':
-            result.setFullYear(result.getFullYear() - 25);
-            break;
+        case 'ytd': result.setMonth(0, 1); break;
+        case 'max': result.setFullYear(result.getFullYear() - 25); break;
     }
-
     return result;
 };
 
@@ -83,40 +141,28 @@ export default function RSScreener() {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const datePickerRef = useRef<HTMLDivElement>(null);
 
-    // Handle click outside for date picker
     useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node)) {
+        const handler = (e: MouseEvent) => {
+            if (datePickerRef.current && !datePickerRef.current.contains(e.target as Node))
                 setShowDatePicker(false);
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
         };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    useEffect(() => {
-        fetchLatestRS();
-    }, []);
+    useEffect(() => { fetchLatestRS(); }, []);
 
     useEffect(() => {
-        let result = stocks;
-        result = result.filter(s => s.rs_rating >= filterRange[0] && s.rs_rating <= filterRange[1]);
+        let r = stocks.filter(s => s.rs_rating >= filterRange[0] && s.rs_rating <= filterRange[1]);
         if (searchQuery) {
             const q = searchQuery.toUpperCase();
-            result = result.filter(s =>
-                s.symbol.includes(q) ||
-                s.company_name?.toUpperCase().includes(q)
-            );
+            r = r.filter(s => s.symbol.includes(q) || s.company_name?.toUpperCase().includes(q));
         }
-        setFilteredStocks(result);
+        setFilteredStocks(r);
     }, [stocks, searchQuery, filterRange]);
 
     useEffect(() => {
-        if (selectedStock) {
-            fetchHistoryWithPeriod(selectedStock.symbol);
-        }
+        if (selectedStock) fetchHistoryWithPeriod(selectedStock.symbol);
     }, [selectedStock, selectedPeriod, customStartDate, customEndDate]);
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -126,465 +172,336 @@ export default function RSScreener() {
             const token = localStorage.getItem('token');
             const headers: HeadersInit = { 'Content-Type': 'application/json' };
             if (token) headers['Authorization'] = `Bearer ${token}`;
-
             const res = await fetch(`${API_URL}/api/rs/latest?limit=500`, { headers });
             if (res.status === 401 || res.status === 403) return;
-
             const data = await res.json();
-            if (data.data) {
-                setStocks(data.data);
-                if (data.data.length > 0) {
-                    setSelectedStock(data.data[0]);
-                }
-            }
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
+            if (data.data) { setStocks(data.data); if (data.data.length > 0) setSelectedStock(data.data[0]); }
+        } catch (err) { console.error(err); }
+        finally { setLoading(false); }
     };
 
     const fetchHistoryWithPeriod = async (symbol: string) => {
         setHistoryLoading(true);
         try {
             let fromDate = '';
-            const today = new Date();
-            const toDate = getLocalDateString(today);
-
+            const toDate = getLocalDateString(new Date());
             if (selectedPeriod === 'Custom' && customStartDate && customEndDate) {
                 fromDate = customStartDate;
             } else {
                 const option = PERIOD_OPTIONS.find(p => p.label === selectedPeriod);
-                if (option) {
-                    const startDate = calculateStartDate(option);
-                    fromDate = getLocalDateString(startDate);
-                }
+                if (option) fromDate = getLocalDateString(calculateStartDate(option));
             }
-
-            let url = `${API_URL}/api/rs/${symbol}`;
             const params = new URLSearchParams();
-            const finalToDate = (selectedPeriod === 'Custom' && customEndDate) ? customEndDate : toDate;
-
+            const finalToDate = selectedPeriod === 'Custom' && customEndDate ? customEndDate : toDate;
             if (fromDate) params.append('from_date', fromDate);
             if (finalToDate) params.append('to_date', finalToDate);
-            if (params.toString()) url += `?${params.toString()}`;
-
+            let url = `${API_URL}/api/rs/${symbol}${params.toString() ? '?' + params.toString() : ''}`;
             const token = localStorage.getItem('token');
             const headers: HeadersInit = { 'Content-Type': 'application/json' };
             if (token) headers['Authorization'] = `Bearer ${token}`;
-
             const res = await fetch(url, { headers });
-            if (!res.ok) throw new Error('Failed to fetch history');
-
+            if (!res.ok) throw new Error('Failed');
             const data = await res.json();
             setHistoryData(Array.isArray(data) ? data : []);
-        } catch (err) {
-            console.error(err);
-            setHistoryData([]);
-        } finally {
-            setHistoryLoading(false);
-        }
+        } catch (err) { console.error(err); setHistoryData([]); }
+        finally { setHistoryLoading(false); }
     };
 
-    const handlePeriodChange = (period: string) => {
-        setSelectedPeriod(period);
-        setShowDatePicker(false);
-    };
-
+    const handlePeriodChange = (p: string) => { setSelectedPeriod(p); setShowDatePicker(false); };
     const handleApplyCustomRange = () => {
         if (customStartDate && customEndDate) {
-            if (new Date(customStartDate) > new Date(customEndDate)) {
-                alert('Start date must be before end date');
-                return;
-            }
+            if (new Date(customStartDate) > new Date(customEndDate)) { alert('Start date must be before end date'); return; }
             setSelectedPeriod('Custom');
             setShowDatePicker(false);
         }
     };
 
-    const getRSBadgeStyle = (val: number) => {
-        if (val >= 90) return 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/50';
-        if (val >= 70) return 'bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/50';
-        if (val >= 50) return 'bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg shadow-amber-500/50';
-        if (val >= 30) return 'bg-gradient-to-br from-orange-500 to-orange-600 shadow-lg shadow-orange-500/50';
-        return 'bg-gradient-to-br from-red-500 to-red-600 shadow-lg shadow-red-500/50';
+    const getRSBadge = (v: number) => {
+        if (v >= 90) return { bg: '#D4EDDA', text: '#1C7A3F', border: '#A8D5B5' };
+        if (v >= 70) return { bg: '#D4E8FF', text: '#1A5276', border: '#A8CCE8' };
+        if (v >= 50) return { bg: '#FEF3C7', text: '#92400E', border: '#FCD37A' };
+        if (v >= 30) return { bg: '#FFE8CC', text: '#7C3D00', border: '#F5C68A' };
+        return { bg: '#FADADD', text: '#C0392B', border: '#F5AAAF' };
     };
 
-    const formatReturn = (val: number | undefined) => {
-        if (val === undefined || val === null) return '-';
-        return `${(val * 100).toFixed(1)}%`;
-    };
-
-    const getReturnColorClass = (val: number | undefined) => {
-        if (val === undefined || val === null) return 'text-slate-300';
-        if (val > 0) return 'text-emerald-400';
-        if (val < 0) return 'text-red-400';
-        return 'text-slate-400';
-    };
+    const formatReturn = (v: number | undefined) => v === undefined || v === null ? '-' : `${(v * 100).toFixed(1)}%`;
+    const returnColor = (v: number | undefined) => v === undefined || v === null ? '#A09880' : v > 0 ? '#1C7A3F' : v < 0 ? '#C0392B' : '#7A7060';
 
     const getRSChange = () => {
         if (historyData.length < 2) return { value: 0, isPositive: true };
-        const first = historyData[0]?.rs_rating || 0;
-        const last = historyData[historyData.length - 1]?.rs_rating || 0;
-        const change = last - first;
+        const change = (historyData[historyData.length - 1]?.rs_rating || 0) - (historyData[0]?.rs_rating || 0);
         return { value: change, isPositive: change >= 0 };
     };
-
     const rsChange = getRSChange();
 
-    const CustomTooltip = ({ active, payload, label }: any) => {
-        if (active && payload && payload.length) {
-            return (
-                <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl p-4 shadow-2xl backdrop-blur-xl">
-                    <p className="text-slate-300 text-sm mb-2 font-medium">
-                        {new Date(label).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}
-                    </p>
-                    <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500"></div>
-                        <p className="text-white font-bold text-lg">RS {payload[0].value?.toFixed(1)}</p>
-                    </div>
-                </div>
-            );
-        }
-        return null;
-    };
+    // Shared input style
+    const inputStyle = { backgroundColor: '#F5F0E8', border: '1px solid #D9D2C3', color: '#2C2416' };
 
     return (
-        <div className="flex bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 font-sans min-h-screen">
-            {/* Enhanced Sidebar */}
-            <div className={`${sidebarCollapsed ? 'w-16' : 'w-80'} bg-gradient-to-b from-slate-900/80 to-slate-900/60 backdrop-blur-xl flex flex-col border-r border-slate-800/50 transition-all duration-300 relative`}>
+        <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#EDE8DC', color: '#2C2416', fontFamily: 'system-ui, sans-serif' }}>
+
+            {/* ── Sidebar ── */}
+            <div style={{
+                width: sidebarCollapsed ? '64px' : '295px',
+                flexShrink: 0,
+                backgroundColor: '#FDFAF5',
+                borderRight: '1px solid #D9D2C3',
+                boxShadow: '2px 0 8px rgba(44,36,22,0.06)',
+                display: 'flex',
+                flexDirection: 'column',
+                transition: 'width 0.3s',
+                position: 'relative',
+            }}>
+                {/* Toggle button */}
                 <button
                     onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                    className="absolute -right-3 top-6 z-10 w-6 h-6 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+                    style={{
+                        position: 'absolute', right: '-12px', top: '24px', zIndex: 10,
+                        width: '24px', height: '24px', borderRadius: '50%',
+                        backgroundColor: '#1C3D2E', border: 'none', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(28,61,46,0.3)',
+                    }}
                 >
-                    <ChevronRight size={14} className={`text-white transition-transform ${sidebarCollapsed ? '' : 'rotate-180'}`} />
+                    <ChevronRight size={13} color="#D4EDDA" style={{ transform: sidebarCollapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.3s' }} />
                 </button>
 
                 {!sidebarCollapsed && (
                     <>
-                        <div className="p-6 border-b border-slate-800/50">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                                    <BarChart3 size={20} className="text-white" />
+                        {/* Header */}
+                        <div style={{ padding: '20px', borderBottom: '1px solid #E8E2D5' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
+                                <div style={{ width: '40px', height: '40px', borderRadius: '12px', backgroundColor: '#1C3D2E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <BarChart3 size={20} color="#A8D5B5" />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">RS Screener</h2>
-                                    <p className="text-xs text-slate-400">Relative Strength Analysis</p>
+                                    <div style={{ fontWeight: 700, fontSize: '15px', color: '#2C2416' }}>RS Screener</div>
+                                    <div style={{ fontSize: '11px', color: '#7A7060' }}>Relative Strength Analysis</div>
                                 </div>
                             </div>
 
-                            <div className="relative group mb-4">
-                                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-400 transition-colors" />
+                            {/* Search */}
+                            <div style={{ position: 'relative', marginBottom: '14px' }}>
+                                <Search size={14} color="#A09880" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
                                 <input
                                     type="text"
                                     placeholder="Search stocks..."
                                     value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white text-sm focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-slate-500"
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    style={{ ...inputStyle, width: '100%', padding: '10px 10px 10px 34px', borderRadius: '12px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
                                 />
                             </div>
 
-                            <div className="flex items-center gap-2 mb-3">
-                                <Filter size={14} className="text-slate-400" />
-                                <h3 className="text-slate-400 text-xs font-bold tracking-wider uppercase">Quick Filters</h3>
+                            {/* Quick filter label */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                                <Filter size={12} color="#A09880" />
+                                <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#A09880' }}>Quick Filters</span>
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                {[
-                                    { label: '90+', range: [90, 100], gradient: 'from-emerald-500 to-emerald-600', shadow: 'emerald' },
-                                    { label: '80+', range: [80, 100], gradient: 'from-blue-500 to-blue-600', shadow: 'blue' },
-                                    { label: '70+', range: [70, 100], gradient: 'from-cyan-500 to-cyan-600', shadow: 'cyan' },
-                                    { label: '50+', range: [51, 100], gradient: 'from-amber-500 to-amber-600', shadow: 'amber' },
-                                    { label: '<50', range: [0, 50], gradient: 'from-orange-500 to-orange-600', shadow: 'orange' },
-                                    { label: 'All', range: [0, 100], gradient: 'from-slate-600 to-slate-700', shadow: 'slate' },
-                                ].map(filter => (
-                                    <button
-                                        key={filter.label}
-                                        onClick={() => setFilterRange(filter.range as [number, number])}
-                                        className={`py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${filterRange[0] === filter.range[0] && filterRange[1] === filter.range[1]
-                                            ? `bg-gradient-to-br ${filter.gradient} text-white shadow-lg scale-105`
-                                            : 'bg-slate-800/30 text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                                            }`}
-                                    >
-                                        {filter.label}
-                                    </button>
-                                ))}
+
+                            {/* Filter grid */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                                {[{ label: '90+', range: [90, 100] }, { label: '80+', range: [80, 100] }, { label: '70+', range: [70, 100] }, { label: '50+', range: [51, 100] }, { label: '<50', range: [0, 50] }, { label: 'All', range: [0, 100] }].map(f => {
+                                    const active = filterRange[0] === f.range[0] && filterRange[1] === f.range[1];
+                                    return (
+                                        <button key={f.label} onClick={() => setFilterRange(f.range as [number, number])} style={{
+                                            padding: '8px', borderRadius: '10px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
+                                            backgroundColor: active ? '#1C3D2E' : '#F5F0E8',
+                                            color: active ? '#D4EDDA' : '#7A7060',
+                                            border: `1px solid ${active ? '#1C3D2E' : '#D9D2C3'}`,
+                                        }}>
+                                            {f.label}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
 
-                        <div className="overflow-y-auto h-[460px] custom-scrollbar">
-                            <div className="p-3">
-                                <div className="flex items-center justify-between px-3 mb-2">
-                                    <p className="text-xs text-slate-500 font-medium">{filteredStocks.length} stocks</p>
-                                    <Sparkles size={12} className="text-blue-400" />
+                        {/* Stock list */}
+                        <div style={{ overflowY: 'auto', flex: 1, padding: '10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 8px 8px' }}>
+                                <span style={{ fontSize: '11px', color: '#A09880' }}>{filteredStocks.length} stocks</span>
+                                <Sparkles size={11} color="#2D6A4F" />
+                            </div>
+
+                            {loading ? (
+                                <div style={{ textAlign: 'center', padding: '32px 0' }}>
+                                    <Loader2 size={28} color="#2D6A4F" style={{ margin: '0 auto 8px', animation: 'spin 1s linear infinite' }} />
+                                    <p style={{ fontSize: '12px', color: '#A09880' }}>Loading stocks...</p>
                                 </div>
-                                {loading ? (
-                                    <div className="py-12 text-center">
-                                        <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                                        <p className="text-slate-500 text-sm">Loading stocks...</p>
-                                    </div>
-                                ) : filteredStocks.length === 0 ? (
-                                    <div className="py-12 text-center">
-                                        <p className="text-slate-500 text-sm">No stocks found</p>
-                                    </div>
-                                ) : (
-                                    filteredStocks.map(stock => (
-                                        <div
-                                            key={stock.symbol}
-                                            onClick={() => setSelectedStock(stock)}
-                                            className={`mb-2 p-4 cursor-pointer rounded-xl transition-all duration-200 border ${selectedStock?.symbol === stock.symbol
-                                                ? 'bg-gradient-to-br from-blue-500/20 to-purple-500/20 border-blue-500/50 shadow-lg shadow-blue-500/20 scale-[1.02]'
-                                                : 'bg-slate-800/30 border-slate-800/50 hover:bg-slate-800/50 hover:border-slate-700'
-                                                }`}
-                                        >
-                                            <div className="flex justify-between items-center mb-2">
-                                                <div className="flex-1 min-w-0 mr-3">
-                                                    <div className="font-bold text-white text-sm truncate">{stock.company_name || stock.symbol}</div>
-                                                    <div className="text-xs text-slate-500 font-medium">{stock.symbol}</div>
-                                                </div>
-                                                <div className={`px-3 py-1.5 rounded-lg text-xs font-black text-white ${getRSBadgeStyle(stock.rs_rating)}`}>
-                                                    {stock.rs_rating}
-                                                </div>
+                            ) : filteredStocks.length === 0 ? (
+                                <p style={{ fontSize: '12px', color: '#A09880', textAlign: 'center', padding: '32px 0' }}>No stocks found</p>
+                            ) : filteredStocks.map(stock => {
+                                const isSelected = selectedStock?.symbol === stock.symbol;
+                                const badge = getRSBadge(stock.rs_rating);
+                                return (
+                                    <div key={stock.symbol} onClick={() => setSelectedStock(stock)} style={{
+                                        marginBottom: '6px', padding: '12px', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s', border: '1px solid',
+                                        backgroundColor: isSelected ? '#E8F5EE' : '#FDFAF5',
+                                        borderColor: isSelected ? '#2D6A4F' : '#E8E2D5',
+                                        boxShadow: isSelected ? '0 1px 6px rgba(28,61,46,0.12)' : 'none',
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                            <div style={{ flex: 1, minWidth: 0, marginRight: '8px' }}>
+                                                <div style={{ fontWeight: 700, fontSize: '13px', color: '#2C2416', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stock.company_name || stock.symbol}</div>
+                                                <div style={{ fontSize: '11px', color: '#A09880', fontFamily: 'monospace' }}>{stock.symbol}</div>
                                             </div>
-                                            <div className="flex items-center justify-between text-xs">
-                                                <span className="text-slate-500">12M Return</span>
-                                                <span className={`font-bold flex items-center gap-1 ${getReturnColorClass(stock.return_12m)}`}>
-                                                    {stock.return_12m !== undefined && stock.return_12m > 0 ? (
-                                                        <ArrowUpRight size={12} />
-                                                    ) : stock.return_12m !== undefined && stock.return_12m < 0 ? (
-                                                        <ArrowDownRight size={12} />
-                                                    ) : null}
-                                                    {formatReturn(stock.return_12m)}
-                                                </span>
+                                            <div style={{ padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 900, backgroundColor: badge.bg, color: badge.text, border: `1px solid ${badge.border}` }}>
+                                                {stock.rs_rating}
                                             </div>
                                         </div>
-                                    ))
-                                )}
-                            </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                                            <span style={{ color: '#A09880' }}>12M Return</span>
+                                            <span style={{ fontWeight: 700, color: returnColor(stock.return_12m), display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                                {stock.return_12m !== undefined && stock.return_12m > 0 && <ArrowUpRight size={11} />}
+                                                {stock.return_12m !== undefined && stock.return_12m < 0 && <ArrowDownRight size={11} />}
+                                                {formatReturn(stock.return_12m)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </>
                 )}
 
                 {sidebarCollapsed && (
-                    <div className="flex flex-col items-center py-6 space-y-6">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                            <BarChart3 size={16} className="text-white" />
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 0', gap: '20px' }}>
+                        <div style={{ width: '32px', height: '32px', borderRadius: '10px', backgroundColor: '#1C3D2E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <BarChart3 size={16} color="#A8D5B5" />
                         </div>
-                        <div className="w-6 h-6 flex items-center justify-center">
-                            <Search size={14} className="text-slate-400" />
-                        </div>
-                        <div className="w-6 h-6 flex items-center justify-center">
-                            <Filter size={14} className="text-slate-400" />
-                        </div>
-                        <div className="w-6 h-6 flex items-center justify-center">
-                            <Sparkles size={12} className="text-blue-400" />
-                        </div>
+                        <Search size={14} color="#A09880" />
+                        <Filter size={14} color="#A09880" />
+                        <Sparkles size={12} color="#2D6A4F" />
                     </div>
                 )}
             </div>
 
-            {/* Main Content */}
-            <div className="flex-1 flex flex-col overflow-hidden">
+            {/* ── Main Content ── */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 {selectedStock ? (
                     <>
-                        <div className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 backdrop-blur-xl border-b border-slate-800/50 px-8 py-6 relative z-20">
-                            <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-5">
-                                    <div className={`text-4xl font-black px-6 py-4 rounded-2xl text-white ${getRSBadgeStyle(selectedStock.rs_rating)}`}>
-                                        {selectedStock.rs_rating}
-                                    </div>
-                                    <div>
-                                        <h1 className="text-2xl font-bold text-white mb-1">{selectedStock.company_name}</h1>
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-slate-400 text-sm font-mono">{selectedStock.symbol}</span>
-                                            <span className="text-slate-600">•</span>
-                                            <span className={`text-sm font-bold flex items-center gap-1.5 px-3 py-1 rounded-lg ${rsChange.isPositive
-                                                ? 'bg-emerald-500/20 text-emerald-400'
-                                                : 'bg-red-500/20 text-red-400'
-                                                }`}>
-                                                {rsChange.isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                                                {rsChange.isPositive ? '+' : ''}{rsChange.value.toFixed(1)} pts
-                                                <span className="text-xs opacity-70">({selectedPeriod})</span>
-                                            </span>
+                        {/* Top bar */}
+                        <div style={{ padding: '20px 32px', backgroundColor: '#FDFAF5', borderBottom: '1px solid #D9D2C3', boxShadow: '0 1px 4px rgba(44,36,22,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 20 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                {(() => {
+                                    const b = getRSBadge(selectedStock.rs_rating); return (
+                                        <div style={{ fontSize: '28px', fontWeight: 900, padding: '12px 20px', borderRadius: '16px', backgroundColor: b.bg, color: b.text, border: `1px solid ${b.border}` }}>
+                                            {selectedStock.rs_rating}
                                         </div>
+                                    );
+                                })()}
+                                <div>
+                                    <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#2C2416', marginBottom: '4px' }}>{selectedStock.company_name}</h1>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: '13px', fontFamily: 'monospace', color: '#7A7060' }}>{selectedStock.symbol}</span>
+                                        <span style={{ color: '#D9D2C3' }}>•</span>
+                                        <span style={{
+                                            fontSize: '12px', fontWeight: 700, padding: '3px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px',
+                                            backgroundColor: rsChange.isPositive ? '#D4EDDA' : '#FADADD',
+                                            color: rsChange.isPositive ? '#1C7A3F' : '#C0392B',
+                                            border: `1px solid ${rsChange.isPositive ? '#A8D5B5' : '#F5AAAF'}`,
+                                        }}>
+                                            {rsChange.isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                                            {rsChange.isPositive ? '+' : ''}{rsChange.value.toFixed(1)} pts ({selectedPeriod})
+                                        </span>
                                     </div>
                                 </div>
+                            </div>
 
-                                <div className="flex items-center gap-2 bg-slate-900/50 p-2 rounded-xl border border-slate-800/50">
-                                    {PERIOD_OPTIONS.map(opt => (
-                                        <button
-                                            key={opt.label}
-                                            onClick={() => handlePeriodChange(opt.label)}
-                                            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all duration-200 ${selectedPeriod === opt.label
-                                                ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/30'
-                                                : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                                                }`}
-                                        >
-                                            {opt.label}
-                                        </button>
-                                    ))}
-
-                                    <div className="relative" ref={datePickerRef}>
-                                        <button
-                                            onClick={() => setShowDatePicker(!showDatePicker)}
-                                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all duration-200 ${showDatePicker || selectedPeriod === 'Custom'
-                                                ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/30'
-                                                : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                                                }`}
-                                        >
-                                            <Calendar size={14} />
-                                            {selectedPeriod === 'Custom' && (
-                                                <span className="ml-1">Custom</span>
-                                            )}
-                                        </button>
-
-                                        {showDatePicker && (
-                                            <div className="absolute top-full right-0 mt-3 bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-800/50 p-6 z-50 w-96">
-                                                <div className="flex items-center justify-between mb-5">
-                                                    <span className="text-sm font-bold text-white">Custom Date Range</span>
-                                                    <button onClick={() => setShowDatePicker(false)} className="text-slate-400 hover:text-white transition-colors">
-                                                        <X size={18} />
-                                                    </button>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4 mb-5">
-                                                    <div>
-                                                        <label className="block text-xs text-slate-400 mb-2 font-medium">Start Date</label>
-                                                        <input
-                                                            type="date"
-                                                            value={customStartDate}
-                                                            onChange={(e) => setCustomStartDate(e.target.value)}
-                                                            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700/50 rounded-xl text-sm text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-xs text-slate-400 mb-2 font-medium">End Date</label>
-                                                        <input
-                                                            type="date"
-                                                            value={customEndDate}
-                                                            onChange={(e) => setCustomEndDate(e.target.value)}
-                                                            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700/50 rounded-xl text-sm text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="flex justify-end gap-3">
-                                                    <button
-                                                        onClick={() => { setCustomStartDate(''); setCustomEndDate(''); setShowDatePicker(false); }}
-                                                        className="px-5 py-2.5 text-sm font-medium text-slate-400 hover:text-white border border-slate-700 rounded-xl hover:bg-slate-800/50 transition-all"
-                                                    >
-                                                        Cancel
-                                                    </button>
-                                                    <button
-                                                        onClick={handleApplyCustomRange}
-                                                        disabled={!customStartDate || !customEndDate}
-                                                        className={`px-5 py-2.5 text-sm font-bold rounded-xl transition-all ${!customStartDate || !customEndDate
-                                                            ? 'bg-slate-800/50 text-slate-500 cursor-not-allowed'
-                                                            : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:shadow-lg hover:shadow-blue-500/30'
-                                                            }`}
-                                                    >
-                                                        Apply Range
-                                                    </button>
-                                                </div>
+                            {/* Period selector */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px', borderRadius: '14px', backgroundColor: '#EDE8DC', border: '1px solid #D9D2C3' }}>
+                                {PERIOD_OPTIONS.map(opt => {
+                                    const active = selectedPeriod === opt.label;
+                                    return (
+                                        <button key={opt.label} onClick={() => handlePeriodChange(opt.label)} style={{
+                                            padding: '6px 12px', fontSize: '12px', fontWeight: 700, borderRadius: '10px', border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                                            backgroundColor: active ? '#1C3D2E' : 'transparent',
+                                            color: active ? '#D4EDDA' : '#7A7060',
+                                            boxShadow: active ? '0 1px 4px rgba(28,61,46,0.3)' : 'none',
+                                        }}>{opt.label}</button>
+                                    );
+                                })}
+                                <div style={{ position: 'relative' }} ref={datePickerRef}>
+                                    <button onClick={() => setShowDatePicker(!showDatePicker)} style={{
+                                        display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '12px', fontWeight: 700, borderRadius: '10px', border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                                        backgroundColor: showDatePicker || selectedPeriod === 'Custom' ? '#1C3D2E' : 'transparent',
+                                        color: showDatePicker || selectedPeriod === 'Custom' ? '#D4EDDA' : '#7A7060',
+                                    }}>
+                                        <Calendar size={13} />
+                                        {selectedPeriod === 'Custom' && <span>Custom</span>}
+                                    </button>
+                                    {showDatePicker && (
+                                        <div style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, width: '340px', backgroundColor: '#FDFAF5', border: '1px solid #D9D2C3', borderRadius: '16px', boxShadow: '0 8px 32px rgba(44,36,22,0.12)', padding: '20px', zIndex: 50 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                                <span style={{ fontSize: '14px', fontWeight: 700, color: '#2C2416' }}>Custom Date Range</span>
+                                                <button onClick={() => setShowDatePicker(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#A09880' }}><X size={16} /></button>
                                             </div>
-                                        )}
-                                    </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                                                {[{ label: 'Start Date', val: customStartDate, set: setCustomStartDate }, { label: 'End Date', val: customEndDate, set: setCustomEndDate }].map(({ label, val, set }) => (
+                                                    <div key={label}>
+                                                        <label style={{ display: 'block', fontSize: '11px', color: '#7A7060', marginBottom: '6px', fontWeight: 600 }}>{label}</label>
+                                                        <input type="date" value={val} onChange={e => set(e.target.value)} style={{ ...inputStyle, width: '100%', padding: '8px 10px', borderRadius: '10px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                                <button onClick={() => { setCustomStartDate(''); setCustomEndDate(''); setShowDatePicker(false); }} style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px', border: '1px solid #D9D2C3', backgroundColor: '#F5F0E8', color: '#7A7060', cursor: 'pointer' }}>Cancel</button>
+                                                <button onClick={handleApplyCustomRange} disabled={!customStartDate || !customEndDate} style={{
+                                                    padding: '8px 16px', fontSize: '13px', fontWeight: 700, borderRadius: '10px', border: 'none', cursor: !customStartDate || !customEndDate ? 'not-allowed' : 'pointer',
+                                                    backgroundColor: !customStartDate || !customEndDate ? '#E8E2D5' : '#1C3D2E',
+                                                    color: !customStartDate || !customEndDate ? '#A09880' : '#D4EDDA',
+                                                }}>Apply Range</button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex-1 p-8 overflow-auto">
-                            <div className="bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-xl rounded-2xl border border-slate-800/50 p-6 mb-6 h-[500px] flex flex-col">
-                                <div className="flex justify-between items-center mb-6">
-                                    <div>
-                                        <h2 className="text-white text-lg font-bold flex items-center gap-2">
-                                            <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full"></div>
-                                            RS Rating History
-                                        </h2>
-                                        <p className="text-slate-500 text-sm mt-1">
-                                            {historyData.length} data points • {selectedPeriod}
-                                        </p>
-                                    </div>
+                        {/* Body */}
+                        <div style={{ flex: 1, padding: '28px', overflowY: 'auto', backgroundColor: '#EDE8DC' }}>
+                            {/* Chart */}
+                            <div style={{ backgroundColor: '#FDFAF5', border: '1px solid #D9D2C3', borderRadius: '20px', padding: '20px', marginBottom: '20px', boxShadow: '0 1px 6px rgba(44,36,22,0.06)', height: '440px', display: 'flex', flexDirection: 'column' }}>
+                                <div style={{ marginBottom: '16px' }}>
+                                    <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#2C2416', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{ width: '3px', height: '20px', backgroundColor: '#2D6A4F', borderRadius: '2px' }} />
+                                        RS Rating History
+                                    </h2>
+                                    <p style={{ fontSize: '12px', color: '#A09880', marginTop: '2px' }}>{historyData.length} data points • {selectedPeriod}</p>
                                 </div>
-
-                                <div className="flex-1">
+                                <div style={{ flex: 1 }}>
                                     {historyLoading ? (
-                                        <div className="h-full flex items-center justify-center">
-                                            <div className="text-center">
-                                                <Loader2 size={48} className="mx-auto mb-4 text-blue-500 animate-spin" />
-                                                <p className="text-slate-400">Loading chart data...</p>
+                                        <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <div style={{ textAlign: 'center' }}>
+                                                <Loader2 size={40} color="#2D6A4F" style={{ margin: '0 auto 12px', animation: 'spin 1s linear infinite' }} />
+                                                <p style={{ fontSize: '13px', color: '#A09880' }}>Loading chart data...</p>
                                             </div>
                                         </div>
                                     ) : historyData.length === 0 ? (
-                                        <div className="h-full flex items-center justify-center">
-                                            <div className="text-center">
-                                                <BarChart3 size={48} className="mx-auto mb-4 text-slate-700" />
-                                                <p className="text-slate-500">No data available for this period</p>
+                                        <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <div style={{ textAlign: 'center' }}>
+                                                <BarChart3 size={40} color="#D9D2C3" style={{ margin: '0 auto 12px' }} />
+                                                <p style={{ fontSize: '13px', color: '#A09880' }}>No data available for this period</p>
                                             </div>
                                         </div>
                                     ) : (
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <AreaChart data={historyData}>
-                                                <defs>
-                                                    <linearGradient id="rsGradient" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                                                    </linearGradient>
-                                                </defs>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#334155" strokeOpacity={0.3} vertical={false} />
-                                                <XAxis
-                                                    dataKey="date"
-                                                    tick={{ fill: '#64748b', fontSize: 11 }}
-                                                    tickFormatter={(val) => {
-                                                        const date = new Date(val);
-                                                        // Use UTC methods to avoid timezone shifts for YYYY-MM-DD strings
-                                                        const day = date.getUTCDate();
-                                                        const month = date.toLocaleString('default', { month: 'short', timeZone: 'UTC' });
-
-                                                        if (selectedPeriod === 'MAX' || selectedPeriod === '5Y' || selectedPeriod === '10Y') {
-                                                            return val.substring(0, 4);
-                                                        }
-                                                        return `${day} ${month}`;
-                                                    }}
-                                                    minTickGap={30}
-                                                    axisLine={{ stroke: '#334155' }}
-                                                    tickLine={false}
-                                                />
-                                                <YAxis
-                                                    domain={[0, 100]}
-                                                    tick={{ fill: '#64748b', fontSize: 11 }}
-                                                    axisLine={{ stroke: '#334155' }}
-                                                    tickLine={false}
-                                                    width={40}
-                                                />
-                                                <Tooltip content={<CustomTooltip />} />
-                                                <Area
-                                                    type="monotone"
-                                                    dataKey="rs_rating"
-                                                    stroke="#3b82f6"
-                                                    strokeWidth={3}
-                                                    fill="url(#rsGradient)"
-                                                    dot={false}
-                                                    activeDot={{ r: 6, strokeWidth: 0, fill: '#3b82f6' }}
-                                                />
-                                            </AreaChart>
-                                        </ResponsiveContainer>
+                                        <RSHistoryChart data={historyData} period={selectedPeriod} />
                                     )}
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-4 gap-4">
+                            {/* Return cards */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
                                 {[
-                                    { label: '3M Return', value: selectedStock.return_3m, icon: '' },
-                                    { label: '6M Return', value: selectedStock.return_6m, icon: '' },
-                                    { label: '9M Return', value: selectedStock.return_9m, icon: '' },
-                                    { label: '12M Return', value: selectedStock.return_12m, icon: '' },
-                                ].map((item) => (
-                                    <div key={item.label} className="bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-xl rounded-2xl border border-slate-800/50 p-6 hover:border-slate-700 transition-all group hover:scale-[1.02] hover:shadow-lg">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <span className="text-slate-400 text-xs font-bold tracking-wider uppercase">{item.label}</span>
-                                            <span className="text-2xl group-hover:scale-110 transition-transform">{item.icon}</span>
-                                        </div>
-                                        <div className={`text-3xl font-black ${getReturnColorClass(item.value)} flex items-center gap-2`}>
-                                            {item.value !== undefined && item.value > 0 && <ArrowUpRight size={20} />}
-                                            {item.value !== undefined && item.value < 0 && <ArrowDownRight size={20} />}
+                                    { label: '3M Return', value: selectedStock.return_3m },
+                                    { label: '6M Return', value: selectedStock.return_6m },
+                                    { label: '9M Return', value: selectedStock.return_9m },
+                                    { label: '12M Return', value: selectedStock.return_12m },
+                                ].map(item => (
+                                    <div key={item.label} style={{ backgroundColor: '#FDFAF5', border: '1px solid #D9D2C3', borderRadius: '16px', padding: '20px', boxShadow: '0 1px 4px rgba(44,36,22,0.05)' }}>
+                                        <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#A09880', display: 'block', marginBottom: '8px' }}>{item.label}</span>
+                                        <div style={{ fontSize: '22px', fontWeight: 900, color: returnColor(item.value), display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            {item.value !== undefined && item.value > 0 && <ArrowUpRight size={18} />}
+                                            {item.value !== undefined && item.value < 0 && <ArrowDownRight size={18} />}
                                             {formatReturn(item.value)}
                                         </div>
                                     </div>
@@ -593,17 +510,19 @@ export default function RSScreener() {
                         </div>
                     </>
                 ) : (
-                    <div className="flex-1 flex items-center justify-center">
-                        <div className="text-center">
-                            <div className="w-20 h-20 bg-gradient-to-br from-blue-500/20 to-purple-600/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                                <TrendingUp size={40} className="text-blue-400" />
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#EDE8DC' }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ width: '80px', height: '80px', borderRadius: '20px', backgroundColor: '#E8F5EE', border: '1px solid #A8D5B5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                                <TrendingUp size={36} color="#2D6A4F" />
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-2">Select a Stock</h3>
-                            <p className="text-slate-500">Choose a stock from the sidebar to view detailed RS analysis</p>
+                            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#2C2416', marginBottom: '6px' }}>Select a Stock</h3>
+                            <p style={{ color: '#A09880' }}>Choose a stock from the sidebar to view detailed RS analysis</p>
                         </div>
                     </div>
                 )}
             </div>
+
+            <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
         </div>
     );
 }

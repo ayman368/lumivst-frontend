@@ -95,7 +95,12 @@ export default function useStocks() {
                     percent_off_52w_high: techInfo.percent_off_52w_high,
                     percent_off_52w_low: techInfo.percent_off_52w_low,
                     vol_diff_50_percent: techInfo.vol_diff_50_percent,
+                    beta: techInfo.beta ?? undefined,
                     trading_view_symbol: item.trading_view_symbol,
+
+                    approval_with_controls: item.approval_with_controls ?? null,
+                    purge_amount: item.purge_amount !== undefined && item.purge_amount !== null ? Number(item.purge_amount) : null,
+                    marginable_percent: item.marginable_percent !== undefined && item.marginable_percent !== null ? Number(item.marginable_percent) : null,
 
                     // New MA Comparison Indicators (exclusively from techInfo)
                     ema_21: techInfo.ema21 ?? techInfo.ema_21 ?? undefined,

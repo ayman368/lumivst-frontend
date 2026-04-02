@@ -1,24 +1,13 @@
 'use client';
-import Link from 'next/link';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Filter, ChevronLeft, ChevronRight, PanelLeft, Search, CheckCircle2, XCircle, Shield, TrendingUp as TrendingUpIcon } from 'lucide-react';
-import RatingBadge from '../components/RatingBadge';
-import CustomMultiSelect from '../components/CustomMultiSelect';
-import RangeFilter from '../components/RangeFilter';
-import CustomDropdown from '../components/CustomDropdown';
-import CheckboxGroup from '../components/CheckboxGroup';
-import ActiveFilterBadge from '../components/ActiveFilterBadge';
-import FilterAccordion from '../components/FilterAccordion';
-import ExportMenu from '../components/ExportMenu';
-import ColumnSelector from '../components/ColumnSelector';
-// import FilterSidebar from '../components/FilterSidebar';
-// import TopFilterPanel from '../components/TopFilterPanel';
+import { Search } from 'lucide-react';
 import useStocks from '../hooks/useStocks';
-import type { Stock, StockMetadata, FilterState } from '../types';
+import type { Stock, FilterState } from '../types';
 import * as XLSX from 'xlsx';
-import { cleanSymbol, cleanName, parseFormattedNumber, formatNumber, formatChange, formatChangePercent, formatText, displayRawValue } from '../utils/formatters';
+import { cleanSymbol, cleanName, parseFormattedNumber, formatNumber, formatChange, formatChangePercent } from '../utils/formatters';
 import LightweightChart from '../components/LightweightChart';
 import SymbolSearchModal from '../components/SymbolSearchModal';
+import ActiveFilterBadge from '../components/ActiveFilterBadge';
 const initialFilterState: FilterState = {
     rs_rating_min: '', rs_rating_max: '',
     acc_dis_rating: [], industry_group_rs: [], sector_rs: [], industry_rs: [], sub_industry_rs: [],
@@ -368,138 +357,7 @@ export default function StockScreenerPage() {
         }
     }, [filters]);
     const clearAllFilters = useCallback(() => { setFilters(initialFilterState); }, []);
-    useEffect(() => {
-        async function fetchStocks() {
-            try {
-                setLoading(true);
-                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-                const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-                const headers: HeadersInit = { 'Content-Type': 'application/json' };
-                if (token) headers['Authorization'] = `Bearer ${token}`;
-                const [pricesRes, rsRes, techRes] = await Promise.all([
-                    fetch(`${API_URL}/api/prices/latest`, { cache: 'no-store', headers }),
-                    fetch(`${API_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', headers }),
-                    fetch(`${API_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', headers })
-                ]);
-                if (!pricesRes.ok) throw new Error(`Failed to fetch prices: ${pricesRes.status}`);
-                const pricesData = await pricesRes.json();
-                const rsData = rsRes.ok ? await rsRes.json() : { data: [] };
-                const techData = techRes.ok ? await techRes.json() : { data: [] };
-                const rsMap = new Map((rsData.data || []).map((item: any) => [String(item.symbol), item]));
-                const techMap = new Map((techData.data || []).map((item: any) => [String(item.symbol), item]));
-                const mappedStocks = (pricesData.data || []).map((item: any) => {
-                    const symbolStr = String(item.symbol);
-                    const rsInfo: any = rsMap.get(symbolStr) || {};
-                    const techInfo: any = techMap.get(symbolStr) || {};
-                    return {
-                        symbol: item.symbol, name: item.company_name || '',
-                        industry_group: item.industry_group || '', sector: item.sector || '',
-                        industry: item.industry || '', sub_industry: item.sub_industry || '',
-                        price: item.close, change: item.change, percent_change: item.change_percent,
-                        volume: item.volume_traded, turnover: item.value_traded_sar,
-                        open: item.open, high: item.high, low: item.low,
-                        no_of_trades: item.no_of_trades, market_cap: item.market_cap,
-                        rs_rating: rsInfo.rs_rating || 0,
-                        industry_group_rs: rsInfo.industry_group_rs_rating || '',
-                        sector_rs: rsInfo.sector_rs_rating || '',
-                        industry_rs: rsInfo.industry_rs_rating || '',
-                        sub_industry_rs: rsInfo.sub_industry_rs_rating || '',
-                        acc_dis_rating: rsInfo.acc_dis_rating || '',
-                        price_minus_sma_10: item.price_minus_sma_10, price_minus_sma_21: item.price_minus_sma_21,
-                        price_minus_sma_50: item.price_minus_sma_50, price_minus_sma_150: item.price_minus_sma_150,
-                        price_minus_sma_200: item.price_minus_sma_200,
-                        // SMA values — directly from API (prices table has them)
-                        sma_50: item.sma_50 ?? undefined,
-                        sma_150: item.sma_150 ?? undefined,
-                        sma_200: item.sma_200 ?? undefined,
-                        fifty_two_week_high_price: item.fifty_two_week_high, fifty_two_week_low_price: item.fifty_two_week_low,
-                        average_volume_50: item.average_volume_50,
-                        price_vs_sma_10_percent: item.price_vs_sma_10_percent, price_vs_sma_21_percent: item.price_vs_sma_21_percent,
-                        price_vs_sma_50_percent: item.price_vs_sma_50_percent, price_vs_sma_150_percent: item.price_vs_sma_150_percent,
-                        price_vs_sma_200_percent: item.price_vs_sma_200_percent,
-                        price_vs_ema_10_percent: item.ema_10 ? ((item.close - item.ema_10) / item.ema_10) * 100 : 0,
-                        price_vs_ema_21_percent: item.ema_21 ? ((item.close - item.ema_21) / item.ema_21) * 100 : 0,
-                        percent_off_52w_high: item.percent_off_52w_high, percent_off_52w_low: item.percent_off_52w_low,
-                        vol_diff_50_percent: item.vol_diff_50_percent, trading_view_symbol: item.trading_view_symbol,
-                        // EMA / SMA from prices table
-                        ema_10: item.ema_10 ?? undefined,
-                        ema_21: item.ema_21 ?? undefined,
-                        ema10: techInfo.ema10 ?? item.ema_10 ?? undefined,      // ✅ EMA10
-                        ema21: techInfo.ema21 ?? item.ema_21 ?? undefined,      // ✅ EMA21
-                        sma50: techInfo.sma50 ?? item.sma_50 ?? undefined,      // ✅ SMA50
-                        sma150: techInfo.sma150 ?? item.sma_150 ?? undefined,   // ✅ SMA150
-                        sma200: techInfo.sma200 ?? item.sma_200 ?? undefined,   // ✅ SMA200
-                        sma_3: techInfo.sma3_rsi3 ?? undefined,
-                        ema_20_sma3: techInfo.ema20_sma3 ?? undefined,
-                        sma_4: techInfo.sma4 ?? item.sma_4 ?? undefined,
-                        sma_9: techInfo.sma9_close ?? item.sma_9 ?? undefined,
-                        sma_18: techInfo.sma18 ?? item.sma_18 ?? undefined,
-                        sma_4w: techInfo.sma4_w ?? item.sma_4w ?? undefined,
-                        sma_9w: techInfo.sma9_w ?? item.sma_9w ?? undefined,
-                        sma_18w: techInfo.sma18_w ?? item.sma_18w ?? undefined,
-                        sma_30w: item.sma_30w ?? undefined,
-                        sma_40w: item.sma_40w ?? undefined,
-                        sma_200_1m_ago: item.sma_200_1m_ago ?? undefined,
-                        sma_200_2m_ago: item.sma_200_2m_ago ?? undefined,
-                        sma_200_3m_ago: item.sma_200_3m_ago ?? undefined,
-                        sma_200_4m_ago: item.sma_200_4m_ago ?? undefined,
-                        sma_200_5m_ago: item.sma_200_5m_ago ?? undefined,
-                        // ✅ MA COMPARISON CONDITIONS (Boolean)
-                        ema10_gt_sma50: techInfo.ema10_gt_sma50 ?? false,
-                        ema10_gt_sma200: techInfo.ema10_gt_sma200 ?? false,
-                        ema21_gt_sma50: techInfo.ema21_gt_sma50 ?? false,
-                        ema21_gt_sma200: techInfo.ema21_gt_sma200 ?? false,
-                        sma50_gt_sma150: techInfo.sma50_gt_sma150 ?? false,
-                        sma50_gt_sma200: techInfo.sma50_gt_sma200 ?? false,
-                        sma150_gt_sma200: techInfo.sma150_gt_sma200 ?? false,
-                        sma200_gt_sma200_1m_ago: techInfo.sma200_gt_sma200_1m_ago ?? false,
-                        sma200_gt_sma200_2m_ago: techInfo.sma200_gt_sma200_2m_ago ?? false,
-                        sma200_gt_sma200_3m_ago: techInfo.sma200_gt_sma200_3m_ago ?? false,
-                        sma200_gt_sma200_4m_ago: techInfo.sma200_gt_sma200_4m_ago ?? false,
-                        sma200_gt_sma200_5m_ago: techInfo.sma200_gt_sma200_5m_ago ?? false,
-                        cci_14: item.cci_14 ?? techInfo.cci ?? undefined,
-                        cci_ema_20: item.cci_ema_20 ?? techInfo.cci_ema20 ?? undefined,
-                        aroon_up: item.aroon_up ?? techInfo.aroon_up ?? undefined,
-                        aroon_down: item.aroon_down ?? techInfo.aroon_down ?? undefined,
-                        rsi_14: techInfo.rsi_14 ?? null, sma9_rsi: techInfo.sma9_rsi ?? null,
-                        wma45_rsi: techInfo.wma45_rsi ?? null, sma9_close: techInfo.sma9_close ?? null,
-                        the_number: techInfo.the_number ?? null, the_number_hl: techInfo.the_number_hl ?? null,
-                        the_number_ll: techInfo.the_number_ll ?? null, stamp_s9rsi: techInfo.stamp_s9rsi ?? null,
-                        stamp_e45cfg: techInfo.stamp_e45cfg ?? null, cfg_daily: techInfo.cfg_daily ?? null,
-                        cfg_sma4: techInfo.cfg_sma4 ?? null, cfg_ema45: techInfo.cfg_ema45 ?? null,
-                        cfg_wma45: techInfo.cfg_wma45 ?? null,
-                        sma4: techInfo.sma4 ?? null, sma9_price: techInfo.sma9 ?? null,
-                        sma18: techInfo.sma18 ?? null, wma45_close: techInfo.wma45_close ?? null,
-                        cci: techInfo.cci ?? null, cci_ema20: techInfo.cci_ema20 ?? null,
-                        rsi_w: techInfo.rsi_w ?? null, sma9_rsi_w: techInfo.sma9_rsi_w ?? null,
-                        wma45_rsi_w: techInfo.wma45_rsi_w ?? null, sma9_close_w: techInfo.sma9_close_w ?? null,
-                        the_number_w: techInfo.the_number_w ?? null, the_number_hl_w: techInfo.the_number_hl_w ?? null,
-                        the_number_ll_w: techInfo.the_number_ll_w ?? null, stamp_s9rsi_w: techInfo.stamp_s9rsi_w ?? null,
-                        stamp_e45cfg_w: techInfo.stamp_e45cfg_w ?? null, cfg_w: techInfo.cfg_w ?? null,
-                        cfg_sma4_w: techInfo.cfg_sma4_w ?? null, cfg_ema45_w: techInfo.cfg_ema45_w ?? null,
-                        cfg_wma45_w: techInfo.cfg_wma45_w ?? null,
-                        close_w: techInfo.close_w ?? techInfo.close ?? null, sma4_w: techInfo.sma4_w ?? null,
-                        sma9_w: techInfo.sma9_w ?? null, sma18_w: techInfo.sma18_w ?? null,
-                        wma45_close_w: techInfo.wma45_close_w ?? null, cci_w: techInfo.cci_w ?? null,
-                        cci_ema20_w: techInfo.cci_ema20_w ?? null, aroon_up_w: techInfo.aroon_up_w ?? null,
-                        aroon_down_w: techInfo.aroon_down_w ?? null,
-                        stamp_e45rsi: techInfo.stamp_e45rsi ?? null, stamp_e20sma3: techInfo.stamp_e20sma3 ?? null,
-                        stamp_e45rsi_w: techInfo.stamp_e45rsi_w ?? null, stamp_e20sma3_w: techInfo.stamp_e20sma3_w ?? null,
-                        ema20_sma3: techInfo.ema20_sma3 ?? null,
-                        ema20_sma3_w: techInfo.ema20_sma3_w ?? null,
-                    };
 
-                });
-                setStocks(mappedStocks);
-                setMetadata({ exchange: 'Tadawul', currency: 'SAR', datetime: pricesData.date ? pricesData.date.toString() : new Date().toISOString().split('T')[0], timezone: 'Asia/Riyadh' });
-            } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to connect to server');
-            } finally {
-                setLoading(false);
-            }
-        }
-        fetchStocks();
-    }, []);
     const handleSort = useCallback((key: string) => {
         setSortConfigs(prev => {
             const existingIndex = prev.findIndex(config => config.key === key);
@@ -1026,6 +884,21 @@ export default function StockScreenerPage() {
         }
     }, [filteredAndSortedStocks, selectedSymbol]);
 
+    // ── Keyboard shortcut "/" to open search ─────────────────────────────────
+    useEffect(() => {
+        const handleGlobalKey = (e: KeyboardEvent) => {
+            if (e.key === '/' && !isSearchModalOpen) {
+                const target = e.target as HTMLElement;
+                if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    setIsSearchModalOpen(true);
+                }
+            }
+        };
+        document.addEventListener('keydown', handleGlobalKey);
+        return () => document.removeEventListener('keydown', handleGlobalKey);
+    }, [isSearchModalOpen]);
+
     if (loading) return (<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div><h2 className="mt-4 text-lg font-semibold text-gray-700">Loading Data...</h2><p className="text-gray-500">Please wait</p></div></div>);
     if (error) return (<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-center text-red-600"><h2 className="text-lg font-semibold">Error fetching data</h2><p>{error}</p></div></div>);
     if (stocks.length === 0) return (<div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-center text-gray-500"><h2 className="text-lg font-semibold">No Data Available</h2><p>No stock data found</p></div></div>);
@@ -1034,87 +907,146 @@ export default function StockScreenerPage() {
     const tradingViewSymbol = activeChartStock ? (activeChartStock.trading_view_symbol || `TADAWUL:${cleanSymbol(activeChartStock.symbol)}`) : '';
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col h-screen">
+        <div className="min-h-screen bg-slate-50 flex flex-col h-screen">
             <style jsx global>{`
-                .custom-scrollbar { scrollbar-width: thin; scrollbar-color: #cbd5e0 #f7fafc; }
-                .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-                .custom-scrollbar::-webkit-scrollbar-track { background: #f7fafc; border-radius: 3px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e0; border-radius: 3px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #a0aec0; }
+                /* ── Refined Scrollbars ── */
+                .custom-scrollbar { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+                .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
+                /* ── Font imports ── */
+                @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
             `}</style>
-
-            {/* ═══ TOP FILTER PANEL ═══ */}
-            {/* <TopFilterPanel filters={filters} setFilters={setFilters} filterOptions={filterOptions} activeFiltersCount={activeFilters.length} clearAllFilters={clearAllFilters} /> */}
 
             {/* ═══ CONTENT AREA ═══ */}
             <div className="flex-1 flex overflow-hidden">
 
-                {/* ── Sidebar ── */}
-                {/* <FilterSidebar isOpen={isSidebarOpen} filters={filters} setFilters={setFilters} filterOptions={filterOptions} collapseSignal={collapseSignal} onCollapseAll={() => setCollapseSignal(prev => prev + 1)} onClearAll={clearAllFilters} /> */}
-
                 {/* ── MAIN CONTENT ── */}
                 <div className="flex-1 flex flex-col overflow-hidden">
 
-                    {/* Toolbar */}
-                    <div className="bg-white border-b border-gray-200 px-4 py-2 flex-shrink-0">
-                        <div className="flex justify-between items-center gap-4 flex-wrap">
-                            <div className="flex items-center space-x-4">
-                                <div className="flex items-center space-x-2">
-                                    <span className="text-sm font-medium text-gray-700">Market Results: <span className="font-bold">{filteredAndSortedStocks.length}</span> stocks</span>
-                                    {activeFilters.length > 0 && <span className="text-sm text-blue-600">• {activeFilters.length} filters active</span>}
+                    {/* ── Toolbar ── */}
+                    <div className="bg-white border-b border-slate-100 px-4 py-2 flex-shrink-0">
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                {/* Market stats */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Market</span>
+                                    <span className="font-mono font-bold text-slate-800 text-sm tabular-nums">
+                                        {filteredAndSortedStocks.length}
+                                    </span>
+                                    <span className="text-[11px] text-slate-400">stocks</span>
+                                    {activeFilters.length > 0 && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold border border-blue-100">
+                                            {activeFilters.length} filter{activeFilters.length !== 1 ? 's' : ''} active
+                                        </span>
+                                    )}
                                 </div>
-                                <div className="text-sm text-gray-500">{metadata?.datetime}</div>
+                                {/* Datetime */}
+                                {metadata?.datetime && (
+                                    <span className="font-mono text-[11px] text-slate-400 tabular-nums">{metadata.datetime}</span>
+                                )}
                             </div>
 
-                            {/* <div className="flex-1 max-w-md flex items-center relative">
-                                <Search className="w-4 h-4 text-gray-400 absolute left-3" />
-                                <select
-                                    className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                    value={selectedSymbol}
-                                    onChange={(e) => setSelectedSymbol(e.target.value)}
-                                >
-                                    <option value="" disabled>Select a stock from filtered results...</option>
-                                    {filteredAndSortedStocks.map(stock => (
-                                        <option key={stock.symbol} value={stock.symbol}>
-                                            {cleanSymbol(stock.symbol)} - {cleanName(stock.name || '')}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div> */}
+                            {/* Search shortcut hint */}
+                            <button
+                                onClick={() => setIsSearchModalOpen(true)}
+                                className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 text-[12px] text-slate-400 hover:text-slate-600 hover:border-slate-300 hover:bg-slate-50 transition-all group"
+                            >
+                                <Search className="w-3.5 h-3.5" />
+                                <span className="font-medium">Search symbol</span>
+                                <kbd className="ml-1 px-1.5 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-mono group-hover:bg-white transition-colors">/</kbd>
+                            </button>
                         </div>
                     </div>
 
-                    {/* Active Filter Badges */}
+                    {/* ── Active Filter Badges ── */}
                     {activeFilters.length > 0 && (
-                        <div className="px-4 py-2 flex flex-wrap gap-2 border-b border-gray-200 bg-white flex-shrink-0">
+                        <div className="px-4 py-2 flex flex-wrap gap-1.5 border-b border-slate-100 bg-white flex-shrink-0">
                             {activeFilters.map((filter, index) => (
-                                <ActiveFilterBadge key={index} label={filter.label} value={filter.value} onRemove={() => clearFilter(filter.key)} />
+                                <ActiveFilterBadge
+                                    key={index}
+                                    label={filter.label}
+                                    value={filter.value}
+                                    onRemove={() => clearFilter(filter.key)}
+                                />
                             ))}
                         </div>
                     )}
 
-                    {/* Single Chart Area */}
-                    <div className="flex-1 bg-gray-100 p-4 transition-all duration-300 overflow-hidden flex flex-col">
+                    {/* ── Chart Container ── */}
+                    <div className="flex-1 bg-slate-50 p-3 overflow-hidden flex flex-col">
                         {activeChartStock ? (
-                            <div className="flex-1 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm flex flex-col">
-                                <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex justify-between items-center whitespace-nowrap overflow-hidden">
+                            <div className="flex-1 bg-white rounded-xl overflow-hidden border border-slate-200 shadow-[0_1px_4px_0_rgba(15,23,42,0.06)] flex flex-col">
+
+                                {/* ── Premium Chart Header ── */}
+                                <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between gap-4 whitespace-nowrap overflow-hidden shrink-0">
+
+                                    {/* Left: Symbol badge + company name + exchange */}
                                     <button
                                         onClick={() => setIsSearchModalOpen(true)}
-                                        className="flex items-center gap-3 hover:bg-gray-200 px-3 py-1.5 -ml-3 rounded-md transition-colors focus:outline-none group"
-                                        title="Click to search for a symbol"
+                                        className="flex items-center gap-2.5 group focus:outline-none min-w-0"
+                                        title="Search for a symbol (press /)"
                                     >
-                                        <span className="font-bold text-gray-800 text-lg group-hover:text-blue-600 transition-colors">{cleanSymbol(activeChartStock.symbol)}</span>
-                                        <span className="text-sm font-medium text-gray-600">{cleanName(activeChartStock.name || '')}</span>
-                                        <Search className="w-4 h-4 text-gray-400 group-hover:text-blue-500 ml-1" />
-                                    </button>
-                                    <div className="flex gap-4 text-sm">
-                                        <span className="font-semibold">{formatNumber(activeChartStock.price)}</span>
-                                        <span className={parseFormattedNumber(activeChartStock.change, true) < 0 ? 'text-red-500' : 'text-green-500'}>
-                                            {formatChange(activeChartStock.change)} ({formatChangePercent(activeChartStock.percent_change)})
+                                        {/* Symbol Badge */}
+                                        <div className="flex items-center justify-center h-8 px-3 rounded-lg shrink-0 bg-slate-100 group-hover:bg-blue-600 transition-colors duration-150">
+                                            <span className="font-mono font-bold text-[13px] tracking-tight leading-none text-slate-700 group-hover:text-white transition-colors">
+                                                {cleanSymbol(activeChartStock.symbol)}
+                                            </span>
+                                        </div>
+
+                                        {/* Company name */}
+                                        <span className="text-[13px] font-semibold text-slate-700 group-hover:text-blue-600 truncate transition-colors max-w-[240px]">
+                                            {cleanName(activeChartStock.name || '')}
                                         </span>
+
+                                        {/* Exchange pill */}
+                                        <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded shrink-0 tracking-wider uppercase">
+                                            TADAWUL
+                                        </span>
+
+                                        {/* Hover hint */}
+                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                            <Search className="w-3 h-3 text-blue-400" />
+                                            <span className="text-[10px] font-medium text-blue-400">Change</span>
+                                        </div>
+                                    </button>
+
+                                    {/* Right: Price + change */}
+                                    <div className="flex items-center gap-3 shrink-0">
+                                        {/* Current price */}
+                                        <span className="font-mono font-bold text-[17px] text-slate-900 tabular-nums tracking-tight">
+                                            {formatNumber(activeChartStock.price)}
+                                            <span className="text-[11px] font-semibold text-slate-400 ml-1.5">SAR</span>
+                                        </span>
+
+                                        {/* Change badge */}
+                                        <div className={`
+                                            flex items-center gap-1 px-2.5 py-1 rounded-lg
+                                            font-mono font-semibold text-[12px] tabular-nums shrink-0
+                                            ${parseFormattedNumber(activeChartStock.change, true) < 0
+                                                ? 'text-rose-600 bg-rose-50 border border-rose-100'
+                                                : 'text-emerald-600 bg-emerald-50 border border-emerald-100'
+                                            }
+                                        `}>
+                                            <span>
+                                                {parseFormattedNumber(activeChartStock.change, true) >= 0 ? '+' : ''}
+                                                {formatChange(activeChartStock.change)}
+                                            </span>
+                                            <span className="opacity-60 text-[10px]">
+                                                ({formatChangePercent(activeChartStock.percent_change)})
+                                            </span>
+                                        </div>
+
+                                        {/* Keyboard shortcut */}
+                                        <kbd className="hidden md:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono text-slate-400 bg-slate-100 border border-slate-200 rounded shadow-sm">
+                                            /
+                                        </kbd>
                                     </div>
                                 </div>
-                                <div className="flex-1 w-full min-h-0 p-1 relative">
+
+                                {/* ── Chart body ── */}
+                                <div className="flex-1 w-full min-h-0 relative">
                                     <LightweightChart
                                         key={cleanSymbol(activeChartStock.symbol)}
                                         symbol={cleanSymbol(activeChartStock.symbol)}
@@ -1124,8 +1056,15 @@ export default function StockScreenerPage() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="flex-1 flex items-center justify-center text-gray-500">
-                                No stocks match the current filters.
+                            <div className="flex-1 flex flex-col items-center justify-center gap-3">
+                                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+                                    <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                                            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                    </svg>
+                                </div>
+                                <p className="text-sm font-medium text-slate-500">No stocks match the current filters</p>
+                                <p className="text-xs text-slate-400">Try adjusting your filter criteria</p>
                             </div>
                         )}
                     </div>
@@ -1133,10 +1072,11 @@ export default function StockScreenerPage() {
                 </div>
                 {/* ─── END MAIN CONTENT ─── */}
 
+                {/* ── Symbol Search Modal ── */}
                 <SymbolSearchModal
                     isOpen={isSearchModalOpen}
                     onClose={() => setIsSearchModalOpen(false)}
-                    stocks={filteredAndSortedStocks} // only search within currently filtered stocks
+                    stocks={filteredAndSortedStocks}
                     onSelect={(symbol) => {
                         setSelectedSymbol(symbol);
                         setIsSearchModalOpen(false);

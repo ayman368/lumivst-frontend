@@ -113,3 +113,36 @@ export function displayRawValue(value: any): string {
 
     return strValue;
 }
+
+export function formatPurgeAmount(value: any): string {
+    if (value === null || value === undefined || value === 'N/A' || value === '') return '-';
+
+    const num = parseFormattedNumber(value);
+    if (isNaN(num)) return '-';
+    if (num === 0) return '-';
+
+    // Show exactly 4 decimal places to match the Excel source
+    return num.toFixed(4);
+}
+
+export function formatMarginable(value: any): string {
+    if (value === null || value === undefined || value === 'N/A' || value === '') return '-';
+
+    const num = parseFormattedNumber(value);
+    if (isNaN(num)) return '-';
+
+    // Value is stored as whole percentage (75, 25, 100)
+    return `${num.toFixed(0)}%`;
+}
+
+export function formatShariahApproval(value: any): string {
+    if (value === null || value === undefined || value === 'N/A' || value === '') return '-';
+    
+    const strVal = String(value).trim();
+    if (strVal === 'نقية') return 'Pure';
+    if (strVal === 'متوافقة مع الضوابط') return 'Compliant';
+    if (strVal === 'مخالفة للضوابط') return 'Non-compliant';
+    if (strVal === 'متوافقة مع ضوابط الوساطة') return 'Brokerage Compliant';
+    
+    return strVal;
+}

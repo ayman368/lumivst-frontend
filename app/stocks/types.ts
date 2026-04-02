@@ -26,6 +26,10 @@ export interface Stock {
     no_of_trades: number;
     market_cap: string | number;
 
+    approval_with_controls?: string;
+    purge_amount?: number;
+    marginable_percent?: number;
+
     rs_rating?: number;
     industry_group_rs?: string;
     sector_rs?: string;
@@ -58,6 +62,7 @@ export interface Stock {
     percent_off_52w_high?: number;
     percent_off_52w_low?: number;
     vol_diff_50_percent?: number;
+    beta?: number;
     trading_view_symbol?: string;
 
     // === New MA Comparison Indicators ===
@@ -200,6 +205,12 @@ export interface FilterState {
     percent_off_52w_high_max: string;
     percent_off_52w_low_min: string;
     percent_off_52w_low_max: string;
+
+    approval_with_controls: string;
+    purge_amount_min: string;
+    purge_amount_max: string;
+    marginable_percent_min: string;
+    marginable_percent_max: string;
 
     price_minus_sma_10_min: string;
     price_minus_sma_10_max: string;

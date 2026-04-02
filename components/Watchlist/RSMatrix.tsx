@@ -8,6 +8,7 @@ interface StockRS {
     company_name?: string;
     rs_rating: number;
     prev_rs_rating?: number;
+
 }
 
 // Helper to get category

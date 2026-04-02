@@ -7,6 +7,13 @@ import { useApi } from '@/hooks/useApi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, ShieldCheck, Zap, BarChart3, Target, MousePointer2 } from 'lucide-react';
 
+// ─── DESIGN TOKENS: Warm Cream × Forest Green ────────────────────────────────
+// Page bg: #EDE8DC  |  Card/Panel bg: #FDFAF5  |  Border: #D9D2C3
+// Navbar/Accent dark: #1C3D2E  |  Accent mid: #2D6A4F
+// Text primary: #2C2416  |  Text secondary: #7A7060  |  Text muted: #A09880
+// Badge green: #D4EDDA / #1C7A3F  |  Badge red: #FADADD / #C0392B
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface StockResult {
   symbol: string;
   company_name: string;
@@ -29,7 +36,7 @@ const SCREENERS = [
     id: 'trend-1-month',
     label: 'Trend - 1 Month',
     icon: <Activity className="w-4 h-4" />,
-    color: '#3B82F6',
+    color: '#2D6A4F',
     description: 'Comprehensive trend analysis focusing on stocks with institutional quality technical setups over a 1-month period.',
     conditions: [
       { label: '50 Day > 150 Day', value: 'Yes' },
@@ -50,7 +57,7 @@ const SCREENERS = [
     id: 'trend-2-months',
     label: 'Trend - 2 Months',
     icon: <Zap className="w-4 h-4" />,
-    color: '#8B5CF6',
+    color: '#3A7A5C',
     description: 'Stabilizing trends with confirmed upward trajectory maintained over a 2-month window.',
     conditions: [
       { label: '50 Day > 150 Day', value: 'Yes' },
@@ -73,7 +80,7 @@ const SCREENERS = [
     id: 'trend-4-months',
     label: 'Trend - 4 Months',
     icon: <ShieldCheck className="w-4 h-4" />,
-    color: '#EC4899',
+    color: '#1C5C40',
     description: 'Long-term core positions showing sustained market outperformance over a 4-month period.',
     conditions: [
       { label: '50 Day > 150 Day', value: 'Yes' },
@@ -100,7 +107,7 @@ const SCREENERS = [
     id: 'trend-5-months',
     label: 'Trend - 5 Months',
     icon: <BarChart3 className="w-4 h-4" />,
-    color: '#F59E0B',
+    color: '#92400E',
     description: 'Elite trend setups with exceptional technical consistency spanning five full months.',
     conditions: [
       { label: '50 Day > 150 Day', value: 'Yes' },
@@ -129,7 +136,7 @@ const SCREENERS = [
     id: 'trend-5-months-wide',
     label: 'Trend - 5 Months Wide',
     icon: <Target className="w-4 h-4" />,
-    color: '#06B6D4',
+    color: '#1A5276',
     description: 'Extended base breakouts and recovery setups following long-term institutional buying.',
     conditions: [
       { label: '50 Day > 150 Day', value: 'Yes' },
@@ -157,7 +164,7 @@ const SCREENERS = [
     id: 'power-play',
     label: 'Power Play',
     icon: <MousePointer2 className="w-4 h-4" />,
-    color: '#EF4444',
+    color: '#C0392B',
     description: 'High-velocity momentum bursts following a major volume injection and tight consolidation.',
     conditions: [
       { label: '% Change - 20d', value: '> -25.00%' },
@@ -172,11 +179,10 @@ const SCREENERS = [
 function ScreenersContent() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
-  
+
   const [activeTab, setActiveTab] = useState(
     tabParam && SCREENERS.find(s => s.id === tabParam) ? tabParam : 'trend-1-month'
   );
-  
   const [data, setData] = useState<StockResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
@@ -184,7 +190,6 @@ function ScreenersContent() {
   const [limit, setLimit] = useState(50);
   const { apiCall } = useApi();
 
-  // Sync tab with URL search parameter if it changes from external navigation
   useEffect(() => {
     if (tabParam && SCREENERS.find(s => s.id === tabParam)) {
       setActiveTab(tabParam);
@@ -192,17 +197,12 @@ function ScreenersContent() {
     }
   }, [tabParam]);
 
-  useEffect(() => {
-    fetchScreenerData();
-  }, [activeTab, page, limit]);
+  useEffect(() => { fetchScreenerData(); }, [activeTab, page, limit]);
 
   const fetchScreenerData = async () => {
     setLoading(true);
     try {
-      const response = await apiCall(
-        `/api/screeners/${activeTab}?limit=${limit}&offset=${page * limit}`
-      );
-
+      const response = await apiCall(`/api/screeners/${activeTab}?limit=${limit}&offset=${page * limit}`);
       if (response && response.data && Array.isArray(response.data.data)) {
         setData(response.data.data);
         setTotal(response.data.total || 0);
@@ -214,156 +214,157 @@ function ScreenersContent() {
     }
   };
 
-  const activeScreener = SCREENERS.find((s) => s.id === activeTab);
+  const activeScreener = SCREENERS.find(s => s.id === activeTab);
 
   return (
-    <div className="w-full min-h-screen bg-[#0a0c10] text-[#e2e8f0] relative overflow-x-hidden">
-      {/* Premium Background Effects */}
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 blur-[150px] -z-10" />
-      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-600/10 blur-[120px] -z-10" />
-      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03] pointer-events-none -z-10" />
+    <div style={{ width: '100%', minHeight: '100vh', backgroundColor: '#EDE8DC', color: '#2C2416', fontFamily: 'system-ui, sans-serif' }}>
 
-      {/* Header Section */}
-      <div className="px-8 py-10 border-b border-white/[0.05] bg-white/[0.02] backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <span className="px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 text-[10px] font-bold tracking-widest uppercase border border-blue-500/20">
+      {/* ── Hero Header ── */}
+      <div style={{ padding: '40px 32px 32px', borderBottom: '1px solid #D9D2C3', backgroundColor: '#1C3D2E', boxShadow: '0 2px 8px rgba(28,61,46,0.2)' }}>
+        <div style={{ maxWidth: '1600px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '20px' }}>
+          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5 }}>
+            <div style={{ marginBottom: '8px' }}>
+              <span style={{ padding: '3px 12px', borderRadius: '999px', backgroundColor: 'rgba(212,237,218,0.15)', color: '#A8D5B5', fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', border: '1px solid rgba(168,213,181,0.3)' }}>
                 Data Intel
               </span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-black tracking-tight text-white mb-2 font-outfit">
-              Advanced <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400">Screeners</span>
+            <h1 style={{ fontSize: '40px', fontWeight: 900, letterSpacing: '-0.02em', color: '#F5F0E8', marginBottom: '8px' }}>
+              Advanced <span style={{ color: '#A8D5B5' }}>Screeners</span>
             </h1>
-            <p className="text-slate-400 max-w-xl text-sm md:text-base leading-relaxed">
-              Industrial-grade stock filters powered by proprietary technical logic. 
-              Find high-probability setups across the Saudi Stock Market.
+            <p style={{ fontSize: '14px', color: 'rgba(212,237,218,0.7)', maxWidth: '480px', lineHeight: 1.6 }}>
+              Industrial-grade stock filters powered by proprietary technical logic. Find high-probability setups across the Saudi Stock Market.
             </p>
           </motion.div>
-
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="hidden md:flex flex-col items-end"
-          >
-            <div className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-1">Last Analysis Update</div>
-            <div className="text-sm font-mono text-white/80 tabular-nums">Real-time • 0.4s Latency</div>
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+            <div style={{ fontSize: '10px', color: 'rgba(212,237,218,0.5)', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '4px' }}>Last Analysis Update</div>
+            <div style={{ fontSize: '13px', fontFamily: 'monospace', color: '#A8D5B5' }}>Real-time • 0.4s Latency</div>
           </motion.div>
         </div>
       </div>
 
-      {/* Main Container */}
-      <div className="p-8 pb-20">
-        <div className="max-w-[1600px] mx-auto w-full flex flex-col xl:flex-row gap-8">
-
-            {/* Strategy Insight Card (Glass Effect) - LEFT SIDEBAR */}
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, x: -15 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.98 }}
-                className="w-full xl:w-[400px] flex-shrink-0 mb-8 xl:mb-0 p-6 rounded-3xl border border-white/[0.05] bg-gradient-to-br from-white/[0.03] to-white/[0.01] backdrop-blur-md relative overflow-hidden group shadow-2xl h-fit xl:sticky xl:top-8"
+      {/* ── Tab Navigation ── */}
+      <div style={{ backgroundColor: '#FDFAF5', borderBottom: '1px solid #D9D2C3', padding: '0 32px', boxShadow: '0 1px 4px rgba(44,36,22,0.06)' }}>
+        <div style={{ maxWidth: '1600px', margin: '0 auto', display: 'flex', gap: '4px', overflowX: 'auto', padding: '10px 0' }}>
+          {SCREENERS.map(screener => {
+            const active = activeTab === screener.id;
+            return (
+              <button
+                key={screener.id}
+                onClick={() => { setActiveTab(screener.id); setPage(0); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  padding: '8px 16px', borderRadius: '10px', fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all 0.2s', border: '1px solid',
+                  backgroundColor: active ? '#1C3D2E' : 'transparent',
+                  color: active ? '#D4EDDA' : '#7A7060',
+                  borderColor: active ? '#1C3D2E' : 'transparent',
+                  boxShadow: active ? '0 1px 4px rgba(28,61,46,0.25)' : 'none',
+                }}
               >
-                {/* Background Glow */}
-                <div 
-                  className="absolute top-0 left-0 w-full h-64 -mt-16 blur-[100px] opacity-10 transition-colors duration-700"
-                  style={{ backgroundColor: activeScreener?.color }}
-                />
-
-                <div className="relative flex flex-col gap-6">
-                  {/* Header: Icon, Title & Match Count */}
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg"
-                        style={{ backgroundColor: `${activeScreener?.color}15`, color: activeScreener?.color }}
-                      >
-                        {activeScreener?.icon}
-                      </div>
-                      <h2 className="text-xl font-bold text-white tracking-wide leading-tight">
-                        {activeScreener?.label} <br />
-                        <span className="text-slate-500 font-light text-sm">Intelligence</span>
-                      </h2>
-                    </div>
-
-                    <div className="flex flex-col items-end">
-                      <div className="text-[32px] font-black text-white leading-none tracking-tighter tabular-nums">
-                        {total}
-                      </div>
-                      <div className="text-[9px] uppercase font-bold tracking-[0.2em] text-slate-500 mt-1">Assets</div>
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  <p className="text-slate-400 text-sm leading-relaxed">
-                    {activeScreener?.description}
-                  </p>
-                  
-                  {/* Action / Status */}
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 text-[11px] font-bold border border-emerald-500/20 w-fit">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    Strict Check Passed
-                  </div>
-
-                  <div className="h-px w-full bg-white/[0.05]" />
-
-                  {/* Condition Badges */}
-                  <div>
-                    <h3 className="text-[10px] uppercase font-bold tracking-[0.2em] text-slate-500 mb-3">Technical Conditions</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {activeScreener?.conditions.map((cond, idx) => (
-                        <div 
-                          key={idx}
-                          className="px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center gap-2 group-hover:border-white/[0.15] transition-colors"
-                        >
-                          <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">{cond.label}</span>
-                          <span className="text-[10px] font-mono font-black" style={{ color: activeScreener?.color }}>{cond.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            </AnimatePresence>
-
-            {/* Table Content - RIGHT SIDE */}
-            <div className="relative flex-1 min-w-0">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                >
-                  <ScreenerTable
-                    data={data}
-                    loading={loading}
-                    total={total}
-                    page={page}
-                    limit={limit}
-                    onPageChange={setPage}
-                    onLimitChange={setLimit}
-                    screenerColor={activeScreener?.color}
-                  />
-                </motion.div>
-              </AnimatePresence>
-            </div>
+                <span style={{ color: active ? '#A8D5B5' : '#A09880' }}>{screener.icon}</span>
+                {screener.label}
+              </button>
+            );
+          })}
         </div>
       </div>
-      
+
+      {/* ── Main Body ── */}
+      <div style={{ padding: '32px', paddingBottom: '80px' }}>
+        <div style={{ maxWidth: '1600px', margin: '0 auto', display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
+
+          {/* Strategy Card */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, x: -15 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              style={{
+                width: '360px', flexShrink: 0,
+                backgroundColor: '#FDFAF5', border: '1px solid #D9D2C3', borderRadius: '20px',
+                boxShadow: '0 2px 12px rgba(44,36,22,0.08)', overflow: 'hidden',
+                position: 'sticky', top: '32px', alignSelf: 'flex-start',
+              }}
+            >
+              {/* Color accent top bar */}
+              <div style={{ height: '4px', backgroundColor: activeScreener?.color }} />
+
+              <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* Header row */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                      width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      backgroundColor: `${activeScreener?.color}18`, color: activeScreener?.color,
+                      border: `1px solid ${activeScreener?.color}30`,
+                    }}>
+                      {activeScreener?.icon}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '16px', fontWeight: 700, color: '#2C2416', lineHeight: 1.2 }}>{activeScreener?.label}</div>
+                      <div style={{ fontSize: '12px', color: '#A09880' }}>Intelligence</div>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '30px', fontWeight: 900, color: '#2C2416', lineHeight: 1 }}>{total}</div>
+                    <div style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#A09880', marginTop: '2px' }}>Assets</div>
+                  </div>
+                </div>
+
+                {/* Description */}
+                <p style={{ fontSize: '13px', color: '#7A7060', lineHeight: 1.65 }}>{activeScreener?.description}</p>
+
+                {/* Verified badge */}
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '8px', backgroundColor: '#D4EDDA', border: '1px solid #A8D5B5', color: '#1C7A3F', fontSize: '11px', fontWeight: 700, width: 'fit-content' }}>
+                  <ShieldCheck style={{ width: '13px', height: '13px' }} />
+                  Strict Check Passed
+                </div>
+
+                {/* Divider */}
+                <div style={{ height: '1px', backgroundColor: '#E8E2D5' }} />
+
+                {/* Conditions */}
+                <div>
+                  <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#A09880', marginBottom: '10px' }}>Technical Conditions</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {activeScreener?.conditions.map((cond, idx) => (
+                      <div key={idx} style={{
+                        padding: '5px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px',
+                        backgroundColor: '#F5F0E8', border: '1px solid #E8E2D5',
+                      }}>
+                        <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#7A7060', fontWeight: 700 }}>{cond.label}</span>
+                        <span style={{ fontSize: '10px', fontFamily: 'monospace', fontWeight: 900, color: activeScreener?.color }}>{cond.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Table */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <AnimatePresence mode="wait">
+              <motion.div key={activeTab} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+                <ScreenerTable
+                  data={data}
+                  loading={loading}
+                  total={total}
+                  page={page}
+                  limit={limit}
+                  onPageChange={setPage}
+                  onLimitChange={setLimit}
+                  screenerColor={activeScreener?.color}
+                />
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+
       <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          height: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 10px;
-        }
+        .custom-scrollbar::-webkit-scrollbar { height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #D9D2C3; border-radius: 10px; }
       `}</style>
     </div>
   );
@@ -372,9 +373,10 @@ function ScreenersContent() {
 export default function ScreenersPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#0a0c10] flex flex-col items-center justify-center text-[#e2e8f0]">
-        <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
-        <p className="text-sm font-bold tracking-widest text-slate-500 uppercase">Loading Screener Engine</p>
+      <div style={{ minHeight: '100vh', backgroundColor: '#EDE8DC', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: '48px', height: '48px', borderRadius: '50%', border: '4px solid #D9D2C3', borderTopColor: '#2D6A4F', animation: 'spin 1s linear infinite', marginBottom: '16px' }} />
+        <p style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#A09880' }}>Loading Screener Engine</p>
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       </div>
     }>
       <ScreenersContent />

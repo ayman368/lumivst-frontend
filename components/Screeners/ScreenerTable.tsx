@@ -2,17 +2,19 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
-import { ChevronLeft, ChevronRight, Download, FileSpreadsheet, Layers, TrendingUp, TrendingDown, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, TrendingUp, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
+
+// ─── DESIGN TOKENS: Warm Cream × Forest Green ────────────────────────────────
+// Page bg: #EDE8DC  |  Card bg: #FDFAF5  |  Border: #D9D2C3  |  Border-light: #E8E2D5
+// Accent dark: #1C3D2E  |  Accent mid: #2D6A4F
+// Text primary: #2C2416  |  secondary: #7A7060  |  muted: #A09880
+// Positive: #1C7A3F bg #D4EDDA  |  Negative: #C0392B bg #FADADD
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface StockResult {
   symbol: string;
@@ -38,148 +40,158 @@ interface ScreenerTableProps {
 }
 
 export default function ScreenerTable({
-  data,
-  loading,
-  total,
-  page,
-  limit,
-  onPageChange,
-  onLimitChange,
-  screenerColor = '#3B82F6',
+  data, loading, total, page, limit, onPageChange, onLimitChange, screenerColor = '#2D6A4F',
 }: ScreenerTableProps) {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+    const handler = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node))
         setShowExportMenu(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
   const totalPages = Math.ceil(total / limit);
-  const startRecord = page * limit + 1;
-  const endRecord = Math.min((page + 1) * limit, total);
 
-  const formatNumber = (value: number | null | undefined, decimals = 2) => {
-    if (value === null || value === undefined) return 'N/A';
-    return value.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  const formatNumber = (v: number | null | undefined, d = 2) => {
+    if (v === null || v === undefined) return 'N/A';
+    return v.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
   };
 
-  const formatPercent = (value: number | null | undefined) => {
-    if (value === null || value === undefined) return '0.00%';
-    const val = value.toFixed(2);
+  const formatPercent = (v: number | null | undefined) => {
+    if (v === null || v === undefined) return '0.00%';
+    const val = v.toFixed(2);
     return `${parseFloat(val) > 0 ? '+' : ''}${val}%`;
   };
 
-  const handleExport = useCallback((format: 'csv' | 'xls' | 'xlsx' | 'txt') => {
+  const handleExport = useCallback((format: 'csv' | 'xls' | 'xlsx' | 'txt' | 'tv') => {
+    const d = new Date();
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const filename = `REBH_Screeners_${dateStr}`;
+
+    if (format === 'tv') {
+      const tvContent = data.map(s => `TADAWUL:${s.symbol}`).join(',');
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([tvContent], { type: 'text/csv;charset=utf-8;' }));
+      link.download = `${filename}_TradingView.csv`;
+      link.click();
+      setShowExportMenu(false);
+      return;
+    }
+
     const headers = ['Symbol', 'Company Name', 'Price', 'SMA 50', 'SMA 150', 'SMA 200', 'RS 12M', 'Off 52W High', 'Off 52W Low'];
     const rows = data.map(s => [s.symbol, s.company_name, s.close, s.sma_50, s.sma_150, s.sma_200, s.rs_12m, s.percent_off_52w_high, s.percent_off_52w_low]);
-    const filename = `LUMI_SCREENER_${Date.now()}`;
-
+    
     if (format === 'csv' || format === 'txt') {
-      const separator = format === 'csv' ? ',' : '\t';
-      const content = [headers.join(separator), ...rows.map(row => row.join(separator))].join('\n');
-      const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
+      const sep = format === 'csv' ? ',' : '\t';
+      const content = [headers.join(sep), ...rows.map(r => r.join(sep))].join('\n');
       const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
+      link.href = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8;' }));
       link.download = `${filename}.${format}`;
       link.click();
     } else {
-      const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Screener Data");
-      XLSX.writeFile(workbook, `${filename}.${format}`, { bookType: format === 'xls' ? 'biff8' : 'xlsx' });
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Screener Data');
+      XLSX.writeFile(wb, `${filename}.${format}`, { bookType: format === 'xls' ? 'biff8' : 'xlsx' });
     }
     setShowExportMenu(false);
   }, [data]);
 
   if (loading && data.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 bg-white/[0.02] border border-white/[0.05] rounded-3xl backdrop-blur-sm">
-        <div className="relative w-16 h-16">
-          <div className="absolute inset-0 rounded-full border-2 border-slate-700"></div>
-          <div className="absolute inset-0 rounded-full border-2 border-t-blue-500 animate-spin"></div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '384px', backgroundColor: '#FDFAF5', border: '1px solid #D9D2C3', borderRadius: '20px', boxShadow: '0 1px 6px rgba(44,36,22,0.06)' }}>
+        <div style={{ position: 'relative', width: '64px', height: '64px', marginBottom: '20px' }}>
+          <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid #E8E2D5' }} />
+          <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid transparent', borderTopColor: '#2D6A4F', animation: 'spin 1s linear infinite' }} />
         </div>
-        <p className="mt-6 text-slate-500 font-medium tracking-wide animate-pulse">Syncing Global Data Assets...</p>
+        <p style={{ color: '#A09880', fontWeight: 500, letterSpacing: '0.05em', animation: 'pulse 2s infinite' }}>Syncing Data Assets...</p>
+        <style>{`@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}} @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}`}</style>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Table Control Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 bg-white/[0.03] border border-white/[0.05] rounded-2xl backdrop-blur-md shadow-xl relative z-50">
-        <div className="flex items-center gap-3">
-          <div className="flex bg-white/[0.05] rounded-lg p-0.5 border border-white/[0.05]">
-            {[25, 50, 100].map((val) => (
-              <button
-                key={val}
-                onClick={() => onLimitChange(val)}
-                className={`px-4 py-1.5 text-[11px] font-bold transition-all rounded-md ${limit === val ? 'bg-white/[0.1] text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-              >
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+      {/* ── Control Bar ── */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px',
+        padding: '14px 20px', backgroundColor: '#FDFAF5', border: '1px solid #D9D2C3', borderRadius: '16px',
+        boxShadow: '0 1px 4px rgba(44,36,22,0.05)', position: 'relative', zIndex: 50,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Records per page buttons */}
+          <div style={{ display: 'flex', backgroundColor: '#F5F0E8', borderRadius: '10px', padding: '3px', border: '1px solid #E8E2D5' }}>
+            {[25, 50, 100].map(val => (
+              <button key={val} onClick={() => onLimitChange(val)} style={{
+                padding: '6px 14px', fontSize: '11px', fontWeight: 700, borderRadius: '8px', border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                backgroundColor: limit === val ? '#FDFAF5' : 'transparent',
+                color: limit === val ? '#2C2416' : '#A09880',
+                boxShadow: limit === val ? '0 1px 3px rgba(44,36,22,0.1)' : 'none',
+                borderColor: limit === val ? '#D9D2C3' : 'transparent',
+                borderStyle: 'solid', borderWidth: '1px',
+              }}>
                 {val}
               </button>
             ))}
           </div>
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest hidden lg:inline">
-            Records Per Page
-          </span>
+          <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#A09880' }}>Records Per Page</span>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="text-[11px] font-mono text-slate-500 bg-white/[0.02] px-3 py-1.5 rounded-lg border border-white/[0.05]">
-            MATCHED: <span className="text-white font-bold">{total}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ fontSize: '11px', fontFamily: 'monospace', color: '#7A7060', backgroundColor: '#F5F0E8', padding: '6px 12px', borderRadius: '8px', border: '1px solid #E8E2D5' }}>
+            MATCHED: <span style={{ color: '#2C2416', fontWeight: 700 }}>{total}</span>
           </div>
-          <div className="relative" ref={exportMenuRef}>
-            <Button
+
+          {/* Export button */}
+          <div style={{ position: 'relative' }} ref={exportMenuRef}>
+            <button
               onClick={() => setShowExportMenu(!showExportMenu)}
-              className="h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border-none shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+              style={{
+                height: '36px', padding: '0 16px', borderRadius: '10px', border: 'none', cursor: 'pointer',
+                backgroundColor: '#2D6A4F', color: '#D4EDDA', display: 'flex', alignItems: 'center', gap: '6px',
+                fontWeight: 700, fontSize: '12px', boxShadow: '0 1px 4px rgba(28,61,46,0.3)', transition: 'all 0.2s',
+              }}
             >
-              <Download className="w-4 h-4" />
-              <span className="text-xs font-bold tracking-tight">Export</span>
-              <ChevronDown className={`w-3 h-3 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
-            </Button>
+              <Download style={{ width: '14px', height: '14px' }} />
+              Export
+              <ChevronDown style={{ width: '12px', height: '12px', transform: showExportMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+            </button>
 
             <AnimatePresence>
               {showExportMenu && (
                 <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  initial={{ opacity: 0, y: 8, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute right-0 top-full mt-2 w-64 bg-slate-900 border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] py-2 z-[200] backdrop-blur-2xl"
+                  exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                  style={{
+                    position: 'absolute', right: 0, top: 'calc(100% + 8px)',
+                    width: '220px', backgroundColor: '#FDFAF5', border: '1px solid #D9D2C3', borderRadius: '16px',
+                    boxShadow: '0 8px 28px rgba(44,36,22,0.12)', padding: '6px', zIndex: 200,
+                  }}
                 >
-                  <button
-                    onClick={() => handleExport('csv')}
-                    className="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 flex items-center gap-3 transition-colors"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                    comma delimited (.csv)
-                  </button>
-                  <button
-                    onClick={() => handleExport('xls')}
-                    className="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 flex items-center gap-3 transition-colors"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                    excel 97-2003 (.xls)
-                  </button>
-                  <button
-                    onClick={() => handleExport('xlsx')}
-                    className="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 flex items-center gap-3 transition-colors"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-emerald-600 shadow-[0_0_8px_rgba(5,150,105,0.5)]" />
-                    excel (.xlsx)
-                  </button>
-                  <button
-                    onClick={() => handleExport('txt')}
-                    className="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-white/5 flex items-center gap-3 transition-colors"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-slate-500 shadow-[0_0_8px_rgba(100,116,139,0.5)]" />
-                    Text (.txt)
-                  </button>
+                  {[
+                    { label: 'comma delimited (.csv)', fmt: 'csv' as const, dot: '#2D6A4F' },
+                    { label: 'excel 97-2003 (.xls)', fmt: 'xls' as const, dot: '#1A5276' },
+                    { label: 'excel (.xlsx)', fmt: 'xlsx' as const, dot: '#1C5C40' },
+                    { label: 'Text (.txt)', fmt: 'txt' as const, dot: '#7A7060' },
+                    { label: 'TradingView Symbols (.csv)', fmt: 'tv' as const, dot: '#2962FF' },
+                  ].map(item => (
+                    <button key={item.fmt} onClick={() => handleExport(item.fmt)} style={{
+                      width: '100%', textAlign: 'left', padding: '10px 14px', fontSize: '12px', color: '#7A7060', display: 'flex', alignItems: 'center', gap: '10px',
+                      border: 'none', backgroundColor: 'transparent', cursor: 'pointer', borderRadius: '10px', transition: 'background-color 0.15s',
+                    }}
+                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#F5F0E8')}
+                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    >
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: item.dot, flexShrink: 0 }} />
+                      {item.label}
+                    </button>
+                  ))}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -187,42 +199,17 @@ export default function ScreenerTable({
         </div>
       </div>
 
-      {/* Main Table Container */}
-      <div className="bg-white/[0.02] border border-white/[0.05] rounded-3xl overflow-hidden shadow-2xl backdrop-blur-xl">
-        <div className="overflow-x-auto custom-scrollbar">
+      {/* ── Main Table ── */}
+      <div style={{ backgroundColor: '#FDFAF5', border: '1px solid #D9D2C3', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 1px 6px rgba(44,36,22,0.06)' }}>
+        <div style={{ overflowX: 'auto' }}>
           <Table>
             <TableHeader>
-              <TableRow className="border-white/[0.05] bg-white/[0.03] hover:bg-white/[0.03]">
-                <TableHead className="py-5 px-6 text-left whitespace-nowrap">
-                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">#</span>
-                </TableHead>
-                <TableHead className="py-5 px-6 text-left whitespace-nowrap">
-                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Symbol</span>
-                </TableHead>
-                <TableHead className="py-5 px-6 text-left whitespace-nowrap">
-                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Company Name</span>
-                </TableHead>
-                <TableHead className="py-5 px-6 text-right whitespace-nowrap">
-                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Price</span>
-                </TableHead>
-                <TableHead className="py-5 px-4 text-right whitespace-nowrap">
-                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">SMA 50</span>
-                </TableHead>
-                <TableHead className="py-5 px-4 text-right whitespace-nowrap">
-                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">SMA 150</span>
-                </TableHead>
-                <TableHead className="py-5 px-4 text-right whitespace-nowrap">
-                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">SMA 200</span>
-                </TableHead>
-                <TableHead className="py-5 px-6 text-right whitespace-nowrap">
-                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">RS 12M</span>
-                </TableHead>
-                <TableHead className="py-5 px-6 text-right whitespace-nowrap">
-                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Off 52W High</span>
-                </TableHead>
-                <TableHead className="py-5 px-6 text-right whitespace-nowrap">
-                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Off 52W Low</span>
-                </TableHead>
+              <TableRow style={{ backgroundColor: '#F5F0E8', borderBottom: '1px solid #D9D2C3' }}>
+                {['#', 'Symbol', 'Company Name', 'Price', 'SMA 50', 'SMA 150', 'SMA 200', 'RS 12M', 'Off 52W High', 'Off 52W Low'].map((h, i) => (
+                  <TableHead key={h} style={{ padding: '16px 20px', textAlign: i >= 3 ? 'right' : 'left', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#A09880' }}>{h}</span>
+                  </TableHead>
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -232,67 +219,75 @@ export default function ScreenerTable({
                     key={stock.symbol}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ duration: 0.2, delay: index * 0.02 }}
-                    className="border-white/[0.05] hover:bg-white/[0.04] transition-all group cursor-pointer"
+                    transition={{ duration: 0.2, delay: index * 0.015 }}
+                    style={{ borderBottom: '1px solid #E8E2D5', cursor: 'pointer', transition: 'background-color 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#F5F0E8')}
+                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = index % 2 === 0 ? '#FDFAF5' : '#FAF7F0')}
                   >
-                    <TableCell className="py-4 px-6 text-[11px] font-mono text-slate-500 whitespace-nowrap">
+                    {/* Row number */}
+                    <TableCell style={{ padding: '14px 20px', fontSize: '11px', fontFamily: 'monospace', color: '#A09880', whiteSpace: 'nowrap' }}>
                       {(page * limit + index + 1).toString().padStart(3, '0')}
                     </TableCell>
-                    
-                    <TableCell className="py-4 px-6 whitespace-nowrap">
-                        <span className="text-sm font-black tracking-tighter text-white group-hover:text-blue-400 transition-colors" style={{ color: screenerColor }}>
-                          {stock.symbol}
-                        </span>
+
+                    {/* Symbol */}
+                    <TableCell style={{ padding: '14px 20px', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 900, letterSpacing: '-0.02em', color: screenerColor }}>
+                        {stock.symbol}
+                      </span>
                     </TableCell>
 
-                    <TableCell className="py-4 px-6">
-                        <span className="text-[10px] font-medium text-slate-500 uppercase tracking-tight line-clamp-1 max-w-[150px]">
-                          {stock.company_name}
-                        </span>
+                    {/* Company name */}
+                    <TableCell style={{ padding: '14px 20px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 500, color: '#7A7060', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '160px' }}>
+                        {stock.company_name}
+                      </span>
                     </TableCell>
 
-                    <TableCell className="py-4 px-6 text-right whitespace-nowrap">
-                      <div className="flex flex-col items-end">
-                        <span className="text-sm font-bold text-white tabular-nums">
-                          {formatNumber(stock.close)}
-                        </span>
-                        <span className="text-[9px] text-slate-600 font-bold uppercase tracking-widest text-right w-full">SAR</span>
+                    {/* Price */}
+                    <TableCell style={{ padding: '14px 20px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#2C2416', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(stock.close)}</span>
+                        <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#A09880' }}>SAR</span>
                       </div>
                     </TableCell>
 
-                    <TableCell className="py-4 px-4 text-right whitespace-nowrap">
-                        <span className="text-[10px] font-mono font-bold text-slate-400 tabular-nums text-right">{formatNumber(stock.sma_50)}</span>
-                    </TableCell>
+                    {/* SMAs */}
+                    {[stock.sma_50, stock.sma_150, stock.sma_200].map((sma, i) => (
+                      <TableCell key={i} style={{ padding: '14px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: 500, color: '#7A7060', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(sma)}</span>
+                      </TableCell>
+                    ))}
 
-                    <TableCell className="py-4 px-4 text-right whitespace-nowrap">
-                        <span className="text-[10px] font-mono font-bold text-slate-400 tabular-nums text-right">{formatNumber(stock.sma_150)}</span>
-                    </TableCell>
-
-                    <TableCell className="py-4 px-4 text-right whitespace-nowrap">
-                        <span className="text-[10px] font-mono font-bold text-slate-400 tabular-nums text-right">{formatNumber(stock.sma_200)}</span>
-                    </TableCell>
-
-                    <TableCell className="py-4 px-6 text-right whitespace-nowrap">
-                      <div 
-                        className="inline-flex items-center px-3 py-1.5 rounded-xl font-black text-xs shadow-inner"
-                        style={{ 
-                          backgroundColor: stock.rs_12m > 85 ? 'rgba(34, 197, 94, 0.15)' : 'rgba(245, 158, 11, 0.1)',
-                          color: stock.rs_12m > 85 ? '#4ade80' : '#fbbf24'
-                        }}
-                      >
+                    {/* RS 12M badge */}
+                    <TableCell style={{ padding: '14px 20px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <div style={{
+                        display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: '10px', fontSize: '12px', fontWeight: 900,
+                        backgroundColor: stock.rs_12m > 85 ? '#D4EDDA' : '#FEF3C7',
+                        color: stock.rs_12m > 85 ? '#1C7A3F' : '#92400E',
+                        border: `1px solid ${stock.rs_12m > 85 ? '#A8D5B5' : '#FCD37A'}`,
+                      }}>
                         {formatNumber(stock.rs_12m, 1)}
                       </div>
                     </TableCell>
 
-                    <TableCell className="py-4 px-6 text-right whitespace-nowrap">
-                      <div className={`flex items-center justify-end gap-1.5 font-bold tabular-nums text-xs ${stock.percent_off_52w_high > -5 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                        {stock.percent_off_52w_high > -5 ? <TrendingUp className="w-3 h-3" /> : null}
+                    {/* Off 52W High */}
+                    <TableCell style={{ padding: '14px 20px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px',
+                        fontWeight: 700, fontSize: '12px', fontVariantNumeric: 'tabular-nums',
+                        color: stock.percent_off_52w_high > -5 ? '#C0392B' : '#1C7A3F',
+                      }}>
                         {formatPercent(stock.percent_off_52w_high)}
                       </div>
                     </TableCell>
 
-                    <TableCell className="py-4 px-6 text-right whitespace-nowrap">
-                      <div className={`flex items-center justify-end gap-1.5 font-bold tabular-nums text-xs ${stock.percent_off_52w_low > 100 ? 'text-emerald-500' : 'text-blue-500'}`}>
+                    {/* Off 52W Low */}
+                    <TableCell style={{ padding: '14px 20px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px',
+                        fontWeight: 700, fontSize: '12px', fontVariantNumeric: 'tabular-nums',
+                        color: stock.percent_off_52w_low > 100 ? '#1C7A3F' : '#1A5276',
+                      }}>
                         {formatPercent(stock.percent_off_52w_low)}
                       </div>
                     </TableCell>
@@ -304,42 +299,52 @@ export default function ScreenerTable({
         </div>
       </div>
 
-      {/* Pagination Footer */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-6 px-1 py-4">
-        <div className="flex items-center gap-1">
-           {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
-             const pageNum = i; 
-             return (
-               <button 
-                key={i}
-                onClick={() => onPageChange(pageNum)}
-                className={`w-10 h-10 rounded-xl text-[11px] font-black transition-all border ${page === pageNum ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-white/[0.03] border-white/[0.05] text-slate-500 hover:bg-white/[0.07] hover:border-white/[0.1]'}`}
-               >
-                 {pageNum + 1}
-               </button>
-             )
-           })}
-           {totalPages > 5 && <span className="px-2 text-slate-600">...</span>}
+      {/* ── Pagination ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', padding: '4px 0' }}>
+        {/* Page number pills */}
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => (
+            <button key={i} onClick={() => onPageChange(i)} style={{
+              width: '36px', height: '36px', borderRadius: '10px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', border: '1px solid',
+              backgroundColor: page === i ? '#1C3D2E' : '#FDFAF5',
+              color: page === i ? '#D4EDDA' : '#7A7060',
+              borderColor: page === i ? '#1C3D2E' : '#D9D2C3',
+              boxShadow: page === i ? '0 1px 4px rgba(28,61,46,0.3)' : 'none',
+            }}>
+              {i + 1}
+            </button>
+          ))}
+          {totalPages > 5 && <span style={{ padding: '0 8px', color: '#A09880', alignSelf: 'center' }}>...</span>}
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Prev / Forward */}
+        <div style={{ display: 'flex', gap: '8px' }}>
           <Button
             onClick={() => onPageChange(page - 1)}
             disabled={page === 0}
             variant="outline"
-            className="h-10 px-4 rounded-xl bg-white/[0.03] border-white/[0.05] hover:bg-white/[0.08] disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+            style={{
+              height: '36px', padding: '0 16px', borderRadius: '10px', border: '1px solid #D9D2C3',
+              backgroundColor: '#FDFAF5', color: '#7A7060', opacity: page === 0 ? 0.35 : 1,
+              display: 'flex', alignItems: 'center', gap: '4px', cursor: page === 0 ? 'not-allowed' : 'pointer',
+            }}
           >
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            <span className="text-[11px] font-black uppercase tracking-widest">Prev</span>
+            <ChevronLeft style={{ width: '14px', height: '14px' }} />
+            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Prev</span>
           </Button>
 
           <Button
             onClick={() => onPageChange(page + 1)}
             disabled={page >= totalPages - 1}
-            className="h-10 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-xl shadow-blue-600/20 border-0 transition-all group"
+            style={{
+              height: '36px', padding: '0 20px', borderRadius: '10px', border: 'none',
+              backgroundColor: '#1C3D2E', color: '#D4EDDA', opacity: page >= totalPages - 1 ? 0.4 : 1,
+              display: 'flex', alignItems: 'center', gap: '4px', cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer',
+              fontWeight: 700, boxShadow: '0 1px 4px rgba(28,61,46,0.3)',
+            }}
           >
-            <span className="text-[11px] font-black uppercase tracking-widest">Forward</span>
-            <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-0.5 transition-transform" />
+            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Forward</span>
+            <ChevronRight style={{ width: '14px', height: '14px' }} />
           </Button>
         </div>
       </div>

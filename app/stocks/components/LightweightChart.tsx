@@ -79,30 +79,42 @@ interface CandleData {
     average_volume_50?: number | null;
 }
 
-type OscTab = 'rsi' | 'rsi_w' | 'cci' | 'cci_w' | 'cfg' | 'cfg_w' | 'the_number' | 'the_number_w' | 'stamp' | 'stamp_w' | 'aroon' | 'aroon_w' | 'volume' | 'price_stats';
+type OscTab =
+    | 'rsi' | 'rsi_w'
+    | 'cci' | 'cci_w'
+    | 'cfg' | 'cfg_w'
+    | 'the_number' | 'the_number_w'
+    | 'stamp' | 'stamp_w'
+    | 'aroon' | 'aroon_w'
+    | 'volume' | 'price_stats';
 
 const OSC_TABS: { id: OscTab; label: string }[] = [
     { id: 'rsi', label: 'RSI' },
-    { id: 'rsi_w', label: 'RSI (W)' },
+    { id: 'rsi_w', label: 'RSI·W' },
     { id: 'cci', label: 'CCI' },
-    { id: 'cci_w', label: 'CCI (W)' },
+    { id: 'cci_w', label: 'CCI·W' },
     { id: 'cfg', label: 'CFG' },
-    { id: 'cfg_w', label: 'CFG (W)' },
-    { id: 'the_number', label: 'THE.NUM' },
-    { id: 'the_number_w', label: 'THE.NUM(W)' },
+    { id: 'cfg_w', label: 'CFG·W' },
+    { id: 'the_number', label: 'NUM' },
+    { id: 'the_number_w', label: 'NUM·W' },
     { id: 'stamp', label: 'STAMP' },
-    { id: 'stamp_w', label: 'STAMP (W)' },
+    { id: 'stamp_w', label: 'STAMP·W' },
     { id: 'aroon', label: 'AROON' },
-    { id: 'aroon_w', label: 'AROON (W)' },
-    { id: 'volume', label: 'Volume Stats' },
-    { id: 'price_stats', label: 'Price Stats' },
+    { id: 'aroon_w', label: 'AROON·W' },
+    { id: 'volume', label: 'VOL STATS' },
+    { id: 'price_stats', label: 'PRICE STATS' },
 ];
 
 interface Props {
     symbol: string;
     height?: number;
     showVolume?: boolean;
-    overlays?: ('sma10' | 'sma21' | 'sma50' | 'sma150' | 'sma200' | 'ema10' | 'ema21' | 'sma4' | 'sma9' | 'sma18' | 'wma45_close' | 'ema21_sma50' | 'ema21_sma200')[];
+    overlays?: (
+        | 'sma10' | 'sma21' | 'sma50' | 'sma150' | 'sma200'
+        | 'ema10' | 'ema21'
+        | 'sma4' | 'sma9' | 'sma18' | 'wma45_close'
+        | 'ema21_sma50' | 'ema21_sma200'
+    )[];
 }
 
 const MA_CONFIG: Record<string, { key: keyof CandleData; label: string; color: string }> = {
@@ -117,21 +129,68 @@ const MA_CONFIG: Record<string, { key: keyof CandleData; label: string; color: s
     ema10: { key: 'ema_10', label: 'EMA10', color: '#06b6d4' },
     ema21: { key: 'ema_21', label: 'EMA21', color: '#f97316' },
     wma45_close: { key: 'wma45_close', label: 'WMA45', color: '#ec4899' },
-    // Weekly averages
-    sma4_w: { key: 'sma4_w', label: 'SMA4(W)', color: '#16a34a' },
-    sma9_w: { key: 'sma9_w', label: 'SMA9(W)', color: '#65a30d' },
-    sma18_w: { key: 'sma18_w', label: 'SMA18(W)', color: '#ca8a04' },
-    // Missing averages
+    sma4_w: { key: 'sma4_w', label: 'SMA4W', color: '#16a34a' },
+    sma9_w: { key: 'sma9_w', label: 'SMA9W', color: '#65a30d' },
+    sma18_w: { key: 'sma18_w', label: 'SMA18W', color: '#ca8a04' },
     sma3: { key: 'sma_3', label: 'SMA3', color: '#06b6d4' },
     sma30w: { key: 'sma_30w', label: 'SMA30W', color: '#14b8a6' },
     sma40w: { key: 'sma_40w', label: 'SMA40W', color: '#0891b2' },
-    ema20_sma3: { key: 'ema_20_sma3', label: 'EMA20(SMA3)', color: '#a78bfa' },
+    ema20_sma3: { key: 'ema_20_sma3', label: 'E20·S3', color: '#a78bfa' },
 };
 
 const DEFAULT_OVERLAYS: Props['overlays'] = ['sma50', 'sma150', 'sma200', 'ema10', 'ema21'];
-const OSC_H = 150;   // oscillator chart fixed height in px
-const TAB_H = 28;    // tab bar height in px
+const OSC_H = 150;
+const TAB_H = 30;
 
+// ─── Tiny icon helpers ─────────────────────────────────────────────────────────
+const IconZoomIn = () => (
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+    </svg>
+);
+const IconZoomOut = () => (
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+    </svg>
+);
+const IconFit = () => (
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 1v4m0 0h-4m4 0l-5-5" />
+    </svg>
+);
+const IconMoon = () => (
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+    </svg>
+);
+const IconSun = () => (
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+    </svg>
+);
+const IconChevronLeft = () => (
+    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+    </svg>
+);
+const IconChevronRight = () => (
+    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+    </svg>
+);
+const IconBarChart = () => (
+    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 export default function LightweightChart({
     symbol,
     height,
@@ -143,7 +202,7 @@ export default function LightweightChart({
     const oscContRef = useRef<HTMLDivElement>(null);
     const mainChartRef = useRef<IChartApi | null>(null);
     const oscChartRef = useRef<IChartApi | null>(null);
-    const roRef = useRef<ResizeObserver | null>(null);   // single persistent observer
+    const roRef = useRef<ResizeObserver | null>(null);
 
     const [data, setData] = useState<CandleData[]>([]);
     const [loading, setLoading] = useState(false);
@@ -157,10 +216,20 @@ export default function LightweightChart({
     const MA_PER_PAGE = 8;
     const maEntries = Object.entries(MA_CONFIG);
     const totalMaPages = Math.ceil(maEntries.length / MA_PER_PAGE);
-
     const currentMaEntries = maEntries.slice(maPage * MA_PER_PAGE, (maPage + 1) * MA_PER_PAGE);
 
-    // ── Fetch ─────────────────────────────────────────────────────────────────
+    // ── Theme-aware CSS classes ───────────────────────────────────────────────
+    const isDark = theme === 'dark';
+    const bg = isDark ? 'bg-[#131722]' : 'bg-white';
+    const bgPanel = isDark ? 'bg-[#1e222d]' : 'bg-[#fafafa]';
+    const borderC = isDark ? 'border-[#2a2e39]' : 'border-slate-100';
+    const textMuted = isDark ? 'text-slate-400' : 'text-slate-500';
+    const textFaint = isDark ? 'text-slate-500' : 'text-slate-400';
+    const btnHover = isDark
+        ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/60'
+        : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100';
+
+    // ── Fetch data ────────────────────────────────────────────────────────────
     useEffect(() => {
         if (!symbol) return;
         const ctrl = new AbortController();
@@ -182,7 +251,7 @@ export default function LightweightChart({
         return () => ctrl.abort();
     }, [symbol]);
 
-    // حفظ تفضيلات المستخدم
+    // ── Persist user preferences ──────────────────────────────────────────────
     useEffect(() => {
         if (typeof window !== 'undefined') {
             localStorage.setItem(`chart_overlays_${symbol}`, JSON.stringify(activeOverlays || []));
@@ -191,29 +260,20 @@ export default function LightweightChart({
         }
     }, [activeOverlays, activeOsc, theme, symbol]);
 
-    // تحميل تفضيلات المستخدم
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const savedOverlays = localStorage.getItem(`chart_overlays_${symbol}`);
             const savedOsc = localStorage.getItem(`chart_osc_${symbol}`);
-
             if (savedOverlays) {
-                try {
-                    const parsed = JSON.parse(savedOverlays);
-                    setActiveOverlays(parsed);
-                } catch (e) {
-                    console.warn('Failed to parse saved overlays:', e);
-                }
+                try { setActiveOverlays(JSON.parse(savedOverlays)); } catch { /* ignore */ }
             }
-
-            if (savedOsc && OSC_TABS.some(tab => tab.id === savedOsc)) {
+            if (savedOsc && OSC_TABS.some(t => t.id === savedOsc)) {
                 setActiveOsc(savedOsc as OscTab);
             }
         }
     }, [symbol]);
 
-    // ── Main chart (candlestick + volume + MAs) ────────────────────────────────
-    // Rebuilt only when data / overlays / volume / height / theme changes
+    // ── Main chart ─────────────────────────────────────────────────────────────
     useEffect(() => {
         if (!mainContRef.current || !wrapperRef.current || data.length === 0) return;
 
@@ -228,72 +288,124 @@ export default function LightweightChart({
 
         mainCont.style.height = `${mainH}px`;
 
-        // Theme-dependent colors
-        const isDark = theme === 'dark';
-        const bgColor = isDark ? '#1f2937' : '#ffffff';
-        const textColor = isDark ? '#f9fafb' : '#374151';
-        const gridColor = isDark ? '#374151' : '#f3f4f6';
-        const borderColor = isDark ? '#4b5563' : '#e5e7eb';
+        const bgColor = isDark ? '#131722' : '#ffffff';
+        const textColor = isDark ? '#d1d5db' : '#374151';
+        const gridColor = isDark ? '#1e222d' : '#f1f5f9';
+        const borderColor = isDark ? '#2a2e39' : '#e2e8f0';
 
         const chart = createChart(mainCont, {
+
+            localization: {
+                priceFormatter: (price: number) => price.toFixed(2),
+            },
             layout: {
                 background: { type: ColorType.Solid, color: bgColor },
-                textColor: textColor,
-                fontFamily: "'Inter', 'Segoe UI', sans-serif",
+                textColor,
+                fontFamily: "'DM Mono', 'Fira Code', 'Cascadia Code', 'SF Mono', monospace",
+                fontSize: 11,
             },
-            grid: { vertLines: { color: gridColor }, horzLines: { color: gridColor } },
-            crosshair: { mode: CrosshairMode.Normal },
-            rightPriceScale: { borderColor: borderColor },
-            timeScale: { borderColor: borderColor, timeVisible: true, secondsVisible: false, visible: false },
+            grid: {
+                vertLines: { color: gridColor, style: 1 },
+                horzLines: { color: gridColor, style: 1 },
+            },
+            crosshair: {
+                mode: CrosshairMode.Normal,
+                vertLine: {
+                    color: isDark ? '#485563' : '#94a3b8',
+                    labelBackgroundColor: isDark ? '#2a2e39' : '#334155',
+                    style: 2,
+                },
+                horzLine: {
+                    color: isDark ? '#485563' : '#94a3b8',
+                    labelBackgroundColor: isDark ? '#2a2e39' : '#334155',
+                    style: 2,
+                },
+            },
+            kineticScroll: {
+                touch: true,
+                mouse: true,
+            },
+            rightPriceScale: {
+                borderColor,
+                scaleMargins: { top: 0.08, bottom: 0.22 },
+            },
+            timeScale: {
+                borderColor,
+                timeVisible: true,
+                secondsVisible: false,
+                visible: true,
+                rightOffset: 8,
+                barSpacing: 8,
+            },
+            handleScroll: { mouseWheel: true, pressedMouseMove: true },
+            handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
             width: wrapW,
             height: mainH,
         });
         mainChartRef.current = chart;
 
-        // Candlesticks
+        // ── Candlesticks
         const cs = chart.addSeries(CandlestickSeries, {
-            upColor: '#10b981', downColor: '#ef4444',
-            borderUpColor: '#10b981', borderDownColor: '#ef4444',
-            wickUpColor: '#10b981', wickDownColor: '#ef4444',
+            upColor: '#16a34a',
+            downColor: '#dc2626',
+            borderUpColor: '#16a34a',
+            borderDownColor: '#dc2626',
+            wickUpColor: '#16a34a',
+            wickDownColor: '#dc2626',
         });
-        cs.setData(
-            data
-                .filter(d => d.open !== null && d.high !== null && d.low !== null && d.close !== null)
-                .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()) // ترتيب تصاعدي حسب الوقت
-                .map(d => ({ time: d.time as any, open: d.open!, high: d.high!, low: d.low!, close: d.close! }))
-        );
+        const sortedData = [...data]
+            .filter(d => d.open !== null && d.high !== null && d.low !== null && d.close !== null)
+            .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
-        // Volume
+        cs.setData(sortedData.map(d => ({
+            time: d.time as any,
+            open: d.open!,
+            high: d.high!,
+            low: d.low!,
+            close: d.close!,
+        })));
+
+        // ── Volume
         if (showVolume) {
             const vs = chart.addSeries(HistogramSeries, {
-                color: '#94a3b8', priceFormat: { type: 'volume' }, priceScaleId: 'vol',
+                color: '#94a3b8',
+                priceFormat: { type: 'volume' },
+                priceScaleId: 'vol',
             });
-            chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
-            vs.setData(data
-                .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()) // ترتيب تصاعدي حسب الوقت
-                .map(d => ({
-                time: d.time as any,
-                value: d.volume || 0,
-                color: (d.close ?? 0) >= (d.open ?? 0) ? '#86efac80' : '#fca5a580',
-            })));
+            chart.priceScale('vol').applyOptions({
+                scaleMargins: { top: 0.83, bottom: 0 },
+            });
+            vs.setData(
+                [...data]
+                    .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
+                    .map(d => ({
+                        time: d.time as any,
+                        value: d.volume || 0,
+                        color: (d.close ?? 0) >= (d.open ?? 0) ? '#16a34a40' : '#dc262640',
+                    }))
+            );
         }
 
-        // MA overlays
+        // ── MA overlays
         (activeOverlays || []).forEach(key => {
             const cfg = MA_CONFIG[key];
             if (!cfg) return;
             const ls = chart.addSeries(LineSeries, {
-                color: cfg.color, lineWidth: 1,
-                priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false,
+                color: cfg.color,
+                lineWidth: 1,
+                priceLineVisible: false,
+                lastValueVisible: true,
+                crosshairMarkerVisible: false,
             });
             ls.setData(
-                data.filter(d => d[cfg.key] != null)
-                    .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()) // ترتيب تصاعدي حسب الوقت
+                data
+                    .filter(d => d[cfg.key] != null)
+                    .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
                     .map(d => ({ time: d.time as any, value: d[cfg.key] as number }))
             );
         });
 
-        // Crosshair → update OHLCV tooltip
+        // ── Crosshair move
         chart.subscribeCrosshairMove(param => {
             setCrosshairData(param.time ? (data.find(d => d.time === param.time) ?? null) : null);
         });
@@ -306,11 +418,10 @@ export default function LightweightChart({
         };
     }, [data, activeOverlays, showVolume, height, theme]);
 
-    // ── Oscillator chart (rebuilt when data OR activeOsc changes) ─────────────
+    // ── Oscillator chart ──────────────────────────────────────────────────────
     useEffect(() => {
         if (!oscContRef.current || !wrapperRef.current || data.length === 0) return;
 
-        // Destroy old osc chart
         oscChartRef.current?.remove();
         oscChartRef.current = null;
 
@@ -320,40 +431,63 @@ export default function LightweightChart({
 
         oscCont.style.height = `${OSC_H}px`;
 
-        // Theme-dependent colors for oscillator
-        const isDark = theme === 'dark';
-        const bgColor = isDark ? '#1f2937' : '#ffffff';
-        const textColor = isDark ? '#f9fafb' : '#374151';
-        const gridColor = isDark ? '#374151' : '#f3f4f6';
-        const borderColor = isDark ? '#4b5563' : '#e5e7eb';
+        const bgColor = isDark ? '#131722' : '#ffffff';
+        const textColor = isDark ? '#d1d5db' : '#374151';
+        const gridColor = isDark ? '#1e222d' : '#f1f5f9';
+        const borderColor = isDark ? '#2a2e39' : '#e2e8f0';
 
         const osc = createChart(oscCont, {
             layout: {
                 background: { type: ColorType.Solid, color: bgColor },
-                textColor: textColor,
-                fontFamily: "'Inter', 'Segoe UI', sans-serif",
+                textColor,
+                fontFamily: "'DM Mono', 'Fira Code', monospace",
+                fontSize: 10,
             },
-            grid: { vertLines: { color: gridColor }, horzLines: { color: gridColor } },
-            crosshair: { mode: CrosshairMode.Normal },
-            rightPriceScale: { borderColor: borderColor, scaleMargins: { top: 0.05, bottom: 0.1 } },
-            timeScale: { borderColor: borderColor, timeVisible: true, secondsVisible: false, visible: true },
+            grid: {
+                vertLines: { color: gridColor, style: 1 },
+                horzLines: { color: gridColor, style: 1 },
+            },
+            crosshair: {
+                mode: CrosshairMode.Normal,
+                vertLine: { color: isDark ? '#485563' : '#94a3b8', labelBackgroundColor: isDark ? '#2a2e39' : '#334155', style: 2 },
+                horzLine: { color: isDark ? '#485563' : '#94a3b8', labelBackgroundColor: isDark ? '#2a2e39' : '#334155', style: 2 },
+            },
+            kineticScroll: {
+                touch: true,
+                mouse: true,
+            },
+            rightPriceScale: {
+                borderColor,
+                scaleMargins: { top: 0.05, bottom: 0.1 },
+            },
+            timeScale: {
+                borderColor,
+                timeVisible: true,
+                secondsVisible: false,
+                visible: true,
+                rightOffset: 8,
+            },
+            handleScroll: { mouseWheel: true, pressedMouseMove: true },
+            handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
             width: wrapW,
             height: OSC_H,
         });
         oscChartRef.current = osc;
 
-        // Helper: add a line series to the oscillator chart
         const line = (key: keyof CandleData, color: string, lw: 1 | 2, title: string) => {
             const s = osc.addSeries(LineSeries, {
-                color, lineWidth: lw,
+                color,
+                lineWidth: lw,
                 priceLineVisible: false,
                 lastValueVisible: true,
                 crosshairMarkerVisible: true,
+                crosshairMarkerRadius: 4,
                 title,
             });
             s.setData(
-                data.filter(d => d[key] != null)
-                    .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()) // ترتيب تصاعدي حسب الوقت
+                data
+                    .filter(d => d[key] != null)
+                    .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
                     .map(d => ({ time: d.time as any, value: d[key] as number }))
             );
             return s;
@@ -362,79 +496,82 @@ export default function LightweightChart({
         const hline = (s: ReturnType<typeof line>, price: number, color: string) =>
             s.createPriceLine({ price, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
 
-        // Build the correct oscillator based on active tab
         if (activeOsc === 'rsi') {
             const s = line('rsi_14', '#6366f1', 2, 'RSI(14)');
             line('sma9_rsi', '#f59e0b', 1, 'SMA9');
             line('wma45_rsi', '#ef4444', 1, 'WMA45');
-            hline(s, 70, '#ef444470'); hline(s, 50, '#9ca3af50'); hline(s, 30, '#10b98170');
+            hline(s, 70, '#ef444450'); hline(s, 50, '#94a3b840'); hline(s, 30, '#10b98150');
         } else if (activeOsc === 'rsi_w') {
             const s = line('rsi_w', '#6366f1', 2, 'RSI(W)');
-            line('sma9_rsi_w', '#f59e0b', 1, 'S9(W)');
-            line('wma45_rsi_w', '#ef4444', 1, 'W45(W)');
-            hline(s, 70, '#ef444470'); hline(s, 50, '#9ca3af50'); hline(s, 30, '#10b98170');
+            line('sma9_rsi_w', '#f59e0b', 1, 'SMA9·W');
+            line('wma45_rsi_w', '#ef4444', 1, 'WMA45·W');
+            hline(s, 70, '#ef444450'); hline(s, 50, '#94a3b840'); hline(s, 30, '#10b98150');
         } else if (activeOsc === 'cci') {
             const s = line('cci', '#0ea5e9', 2, 'CCI(14)');
             line('cci_ema20', '#f97316', 1, 'EMA20');
-            hline(s, 100, '#ef444470'); hline(s, 0, '#9ca3af50'); hline(s, -100, '#10b98170');
+            hline(s, 100, '#ef444450'); hline(s, 0, '#94a3b840'); hline(s, -100, '#10b98150');
         } else if (activeOsc === 'cci_w') {
-            const s = line('cci_w', '#0ea5e9', 2, 'CCI(W)');
-            line('cci_ema20_w', '#f97316', 1, 'EMA20(W)');
-            hline(s, 100, '#ef444470'); hline(s, 0, '#9ca3af50'); hline(s, -100, '#10b98170');
+            const s = line('cci_w', '#0ea5e9', 2, 'CCI·W');
+            line('cci_ema20_w', '#f97316', 1, 'EMA20·W');
+            hline(s, 100, '#ef444450'); hline(s, 0, '#94a3b840'); hline(s, -100, '#10b98150');
         } else if (activeOsc === 'cfg') {
             const s = line('cfg', '#8b5cf6', 2, 'CFG');
             line('cfg_sma4', '#06b6d4', 1, 'SMA4');
             line('cfg_ema45', '#f59e0b', 1, 'EMA45');
-            hline(s, 50, '#9ca3af50');
+            hline(s, 50, '#94a3b840');
         } else if (activeOsc === 'cfg_w') {
-            const s = line('cfg_w', '#8b5cf6', 2, 'CFG(W)');
-            line('cfg_sma4_w', '#06b6d4', 1, 'SMA4(W)');
-            line('cfg_ema45_w', '#f59e0b', 1, 'EMA45(W)');
-            hline(s, 50, '#9ca3af50');
+            const s = line('cfg_w', '#8b5cf6', 2, 'CFG·W');
+            line('cfg_sma4_w', '#06b6d4', 1, 'SMA4·W');
+            line('cfg_ema45_w', '#f59e0b', 1, 'EMA45·W');
+            hline(s, 50, '#94a3b840');
         } else if (activeOsc === 'the_number') {
-            line('the_number', '#10b981', 2, 'THE.NUM');
+            line('the_number', '#10b981', 2, 'NUM');
             line('the_number_hl', '#3b82f6', 1, 'HIGH');
             line('the_number_ll', '#ef4444', 1, 'LOW');
         } else if (activeOsc === 'the_number_w') {
-            line('the_number_w', '#10b981', 2, 'THE.NUM(W)');
-            line('the_number_hl_w', '#3b82f6', 1, 'HIGH(W)');
-            line('the_number_ll_w', '#ef4444', 1, 'LOW(W)');
+            line('the_number_w', '#10b981', 2, 'NUM·W');
+            line('the_number_hl_w', '#3b82f6', 1, 'HIGH·W');
+            line('the_number_ll_w', '#ef4444', 1, 'LOW·W');
         } else if (activeOsc === 'stamp') {
-            line('stamp_s9rsi', '#ef4444', 2, 'S9RSI');
-            line('stamp_e45cfg', '#10b981', 1, 'E45CFG');
-            line('stamp_e45rsi', '#f59e0b', 1, 'E45RSI');
-            line('stamp_e20sma3', '#1f2937', 1, 'E20SMA3');
+            line('stamp_s9rsi', '#ef4444', 2, 'S9·RSI');
+            line('stamp_e45cfg', '#10b981', 1, 'E45·CFG');
+            line('stamp_e45rsi', '#f59e0b', 1, 'E45·RSI');
+            line('stamp_e20sma3', '#6366f1', 1, 'E20·S3');
         } else if (activeOsc === 'stamp_w') {
-            line('stamp_s9rsi_w', '#ef4444', 2, 'S9RSI(W)');
-            line('stamp_e45cfg_w', '#10b981', 1, 'E45CFG(W)');
-            line('stamp_e45rsi_w', '#f59e0b', 1, 'E45RSI(W)');
-            line('stamp_e20sma3_w', '#1f2937', 1, 'E20SMA3(W)');
+            line('stamp_s9rsi_w', '#ef4444', 2, 'S9·RSI·W');
+            line('stamp_e45cfg_w', '#10b981', 1, 'E45·CFG·W');
+            line('stamp_e45rsi_w', '#f59e0b', 1, 'E45·RSI·W');
+            line('stamp_e20sma3_w', '#6366f1', 1, 'E20·S3·W');
         } else if (activeOsc === 'aroon') {
-            line('aroon_up', '#10b981', 2, 'AROON↑');
-            line('aroon_down', '#ef4444', 2, 'AROON↓');
+            line('aroon_up', '#16a34a', 2, 'AROON ↑');
+            line('aroon_down', '#dc2626', 2, 'AROON ↓');
         } else if (activeOsc === 'aroon_w') {
-            line('aroon_up_w', '#10b981', 2, 'AROON↑(W)');
-            line('aroon_down_w', '#ef4444', 2, 'AROON↓(W)');
+            line('aroon_up_w', '#16a34a', 2, 'AROON ↑W');
+            line('aroon_down_w', '#dc2626', 2, 'AROON ↓W');
         } else if (activeOsc === 'volume') {
-            // Volume statistics - show as percentage change
             const volLine = line('vol_diff_50_percent', '#6366f1', 2, 'Vol % vs 50MA');
-            hline(volLine, 0, '#9ca3af50');
-            hline(volLine, 50, '#f59e0b70');
-            hline(volLine, -50, '#10b98170');
+            hline(volLine, 0, '#94a3b840');
+            hline(volLine, 50, '#f59e0b60');
+            hline(volLine, -50, '#10b98160');
         } else if (activeOsc === 'price_stats') {
-            // Price statistics vs 52W
             const highLine = line('percent_off_52w_high', '#ef4444', 2, '% Off 52W High');
             const lowLine = line('percent_off_52w_low', '#10b981', 1, '% Off 52W Low');
-            hline(highLine, -20, '#f59e0b70'); // Oversold zone
-            hline(lowLine, 20, '#f59e0b70');  // Overbought zone
+            hline(highLine, -20, '#f59e0b60');
+            hline(lowLine, 20, '#f59e0b60');
         }
 
-        // Sync timescales between main and osc
-        const syncMain = (range: any) => { if (range && mainChartRef.current) mainChartRef.current.timeScale().setVisibleLogicalRange(range); };
-        const syncOsc = (range: any) => { if (range && oscChartRef.current) oscChartRef.current.timeScale().setVisibleLogicalRange(range); };
-        if (mainChartRef.current) mainChartRef.current.timeScale().subscribeVisibleLogicalRangeChange(syncOsc);
+        // ── Sync timescales
+        const syncMain = (range: any) => {
+            if (range && mainChartRef.current)
+                mainChartRef.current.timeScale().setVisibleLogicalRange(range);
+        };
+        const syncOsc = (range: any) => {
+            if (range && oscChartRef.current)
+                oscChartRef.current.timeScale().setVisibleLogicalRange(range);
+        };
+        if (mainChartRef.current)
+            mainChartRef.current.timeScale().subscribeVisibleLogicalRangeChange(syncOsc);
         osc.timeScale().subscribeVisibleLogicalRangeChange(syncMain);
-
         osc.timeScale().fitContent();
 
         return () => {
@@ -443,7 +580,7 @@ export default function LightweightChart({
         };
     }, [data, activeOsc, theme]);
 
-    // ── Resize observer (persistent, manages both charts) ─────────────────────
+    // ── Resize observer ───────────────────────────────────────────────────────
     useEffect(() => {
         const wrapper = wrapperRef.current;
         const mainCont = mainContRef.current;
@@ -475,241 +612,301 @@ export default function LightweightChart({
         );
     }, []);
 
-    // ── Crosshair display values ───────────────────────────────────────────────
+    // ── Derived display values ────────────────────────────────────────────────
     const lastCandle = data[data.length - 1];
     const displayCandle = crosshairData || lastCandle;
     const isUp = displayCandle && (displayCandle.close ?? 0) >= (displayCandle.open ?? 0);
-    const changeColor = isUp ? 'text-emerald-600' : 'text-red-500';
 
-    const oscHint: { label: string; val: number | null | undefined; color: string }[] = displayCandle ? (
-        activeOsc === 'rsi' ? [{ label: 'RSI', val: displayCandle.rsi_14, color: '#6366f1' }, { label: 'SMA9', val: displayCandle.sma9_rsi, color: '#f59e0b' }, { label: 'WMA45', val: displayCandle.wma45_rsi, color: '#ef4444' }] :
-            activeOsc === 'rsi_w' ? [{ label: 'RSI(W)', val: displayCandle.rsi_w, color: '#6366f1' }, { label: 'SMA9(W)', val: displayCandle.sma9_rsi_w, color: '#f59e0b' }] :
-                activeOsc === 'cci' ? [{ label: 'CCI', val: displayCandle.cci, color: '#0ea5e9' }, { label: 'EMA20', val: displayCandle.cci_ema20, color: '#f97316' }] :
-                    activeOsc === 'cci_w' ? [{ label: 'CCI(W)', val: displayCandle.cci_w, color: '#0ea5e9' }, { label: 'EMA20(W)', val: displayCandle.cci_ema20_w, color: '#f97316' }] :
-                        activeOsc === 'cfg' ? [{ label: 'CFG', val: displayCandle.cfg, color: '#8b5cf6' }, { label: 'SMA4', val: displayCandle.cfg_sma4, color: '#06b6d4' }, { label: 'EMA45', val: displayCandle.cfg_ema45, color: '#f59e0b' }] :
-                        activeOsc === 'cfg_w' ? [{ label: 'CFG(W)', val: displayCandle.cfg_w, color: '#8b5cf6' }, { label: 'SMA4(W)', val: displayCandle.cfg_sma4_w, color: '#06b6d4' }, { label: 'EMA45(W)', val: displayCandle.cfg_ema45_w, color: '#f59e0b' }] :
-                            activeOsc === 'the_number' ? [{ label: 'THE.NUM', val: displayCandle.the_number, color: '#10b981' }, { label: 'HI', val: displayCandle.the_number_hl, color: '#3b82f6' }, { label: 'LO', val: displayCandle.the_number_ll, color: '#ef4444' }] :
-                                activeOsc === 'the_number_w' ? [{ label: 'THE.N(W)', val: displayCandle.the_number_w, color: '#10b981' }] :
-                                    activeOsc === 'stamp' ? [{ label: 'S9RSI', val: displayCandle.stamp_s9rsi, color: '#ef4444' }, { label: 'E45CFG', val: displayCandle.stamp_e45cfg, color: '#10b981' }] :
-                                        activeOsc === 'stamp_w' ? [{ label: 'S9RSI(W)', val: displayCandle.stamp_s9rsi_w, color: '#ef4444' }, { label: 'E45CFG(W)', val: displayCandle.stamp_e45cfg_w, color: '#10b981' }] :
-                                            activeOsc === 'aroon' ? [{ label: 'UP', val: displayCandle.aroon_up, color: '#10b981' }, { label: 'DOWN', val: displayCandle.aroon_down, color: '#ef4444' }] :
-                                                activeOsc === 'aroon_w' ? [{ label: 'UP(W)', val: displayCandle.aroon_up_w, color: '#10b981' }, { label: 'DOWN(W)', val: displayCandle.aroon_down_w, color: '#ef4444' }] : []
-    ) : [];
+    const oscHint: { label: string; val: number | null | undefined; color: string }[] =
+        displayCandle ? (
+            activeOsc === 'rsi' ? [{ label: 'RSI', val: displayCandle.rsi_14, color: '#6366f1' }, { label: 'SMA9', val: displayCandle.sma9_rsi, color: '#f59e0b' }, { label: 'WMA45', val: displayCandle.wma45_rsi, color: '#ef4444' }] :
+                activeOsc === 'rsi_w' ? [{ label: 'RSI·W', val: displayCandle.rsi_w, color: '#6366f1' }, { label: 'SMA9·W', val: displayCandle.sma9_rsi_w, color: '#f59e0b' }] :
+                    activeOsc === 'cci' ? [{ label: 'CCI', val: displayCandle.cci, color: '#0ea5e9' }, { label: 'EMA20', val: displayCandle.cci_ema20, color: '#f97316' }] :
+                        activeOsc === 'cci_w' ? [{ label: 'CCI·W', val: displayCandle.cci_w, color: '#0ea5e9' }, { label: 'EMA20·W', val: displayCandle.cci_ema20_w, color: '#f97316' }] :
+                            activeOsc === 'cfg' ? [{ label: 'CFG', val: displayCandle.cfg, color: '#8b5cf6' }, { label: 'SMA4', val: displayCandle.cfg_sma4, color: '#06b6d4' }, { label: 'EMA45', val: displayCandle.cfg_ema45, color: '#f59e0b' }] :
+                                activeOsc === 'cfg_w' ? [{ label: 'CFG·W', val: displayCandle.cfg_w, color: '#8b5cf6' }, { label: 'SMA4·W', val: displayCandle.cfg_sma4_w, color: '#06b6d4' }] :
+                                    activeOsc === 'the_number' ? [{ label: 'NUM', val: displayCandle.the_number, color: '#10b981' }, { label: 'HI', val: displayCandle.the_number_hl, color: '#3b82f6' }, { label: 'LO', val: displayCandle.the_number_ll, color: '#ef4444' }] :
+                                        activeOsc === 'the_number_w' ? [{ label: 'NUM·W', val: displayCandle.the_number_w, color: '#10b981' }] :
+                                            activeOsc === 'stamp' ? [{ label: 'S9·RSI', val: displayCandle.stamp_s9rsi, color: '#ef4444' }, { label: 'E45·CFG', val: displayCandle.stamp_e45cfg, color: '#10b981' }] :
+                                                activeOsc === 'stamp_w' ? [{ label: 'S9·RSI·W', val: displayCandle.stamp_s9rsi_w, color: '#ef4444' }] :
+                                                    activeOsc === 'aroon' ? [{ label: '↑', val: displayCandle.aroon_up, color: '#16a34a' }, { label: '↓', val: displayCandle.aroon_down, color: '#dc2626' }] :
+                                                        activeOsc === 'aroon_w' ? [{ label: '↑W', val: displayCandle.aroon_up_w, color: '#16a34a' }, { label: '↓W', val: displayCandle.aroon_down_w, color: '#dc2626' }] :
+                                                            []
+        ) : [];
 
+    // ─────────────────────────────────────────────────────────────────────────
     return (
-        <div className={`flex flex-col w-full h-full ${theme === 'dark' ? 'bg-gray-900' : 'bg-white'} rounded-xl overflow-hidden`}>
+        <div className={`flex flex-col w-full h-full ${bg} overflow-hidden`}>
 
-            {/* ── OHLCV bar ─────────────────────────────────────────────── */}
-            <div className={`flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-1.5 ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-100'} border-b text-[11px] shrink-0`}>
+            {/* ══ OHLCV Info Bar ══════════════════════════════════════════════ */}
+            <div className={`flex flex-wrap items-center gap-x-4 gap-y-0 px-4 py-1.5 border-b text-[11px] shrink-0 ${bgPanel} ${borderC}`}>
                 {displayCandle ? (
                     <>
-                        <span className="text-gray-400 font-mono">{displayCandle.time}</span>
-                        <span className="text-gray-500">O: <b className={changeColor}>{displayCandle.open?.toFixed(2) ?? '–'}</b></span>
-                        <span className="text-gray-500">H: <b className="text-emerald-600">{displayCandle.high?.toFixed(2) ?? '–'}</b></span>
-                        <span className="text-gray-500">L: <b className="text-red-500">{displayCandle.low?.toFixed(2) ?? '–'}</b></span>
-                        <span className="text-gray-500">C: <b className={changeColor}>{displayCandle.close?.toFixed(2) ?? '–'}</b></span>
-                        <span className="text-gray-400">Vol: <b className="text-gray-600">{displayCandle.volume?.toLocaleString() ?? '–'}</b></span>
+                        <span className={`font-mono tabular-nums ${textFaint}`}>
+                            {displayCandle.time}
+                        </span>
 
-                        {/* إضافة معلومات إضافية */}
+                        {/* OHLC values */}
+                        <div className="flex items-center gap-2.5">
+                            {[
+                                { lbl: 'O', val: displayCandle.open, cls: isUp ? 'text-emerald-600' : 'text-rose-500' },
+                                { lbl: 'H', val: displayCandle.high, cls: 'text-emerald-600' },
+                                { lbl: 'L', val: displayCandle.low, cls: 'text-rose-500' },
+                                { lbl: 'C', val: displayCandle.close, cls: isUp ? 'text-emerald-600' : 'text-rose-500' },
+                            ].map(item => (
+                                <span key={item.lbl} className="flex items-baseline gap-0.5 font-mono tabular-nums">
+                                    <span className={textFaint}>{item.lbl}</span>
+                                    <span className={`font-semibold ${item.cls}`}>{item.val?.toFixed(2) ?? '—'}</span>
+                                </span>
+                            ))}
+                        </div>
+
+                        {/* Volume */}
+                        <span className={`font-mono tabular-nums flex items-baseline gap-0.5`}>
+                            <span className={textFaint}>Vol</span>
+                            <span className={`font-semibold ${textMuted}`}>{displayCandle.volume?.toLocaleString() ?? '—'}</span>
+                        </span>
+
+                        {/* 52W */}
                         {displayCandle.fifty_two_week_high && (
-                            <span className="text-gray-400">52W High: <b className="text-emerald-600">{displayCandle.fifty_two_week_high.toFixed(2)}</b></span>
+                            <span className={`font-mono tabular-nums flex items-baseline gap-0.5`}>
+                                <span className={textFaint}>52H</span>
+                                <span className="font-semibold text-emerald-600">{displayCandle.fifty_two_week_high.toFixed(2)}</span>
+                            </span>
                         )}
                         {displayCandle.fifty_two_week_low && (
-                            <span className="text-gray-400">52W Low: <b className="text-red-500">{displayCandle.fifty_two_week_low.toFixed(2)}</b></span>
+                            <span className={`font-mono tabular-nums flex items-baseline gap-0.5`}>
+                                <span className={textFaint}>52L</span>
+                                <span className="font-semibold text-rose-500">{displayCandle.fifty_two_week_low.toFixed(2)}</span>
+                            </span>
                         )}
 
-                        {/* عرض المتوسطات النشطة */}
-                        {(activeOverlays || []).slice(0, 3).map(key => { // أظهر أول 3 فقط لتوفير المساحة
+                        {/* Active MA values */}
+                        {(activeOverlays || []).slice(0, 4).map(key => {
                             const cfg = MA_CONFIG[key];
+                            if (!cfg) return null;
                             const val = displayCandle[cfg.key];
-                            return val != null
-                                ? <span key={key} className="font-semibold" style={{ color: cfg.color }}>{cfg.label}:{(val as number).toFixed(2)}</span>
-                                : null;
+                            return val != null ? (
+                                <span key={key} className="font-mono tabular-nums font-semibold text-[10px]" style={{ color: cfg.color }}>
+                                    {cfg.label}&nbsp;{(val as number).toFixed(2)}
+                                </span>
+                            ) : null;
                         })}
                     </>
                 ) : (
-                    <span className="text-gray-400">Hover over chart for data</span>
+                    <span className={`${textFaint} italic`}>Hover over chart to inspect data</span>
                 )}
             </div>
 
-            {/* ── MA toggles ────────────────────────────────────────────── */}
-            <div className={`flex items-center justify-between px-3 py-1 border-b ${theme === 'dark' ? 'border-gray-700' : 'border-gray-100'} shrink-0`}>
-                <div className="flex items-center gap-2">
-                    <span className={`text-xs font-semibold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>Moving Averages:</span>
-                    <div className="flex flex-wrap gap-1">
+            {/* ══ MA Toggles + Chart Controls Bar ══════════════════════════════ */}
+            <div className={`flex items-center justify-between px-3 py-1.5 border-b shrink-0 ${borderC} ${bgPanel}`}>
+
+                {/* MA Toggles */}
+                <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
+                    <span className={`text-[9px] uppercase tracking-widest font-bold shrink-0 ${textFaint}`}>MA</span>
+                    <div className="flex items-center gap-1 flex-wrap">
                         {currentMaEntries.map(([key, cfg]) => {
                             const active = (activeOverlays || []).includes(key as any);
                             return (
                                 <button
                                     key={key}
                                     onClick={() => toggleOverlay(key as any)}
-                                    className="px-2 py-0.5 rounded text-[10px] font-bold border transition-all hover:opacity-80"
+                                    title={active ? `Hide ${cfg.label}` : `Show ${cfg.label}`}
+                                    className={`
+                                        flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold
+                                        border transition-all duration-150 leading-none
+                                        ${active
+                                            ? 'text-white shadow-sm'
+                                            : isDark
+                                                ? 'text-slate-500 border-slate-700 hover:border-slate-500 bg-transparent hover:bg-slate-800'
+                                                : 'text-slate-500 border-slate-200 hover:border-slate-300 bg-transparent hover:bg-slate-50'
+                                        }
+                                    `}
                                     style={{
-                                        background: active ? cfg.color : 'transparent',
-                                        borderColor: cfg.color,
-                                        color: active ? '#fff' : cfg.color,
+                                        backgroundColor: active ? cfg.color : undefined,
+                                        borderColor: active ? cfg.color : undefined,
                                     }}
                                 >
+                                    {!active && (
+                                        <span
+                                            className="w-1.5 h-1.5 rounded-full shrink-0"
+                                            style={{ backgroundColor: cfg.color }}
+                                        />
+                                    )}
                                     {cfg.label}
                                 </button>
                             );
                         })}
                     </div>
 
-                    {/* أزرار التنقل بين الصفحات */}
+                    {/* MA Pagination */}
                     {totalMaPages > 1 && (
-                        <div className="flex items-center gap-1 ml-2">
+                        <div className="flex items-center gap-0.5 shrink-0">
                             <button
                                 onClick={() => setMaPage(Math.max(0, maPage - 1))}
                                 disabled={maPage === 0}
-                                className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Previous"
+                                className={`w-5 h-5 flex items-center justify-center rounded transition-colors disabled:opacity-30 ${btnHover}`}
                             >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                                </svg>
+                                <IconChevronLeft />
                             </button>
-                            <span className="text-[10px] text-gray-500 px-1">
+                            <span className={`text-[9px] font-mono tabular-nums ${textFaint}`}>
                                 {maPage + 1}/{totalMaPages}
                             </span>
                             <button
                                 onClick={() => setMaPage(Math.min(totalMaPages - 1, maPage + 1))}
                                 disabled={maPage === totalMaPages - 1}
-                                className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Next"
+                                className={`w-5 h-5 flex items-center justify-center rounded transition-colors disabled:opacity-30 ${btnHover}`}
                             >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
+                                <IconChevronRight />
                             </button>
                         </div>
                     )}
 
                     <button
                         onClick={() => setActiveOverlays([])}
-                        className="px-2 py-0.5 text-[10px] text-gray-500 hover:text-gray-700 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                        className={`px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide rounded transition-colors shrink-0 ${btnHover}`}
                     >
-                        Clear All
+                        Clear
                     </button>
                 </div>
 
-                {/* أزرار التحكم في الرسم البياني */}
-                <div className="flex items-center gap-1">
-                    <button
-                        onClick={() => {
-                            const timeScale = mainChartRef.current?.timeScale();
-                            const range = timeScale?.getVisibleLogicalRange();
-                            if (range && timeScale) {
-                                const delta = (range.to - range.from) * 0.1;
-                                timeScale.setVisibleLogicalRange({
-                                    from: range.from + delta,
-                                    to: range.to - delta
-                                });
-                            }
-                        }}
-                        className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                        title="Zoom In"
-                    >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                        </svg>
-                    </button>
-                    <button
-                        onClick={() => {
-                            const timeScale = mainChartRef.current?.timeScale();
-                            const range = timeScale?.getVisibleLogicalRange();
-                            if (range && timeScale) {
-                                const delta = (range.to - range.from) * 0.1;
-                                timeScale.setVisibleLogicalRange({
-                                    from: range.from - delta,
-                                    to: range.to + delta
-                                });
-                            }
-                        }}
-                        className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                        title="Zoom Out"
-                    >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
-                        </svg>
-                    </button>
-                    <button
-                        onClick={() => mainChartRef.current?.timeScale().fitContent()}
-                        className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                        title="Fit Content"
-                    >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 1v4m0 0h-4m4 0l-5-5" />
-                        </svg>
-                    </button>
+                {/* Chart Control Buttons */}
+                <div className={`flex items-center gap-0.5 pl-2 ml-2 border-l ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+                    {[
+                        {
+                            title: 'Zoom In',
+                            icon: <IconZoomIn />,
+                            onClick: () => {
+                                const ts = mainChartRef.current?.timeScale();
+                                const r = ts?.getVisibleLogicalRange();
+                                if (r && ts) {
+                                    const d = (r.to - r.from) * 0.15;
+                                    ts.setVisibleLogicalRange({ from: r.from + d, to: r.to - d });
+                                }
+                            },
+                        },
+                        {
+                            title: 'Zoom Out',
+                            icon: <IconZoomOut />,
+                            onClick: () => {
+                                const ts = mainChartRef.current?.timeScale();
+                                const r = ts?.getVisibleLogicalRange();
+                                if (r && ts) {
+                                    const d = (r.to - r.from) * 0.15;
+                                    ts.setVisibleLogicalRange({ from: r.from - d, to: r.to + d });
+                                }
+                            },
+                        },
+                        {
+                            title: 'Fit All',
+                            icon: <IconFit />,
+                            onClick: () => mainChartRef.current?.timeScale().fitContent(),
+                        },
+                    ].map(btn => (
+                        <button
+                            key={btn.title}
+                            onClick={btn.onClick}
+                            title={btn.title}
+                            className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${btnHover}`}
+                        >
+                            {btn.icon}
+                        </button>
+                    ))}
+
+                    {/* Theme toggle */}
                     <button
                         onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-                        className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
                         title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+                        className={`w-7 h-7 flex items-center justify-center rounded transition-colors ml-0.5 ${btnHover}`}
                     >
-                        {theme === 'light' ? (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                            </svg>
-                        ) : (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                            </svg>
-                        )}
+                        {theme === 'light' ? <IconMoon /> : <IconSun />}
                     </button>
                 </div>
             </div>
 
-            {/* ── Chart wrapper ─────────────────────────────────────────── */}
+            {/* ══ Chart Wrapper ════════════════════════════════════════════════ */}
             <div ref={wrapperRef} className="flex-1 relative" style={{ minHeight: 0 }}>
 
+                {/* Loading overlay */}
                 {loading && (
-                    <div className={`absolute inset-0 flex items-center justify-center ${theme === 'dark' ? 'bg-gray-900/80' : 'bg-white/80'} z-10`}>
-                        <div className="flex flex-col items-center gap-2">
-                            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                            <span className={`text-xs ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>Loading...</span>
+                    <div className={`absolute inset-0 flex flex-col items-center justify-center z-10 ${isDark ? 'bg-[#131722]/90' : 'bg-white/90'} backdrop-blur-[1px]`}>
+                        <div className="relative w-10 h-10">
+                            <div className={`absolute inset-0 rounded-full border-2 ${isDark ? 'border-slate-700' : 'border-slate-100'}`} />
+                            <div className="absolute inset-0 rounded-full border-2 border-t-blue-500 animate-spin" />
+                        </div>
+                        <p className={`mt-3 text-[11px] font-medium ${textMuted}`}>Loading chart data…</p>
+                    </div>
+                )}
+
+                {/* Error overlay */}
+                {error && !loading && (
+                    <div className="absolute inset-0 flex items-center justify-center z-10">
+                        <div className={`flex items-center gap-2.5 px-4 py-2.5 rounded-lg border ${isDark ? 'bg-rose-950/40 border-rose-800/50' : 'bg-rose-50 border-rose-100'}`}>
+                            <svg className="w-4 h-4 text-rose-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span className={`text-sm font-medium ${isDark ? 'text-rose-300' : 'text-rose-700'}`}>{error}</span>
                         </div>
                     </div>
                 )}
-                {error && !loading && (
-                    <div className="absolute inset-0 flex items-center justify-center z-10">
-                        <p className="text-sm text-red-500">⚠ {error}</p>
-                    </div>
-                )}
+
+                {/* Empty state */}
                 {!loading && !error && data.length === 0 && (
-                    <div className="absolute inset-0 flex items-center justify-center z-10">
-                        <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>No data available for {symbol}</p>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center z-10 gap-2">
+                        <span className={isDark ? 'text-slate-600' : 'text-slate-300'}><IconBarChart /></span>
+                        <p className={`text-[12px] font-medium ${textMuted}`}>
+                            No chart data for <span className="font-mono font-bold">{symbol}</span>
+                        </p>
                     </div>
                 )}
 
-                {/* Main candlestick chart (div height is set imperatively) */}
+                {/* Candlestick chart container */}
                 <div ref={mainContRef} className="w-full" />
 
-                {/* Oscillator tab bar */}
-                <div className="flex items-center border-t border-b border-gray-100 bg-gray-50 overflow-x-auto" style={{ height: TAB_H }}>
-                    {OSC_TABS.map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveOsc(tab.id)}
-                            className={`px-2.5 text-[10px] font-bold border-b-2 whitespace-nowrap h-full shrink-0 transition-colors
-                                ${activeOsc === tab.id ? 'border-blue-500 text-blue-600 bg-blue-50' : 'border-transparent text-gray-400 hover:text-gray-700'}`}
-                        >
-                            {tab.label}
-                        </button>
-                    ))}
+                {/* ── Oscillator Tab Bar ──────────────────────────────────── */}
+                <div
+                    className={`flex items-center border-t overflow-x-auto shrink-0 ${bgPanel} ${borderC}`}
+                    style={{ height: TAB_H }}
+                >
+                    <div className="flex items-center px-2 gap-0.5 py-1">
+                        {OSC_TABS.map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveOsc(tab.id)}
+                                className={`
+                                    px-2.5 py-0.5 text-[10px] font-bold rounded-md whitespace-nowrap shrink-0
+                                    transition-all duration-150 leading-none
+                                    ${activeOsc === tab.id
+                                        ? 'bg-blue-600 text-white shadow-sm'
+                                        : isDark
+                                            ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-700/70'
+                                            : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                                    }
+                                `}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Oscillator live values */}
                     {oscHint.filter(o => o.val != null).length > 0 && (
-                        <>
-                            <span className="text-gray-200 mx-2 shrink-0">|</span>
+                        <div className={`flex items-center gap-2.5 px-3 ml-1 border-l shrink-0 ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
                             {oscHint.filter(o => o.val != null).map(o => (
-                                <span key={o.label} className="text-[10px] font-bold mr-3 shrink-0" style={{ color: o.color }}>
-                                    {o.label}:{(o.val as number).toFixed(2)}
+                                <span
+                                    key={o.label}
+                                    className="text-[10px] font-mono font-bold tabular-nums shrink-0"
+                                    style={{ color: o.color }}
+                                >
+                                    {o.label}&nbsp;{(o.val as number).toFixed(2)}
                                 </span>
                             ))}
-                        </>
+                        </div>
                     )}
                 </div>
 
-                {/* Oscillator chart (height set imperatively) */}
+                {/* Oscillator chart container */}
                 <div ref={oscContRef} className="w-full" />
             </div>
         </div>

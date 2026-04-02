@@ -17,10 +17,10 @@ function DropdownItem({
 }: any) {
   const [showNested, setShowNested] = useState(false);
 
-  // Update nested visibility based on parent
+  // Close nested menus automatically when the parent dropdown closes
   useEffect(() => {
-    if (parentShowNested !== undefined) {
-      setShowNested(parentShowNested);
+    if (parentShowNested === false) {
+      setShowNested(false);
     }
   }, [parentShowNested]);
 
@@ -123,6 +123,14 @@ export default function Navbar() {
                 { en: 'Trend - 5 Month Wide', href: '/screeners?tab=trend-5-months-wide' },
                 { en: 'Power Play', href: '/screeners?tab=power-play' },
               ]
+            },
+            {
+              en: 'Meeshal',
+              href: '#',
+              items: [
+                { en: 'RSI', href: '/screeners/rsi' },
+                { en: 'Alrayan', href: '/screeners/alrayan' },
+              ]
             }
           ]
         },
@@ -138,22 +146,22 @@ export default function Navbar() {
         { en: 'RS Analysis', href: '/rs-analysis' },
       ],
     },
-    // learn: {
-    //   en: 'Learn',
-    //   href: '/learn',
-    //   items: [
-    //     {
-    //       en: 'Dan Zanger',
-    //       href: '#',
-    //       items: [
-    //         { en: "Dan's 10 Golden Rules", href: '/learn/golden-rules' },
-    //         { en: 'Understanding Chart Patterns', href: '/learn/chart-patterns' },
-    //         { en: 'Useful Stock Resources', href: '/learn/useful-stock-sources' },
-    //         { en: 'Recommended Reading', href: '/learn/recommended-reading' },
-    //       ]
-    //     },
-    //   ],
-    // },
+    learn: {
+      en: 'Learn',
+      href: '/learn',
+      items: [
+        {
+          en: 'Dan Zanger',
+          href: '#',
+          items: [
+            { en: "Dan's 10 Golden Rules", href: '/learn/golden-rules' },
+            { en: 'Understanding Chart Patterns', href: '/learn/chart-patterns' },
+            { en: 'Useful Stock Resources', href: '/learn/useful-stock-sources' },
+            { en: 'Recommended Reading', href: '/learn/recommended-reading' },
+          ]
+        },
+      ],
+    },
     market: {
       en: 'Market',
       href: '/market',
@@ -283,9 +291,9 @@ export default function Navbar() {
             <Link href="/stocks" className={styles['navbar-link']}>
               Stocks
             </Link>
-            {/* <Link href="/stocks/market-breadth" className={styles['navbar-link']}>
+            <Link href="/stocks/market-breadth" className={styles['navbar-link']}>
               Market Breadth
-            </Link> */}
+            </Link>
             <Link href="/stocks/charts" className={styles['navbar-link']}>
               Charts
             </Link>

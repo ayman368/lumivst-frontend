@@ -5,760 +5,446 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { Calendar, X } from 'lucide-react';
-import {
-    LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
-    BarChart, Bar, CartesianGrid, Legend, PieChart, Pie, Cell
-} from 'recharts';
-import { div } from 'framer-motion/client';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { createChart, ColorType, CrosshairMode, AreaSeries } from 'lightweight-charts';
+
+// ─── DESIGN TOKENS: Warm Cream × Forest Green ────────────────────────────────
+// Page bg: #EDE8DC  |  Card bg: #FDFAF5  |  Border: #D9D2C3
+// Accent dark: #1C3D2E  |  Accent mid: #2D6A4F  |  Accent light: #3A7A5C
+// Text primary: #2C2416  |  secondary: #7A7060  |  muted: #A09880
+// Badge green: bg #D4EDDA text #1C7A3F border #A8D5B5
+// Badge red:   bg #FADADD text #C0392B border #F5AAAF
+// Badge amber: bg #FEF3C7 text #92400E border #FCD37A
+// ─────────────────────────────────────────────────────────────────────────────
+
+function RSHistoryChart({ data, period }: { data: any[]; period: string }) {
+    const ref = useRef<HTMLDivElement>(null);
+    const chartRef = useRef<any>(null);
+
+    useEffect(() => {
+        if (!ref.current || data.length === 0) return;
+        if (chartRef.current) { chartRef.current.remove(); chartRef.current = null; }
+
+        const chart = createChart(ref.current, {
+            layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: '#7A7060', fontFamily: 'system-ui, sans-serif' },
+            grid: { vertLines: { color: 'rgba(217,210,195,0.6)' }, horzLines: { color: 'rgba(217,210,195,0.6)' } },
+            crosshair: { mode: CrosshairMode.Magnet, vertLine: { labelBackgroundColor: '#1C3D2E' }, horzLine: { labelBackgroundColor: '#1C3D2E' } },
+            rightPriceScale: { borderColor: '#D9D2C3' },
+            timeScale: { borderColor: '#D9D2C3', timeVisible: false, fixLeftEdge: true, fixRightEdge: true },
+        });
+        const series = chart.addSeries(AreaSeries, {
+            lineColor: '#2D6A4F', topColor: 'rgba(45,106,79,0.18)', bottomColor: 'rgba(45,106,79,0)', lineWidth: 2,
+            priceLineVisible: false, crosshairMarkerVisible: true, crosshairMarkerRadius: 5,
+        });
+        const unique = new Map();
+        [...data].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach(d => {
+            const t = d.date.includes('T') ? d.date.split('T')[0] : d.date;
+            unique.set(t, { time: t, value: d.rs_rating });
+        });
+        series.setData(Array.from(unique.values()));
+        chart.timeScale().fitContent();
+        chartRef.current = chart;
+        const ro = new ResizeObserver(entries => {
+            if (ref.current && chartRef.current) {
+                const { width, height } = entries[0].contentRect;
+                chartRef.current.applyOptions({ width, height });
+            }
+        });
+        ro.observe(ref.current);
+        return () => { ro.disconnect(); if (chartRef.current) { chartRef.current.remove(); chartRef.current = null; } };
+    }, [data, period]);
+
+    return <div ref={ref} className="w-full h-full" />;
+}
 
 interface StockRS {
-    symbol: string;
-    date: string;
-    rs_rating: number;
-    rs_raw: number | null;
-    return_3m: number | null;
-    return_6m: number | null;
-    return_9m: number | null;
-    return_12m: number | null;
-    rank_3m: number | null;
-    rank_6m: number | null;
-    rank_9m: number | null;
-    rank_12m: number | null;
-    company_name: string | null;
-    industry_group: string | null;
+    symbol: string; date: string; rs_rating: number; rs_raw: number | null;
+    return_3m: number | null; return_6m: number | null; return_9m: number | null; return_12m: number | null;
+    rank_3m: number | null; rank_6m: number | null; rank_9m: number | null; rank_12m: number | null;
+    company_name: string | null; industry_group: string | null;
 }
-
-interface Stats {
-    total_records: number;
-    date_range: { start: string; end: string };
-    latest_date: string;
-    stocks_count: number;
-    avg_rs: number;
-}
-
-interface Industry {
-    name: string;
-    count: number;
-}
+interface Stats { total_records: number; date_range: { start: string; end: string }; latest_date: string; stocks_count: number; avg_rs: number; }
+interface Industry { name: string; count: number; }
 
 const PERIOD_OPTIONS = [
-    { label: '5D', type: 'days', value: 5 },
-    { label: '1M', type: 'months', value: 1 },
-    { label: '6M', type: 'months', value: 6 },
-    { label: 'YTD', type: 'ytd', value: 0 },
-    { label: '1Y', type: 'years', value: 1 },
-    { label: '5Y', type: 'years', value: 5 },
-    { label: '10Y', type: 'years', value: 10 },
-    { label: 'MAX', type: 'max', value: 0 },
+    { label: '5D', type: 'days', value: 5 }, { label: '1M', type: 'months', value: 1 },
+    { label: '6M', type: 'months', value: 6 }, { label: 'YTD', type: 'ytd', value: 0 },
+    { label: '1Y', type: 'years', value: 1 }, { label: '5Y', type: 'years', value: 5 },
+    { label: '10Y', type: 'years', value: 10 }, { label: 'MAX', type: 'max', value: 0 },
 ];
 
-const calculateStartDate = (periodOption: { label: string; type: string; value: number }): Date => {
-    const today = new Date();
-    const result = new Date(today);
-
-    switch (periodOption.type) {
-        case 'days':
-            result.setDate(result.getDate() - periodOption.value);
-            break;
-        case 'months':
-            result.setMonth(result.getMonth() - periodOption.value);
-            if (result.getDate() !== today.getDate()) {
-                result.setDate(0);
-            }
-            break;
-        case 'years':
-            result.setFullYear(result.getFullYear() - periodOption.value);
-            if (result.getMonth() !== today.getMonth() || result.getDate() !== today.getDate()) {
-                result.setDate(0);
-            }
-            break;
-        case 'ytd':
-            result.setMonth(0, 1);
-            break;
-        case 'max':
-            result.setFullYear(result.getFullYear() - 25);
-            break;
+const calcStart = (opt: { label: string; type: string; value: number }): Date => {
+    const today = new Date(); const r = new Date(today);
+    switch (opt.type) {
+        case 'days': r.setDate(r.getDate() - opt.value); break;
+        case 'months': r.setMonth(r.getMonth() - opt.value); if (r.getDate() !== today.getDate()) r.setDate(0); break;
+        case 'years': r.setFullYear(r.getFullYear() - opt.value); if (r.getDate() !== today.getDate()) r.setDate(0); break;
+        case 'ytd': r.setMonth(0, 1); break;
+        case 'max': r.setFullYear(r.getFullYear() - 25); break;
     }
-
-    return result;
+    return r;
 };
+const toDateStr = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 export default function RSAnalysisPage() {
     const [stocks, setStocks] = useState<StockRS[]>([]);
-    const [filteredStocks, setFilteredStocks] = useState<StockRS[]>([]);
-    const [selectedStock, setSelectedStock] = useState<StockRS | null>(null);
+    const [filtered, setFiltered] = useState<StockRS[]>([]);
+    const [selected, setSelected] = useState<StockRS | null>(null);
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState<Stats | null>(null);
     const [industries, setIndustries] = useState<Industry[]>([]);
-    const [historyData, setHistoryData] = useState<any[]>([]);
-    const [historyLoading, setHistoryLoading] = useState(false);
-
-    // Detailed Filters State
-    const [selectedPeriod, setSelectedPeriod] = useState('1Y');
-    const [showDatePicker, setShowDatePicker] = useState(false);
-    const [customStartDate, setCustomStartDate] = useState('');
-    const [customEndDate, setCustomEndDate] = useState('');
-
-    // Filters
-    const [searchQuery, setSearchQuery] = useState('');
-    const [minRS, setMinRS] = useState(0);
-    const [maxRS, setMaxRS] = useState(100);
-    const [selectedIndustry, setSelectedIndustry] = useState('');
-    const [viewMode, setViewMode] = useState<'table' | 'cards' | 'chart'>('table');
-    const datePickerRef = useRef<HTMLDivElement>(null);
-
+    const [history, setHistory] = useState<any[]>([]);
+    const [histLoading, setHistLoading] = useState(false);
+    const [period, setPeriod] = useState('1Y');
+    const [showPicker, setShowPicker] = useState(false);
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [search, setSearch] = useState('');
+    const [minRS, setMinRS] = useState(0); const [maxRS, setMaxRS] = useState(100);
+    const [selIndustry, setSelIndustry] = useState('');
+    const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+    const pickerRef = useRef<HTMLDivElement>(null);
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
     useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node)) {
-                setShowDatePicker(false);
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
+        const h = (e: MouseEvent) => { if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setShowPicker(false); };
+        document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h);
     }, []);
 
+    useEffect(() => { fetchData(); }, []);
     useEffect(() => {
-        fetchData();
-    }, []);
+        let r = stocks.filter(s => s.rs_rating >= minRS && s.rs_rating <= maxRS);
+        if (selIndustry) r = r.filter(s => s.industry_group === selIndustry);
+        if (search) { const q = search.toUpperCase(); r = r.filter(s => s.symbol.includes(q) || (s.company_name && s.company_name.toUpperCase().includes(q))); }
+        setFiltered(r);
+    }, [stocks, search, minRS, maxRS, selIndustry]);
+    useEffect(() => { if (selected) fetchHistory(selected.symbol); }, [selected, period, startDate, endDate]);
 
-    useEffect(() => {
-        let result = stocks;
-
-        // Apply RS filter
-        result = result.filter(s => s.rs_rating >= minRS && s.rs_rating <= maxRS);
-
-        // Apply industry filter
-        if (selectedIndustry) {
-            result = result.filter(s => s.industry_group === selectedIndustry);
-        }
-
-        // Apply search
-        if (searchQuery) {
-            const q = searchQuery.toUpperCase();
-            result = result.filter(s =>
-                s.symbol.includes(q) ||
-                (s.company_name && s.company_name.toUpperCase().includes(q))
-            );
-        }
-
-        setFilteredStocks(result);
-    }, [stocks, searchQuery, minRS, maxRS, selectedIndustry]);
-
-    useEffect(() => {
-        if (selectedStock) {
-            fetchHistory(selectedStock.symbol);
-        }
-    }, [selectedStock, selectedPeriod, customStartDate, customEndDate]);
-
-    const getAuthHeaders = () => {
+    const headers = () => {
         const token = localStorage.getItem('token');
-        const headers: HeadersInit = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        return headers;
+        const h: HeadersInit = { 'Content-Type': 'application/json' };
+        if (token) h['Authorization'] = `Bearer ${token}`;
+        return h;
     };
 
     const fetchData = async () => {
         try {
-            const headers = getAuthHeaders();
-
-            // Fetch stocks only (we will derive stats and industries from this)
-            const res = await fetch(`${API_URL}/api/rs/latest?limit=500`, { headers, cache: 'no-store' });
-
-            if (res.ok) {
-                const responseData = await res.json();
-                let stocksData = responseData.data || [];
-
-                // Normalize data to match Watchlist/MatrixChart robustness
-                stocksData = stocksData.map((s: any) => ({
-                    ...s,
-                    rs_rating: s.rs_rating ?? s.RS ?? 0,
-                    company_name: s.company_name ?? s.Company ?? s.symbol,
-                    // Ensure other fields are present or null to avoid undefined errors
-                    return_3m: s.return_3m ?? null,
-                    rank_3m: s.rank_3m ?? null
-                }));
-
-                setStocks(stocksData);
-
-                if (stocksData.length > 0) {
-                    setSelectedStock(stocksData[0]);
-
-                    // Compute Stats Client-side
-                    const avgRs = stocksData.reduce((acc: number, s: StockRS) => acc + s.rs_rating, 0) / stocksData.length;
-                    setStats({
-                        total_records: responseData.total_count || stocksData.length,
-                        date_range: { start: '-', end: '-' },
-                        latest_date: responseData.date || new Date().toISOString().split('T')[0],
-                        stocks_count: stocksData.length,
-                        avg_rs: avgRs
-                    });
-
-                    // Compute Industries Client-side
-                    const indMap = new Map<string, number>();
-                    stocksData.forEach((s: StockRS) => {
-                        if (s.industry_group) {
-                            indMap.set(s.industry_group, (indMap.get(s.industry_group) || 0) + 1);
-                        }
-                    });
-                    const indArray = Array.from(indMap.entries())
-                        .map(([name, count]) => ({ name, count }))
-                        .sort((a, b) => b.count - a.count);
-                    setIndustries(indArray);
-                }
+            const res = await fetch(`${API_URL}/api/rs/latest?limit=500`, { headers: headers(), cache: 'no-store' });
+            if (!res.ok) return;
+            const d = await res.json();
+            let data: StockRS[] = (d.data || []).map((s: any) => ({ ...s, rs_rating: s.rs_rating ?? s.RS ?? 0, company_name: s.company_name ?? s.Company ?? s.symbol, return_3m: s.return_3m ?? null, rank_3m: s.rank_3m ?? null }));
+            setStocks(data);
+            if (data.length > 0) {
+                setSelected(data[0]);
+                const avg = data.reduce((a, s) => a + s.rs_rating, 0) / data.length;
+                setStats({ total_records: d.total_count || data.length, date_range: { start: '-', end: '-' }, latest_date: d.date || new Date().toISOString().split('T')[0], stocks_count: data.length, avg_rs: avg });
+                const im = new Map<string, number>();
+                data.forEach(s => { if (s.industry_group) im.set(s.industry_group, (im.get(s.industry_group) || 0) + 1); });
+                setIndustries(Array.from(im.entries()).map(([n, c]) => ({ name: n, count: c })).sort((a, b) => b.count - a.count));
             }
-        } catch (err) {
-            console.error('Error fetching data:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const getLocalDateString = (date: Date): string => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+        } catch (e) { console.error(e); }
+        finally { setLoading(false); }
     };
 
     const fetchHistory = async (symbol: string) => {
-        setHistoryLoading(true);
+        setHistLoading(true);
         try {
-            const headers = getAuthHeaders();
-            let url = `${API_URL}/api/rs/${symbol}`;
-
-            let fromDate = '';
-            const today = new Date();
-            const toDate = getLocalDateString(today);
-            let finalToDate = toDate;
-
-            if (selectedPeriod === 'Custom' && customStartDate && customEndDate) {
-                fromDate = customStartDate;
-                finalToDate = customEndDate;
-            } else {
-                const option = PERIOD_OPTIONS.find(p => p.label === selectedPeriod);
-                if (option) {
-                    const startDate = calculateStartDate(option);
-                    fromDate = getLocalDateString(startDate);
-                }
-            }
-
+            let from = ''; const today = toDateStr(new Date()); let to = today;
+            if (period === 'Custom' && startDate && endDate) { from = startDate; to = endDate; }
+            else { const opt = PERIOD_OPTIONS.find(p => p.label === period); if (opt) from = toDateStr(calcStart(opt)); }
             const params = new URLSearchParams();
-            if (fromDate) params.append('from_date', fromDate);
-            if (finalToDate) params.append('to_date', finalToDate);
+            if (from) params.append('from_date', from);
+            if (to) params.append('to_date', to);
+            const url = `${API_URL}/api/rs/${symbol}${params.toString() ? '?' + params : ''}`;
+            const res = await fetch(url, { headers: headers(), cache: 'no-store' });
+            if (res.ok) { const d = await res.json(); setHistory(Array.isArray(d) ? d : (d.data || [])); }
+        } catch (e) { console.error(e); }
+        finally { setHistLoading(false); }
+    };
 
-            if (params.toString()) {
-                url += `?${params.toString()}`;
-            }
-
-            const res = await fetch(url, { headers, cache: 'no-store' });
-
-            if (res.ok) {
-                const data = await res.json();
-                // RS V1 returns array directly: List[RSResponse]
-                const history = Array.isArray(data) ? data : (data.data || []);
-                setHistoryData(history);
-            }
-        } catch (err) {
-            console.error('Error fetching history:', err);
-        } finally {
-            setHistoryLoading(false);
+    const applyCustom = () => {
+        if (startDate && endDate) {
+            if (new Date(startDate) > new Date(endDate)) { alert('Start date must be before end date'); return; }
+            setPeriod('Custom'); setShowPicker(false);
         }
     };
 
-    const handlePeriodChange = (period: string) => {
-        setSelectedPeriod(period);
-        setShowDatePicker(false);
-    };
+    const formatPct = (v: number | null) => v === null || v === undefined ? '-' : `${(v * 100).toFixed(1)}%`;
+    const rsColor = (v: number) => v >= 90 ? '#1C7A3F' : v >= 80 ? '#2D6A4F' : v >= 70 ? '#92400E' : '#C0392B';
+    const rsBg = (v: number) => v >= 90 ? { bg: '#D4EDDA', text: '#1C7A3F', border: '#A8D5B5' } : v >= 80 ? { bg: '#E8F5EE', text: '#2D6A4F', border: '#A8CCB5' } : v >= 70 ? { bg: '#FEF3C7', text: '#92400E', border: '#FCD37A' } : { bg: '#FADADD', text: '#C0392B', border: '#F5AAAF' };
+    const retColor = (v: number | null) => !v ? '#A09880' : v >= 0 ? '#1C7A3F' : '#C0392B';
 
-    const handleApplyCustomRange = () => {
-        if (customStartDate && customEndDate) {
-            if (new Date(customStartDate) > new Date(customEndDate)) {
-                alert('Start date must be before end date');
-                return;
-            }
-            setSelectedPeriod('Custom');
-            setShowDatePicker(false);
-        }
-    };
+    const distribution = [
+        { name: 'Strong (90-99)', value: stocks.filter(s => s.rs_rating >= 90).length, color: '#1C7A3F' },
+        { name: 'Good (80-89)', value: stocks.filter(s => s.rs_rating >= 80 && s.rs_rating < 90).length, color: '#2D6A4F' },
+        { name: 'Neutral (70-79)', value: stocks.filter(s => s.rs_rating >= 70 && s.rs_rating < 80).length, color: '#92400E' },
+        { name: 'Weak (<70)', value: stocks.filter(s => s.rs_rating < 70).length, color: '#C0392B' },
+    ];
 
-    const formatPercent = (value: number | null) => {
-        // Handle undefined/null explicitly
-        if (value === null || value === undefined) return '-';
-        return `${(value * 100).toFixed(1)}%`;
-    };
+    // Shared card style
+    const card = { backgroundColor: '#FDFAF5', border: '1px solid #D9D2C3', borderRadius: '16px', boxShadow: '0 1px 4px rgba(44,36,22,0.06)' };
 
-    // Updated colors to match Watchlist/Matrix logic (90/80/70)
-    const getRSColor = (rs: number) => {
-        if (rs >= 90) return 'text-green-500'; // Strong
-        if (rs >= 80) return 'text-blue-500';  // Improve
-        if (rs >= 70) return 'text-orange-500'; // Neutral
-        return 'text-red-500'; // Weak
-    };
-
-    const getRSBgColor = (rs: number) => {
-        if (rs >= 90) return 'bg-green-500/10 border-green-500/30';
-        if (rs >= 80) return 'bg-blue-500/10 border-blue-500/30';
-        if (rs >= 70) return 'bg-orange-500/10 border-orange-500/30';
-        return 'bg-red-500/10 border-red-500/30';
-    };
-
-    const COLORS = ['#22c55e', '#3b82f6', '#f97316', '#ef4444'];
-
-    // Distribution data matching Watchlist logic
-    const getDistribution = () => {
-        const ranges = [
-            { name: 'Strong (90-99)', min: 90, max: 100, color: '#22c55e' },
-            { name: 'Improve (80-89)', min: 80, max: 89, color: '#3b82f6' },
-            { name: 'Neutral (70-79)', min: 70, max: 79, color: '#f97316' },
-            { name: 'Weak (<70)', min: 0, max: 69, color: '#ef4444' },
-        ];
-
-        return ranges.map(r => ({
-            name: r.name,
-            value: stocks.filter(s => s.rs_rating >= r.min && s.rs_rating <= r.max).length,
-            color: r.color
-        }));
-    };
-
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
-                <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-gray-400">Loading RS Analysis...</p>
-                </div>
+    if (loading) return (
+        <div style={{ minHeight: '100vh', backgroundColor: '#EDE8DC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ textAlign: 'center' }}>
+                <div style={{ width: '56px', height: '56px', borderRadius: '50%', border: '4px solid #D9D2C3', borderTopColor: '#2D6A4F', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
+                <p style={{ color: '#7A7060', fontSize: '14px' }}>Loading RS Analysis...</p>
             </div>
-        );
-    }
+            <style>{`@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
+        </div>
+    );
 
     return (
-        <div className="min-h-screen bg-[#0a0a0f] text-white p-6">
+        <div style={{ minHeight: '100vh', backgroundColor: '#EDE8DC', color: '#2C2416', padding: '28px', fontFamily: 'system-ui, sans-serif' }}>
+
             {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
-                    📊 RS Analysis
-                </h1>
-                <p className="text-gray-400 mt-2">
-                    Relative Strength Analysis using weighted period ranks
-                </p>
+            <div style={{ marginBottom: '28px' }}>
+                <h1 style={{ fontSize: '28px', fontWeight: 900, color: '#1C3D2E', marginBottom: '6px' }}>📊 RS Analysis</h1>
+                <p style={{ color: '#7A7060', fontSize: '14px' }}>Relative Strength Analysis using weighted period ranks</p>
             </div>
 
-            {/* Stats Cards */}
+            {/* Stats */}
             {stats && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                    <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-xl p-4">
-                        <p className="text-gray-400 text-sm">Total Records</p>
-                        <p className="text-2xl font-bold text-cyan-400">{stats.total_records.toLocaleString()}</p>
-                    </div>
-                    <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl p-4">
-                        <p className="text-gray-400 text-sm">Stocks Count</p>
-                        <p className="text-2xl font-bold text-purple-400">{stats.stocks_count}</p>
-                    </div>
-                    <div className="bg-gradient-to-br from-emerald-500/10 to-green-500/10 border border-emerald-500/20 rounded-xl p-4">
-                        <p className="text-gray-400 text-sm">Latest Date</p>
-                        <p className="text-2xl font-bold text-emerald-400">{stats.latest_date}</p>
-                    </div>
-                    <div className="bg-gradient-to-br from-orange-500/10 to-yellow-500/10 border border-orange-500/20 rounded-xl p-4">
-                        <p className="text-gray-400 text-sm">Average RS</p>
-                        <p className="text-2xl font-bold text-orange-400">{stats.avg_rs.toFixed(1)}</p>
-                    </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', marginBottom: '28px' }}>
+                    {[
+                        { label: 'Total Records', val: stats.total_records.toLocaleString(), color: '#2D6A4F' },
+                        { label: 'Stocks Count', val: stats.stocks_count, color: '#1C3D2E' },
+                        { label: 'Latest Date', val: stats.latest_date, color: '#3A7A5C' },
+                        { label: 'Average RS', val: stats.avg_rs.toFixed(1), color: '#92400E' },
+                    ].map(item => (
+                        <div key={item.label} style={{ ...card, padding: '16px' }}>
+                            <p style={{ fontSize: '12px', color: '#A09880', marginBottom: '4px' }}>{item.label}</p>
+                            <p style={{ fontSize: '22px', fontWeight: 700, color: item.color }}>{item.val}</p>
+                        </div>
+                    ))}
                 </div>
             )}
 
             {/* Filters */}
-            <div className="bg-[#12121a] border border-gray-800 rounded-xl p-4 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                    {/* Search */}
+            <div style={{ ...card, padding: '16px', marginBottom: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '14px' }}>
                     <div>
-                        <label className="block text-sm text-gray-400 mb-1">Search</label>
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Symbol or Name..."
-                            className="w-full bg-[#1a1a24] border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-cyan-500 focus:outline-none"
-                        />
+                        <label style={{ display: 'block', fontSize: '12px', color: '#7A7060', marginBottom: '4px' }}>Search</label>
+                        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Symbol or Name..." style={{ width: '100%', padding: '8px 10px', backgroundColor: '#F5F0E8', border: '1px solid #D9D2C3', borderRadius: '8px', fontSize: '13px', color: '#2C2416', outline: 'none', boxSizing: 'border-box' }} />
                     </div>
-
-                    {/* Min RS */}
                     <div>
-                        <label className="block text-sm text-gray-400 mb-1">Min RS: {minRS}</label>
-                        <input
-                            type="range"
-                            min="0"
-                            max="99"
-                            value={minRS}
-                            onChange={(e) => setMinRS(Number(e.target.value))}
-                            className="w-full accent-cyan-500"
-                        />
+                        <label style={{ display: 'block', fontSize: '12px', color: '#7A7060', marginBottom: '4px' }}>Min RS: {minRS}</label>
+                        <input type="range" min="0" max="99" value={minRS} onChange={e => setMinRS(Number(e.target.value))} style={{ width: '100%', accentColor: '#2D6A4F' }} />
                     </div>
-
-                    {/* Max RS */}
                     <div>
-                        <label className="block text-sm text-gray-400 mb-1">Max RS: {maxRS}</label>
-                        <input
-                            type="range"
-                            min="1"
-                            max="100"
-                            value={maxRS}
-                            onChange={(e) => setMaxRS(Number(e.target.value))}
-                            className="w-full accent-cyan-500"
-                        />
+                        <label style={{ display: 'block', fontSize: '12px', color: '#7A7060', marginBottom: '4px' }}>Max RS: {maxRS}</label>
+                        <input type="range" min="1" max="100" value={maxRS} onChange={e => setMaxRS(Number(e.target.value))} style={{ width: '100%', accentColor: '#2D6A4F' }} />
                     </div>
-
-                    {/* Industry */}
                     <div>
-                        <label className="block text-sm text-gray-400 mb-1">Industry</label>
-                        <select
-                            value={selectedIndustry}
-                            onChange={(e) => setSelectedIndustry(e.target.value)}
-                            className="w-full bg-[#1a1a24] border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-cyan-500 focus:outline-none"
-                        >
+                        <label style={{ display: 'block', fontSize: '12px', color: '#7A7060', marginBottom: '4px' }}>Industry</label>
+                        <select value={selIndustry} onChange={e => setSelIndustry(e.target.value)} style={{ width: '100%', padding: '8px 10px', backgroundColor: '#F5F0E8', border: '1px solid #D9D2C3', borderRadius: '8px', fontSize: '13px', color: '#2C2416', outline: 'none' }}>
                             <option value="">All Industries</option>
-                            {industries.map(ind => (
-                                <option key={ind.name} value={ind.name}>{ind.name} ({ind.count})</option>
-                            ))}
+                            {industries.map(i => <option key={i.name} value={i.name}>{i.name} ({i.count})</option>)}
                         </select>
                     </div>
-
-                    {/* View Mode */}
                     <div>
-                        <label className="block text-sm text-gray-400 mb-1">View</label>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => setViewMode('table')}
-                                className={`flex-1 py-2 rounded-lg text-sm ${viewMode === 'table' ? 'bg-cyan-500 text-white' : 'bg-gray-800 text-gray-400'}`}
-                            >
-                                Table
-                            </button>
-                            <button
-                                onClick={() => setViewMode('cards')}
-                                className={`flex-1 py-2 rounded-lg text-sm ${viewMode === 'cards' ? 'bg-cyan-500 text-white' : 'bg-gray-800 text-gray-400'}`}
-                            >
-                                Cards
-                            </button>
+                        <label style={{ display: 'block', fontSize: '12px', color: '#7A7060', marginBottom: '4px' }}>View</label>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                            {['table', 'cards'].map(m => (
+                                <button key={m} onClick={() => setViewMode(m as any)} style={{
+                                    flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', textTransform: 'capitalize', transition: 'all 0.2s',
+                                    backgroundColor: viewMode === m ? '#1C3D2E' : '#F5F0E8',
+                                    color: viewMode === m ? '#D4EDDA' : '#7A7060',
+                                }}>
+                                    {m}
+                                </button>
+                            ))}
                         </div>
                     </div>
                 </div>
-
-                <div className="mt-4 text-sm text-gray-400">
-                    Showing {filteredStocks.length} of {stocks.length} stocks
-                </div>
+                <p style={{ marginTop: '10px', fontSize: '12px', color: '#A09880' }}>Showing {filtered.length} of {stocks.length} stocks</p>
             </div>
 
-            {/* Main Content */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left: Stocks List */}
-                <div className="lg:col-span-2">
+            {/* Main Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '20px' }}>
+
+                {/* Left: Stock List */}
+                <div>
                     {viewMode === 'table' ? (
-                        <div className="bg-[#12121a] border border-gray-800 rounded-xl overflow-hidden">
-                            <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-                                <table className="w-full">
-                                    <thead className="bg-[#1a1a24] sticky top-0">
-                                        <tr className="text-left text-gray-400 text-sm">
-                                            <th className="p-3">Symbol</th>
-                                            <th className="p-3">Company</th>
-                                            <th className="p-3 text-center">RS</th>
-                                            <th className="p-3 text-center">3M</th>
-                                            <th className="p-3 text-center">6M</th>
-                                            <th className="p-3 text-center">9M</th>
-                                            <th className="p-3 text-center">12M</th>
-                                            <th className="p-3">Industry</th>
+                        <div style={{ ...card, overflow: 'hidden' }}>
+                            <div style={{ overflowX: 'auto', maxHeight: '600px', overflowY: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                    <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                                        <tr style={{ backgroundColor: '#F5F0E8', borderBottom: '1px solid #D9D2C3' }}>
+                                            {['Symbol', 'Company', 'RS', '3M', '6M', '9M', '12M', 'Industry'].map(h => (
+                                                <th key={h} style={{ padding: '12px 14px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#A09880', textAlign: h === 'RS' || h === '3M' || h === '6M' || h === '9M' || h === '12M' ? 'center' : 'left' }}>{h}</th>
+                                            ))}
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {filteredStocks.map((stock, idx) => (
-                                            <tr
-                                                key={stock.symbol}
-                                                onClick={() => setSelectedStock(stock)}
-                                                className={`border-t border-gray-800 hover:bg-[#1a1a24] cursor-pointer transition-colors
-                                                    ${selectedStock?.symbol === stock.symbol ? 'bg-cyan-500/10' : ''}`}
-                                            >
-                                                <td className="p-3">
-                                                    <Link href={`/stocks/${stock.symbol}`} className="text-cyan-400 hover:underline font-medium">
-                                                        {stock.symbol}
-                                                    </Link>
-                                                </td>
-                                                <td className="p-3 text-gray-300 text-sm max-w-[200px] truncate">
-                                                    {stock.company_name || '-'}
-                                                </td>
-                                                <td className="p-3 text-center">
-                                                    <span className={`font-bold text-lg ${getRSColor(stock.rs_rating)}`}>
-                                                        {stock.rs_rating}
-                                                    </span>
-                                                </td>
-                                                <td className="p-3 text-center text-sm text-gray-300">{stock.rank_3m}</td>
-                                                <td className="p-3 text-center text-sm text-gray-300">{stock.rank_6m}</td>
-                                                <td className="p-3 text-center text-sm text-gray-300">{stock.rank_9m}</td>
-                                                <td className="p-3 text-center text-sm text-gray-300">{stock.rank_12m}</td>
-                                                <td className="p-3 text-gray-400 text-sm max-w-[150px] truncate">
-                                                    {stock.industry_group || '-'}
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {filtered.map((stock, i) => {
+                                            const isSelected = selected?.symbol === stock.symbol;
+                                            const b = rsBg(stock.rs_rating);
+                                            return (
+                                                <tr key={stock.symbol} onClick={() => setSelected(stock)} style={{ borderBottom: '1px solid #E8E2D5', cursor: 'pointer', backgroundColor: isSelected ? '#E8F5EE' : i % 2 === 0 ? '#FDFAF5' : '#FAF7F0', transition: 'background-color 0.15s' }}>
+                                                    <td style={{ padding: '10px 14px' }}>
+                                                        <Link href={`/stocks/${stock.symbol}`} style={{ color: '#2D6A4F', fontWeight: 600, textDecoration: 'none', fontSize: '13px' }} onClick={e => e.stopPropagation()}>{stock.symbol}</Link>
+                                                    </td>
+                                                    <td style={{ padding: '10px 14px', fontSize: '12px', color: '#7A7060', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stock.company_name || '-'}</td>
+                                                    <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                                                        <span style={{ fontWeight: 700, fontSize: '15px', color: b.text }}>{stock.rs_rating}</span>
+                                                    </td>
+                                                    {[stock.rank_3m, stock.rank_6m, stock.rank_9m, stock.rank_12m].map((r, j) => (
+                                                        <td key={j} style={{ padding: '10px 14px', textAlign: 'center', fontSize: '12px', color: '#7A7060' }}>{r ?? '-'}</td>
+                                                    ))}
+                                                    <td style={{ padding: '10px 14px', fontSize: '11px', color: '#A09880', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stock.industry_group || '-'}</td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto">
-                            {filteredStocks.map(stock => (
-                                <div
-                                    key={stock.symbol}
-                                    onClick={() => setSelectedStock(stock)}
-                                    className={`bg-[#12121a] border rounded-xl p-4 cursor-pointer transition-all hover:border-cyan-500/50 ${getRSBgColor(stock.rs_rating)}
-                                        ${selectedStock?.symbol === stock.symbol ? 'ring-2 ring-cyan-500' : ''}`}
-                                >
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div>
-                                            <Link href={`/stocks/${stock.symbol}`} className="text-cyan-400 hover:underline font-bold text-lg">
-                                                {stock.symbol}
-                                            </Link>
-                                            <p className="text-gray-400 text-sm truncate max-w-[150px]">{stock.company_name || '-'}</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', maxHeight: '600px', overflowY: 'auto' }}>
+                            {filtered.map(stock => {
+                                const b = rsBg(stock.rs_rating);
+                                const isSel = selected?.symbol === stock.symbol;
+                                return (
+                                    <div key={stock.symbol} onClick={() => setSelected(stock)} style={{ ...card, padding: '16px', cursor: 'pointer', borderColor: isSel ? '#2D6A4F' : '#D9D2C3', outline: isSel ? '2px solid #2D6A4F' : 'none', transition: 'all 0.15s' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                            <div>
+                                                <Link href={`/stocks/${stock.symbol}`} style={{ color: '#2D6A4F', fontWeight: 700, fontSize: '16px', textDecoration: 'none' }} onClick={e => e.stopPropagation()}>{stock.symbol}</Link>
+                                                <p style={{ fontSize: '11px', color: '#A09880', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '130px' }}>{stock.company_name || '-'}</p>
+                                            </div>
+                                            <span style={{ fontSize: '24px', fontWeight: 900, color: b.text }}>{stock.rs_rating}</span>
                                         </div>
-                                        <div className={`text-3xl font-bold ${getRSColor(stock.rs_rating)}`}>
-                                            {stock.rs_rating}
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-4 gap-2 text-center text-sm">
-                                        <div>
-                                            <p className="text-gray-500">3M</p>
-                                            <p className="text-gray-300">{stock.rank_3m}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-gray-500">6M</p>
-                                            <p className="text-gray-300">{stock.rank_6m}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-gray-500">9M</p>
-                                            <p className="text-gray-300">{stock.rank_9m}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-gray-500">12M</p>
-                                            <p className="text-gray-300">{stock.rank_12m}</p>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px', textAlign: 'center', fontSize: '11px' }}>
+                                            {[['3M', stock.rank_3m], ['6M', stock.rank_6m], ['9M', stock.rank_9m], ['12M', stock.rank_12m]].map(([l, v]) => (
+                                                <div key={l as string}>
+                                                    <p style={{ color: '#A09880' }}>{l}</p>
+                                                    <p style={{ color: '#7A7060', fontWeight: 600 }}>{v ?? '-'}</p>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
-
-                                    <p className="text-gray-500 text-xs mt-3 truncate">{stock.industry_group || '-'}</p>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>
 
-                {/* Right: Details Panel */}
-                <div className="space-y-6">
-                    {/* Selected Stock Details */}
-                    {selectedStock && (
-                        <div className="bg-[#12121a] border border-gray-800 rounded-xl p-6">
-                            <div className="flex justify-between items-start mb-4">
+                {/* Right: Detail Panel */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {selected && (
+                        <div style={{ ...card, padding: '20px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                                 <div>
-                                    <h2 className="text-2xl font-bold text-cyan-400">{selectedStock.symbol}</h2>
-                                    <p className="text-gray-400">{selectedStock.company_name || 'No Name'}</p>
+                                    <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#2D6A4F', marginBottom: '2px' }}>{selected.symbol}</h2>
+                                    <p style={{ fontSize: '13px', color: '#7A7060' }}>{selected.company_name || 'No Name'}</p>
                                 </div>
-                                <div className={`text-4xl font-bold ${getRSColor(selectedStock.rs_rating)}`}>
-                                    {selectedStock.rs_rating}
-                                </div>
+                                {(() => {
+                                    const b = rsBg(selected.rs_rating); return (
+                                        <div style={{ fontSize: '32px', fontWeight: 900, color: b.text, padding: '8px 16px', borderRadius: '12px', backgroundColor: b.bg, border: `1px solid ${b.border}` }}>
+                                            {selected.rs_rating}
+                                        </div>
+                                    );
+                                })()}
                             </div>
 
-                            {/* Returns */}
-                            <div className="grid grid-cols-2 gap-3 mb-4">
-                                <div className="bg-[#1a1a24] rounded-lg p-3">
-                                    <p className="text-gray-500 text-xs">3M Return</p>
-                                    <p className={`text-lg font-semibold ${(selectedStock.return_3m || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                        {formatPercent(selectedStock.return_3m)}
-                                    </p>
-                                    <p className="text-gray-400 text-sm">Rank: {selectedStock.rank_3m}</p>
-                                </div>
-                                <div className="bg-[#1a1a24] rounded-lg p-3">
-                                    <p className="text-gray-500 text-xs">6M Return</p>
-                                    <p className={`text-lg font-semibold ${(selectedStock.return_6m || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                        {formatPercent(selectedStock.return_6m)}
-                                    </p>
-                                    <p className="text-gray-400 text-sm">Rank: {selectedStock.rank_6m}</p>
-                                </div>
-                                <div className="bg-[#1a1a24] rounded-lg p-3">
-                                    <p className="text-gray-500 text-xs">9M Return</p>
-                                    <p className={`text-lg font-semibold ${(selectedStock.return_9m || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                        {formatPercent(selectedStock.return_9m)}
-                                    </p>
-                                    <p className="text-gray-400 text-sm">Rank: {selectedStock.rank_9m}</p>
-                                </div>
-                                <div className="bg-[#1a1a24] rounded-lg p-3">
-                                    <p className="text-gray-500 text-xs">12M Return</p>
-                                    <p className={`text-lg font-semibold ${(selectedStock.return_12m || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                        {formatPercent(selectedStock.return_12m)}
-                                    </p>
-                                    <p className="text-gray-400 text-sm">Rank: {selectedStock.rank_12m}</p>
-                                </div>
+                            {/* Return grid */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+                                {[
+                                    { p: '3M', ret: selected.return_3m, rank: selected.rank_3m },
+                                    { p: '6M', ret: selected.return_6m, rank: selected.rank_6m },
+                                    { p: '9M', ret: selected.return_9m, rank: selected.rank_9m },
+                                    { p: '12M', ret: selected.return_12m, rank: selected.rank_12m },
+                                ].map(item => (
+                                    <div key={item.p} style={{ backgroundColor: '#F5F0E8', border: '1px solid #E8E2D5', borderRadius: '10px', padding: '12px' }}>
+                                        <p style={{ fontSize: '11px', color: '#A09880', marginBottom: '2px' }}>{item.p} Return</p>
+                                        <p style={{ fontSize: '16px', fontWeight: 700, color: retColor(item.ret) }}>{formatPct(item.ret)}</p>
+                                        <p style={{ fontSize: '11px', color: '#A09880' }}>Rank: {item.rank ?? '-'}</p>
+                                    </div>
+                                ))}
                             </div>
 
-                            {/* RS History Chart */}
-                            <div className="mt-4">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-gray-400 text-sm">RS History</h3>
-
-                                    <div className="flex items-center gap-2 bg-[#1a1a24] p-1 rounded-xl border border-gray-800">
-                                        {PERIOD_OPTIONS.map(opt => (
-                                            <button
-                                                key={opt.label}
-                                                onClick={() => handlePeriodChange(opt.label)}
-                                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 ${selectedPeriod === opt.label
-                                                    ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30'
-                                                    : 'text-gray-400 hover:text-white hover:bg-white/10'
-                                                    }`}
-                                            >
-                                                {opt.label}
+                            {/* History chart */}
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#7A7060' }}>RS History</span>
+                                    <div style={{ display: 'flex', gap: '2px', backgroundColor: '#F5F0E8', padding: '3px', borderRadius: '8px', border: '1px solid #E8E2D5' }}>
+                                        {PERIOD_OPTIONS.map(opt => {
+                                            const active = period === opt.label;
+                                            return (
+                                                <button key={opt.label} onClick={() => { setPeriod(opt.label); setShowPicker(false); }} style={{
+                                                    padding: '4px 8px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                                                    backgroundColor: active ? '#1C3D2E' : 'transparent',
+                                                    color: active ? '#D4EDDA' : '#A09880',
+                                                }}>
+                                                    {opt.label}
+                                                </button>
+                                            );
+                                        })}
+                                        <div style={{ position: 'relative' }} ref={pickerRef}>
+                                            <button onClick={() => setShowPicker(!showPicker)} style={{
+                                                display: 'flex', alignItems: 'center', padding: '4px 8px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', border: 'none', cursor: 'pointer', gap: '3px', transition: 'all 0.2s',
+                                                backgroundColor: showPicker || period === 'Custom' ? '#1C3D2E' : 'transparent',
+                                                color: showPicker || period === 'Custom' ? '#D4EDDA' : '#A09880',
+                                            }}>
+                                                <Calendar style={{ width: '11px', height: '11px' }} />
+                                                {period === 'Custom' && 'Custom'}
                                             </button>
-                                        ))}
-
-                                        <div className="relative" ref={datePickerRef}>
-                                            <button
-                                                onClick={() => setShowDatePicker(!showDatePicker)}
-                                                className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 ${showDatePicker || selectedPeriod === 'Custom'
-                                                    ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30'
-                                                    : 'text-gray-400 hover:text-white hover:bg-white/10'
-                                                    }`}
-                                            >
-                                                <Calendar size={14} />
-                                                {selectedPeriod === 'Custom' && (
-                                                    <span className="ml-1">Custom</span>
-                                                )}
-                                            </button>
-
-                                            {showDatePicker && (
-                                                <div className="absolute top-full right-0 mt-3 bg-[#1a1a24] rounded-2xl shadow-2xl border border-gray-700 p-4 z-50 w-80">
-                                                    <div className="flex items-center justify-between mb-4">
-                                                        <span className="text-sm font-bold text-white">Custom Range</span>
-                                                        <button onClick={() => setShowDatePicker(false)} className="text-gray-400 hover:text-white">
-                                                            <X size={16} />
-                                                        </button>
+                                            {showPicker && (
+                                                <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: '280px', backgroundColor: '#FDFAF5', border: '1px solid #D9D2C3', borderRadius: '12px', boxShadow: '0 8px 24px rgba(44,36,22,0.12)', padding: '16px', zIndex: 50 }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#2C2416' }}>Custom Range</span>
+                                                        <button onClick={() => setShowPicker(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#A09880' }}><X style={{ width: '14px', height: '14px' }} /></button>
                                                     </div>
-                                                    <div className="grid grid-cols-2 gap-3 mb-4">
-                                                        <div>
-                                                            <label className="block text-xs text-gray-400 mb-1">Start</label>
-                                                            <input
-                                                                type="date"
-                                                                value={customStartDate}
-                                                                onChange={(e) => setCustomStartDate(e.target.value)}
-                                                                className="w-full px-2 py-1.5 bg-[#12121a] border border-gray-700 rounded-lg text-xs text-white focus:border-cyan-500 outline-none"
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-xs text-gray-400 mb-1">End</label>
-                                                            <input
-                                                                type="date"
-                                                                value={customEndDate}
-                                                                onChange={(e) => setCustomEndDate(e.target.value)}
-                                                                className="w-full px-2 py-1.5 bg-[#12121a] border border-gray-700 rounded-lg text-xs text-white focus:border-cyan-500 outline-none"
-                                                            />
-                                                        </div>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                                                        {[{ label: 'Start', v: startDate, s: setStartDate }, { label: 'End', v: endDate, s: setEndDate }].map(({ label, v, s }) => (
+                                                            <div key={label}>
+                                                                <label style={{ display: 'block', fontSize: '11px', color: '#7A7060', marginBottom: '4px' }}>{label}</label>
+                                                                <input type="date" value={v} onChange={e => s(e.target.value)} style={{ width: '100%', padding: '6px 8px', backgroundColor: '#F5F0E8', border: '1px solid #D9D2C3', borderRadius: '8px', fontSize: '12px', color: '#2C2416', outline: 'none', boxSizing: 'border-box' }} />
+                                                            </div>
+                                                        ))}
                                                     </div>
-                                                    <button
-                                                        onClick={handleApplyCustomRange}
-                                                        disabled={!customStartDate || !customEndDate}
-                                                        className={`w-full py-2 text-xs font-bold rounded-lg transition-all ${!customStartDate || !customEndDate
-                                                            ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                                                            : 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:shadow-lg'
-                                                            }`}
-                                                    >
-                                                        Apply Range
-                                                    </button>
+                                                    <button onClick={applyCustom} disabled={!startDate || !endDate} style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: 700, borderRadius: '8px', border: 'none', cursor: !startDate || !endDate ? 'not-allowed' : 'pointer', backgroundColor: !startDate || !endDate ? '#E8E2D5' : '#1C3D2E', color: !startDate || !endDate ? '#A09880' : '#D4EDDA' }}>Apply</button>
                                                 </div>
                                             )}
                                         </div>
                                     </div>
                                 </div>
-                                {historyLoading ? (
-                                    <div className="h-[200px] flex items-center justify-center">
-                                        <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+                                {histLoading ? (
+                                    <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '3px solid #E8E2D5', borderTopColor: '#2D6A4F', animation: 'spin 1s linear infinite' }} />
                                     </div>
-                                ) : historyData.length > 0 ? (
-                                    <ResponsiveContainer width="100%" height={250}>
-                                        <LineChart data={historyData}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                                            <XAxis
-                                                dataKey="date"
-                                                tick={{ fill: '#666', fontSize: 10 }}
-                                                tickFormatter={(val) => {
-                                                    // Display based on period selection for better readability
-                                                    if (!val) return '';
-                                                    if (selectedPeriod === 'MAX' || selectedPeriod === '5Y' || selectedPeriod === '10Y') {
-                                                        return val.slice(0, 4);
-                                                    }
-                                                    const d = new Date(val);
-                                                    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-                                                }}
-                                                minTickGap={30}
-                                            />
-                                            <YAxis domain={[0, 100]} tick={{ fill: '#666', fontSize: 10 }} />
-                                            <Tooltip
-                                                contentStyle={{ backgroundColor: '#1a1a24', border: '1px solid #333' }}
-                                                labelStyle={{ color: '#fff' }}
-                                                formatter={(value) => [value, 'RS Rating']}
-                                                labelFormatter={(label) => {
-                                                    if (!label) return '';
-                                                    return new Date(label).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
-                                                }}
-                                            />
-                                            <Line
-                                                type="monotone"
-                                                dataKey="rs_rating"
-                                                stroke="#22d3ee"
-                                                strokeWidth={2}
-                                                dot={false}
-                                                activeDot={{ r: 4, strokeWidth: 0 }}
-                                            />
-                                        </LineChart>
-                                    </ResponsiveContainer>
+                                ) : history.length > 0 ? (
+                                    <div style={{ height: '220px', width: '100%' }}>
+                                        <RSHistoryChart data={history} period={period} />
+                                    </div>
                                 ) : (
-                                    <p className="text-gray-500 text-center py-8">No history data</p>
+                                    <p style={{ textAlign: 'center', padding: '40px 0', color: '#A09880', fontSize: '13px' }}>No history data</p>
                                 )}
                             </div>
 
-                            <Link
-                                href={`/stocks/${selectedStock.symbol}`}
-                                className="block w-full mt-4 bg-cyan-500 hover:bg-cyan-600 text-white text-center py-2 rounded-lg transition-colors font-medium"
-                            >
+                            <Link href={`/stocks/${selected.symbol}`} style={{ display: 'block', width: '100%', marginTop: '16px', padding: '10px', textAlign: 'center', backgroundColor: '#1C3D2E', color: '#D4EDDA', borderRadius: '10px', textDecoration: 'none', fontSize: '13px', fontWeight: 600, transition: 'background-color 0.2s', boxSizing: 'border-box' }}>
                                 View Full Profile →
                             </Link>
                         </div>
                     )}
 
-                    {/* RS Distribution */}
-                    <div className="bg-[#12121a] border border-gray-800 rounded-xl p-6">
-                        <h3 className="text-gray-400 text-sm mb-4">RS Distribution</h3>
-                        <ResponsiveContainer width="100%" height={280}>
+                    {/* Distribution chart */}
+                    <div style={{ ...card, padding: '20px' }}>
+                        <h3 style={{ fontSize: '12px', fontWeight: 700, color: '#A09880', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>RS Distribution</h3>
+                        <ResponsiveContainer width="100%" height={260}>
                             <PieChart>
-                                <Pie
-                                    data={getDistribution()}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={80}
-                                    paddingAngle={2}
-                                    dataKey="value"
-                                    label={({ name, value }) => `${name}: ${value}`}
-                                >
-                                    {getDistribution().map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
-                                    ))}
+                                <Pie data={distribution} cx="50%" cy="50%" innerRadius={55} outerRadius={75} paddingAngle={3} dataKey="value" label={({ name, value }) => `${value}`}>
+                                    {distribution.map((e, i) => <Cell key={i} fill={e.color} stroke="none" />)}
                                 </Pie>
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#1a1a24', border: '1px solid #333', borderRadius: '8px' }}
-                                    itemStyle={{ color: '#fff' }}
-                                />
-                                <Legend verticalAlign="bottom" height={36} />
+                                <Tooltip contentStyle={{ backgroundColor: '#FDFAF5', border: '1px solid #D9D2C3', borderRadius: '10px', color: '#2C2416' }} />
+                                <Legend verticalAlign="bottom" height={36} formatter={(v) => <span style={{ color: '#7A7060', fontSize: '11px' }}>{v}</span>} />
                             </PieChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
             </div>
+
+            <style>{`@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
         </div>
     );
 }

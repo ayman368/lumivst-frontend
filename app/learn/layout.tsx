@@ -5,9 +5,9 @@ import Link from 'next/link';
 
 const tabs = [
   { label: 'Understanding Chart Patterns', href: '/learn/chart-patterns' },
-  { label: "Dan's 10 Golden Rules",        href: '/learn/golden-rules' },
-  { label: 'Recommended Reading',          href: '/learn/recommended-reading' },
-  { label: 'Useful Stock Resources',       href: '/learn/useful-stock-sources' },
+  { label: "Dan's 10 Golden Rules", href: '/learn/golden-rules' },
+  { label: 'Recommended Reading', href: '/learn/recommended-reading' },
+  { label: 'Useful Stock Resources', href: '/learn/useful-stock-sources' },
 ];
 
 export default function LearnLayout({ children }: { children: React.ReactNode }) {
@@ -17,8 +17,8 @@ export default function LearnLayout({ children }: { children: React.ReactNode })
     <div>
       {/* Sub-navigation header */}
       <div style={{
-        background: '#0d1117',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        background: '#162f22',
+        borderBottom: '1px solid rgba(168,213,181,0.15)',
         zIndex: 20,
       }}>
         <div style={{
@@ -40,20 +40,20 @@ export default function LearnLayout({ children }: { children: React.ReactNode })
                   padding: '14px 20px',
                   fontSize: '12.5px',
                   fontWeight: isActive ? 700 : 500,
-                  color: isActive ? '#f0b90b' : '#4a4f5e',
+                  color: isActive ? '#A8D5B5' : 'rgba(212,237,218,0.4)',
                   textDecoration: 'none',
                   whiteSpace: 'nowrap',
-                  borderBottom: isActive ? '2px solid #f0b90b' : '2px solid transparent',
+                  borderBottom: isActive ? '2px solid #A8D5B5' : '2px solid transparent',
                   transition: 'all 0.2s ease',
                   letterSpacing: '0.3px',
                   textTransform: 'uppercase',
-                  fontFamily: "'Inter', sans-serif",
+                  fontFamily: 'system-ui, sans-serif',
                 }}
                 onMouseEnter={(e) => {
-                  if (!isActive) (e.currentTarget as HTMLElement).style.color = '#787b86';
+                  if (!isActive) (e.currentTarget as HTMLElement).style.color = 'rgba(212,237,218,0.75)';
                 }}
                 onMouseLeave={(e) => {
-                  if (!isActive) (e.currentTarget as HTMLElement).style.color = '#4a4f5e';
+                  if (!isActive) (e.currentTarget as HTMLElement).style.color = 'rgba(212,237,218,0.4)';
                 }}
               >
                 {tab.label}
