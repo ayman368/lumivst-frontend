@@ -684,6 +684,8 @@ export default function StockScreenerPage() {
         addBoolFilter('Aroon Up>70', 'aroon_up_gt_70');
         addBoolFilter('Aroon Down<30', 'aroon_down_lt_30');
         addBoolFilter('CCI>100', 'cci_gt_100');
+        addBoolFilter('CCI.EMA20>0(D)', 'cci_ema20_gt_0_daily');
+        addBoolFilter('CCI.EMA20>0(W)', 'cci_ema20_gt_0_weekly');
 
         // STAMP — booleans
         addBoolFilter('9SMA(Price)>WMA45', 'stamp_sma9_gt_wma45');
@@ -851,12 +853,12 @@ export default function StockScreenerPage() {
                 if (!c(filters.cci_ema20_gt_0_daily, isValid)) return false;
             }
 
-            // CCI EMA20 > 0 (Weekly) - REQUIRES CCI > 100
+            // CCI EMA20 > 0 (Weekly) - REQUIRES CCI(W) > 100
             if (filters.cci_ema20_gt_0_weekly !== 'any') {
-                const cci100Valid = (stock.cci_14 ?? 0) > 100;
-                const cciEma20Valid = (stock.cci_ema_20 ?? 0) > 0;
-                const isValid = cci100Valid && cciEma20Valid;
-                if (!c(filters.cci_ema20_gt_0_weekly, isValid)) return false;
+                const cci100ValidWeekly = (stock.cci_w ?? 0) > 100;
+                const cciEma20ValidWeekly = (stock.cci_ema20_w ?? 0) > 0;
+                const isValidWeekly = cci100ValidWeekly && cciEma20ValidWeekly;
+                if (!c(filters.cci_ema20_gt_0_weekly, isValidWeekly)) return false;
             }
 
             // AROON FILTERS (values are already 0-100 from backend)
