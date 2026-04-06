@@ -8,13 +8,13 @@ import { Calendar, X } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { createChart, ColorType, CrosshairMode, AreaSeries } from 'lightweight-charts';
 
-// ─── DESIGN TOKENS: Warm Cream × Forest Green ────────────────────────────────
-// Page bg: #EDE8DC  |  Card bg: #FDFAF5  |  Border: #D9D2C3
-// Accent dark: #1C3D2E  |  Accent mid: #2D6A4F  |  Accent light: #3A7A5C
-// Text primary: #2C2416  |  secondary: #7A7060  |  muted: #A09880
-// Badge green: bg #D4EDDA text #1C7A3F border #A8D5B5
-// Badge red:   bg #FADADD text #C0392B border #F5AAAF
-// Badge amber: bg #FEF3C7 text #92400E border #FCD37A
+// ─── DESIGN TOKENS: Black & White ────────────────────────────────
+// Page bg: #FFFFFF  |  Card bg: #FFFFFF  |  Border: #E5E7EB
+// Accent dark: #111827  |  Accent mid: #374151  |  Accent light: #6B7280
+// Text primary: #111827  |  secondary: #4B5563  |  muted: #9CA3AF
+// Badge green: bg #DCFCE7 text #15803D border #BBF7D0
+// Badge red:   bg #FEE2E2 text #B91C1C border #FECACA
+// Badge amber: bg #FEF3C7 text #B45309 border #FDE68A
 // ─────────────────────────────────────────────────────────────────────────────
 
 function RSHistoryChart({ data, period }: { data: any[]; period: string }) {
@@ -26,11 +26,11 @@ function RSHistoryChart({ data, period }: { data: any[]; period: string }) {
         if (chartRef.current) { chartRef.current.remove(); chartRef.current = null; }
 
         const chart = createChart(ref.current, {
-            layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: '#7A7060', fontFamily: 'system-ui, sans-serif' },
-            grid: { vertLines: { color: 'rgba(217,210,195,0.6)' }, horzLines: { color: 'rgba(217,210,195,0.6)' } },
-            crosshair: { mode: CrosshairMode.Magnet, vertLine: { labelBackgroundColor: '#1C3D2E' }, horzLine: { labelBackgroundColor: '#1C3D2E' } },
-            rightPriceScale: { borderColor: '#D9D2C3' },
-            timeScale: { borderColor: '#D9D2C3', timeVisible: false, fixLeftEdge: true, fixRightEdge: true },
+            layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: '#6B7280', fontFamily: 'system-ui, sans-serif' },
+            grid: { vertLines: { color: 'rgba(229,231,235,0.6)' }, horzLines: { color: 'rgba(229,231,235,0.6)' } },
+            crosshair: { mode: CrosshairMode.Magnet, vertLine: { labelBackgroundColor: '#111827' }, horzLine: { labelBackgroundColor: '#111827' } },
+            rightPriceScale: { borderColor: '#E5E7EB' },
+            timeScale: { borderColor: '#E5E7EB', timeVisible: false, fixLeftEdge: true, fixRightEdge: true },
         });
         const series = chart.addSeries(AreaSeries, {
             lineColor: '#2D6A4F', topColor: 'rgba(45,106,79,0.18)', bottomColor: 'rgba(45,106,79,0)', lineWidth: 2,
@@ -170,50 +170,50 @@ export default function RSAnalysisPage() {
     };
 
     const formatPct = (v: number | null) => v === null || v === undefined ? '-' : `${(v * 100).toFixed(1)}%`;
-    const rsColor = (v: number) => v >= 90 ? '#1C7A3F' : v >= 80 ? '#2D6A4F' : v >= 70 ? '#92400E' : '#C0392B';
-    const rsBg = (v: number) => v >= 90 ? { bg: '#D4EDDA', text: '#1C7A3F', border: '#A8D5B5' } : v >= 80 ? { bg: '#E8F5EE', text: '#2D6A4F', border: '#A8CCB5' } : v >= 70 ? { bg: '#FEF3C7', text: '#92400E', border: '#FCD37A' } : { bg: '#FADADD', text: '#C0392B', border: '#F5AAAF' };
-    const retColor = (v: number | null) => !v ? '#A09880' : v >= 0 ? '#1C7A3F' : '#C0392B';
+    const rsColor = (v: number) => v >= 90 ? '#15803D' : v >= 80 ? '#374151' : v >= 70 ? '#B45309' : '#B91C1C';
+    const rsBg = (v: number) => v >= 90 ? { bg: '#DCFCE7', text: '#15803D', border: '#BBF7D0' } : v >= 80 ? { bg: '#F3F4F6', text: '#374151', border: '#E5E7EB' } : v >= 70 ? { bg: '#FEF3C7', text: '#B45309', border: '#FDE68A' } : { bg: '#FEE2E2', text: '#B91C1C', border: '#FECACA' };
+    const retColor = (v: number | null) => !v ? '#9CA3AF' : v >= 0 ? '#15803D' : '#B91C1C';
 
     const distribution = [
-        { name: 'Strong (90-99)', value: stocks.filter(s => s.rs_rating >= 90).length, color: '#1C7A3F' },
-        { name: 'Good (80-89)', value: stocks.filter(s => s.rs_rating >= 80 && s.rs_rating < 90).length, color: '#2D6A4F' },
-        { name: 'Neutral (70-79)', value: stocks.filter(s => s.rs_rating >= 70 && s.rs_rating < 80).length, color: '#92400E' },
-        { name: 'Weak (<70)', value: stocks.filter(s => s.rs_rating < 70).length, color: '#C0392B' },
+        { name: 'Strong (90-99)', value: stocks.filter(s => s.rs_rating >= 90).length, color: '#15803D' },
+        { name: 'Good (80-89)', value: stocks.filter(s => s.rs_rating >= 80 && s.rs_rating < 90).length, color: '#374151' },
+        { name: 'Neutral (70-79)', value: stocks.filter(s => s.rs_rating >= 70 && s.rs_rating < 80).length, color: '#B45309' },
+        { name: 'Weak (<70)', value: stocks.filter(s => s.rs_rating < 70).length, color: '#B91C1C' },
     ];
 
     // Shared card style
-    const card = { backgroundColor: '#FDFAF5', border: '1px solid #D9D2C3', borderRadius: '16px', boxShadow: '0 1px 4px rgba(44,36,22,0.06)' };
+    const card = { backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' };
 
     if (loading) return (
-        <div style={{ minHeight: '100vh', backgroundColor: '#EDE8DC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ minHeight: '100vh', backgroundColor: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ textAlign: 'center' }}>
-                <div style={{ width: '56px', height: '56px', borderRadius: '50%', border: '4px solid #D9D2C3', borderTopColor: '#2D6A4F', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
-                <p style={{ color: '#7A7060', fontSize: '14px' }}>Loading RS Analysis...</p>
+                <div style={{ width: '56px', height: '56px', borderRadius: '50%', border: '4px solid #E5E7EB', borderTopColor: '#374151', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
+                <p style={{ color: '#6B7280', fontSize: '14px' }}>Loading RS Analysis...</p>
             </div>
             <style>{`@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
         </div>
     );
 
     return (
-        <div style={{ minHeight: '100vh', backgroundColor: '#EDE8DC', color: '#2C2416', padding: '28px', fontFamily: 'system-ui, sans-serif' }}>
+        <div style={{ minHeight: '100vh', backgroundColor: '#FFFFFF', color: '#111827', padding: '28px', fontFamily: 'system-ui, sans-serif' }}>
 
             {/* Header */}
             <div style={{ marginBottom: '28px' }}>
-                <h1 style={{ fontSize: '28px', fontWeight: 900, color: '#1C3D2E', marginBottom: '6px' }}>📊 RS Analysis</h1>
-                <p style={{ color: '#7A7060', fontSize: '14px' }}>Relative Strength Analysis using weighted period ranks</p>
+                <h1 style={{ fontSize: '28px', fontWeight: 900, color: '#111827', marginBottom: '6px' }}>RS Analysis</h1>
+                <p style={{ color: '#6B7280', fontSize: '14px' }}>Relative Strength Analysis using weighted period ranks</p>
             </div>
 
             {/* Stats */}
             {stats && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', marginBottom: '28px' }}>
                     {[
-                        { label: 'Total Records', val: stats.total_records.toLocaleString(), color: '#2D6A4F' },
-                        { label: 'Stocks Count', val: stats.stocks_count, color: '#1C3D2E' },
-                        { label: 'Latest Date', val: stats.latest_date, color: '#3A7A5C' },
-                        { label: 'Average RS', val: stats.avg_rs.toFixed(1), color: '#92400E' },
+                        { label: 'Total Records', val: stats.total_records.toLocaleString(), color: '#374151' },
+                        { label: 'Stocks Count', val: stats.stocks_count, color: '#111827' },
+                        { label: 'Latest Date', val: stats.latest_date, color: '#4B5563' },
+                        { label: 'Average RS', val: stats.avg_rs.toFixed(1), color: '#B45309' },
                     ].map(item => (
                         <div key={item.label} style={{ ...card, padding: '16px' }}>
-                            <p style={{ fontSize: '12px', color: '#A09880', marginBottom: '4px' }}>{item.label}</p>
+                            <p style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '4px' }}>{item.label}</p>
                             <p style={{ fontSize: '22px', fontWeight: 700, color: item.color }}>{item.val}</p>
                         </div>
                     ))}
@@ -224,32 +224,33 @@ export default function RSAnalysisPage() {
             <div style={{ ...card, padding: '16px', marginBottom: '20px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '14px' }}>
                     <div>
-                        <label style={{ display: 'block', fontSize: '12px', color: '#7A7060', marginBottom: '4px' }}>Search</label>
-                        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Symbol or Name..." style={{ width: '100%', padding: '8px 10px', backgroundColor: '#F5F0E8', border: '1px solid #D9D2C3', borderRadius: '8px', fontSize: '13px', color: '#2C2416', outline: 'none', boxSizing: 'border-box' }} />
+                        <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', marginBottom: '4px' }}>Search</label>
+                        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Symbol or Name..." style={{ width: '100%', padding: '8px 10px', backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '8px', fontSize: '13px', color: '#111827', outline: 'none', boxSizing: 'border-box' }} />
                     </div>
                     <div>
-                        <label style={{ display: 'block', fontSize: '12px', color: '#7A7060', marginBottom: '4px' }}>Min RS: {minRS}</label>
-                        <input type="range" min="0" max="99" value={minRS} onChange={e => setMinRS(Number(e.target.value))} style={{ width: '100%', accentColor: '#2D6A4F' }} />
+                        <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', marginBottom: '4px' }}>Min RS: {minRS}</label>
+                        <input type="range" min="0" max="99" value={minRS} onChange={e => setMinRS(Number(e.target.value))} style={{ width: '100%', accentColor: '#374151' }} />
                     </div>
                     <div>
-                        <label style={{ display: 'block', fontSize: '12px', color: '#7A7060', marginBottom: '4px' }}>Max RS: {maxRS}</label>
-                        <input type="range" min="1" max="100" value={maxRS} onChange={e => setMaxRS(Number(e.target.value))} style={{ width: '100%', accentColor: '#2D6A4F' }} />
+                        <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', marginBottom: '4px' }}>Max RS: {maxRS}</label>
+                        <input type="range" min="1" max="100" value={maxRS} onChange={e => setMaxRS(Number(e.target.value))} style={{ width: '100%', accentColor: '#374151' }} />
                     </div>
                     <div>
-                        <label style={{ display: 'block', fontSize: '12px', color: '#7A7060', marginBottom: '4px' }}>Industry</label>
-                        <select value={selIndustry} onChange={e => setSelIndustry(e.target.value)} style={{ width: '100%', padding: '8px 10px', backgroundColor: '#F5F0E8', border: '1px solid #D9D2C3', borderRadius: '8px', fontSize: '13px', color: '#2C2416', outline: 'none' }}>
+                        <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', marginBottom: '4px' }}>Industry</label>
+                        <select value={selIndustry} onChange={e => setSelIndustry(e.target.value)} style={{ width: '100%', padding: '8px 10px', backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '8px', fontSize: '13px', color: '#111827', outline: 'none' }}>
                             <option value="">All Industries</option>
                             {industries.map(i => <option key={i.name} value={i.name}>{i.name} ({i.count})</option>)}
                         </select>
                     </div>
                     <div>
-                        <label style={{ display: 'block', fontSize: '12px', color: '#7A7060', marginBottom: '4px' }}>View</label>
+                        <label style={{ display: 'block', fontSize: '12px', color: '#6B7280', marginBottom: '4px' }}>View</label>
                         <div style={{ display: 'flex', gap: '6px' }}>
                             {['table', 'cards'].map(m => (
                                 <button key={m} onClick={() => setViewMode(m as any)} style={{
-                                    flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', textTransform: 'capitalize', transition: 'all 0.2s',
-                                    backgroundColor: viewMode === m ? '#1C3D2E' : '#F5F0E8',
-                                    color: viewMode === m ? '#D4EDDA' : '#7A7060',
+                                    flex: 1, padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize', transition: 'all 0.2s',
+                                    backgroundColor: viewMode === m ? '#111827' : '#F9FAFB',
+                                    color: viewMode === m ? '#FFFFFF' : '#6B7280',
+                                    border: `1px solid ${viewMode === m ? '#111827' : '#E5E7EB'}`,
                                 }}>
                                     {m}
                                 </button>
@@ -257,7 +258,7 @@ export default function RSAnalysisPage() {
                         </div>
                     </div>
                 </div>
-                <p style={{ marginTop: '10px', fontSize: '12px', color: '#A09880' }}>Showing {filtered.length} of {stocks.length} stocks</p>
+                <p style={{ marginTop: '10px', fontSize: '12px', color: '#9CA3AF' }}>Showing {filtered.length} of {stocks.length} stocks</p>
             </div>
 
             {/* Main Grid */}
@@ -270,9 +271,9 @@ export default function RSAnalysisPage() {
                             <div style={{ overflowX: 'auto', maxHeight: '600px', overflowY: 'auto' }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                     <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-                                        <tr style={{ backgroundColor: '#F5F0E8', borderBottom: '1px solid #D9D2C3' }}>
+                                        <tr style={{ backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
                                             {['Symbol', 'Company', 'RS', '3M', '6M', '9M', '12M', 'Industry'].map(h => (
-                                                <th key={h} style={{ padding: '12px 14px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#A09880', textAlign: h === 'RS' || h === '3M' || h === '6M' || h === '9M' || h === '12M' ? 'center' : 'left' }}>{h}</th>
+                                                <th key={h} style={{ padding: '12px 14px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#9CA3AF', textAlign: h === 'RS' || h === '3M' || h === '6M' || h === '9M' || h === '12M' ? 'center' : 'left' }}>{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
@@ -281,18 +282,18 @@ export default function RSAnalysisPage() {
                                             const isSelected = selected?.symbol === stock.symbol;
                                             const b = rsBg(stock.rs_rating);
                                             return (
-                                                <tr key={stock.symbol} onClick={() => setSelected(stock)} style={{ borderBottom: '1px solid #E8E2D5', cursor: 'pointer', backgroundColor: isSelected ? '#E8F5EE' : i % 2 === 0 ? '#FDFAF5' : '#FAF7F0', transition: 'background-color 0.15s' }}>
+                                                <tr key={stock.symbol} onClick={() => setSelected(stock)} style={{ borderBottom: '1px solid #F3F4F6', cursor: 'pointer', backgroundColor: isSelected ? '#F3F4F6' : i % 2 === 0 ? '#FFFFFF' : '#F9FAFB', transition: 'background-color 0.15s' }}>
                                                     <td style={{ padding: '10px 14px' }}>
-                                                        <Link href={`/stocks/${stock.symbol}`} style={{ color: '#2D6A4F', fontWeight: 600, textDecoration: 'none', fontSize: '13px' }} onClick={e => e.stopPropagation()}>{stock.symbol}</Link>
+                                                        <Link href={`/stocks/${stock.symbol}`} style={{ color: '#111827', fontWeight: 600, textDecoration: 'none', fontSize: '13px' }} onClick={e => e.stopPropagation()}>{stock.symbol}</Link>
                                                     </td>
-                                                    <td style={{ padding: '10px 14px', fontSize: '12px', color: '#7A7060', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stock.company_name || '-'}</td>
+                                                    <td style={{ padding: '10px 14px', fontSize: '12px', color: '#4B5563', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stock.company_name || '-'}</td>
                                                     <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                                                         <span style={{ fontWeight: 700, fontSize: '15px', color: b.text }}>{stock.rs_rating}</span>
                                                     </td>
                                                     {[stock.rank_3m, stock.rank_6m, stock.rank_9m, stock.rank_12m].map((r, j) => (
-                                                        <td key={j} style={{ padding: '10px 14px', textAlign: 'center', fontSize: '12px', color: '#7A7060' }}>{r ?? '-'}</td>
+                                                        <td key={j} style={{ padding: '10px 14px', textAlign: 'center', fontSize: '12px', color: '#4B5563' }}>{r ?? '-'}</td>
                                                     ))}
-                                                    <td style={{ padding: '10px 14px', fontSize: '11px', color: '#A09880', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stock.industry_group || '-'}</td>
+                                                    <td style={{ padding: '10px 14px', fontSize: '11px', color: '#9CA3AF', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stock.industry_group || '-'}</td>
                                                 </tr>
                                             );
                                         })}
@@ -306,19 +307,19 @@ export default function RSAnalysisPage() {
                                 const b = rsBg(stock.rs_rating);
                                 const isSel = selected?.symbol === stock.symbol;
                                 return (
-                                    <div key={stock.symbol} onClick={() => setSelected(stock)} style={{ ...card, padding: '16px', cursor: 'pointer', borderColor: isSel ? '#2D6A4F' : '#D9D2C3', outline: isSel ? '2px solid #2D6A4F' : 'none', transition: 'all 0.15s' }}>
+                                    <div key={stock.symbol} onClick={() => setSelected(stock)} style={{ ...card, padding: '16px', cursor: 'pointer', borderColor: isSel ? '#111827' : '#E5E7EB', outline: isSel ? '2px solid #111827' : 'none', transition: 'all 0.15s' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
                                             <div>
-                                                <Link href={`/stocks/${stock.symbol}`} style={{ color: '#2D6A4F', fontWeight: 700, fontSize: '16px', textDecoration: 'none' }} onClick={e => e.stopPropagation()}>{stock.symbol}</Link>
-                                                <p style={{ fontSize: '11px', color: '#A09880', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '130px' }}>{stock.company_name || '-'}</p>
+                                                <Link href={`/stocks/${stock.symbol}`} style={{ color: '#111827', fontWeight: 700, fontSize: '16px', textDecoration: 'none' }} onClick={e => e.stopPropagation()}>{stock.symbol}</Link>
+                                                <p style={{ fontSize: '11px', color: '#9CA3AF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '130px' }}>{stock.company_name || '-'}</p>
                                             </div>
                                             <span style={{ fontSize: '24px', fontWeight: 900, color: b.text }}>{stock.rs_rating}</span>
                                         </div>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px', textAlign: 'center', fontSize: '11px' }}>
                                             {[['3M', stock.rank_3m], ['6M', stock.rank_6m], ['9M', stock.rank_9m], ['12M', stock.rank_12m]].map(([l, v]) => (
                                                 <div key={l as string}>
-                                                    <p style={{ color: '#A09880' }}>{l}</p>
-                                                    <p style={{ color: '#7A7060', fontWeight: 600 }}>{v ?? '-'}</p>
+                                                    <p style={{ color: '#9CA3AF' }}>{l}</p>
+                                                    <p style={{ color: '#4B5563', fontWeight: 600 }}>{v ?? '-'}</p>
                                                 </div>
                                             ))}
                                         </div>
@@ -335,8 +336,8 @@ export default function RSAnalysisPage() {
                         <div style={{ ...card, padding: '20px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                                 <div>
-                                    <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#2D6A4F', marginBottom: '2px' }}>{selected.symbol}</h2>
-                                    <p style={{ fontSize: '13px', color: '#7A7060' }}>{selected.company_name || 'No Name'}</p>
+                                    <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#111827', marginBottom: '2px' }}>{selected.symbol}</h2>
+                                    <p style={{ fontSize: '13px', color: '#4B5563' }}>{selected.company_name || 'No Name'}</p>
                                 </div>
                                 {(() => {
                                     const b = rsBg(selected.rs_rating); return (
@@ -355,10 +356,10 @@ export default function RSAnalysisPage() {
                                     { p: '9M', ret: selected.return_9m, rank: selected.rank_9m },
                                     { p: '12M', ret: selected.return_12m, rank: selected.rank_12m },
                                 ].map(item => (
-                                    <div key={item.p} style={{ backgroundColor: '#F5F0E8', border: '1px solid #E8E2D5', borderRadius: '10px', padding: '12px' }}>
-                                        <p style={{ fontSize: '11px', color: '#A09880', marginBottom: '2px' }}>{item.p} Return</p>
+                                    <div key={item.p} style={{ backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '10px', padding: '12px' }}>
+                                        <p style={{ fontSize: '11px', color: '#9CA3AF', marginBottom: '2px' }}>{item.p} Return</p>
                                         <p style={{ fontSize: '16px', fontWeight: 700, color: retColor(item.ret) }}>{formatPct(item.ret)}</p>
-                                        <p style={{ fontSize: '11px', color: '#A09880' }}>Rank: {item.rank ?? '-'}</p>
+                                        <p style={{ fontSize: '11px', color: '#9CA3AF' }}>Rank: {item.rank ?? '-'}</p>
                                     </div>
                                 ))}
                             </div>
@@ -366,15 +367,15 @@ export default function RSAnalysisPage() {
                             {/* History chart */}
                             <div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#7A7060' }}>RS History</span>
-                                    <div style={{ display: 'flex', gap: '2px', backgroundColor: '#F5F0E8', padding: '3px', borderRadius: '8px', border: '1px solid #E8E2D5' }}>
+                                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>RS History</span>
+                                    <div style={{ display: 'flex', gap: '2px', backgroundColor: '#F9FAFB', padding: '3px', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
                                         {PERIOD_OPTIONS.map(opt => {
                                             const active = period === opt.label;
                                             return (
                                                 <button key={opt.label} onClick={() => { setPeriod(opt.label); setShowPicker(false); }} style={{
                                                     padding: '4px 8px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', border: 'none', cursor: 'pointer', transition: 'all 0.2s',
-                                                    backgroundColor: active ? '#1C3D2E' : 'transparent',
-                                                    color: active ? '#D4EDDA' : '#A09880',
+                                                    backgroundColor: active ? '#111827' : 'transparent',
+                                                    color: active ? '#FFFFFF' : '#9CA3AF',
                                                 }}>
                                                     {opt.label}
                                                 </button>
@@ -383,27 +384,27 @@ export default function RSAnalysisPage() {
                                         <div style={{ position: 'relative' }} ref={pickerRef}>
                                             <button onClick={() => setShowPicker(!showPicker)} style={{
                                                 display: 'flex', alignItems: 'center', padding: '4px 8px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', border: 'none', cursor: 'pointer', gap: '3px', transition: 'all 0.2s',
-                                                backgroundColor: showPicker || period === 'Custom' ? '#1C3D2E' : 'transparent',
-                                                color: showPicker || period === 'Custom' ? '#D4EDDA' : '#A09880',
+                                                backgroundColor: showPicker || period === 'Custom' ? '#111827' : 'transparent',
+                                                color: showPicker || period === 'Custom' ? '#FFFFFF' : '#9CA3AF',
                                             }}>
                                                 <Calendar style={{ width: '11px', height: '11px' }} />
                                                 {period === 'Custom' && 'Custom'}
                                             </button>
                                             {showPicker && (
-                                                <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: '280px', backgroundColor: '#FDFAF5', border: '1px solid #D9D2C3', borderRadius: '12px', boxShadow: '0 8px 24px rgba(44,36,22,0.12)', padding: '16px', zIndex: 50 }}>
+                                                <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: '280px', backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', padding: '16px', zIndex: 50 }}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                                                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#2C2416' }}>Custom Range</span>
-                                                        <button onClick={() => setShowPicker(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#A09880' }}><X style={{ width: '14px', height: '14px' }} /></button>
+                                                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>Custom Range</span>
+                                                        <button onClick={() => setShowPicker(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF' }}><X style={{ width: '14px', height: '14px' }} /></button>
                                                     </div>
                                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
                                                         {[{ label: 'Start', v: startDate, s: setStartDate }, { label: 'End', v: endDate, s: setEndDate }].map(({ label, v, s }) => (
                                                             <div key={label}>
-                                                                <label style={{ display: 'block', fontSize: '11px', color: '#7A7060', marginBottom: '4px' }}>{label}</label>
-                                                                <input type="date" value={v} onChange={e => s(e.target.value)} style={{ width: '100%', padding: '6px 8px', backgroundColor: '#F5F0E8', border: '1px solid #D9D2C3', borderRadius: '8px', fontSize: '12px', color: '#2C2416', outline: 'none', boxSizing: 'border-box' }} />
+                                                                <label style={{ display: 'block', fontSize: '11px', color: '#6B7280', marginBottom: '4px' }}>{label}</label>
+                                                                <input type="date" value={v} onChange={e => s(e.target.value)} style={{ width: '100%', padding: '6px 8px', backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '8px', fontSize: '12px', color: '#111827', outline: 'none', boxSizing: 'border-box' }} />
                                                             </div>
                                                         ))}
                                                     </div>
-                                                    <button onClick={applyCustom} disabled={!startDate || !endDate} style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: 700, borderRadius: '8px', border: 'none', cursor: !startDate || !endDate ? 'not-allowed' : 'pointer', backgroundColor: !startDate || !endDate ? '#E8E2D5' : '#1C3D2E', color: !startDate || !endDate ? '#A09880' : '#D4EDDA' }}>Apply</button>
+                                                    <button onClick={applyCustom} disabled={!startDate || !endDate} style={{ width: '100%', padding: '8px', fontSize: '12px', fontWeight: 700, borderRadius: '8px', border: 'none', cursor: !startDate || !endDate ? 'not-allowed' : 'pointer', backgroundColor: !startDate || !endDate ? '#E5E7EB' : '#111827', color: !startDate || !endDate ? '#9CA3AF' : '#FFFFFF' }}>Apply</button>
                                                 </div>
                                             )}
                                         </div>
@@ -411,18 +412,18 @@ export default function RSAnalysisPage() {
                                 </div>
                                 {histLoading ? (
                                     <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '3px solid #E8E2D5', borderTopColor: '#2D6A4F', animation: 'spin 1s linear infinite' }} />
+                                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '3px solid #E5E7EB', borderTopColor: '#374151', animation: 'spin 1s linear infinite' }} />
                                     </div>
                                 ) : history.length > 0 ? (
                                     <div style={{ height: '220px', width: '100%' }}>
                                         <RSHistoryChart data={history} period={period} />
                                     </div>
                                 ) : (
-                                    <p style={{ textAlign: 'center', padding: '40px 0', color: '#A09880', fontSize: '13px' }}>No history data</p>
+                                    <p style={{ textAlign: 'center', padding: '40px 0', color: '#9CA3AF', fontSize: '13px' }}>No history data</p>
                                 )}
                             </div>
 
-                            <Link href={`/stocks/${selected.symbol}`} style={{ display: 'block', width: '100%', marginTop: '16px', padding: '10px', textAlign: 'center', backgroundColor: '#1C3D2E', color: '#D4EDDA', borderRadius: '10px', textDecoration: 'none', fontSize: '13px', fontWeight: 600, transition: 'background-color 0.2s', boxSizing: 'border-box' }}>
+                            <Link href={`/stocks/${selected.symbol}`} style={{ display: 'block', width: '100%', marginTop: '16px', padding: '10px', textAlign: 'center', backgroundColor: '#111827', color: '#FFFFFF', borderRadius: '10px', textDecoration: 'none', fontSize: '13px', fontWeight: 600, transition: 'background-color 0.2s', boxSizing: 'border-box' }}>
                                 View Full Profile →
                             </Link>
                         </div>
@@ -430,14 +431,14 @@ export default function RSAnalysisPage() {
 
                     {/* Distribution chart */}
                     <div style={{ ...card, padding: '20px' }}>
-                        <h3 style={{ fontSize: '12px', fontWeight: 700, color: '#A09880', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>RS Distribution</h3>
+                        <h3 style={{ fontSize: '12px', fontWeight: 700, color: '#9CA3AF', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>RS Distribution</h3>
                         <ResponsiveContainer width="100%" height={260}>
                             <PieChart>
                                 <Pie data={distribution} cx="50%" cy="50%" innerRadius={55} outerRadius={75} paddingAngle={3} dataKey="value" label={({ name, value }) => `${value}`}>
                                     {distribution.map((e, i) => <Cell key={i} fill={e.color} stroke="none" />)}
                                 </Pie>
-                                <Tooltip contentStyle={{ backgroundColor: '#FDFAF5', border: '1px solid #D9D2C3', borderRadius: '10px', color: '#2C2416' }} />
-                                <Legend verticalAlign="bottom" height={36} formatter={(v) => <span style={{ color: '#7A7060', fontSize: '11px' }}>{v}</span>} />
+                                <Tooltip contentStyle={{ backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '10px', color: '#111827' }} />
+                                <Legend verticalAlign="bottom" height={36} formatter={(v) => <span style={{ color: '#6B7280', fontSize: '11px' }}>{v}</span>} />
                             </PieChart>
                         </ResponsiveContainer>
                     </div>

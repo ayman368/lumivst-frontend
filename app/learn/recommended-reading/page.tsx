@@ -123,14 +123,14 @@ function BookCard({ book, index }: { book: typeof readings[0] & { localImage?: s
       style={{
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: '#FDFAF5',
-        border: '1px solid #D9D2C3',
+        backgroundColor: '#FFFFFF',
+        border: '1px solid #E5E7EB',
         borderRadius: '16px',
         overflow: 'hidden',
         textDecoration: 'none',
         transition: 'all 0.3s ease',
         cursor: 'pointer',
-        boxShadow: '0 2px 8px rgba(44,36,22,0.06)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = '#2962FF';
@@ -138,9 +138,9 @@ function BookCard({ book, index }: { book: typeof readings[0] & { localImage?: s
         e.currentTarget.style.boxShadow = '0 8px 24px rgba(41,98,255,0.15)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = '#D9D2C3';
+        e.currentTarget.style.borderColor = '#E5E7EB';
         e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = '0 2px 8px rgba(44,36,22,0.06)';
+        e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)';
       }}
     >
       <div style={{
@@ -158,14 +158,14 @@ function BookCard({ book, index }: { book: typeof readings[0] & { localImage?: s
       </div>
 
       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
-        <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#2C2416', lineHeight: 1.4, margin: 0, minHeight: '40px' }}>
+        <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', lineHeight: 1.4, margin: 0, minHeight: '40px' }}>
           {book.title}
         </h3>
-        <p style={{ fontSize: '12px', color: '#A09880', margin: 0, flex: 1 }}>
+        <p style={{ fontSize: '12px', color: '#9CA3AF', margin: 0, flex: 1 }}>
           {book.author}
         </p>
 
-        <div style={{ paddingTop: '8px', borderTop: '1px solid #E8E2D5' }}>
+        <div style={{ paddingTop: '8px', borderTop: '1px solid #E5E7EB' }}>
           <button
             style={{
               width: '100%', padding: '8px 12px',
@@ -186,19 +186,19 @@ function BookCard({ book, index }: { book: typeof readings[0] & { localImage?: s
 
 export default function RecommendedReadingPage() {
   return (
-    <div style={{ minHeight: 'calc(100vh - 64px)', backgroundColor: '#EDE8DC', color: '#2C2416', fontFamily: 'system-ui, sans-serif' }}>
+    <div style={{ minHeight: 'calc(100vh - 64px)', backgroundColor: '#FFFFFF', color: '#111827', fontFamily: 'system-ui, sans-serif' }}>
 
-      <div style={{ padding: '40px 32px 32px', borderBottom: '1px solid #D9D2C3', backgroundColor: '#1C3D2E', boxShadow: '0 2px 8px rgba(28,61,46,0.2)' }}>
+      <div style={{ padding: '40px 32px 32px', borderBottom: '1px solid #E5E7EB', backgroundColor: '#111827', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div style={{ marginBottom: '8px' }}>
-            <span style={{ padding: '3px 12px', borderRadius: '999px', backgroundColor: 'rgba(212,237,218,0.15)', color: '#A8D5B5', fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', border: '1px solid rgba(168,213,181,0.3)' }}>
+            <span style={{ padding: '3px 12px', borderRadius: '999px', backgroundColor: 'rgba(255,255,255,0.15)', color: '#D1D5DB', fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', border: '1px solid rgba(255,255,255,0.2)' }}>
               Education • Books
             </span>
           </div>
-          <h1 style={{ fontSize: '40px', fontWeight: 900, letterSpacing: '-0.02em', color: '#F5F0E8', marginBottom: '8px' }}>
-            Recommended <span style={{ color: '#A8D5B5' }}>Reading</span>
+          <h1 style={{ fontSize: '40px', fontWeight: 900, letterSpacing: '-0.02em', color: '#F9FAFB', marginBottom: '8px' }}>
+            Recommended <span style={{ color: '#D1D5DB' }}>Reading</span>
           </h1>
-          <p style={{ fontSize: '14px', color: 'rgba(212,237,218,0.7)', maxWidth: '480px', lineHeight: 1.6, margin: 0 }}>
+          <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)', maxWidth: '480px', lineHeight: 1.6, margin: 0 }}>
             Essential books for trading and technical analysis from industry experts.
           </p>
         </div>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, AreaSeries, IChartApi, CrosshairMode } from 'lightweight-charts';
 import { TrendingUp, Activity, BarChart2, Layers, BarChart3, Radio } from 'lucide-react';
+import ExportButton from './_components/ExportButton';
 
 interface BreadthItem {
     time: string;
@@ -69,6 +70,10 @@ export default function MarketBreadthPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [tick, setTick] = useState(0);
+    const [period, setPeriod] = useState('ALL');
+
+    // ── ref for export capture ──────────────────────────────────────────────────
+    const pageRef = useRef<HTMLDivElement>(null);
 
     const chartRefs = [
         useRef<HTMLDivElement>(null),
@@ -88,7 +93,7 @@ export default function MarketBreadthPage() {
             try {
                 setLoading(true);
                 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-                const res = await fetch(`${API_URL}/api/market-breadth/percent-above-ma?limit=10000`);
+                const res = await fetch(`${API_URL}/api/market-breadth/percent-above-ma?period=${period}`);
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const json = await res.json();
                 if (json.data && Array.isArray(json.data)) setData(json.data);
@@ -100,10 +105,10 @@ export default function MarketBreadthPage() {
             }
         }
         fetchData();
-    }, []);
+    }, [period]);
 
     useEffect(() => {
-        if (loading || data.length === 0) return;
+        if (data.length === 0) return;
 
         const baseChartOptions = {
             layout: {
@@ -208,9 +213,9 @@ export default function MarketBreadthPage() {
             chartsRef.current.forEach(c => c.remove());
             chartsRef.current = [];
         };
-    }, [data, loading]);
+    }, [data]);
 
-    if (loading) return (
+    if (loading && data.length === 0) return (
         <div style={S.fullscreen}>
             <style>{GLOBAL_CSS}</style>
             <div style={S.loadingWrap}>
@@ -276,32 +281,67 @@ export default function MarketBreadthPage() {
                         </div>
                     </div>
 
-                    <div style={S.statsRow}>
-                        {CHART_CONFIGS.map((cfg, i) => {
-                            const val = latest ? Math.round(latest[cfg.key] as number) : 0;
-                            return (
-                                <div key={cfg.key} style={{ ...S.statBlock, ...(i > 0 ? { borderLeft: '1px solid #F1F5F9' } : {}) }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px' }}>
-                                        <span style={{ width: '7px', height: '7px', borderRadius: '2px', background: cfg.lineColor, display: 'inline-block', flexShrink: 0 }} />
-                                        <span style={{ fontSize: '10px', color: '#94A3B8', fontFamily: '"DM Sans", sans-serif', fontWeight: 500, letterSpacing: '0.06em' }}>{cfg.badge}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+
+                        {/* ── Period Selector ── */}
+                        <div style={{ display: 'flex', background: '#F8FAFC', border: '1px solid #E8ECF2', padding: '4px', borderRadius: '10px', gap: '2px' }}>
+                            {['5D', '1M', '6M', '1Y', '5Y', '10Y', 'ALL'].map(p => (
+                                <button
+                                    key={p}
+                                    onClick={() => setPeriod(p)}
+                                    style={{
+                                        border: 'none',
+                                        background: period === p ? '#FFFFFF' : 'transparent',
+                                        color: period === p ? '#0F172A' : '#64748B',
+                                        boxShadow: period === p ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                        padding: '6px 12px',
+                                        borderRadius: '6px',
+                                        fontSize: '12px',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        fontFamily: '"DM Sans", sans-serif',
+                                        transition: 'all 0.2s ease',
+                                        opacity: period === p ? 1 : (loading ? 0.5 : 1),
+                                    }}
+                                    disabled={loading}
+                                >
+                                    {p}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* ── Stats Row ── */}
+                        <div style={S.statsRow}>
+                            {CHART_CONFIGS.map((cfg, i) => {
+                                const val = latest ? Math.round(latest[cfg.key] as number) : 0;
+                                return (
+                                    <div key={cfg.key} style={{ ...S.statBlock, ...(i > 0 ? { borderLeft: '1px solid #F1F5F9' } : {}) }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px' }}>
+                                            <span style={{ width: '7px', height: '7px', borderRadius: '2px', background: cfg.lineColor, display: 'inline-block', flexShrink: 0 }} />
+                                            <span style={{ fontSize: '10px', color: '#94A3B8', fontFamily: '"DM Sans", sans-serif', fontWeight: 500, letterSpacing: '0.06em' }}>{cfg.badge}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '1px' }}>
+                                            <span style={{ fontSize: '20px', fontWeight: 700, color: '#0F172A', fontFamily: '"DM Sans", sans-serif', lineHeight: 1, letterSpacing: '-0.02em' }}>{val}</span>
+                                            <span style={{ fontSize: '11px', color: '#94A3B8', fontFamily: '"DM Sans", sans-serif' }}>%</span>
+                                        </div>
+                                        <div style={{ marginTop: '6px', height: '3px', borderRadius: '2px', background: '#F1F5F9', overflow: 'hidden' }}>
+                                            <div style={{ height: '100%', borderRadius: '2px', width: `${val}%`, background: cfg.lineColor, transition: 'width 0.6s ease' }} />
+                                        </div>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '1px' }}>
-                                        <span style={{ fontSize: '20px', fontWeight: 700, color: '#0F172A', fontFamily: '"DM Sans", sans-serif', lineHeight: 1, letterSpacing: '-0.02em' }}>{val}</span>
-                                        <span style={{ fontSize: '11px', color: '#94A3B8', fontFamily: '"DM Sans", sans-serif' }}>%</span>
-                                    </div>
-                                    <div style={{ marginTop: '6px', height: '3px', borderRadius: '2px', background: '#F1F5F9', overflow: 'hidden' }}>
-                                        <div style={{ height: '100%', borderRadius: '2px', width: `${val}%`, background: cfg.lineColor, transition: 'width 0.6s ease' }} />
-                                    </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
+
+                        {/* ── Export Button ── */}
+                        <ExportButton data={data} captureRef={pageRef as React.RefObject<HTMLElement>} />
+
                     </div>
                 </div>
                 <div style={S.headerRainbow} />
             </header>
 
-            {/* ── Main ── */}
-            <main style={S.main}>
+            {/* ── Main (captured for export) ── */}
+            <main ref={pageRef} style={S.main}>
 
                 {/* Summary bar */}
                 <div style={S.summaryBar}>
@@ -342,10 +382,8 @@ export default function MarketBreadthPage() {
                         return (
                             <div key={cfg.key} className="chart-card" style={{ ...S.card, '--accent': cfg.lineColor } as any}>
 
-                                {/* Left colored bar */}
                                 <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '3px', background: cfg.lineColor }} />
 
-                                {/* Card header */}
                                 <div style={S.cardHead}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                         <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: cfg.accentLight, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -379,7 +417,6 @@ export default function MarketBreadthPage() {
                                     </div>
                                 </div>
 
-                                {/* Gauge */}
                                 <div style={{ padding: '0 20px 10px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                                         <span style={{ fontSize: '9px', color: '#CBD5E1', fontFamily: '"DM Sans", sans-serif', letterSpacing: '0.1em', fontWeight: 500 }}>OVERSOLD · 30</span>
@@ -403,15 +440,12 @@ export default function MarketBreadthPage() {
                                     </div>
                                 </div>
 
-                                {/* Divider */}
                                 <div style={{ height: '1px', background: '#F8FAFC', marginLeft: '20px' }} />
 
-                                {/* Chart */}
                                 <div style={{ padding: '8px 12px 4px', flex: 1 }}>
                                     <div ref={chartRefs[i]} style={{ width: '100%' }} />
                                 </div>
 
-                                {/* Footer */}
                                 <div style={S.cardFooter}>
                                     <span style={{ fontSize: '10px', color: '#CBD5E1', fontFamily: '"DM Sans", sans-serif', lineHeight: 1.4 }}>{cfg.desc}</span>
                                     <span style={{ fontSize: '10px', color: '#CBD5E1', fontFamily: '"DM Sans", sans-serif', whiteSpace: 'nowrap', flexShrink: 0, marginLeft: '12px', fontWeight: 500 }}>

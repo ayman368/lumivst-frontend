@@ -7,7 +7,7 @@ export default function DetailsPage() {
     const symbol = params.symbol as string;
 
     return (
-        <div className="flex-1 min-h-screen bg-gray-50">
+        <div className="flex-1 min-h-screen bg-white">
             {/* Main Content */}
             <div className="w-full p-4 sm:p-6 h-full">
                 <XBRLDataViewerEnhanced symbol={symbol} />

@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Search, RotateCcw, SlidersHorizontal, X, ChevronUp } from 'lucide-react';
-import type { FilterState } from '../types';
+import { ChevronDown, Search, RotateCcw, SlidersHorizontal, X, ChevronUp, TrendingUp, TrendingDown, BarChart2, DollarSign } from 'lucide-react';
+import type { FilterState, QuickFilterType } from '../types';
 
 // Hide number input spin buttons globally for this component
 const hideSpinStyle: React.CSSProperties = {
@@ -16,9 +16,12 @@ interface TopFilterPanelProps {
         industryGroups: string[];
         industries: string[];
         subIndustries: string[];
+        shariahStatuses: string[];
     };
     activeFiltersCount: number;
     clearAllFilters: () => void;
+    quickFilter: QuickFilterType;
+    setQuickFilter: (v: QuickFilterType) => void;
 }
 
 type TabId =
@@ -356,6 +359,7 @@ function MultiSelect({
 // ─── MAIN EXPORT ─────────────────────────────────────────────────────────────
 export default function TopFilterPanel({
     filters, setFilters, filterOptions, activeFiltersCount, clearAllFilters,
+    quickFilter, setQuickFilter,
 }: TopFilterPanelProps) {
     const [activeTab, setActiveTab] = useState<TabId>('smartselect');
     const [collapsed, setCollapsed] = useState(true);
@@ -673,17 +677,58 @@ export default function TopFilterPanel({
         ),
         stamp_filters: <><ColStampFiltersDaily /><ColDivider /><ColStampFiltersWeekly /></>,
         industry: (
-            <div className="flex flex-wrap gap-2 items-start">
-                <MultiSelect label="Sectors" options={filterOptions.sectors} selected={f.sector} onChange={v => s({ sector: v })} />
-                <MultiSelect label="Industry Groups" options={filterOptions.industryGroups} selected={f.industry_group} onChange={v => s({ industry_group: v })} />
-                <MultiSelect label="Industries" options={filterOptions.industries} selected={f.industry} onChange={v => s({ industry: v })} />
-                <MultiSelect label="Sub Industries" options={filterOptions.subIndustries} selected={f.sub_industry} onChange={v => s({ sub_industry: v })} />
-            </div>
+            <>
+                <div className="flex-shrink-0 flex flex-col gap-2">
+                    <SectionHead>Industry & Sector</SectionHead>
+                    <div className="flex flex-wrap gap-2 items-start mt-[2px] mb-2 pl-1">
+                        <MultiSelect label="Sectors" options={filterOptions.sectors} selected={f.sector} onChange={v => s({ sector: v })} />
+                        <MultiSelect label="Industry Groups" options={filterOptions.industryGroups} selected={f.industry_group} onChange={v => s({ industry_group: v })} />
+                        <MultiSelect label="Industries" options={filterOptions.industries} selected={f.industry} onChange={v => s({ industry: v })} />
+                        <MultiSelect label="Sub Industries" options={filterOptions.subIndustries} selected={f.sub_industry} onChange={v => s({ sub_industry: v })} />
+                    </div>
+                </div>
+                <ColDivider />
+                <div className="flex-shrink-0 flex flex-col gap-1">
+                    <SectionHead>Shariah & Margin</SectionHead>
+                    <div className="mt-[2px] mb-[6px] pl-1">
+                        <MultiSelect label="Shariah Status" options={filterOptions.shariahStatuses} selected={f.approval_with_controls} onChange={v => s({ approval_with_controls: v as any })} />
+                    </div>
+                    <RangeRow label="Purge Amount" minVal={f.purge_amount_min} maxVal={f.purge_amount_max} onMin={v => s({ purge_amount_min: v })} onMax={v => s({ purge_amount_max: v })} />
+                    <RangeRow label="Marginable %" minVal={f.marginable_percent_min} maxVal={f.marginable_percent_max} onMin={v => s({ marginable_percent_min: v })} onMax={v => s({ marginable_percent_max: v })} />
+                </div>
+            </>
         ),
     };
 
     return (
         <div className="bg-white border-b-2 border-gray-200 flex-shrink-0 select-none shadow-sm">
+
+            {/* ══════════════════════════════════════════════════
+          QUICK FILTER BAR — Tadawul-style
+      ══════════════════════════════════════════════════ */}
+            <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 bg-gray-50/60">
+                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.12em] whitespace-nowrap">Quick View</span>
+                <div className="flex items-center gap-1.5">
+                    {([
+                        { id: 'top_gainers' as QuickFilterType, label: 'Top Gainers', activeClass: 'bg-emerald-600 border-emerald-600 text-white shadow-sm', inactiveClass: 'bg-white border-gray-200 text-gray-600 hover:border-emerald-400 hover:text-emerald-600' },
+                        { id: 'top_losers' as QuickFilterType, label: 'Top Losers', activeClass: 'bg-emerald-600 border-emerald-600 text-white shadow-sm', inactiveClass: 'bg-white border-gray-200 text-gray-600 hover:border-emerald-400 hover:text-emerald-600' },
+                        { id: 'most_active_volume' as QuickFilterType, label: 'Most Active By Volume', activeClass: 'bg-emerald-600 border-emerald-600 text-white shadow-sm', inactiveClass: 'bg-white border-gray-200 text-gray-600 hover:border-emerald-400 hover:text-emerald-600' },
+                        { id: 'most_active_value' as QuickFilterType, label: 'Most Active By Value', activeClass: 'bg-emerald-600 border-emerald-600 text-white shadow-sm', inactiveClass: 'bg-white border-gray-200 text-gray-600 hover:border-emerald-400 hover:text-emerald-600' },
+                    ]).map(btn => {
+                        const isActive = quickFilter === btn.id;
+                        return (
+                            <button
+                                key={btn.id}
+                                onClick={() => setQuickFilter(isActive ? '' : btn.id)}
+                                className={`inline-flex items-center gap-1.5 h-[26px] px-3 text-[11px] font-semibold rounded-sm border transition-all whitespace-nowrap ${isActive ? btn.activeClass : btn.inactiveClass}`}
+                            >
+                                <span>{btn.label}</span>
+                                {isActive && <span className="text-[9px] opacity-70">✕</span>}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
 
             {/* ══════════════════════════════════════════════════
           HEADER BAR  —  icon · tabs · controls

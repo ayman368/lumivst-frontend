@@ -15,10 +15,11 @@ import FilterSidebar from './components/FilterSidebar';
 // import StockTable from './components/StockTable';
 import TopFilterPanel from './components/TopFilterPanel';
 import useStocks from './hooks/useStocks';
-import type { Stock, StockMetadata, FilterState } from './types';
+import type { Stock, StockMetadata, FilterState, QuickFilterType } from './types';
 import * as XLSX from 'xlsx';
 import { cleanSymbol, cleanName, parseFormattedNumber, formatNumber, formatNumberOneDecimal, formatChange, formatChangePercent, formatChangePercentOneDecimal, formatText, displayRawValue, formatPurgeAmount, formatMarginable, formatShariahApproval } from './utils/formatters';
 const initialFilterState: FilterState = {
+    quickFilter: '',
     rs_rating_min: '', rs_rating_max: '',
     acc_dis_rating: [], industry_group_rs: [], sector_rs: [], industry_rs: [], sub_industry_rs: [],
     price_min: '', price_max: '',
@@ -30,7 +31,7 @@ const initialFilterState: FilterState = {
     percent_off_52w_high_min: '', percent_off_52w_high_max: '',
     percent_off_52w_low_min: '', percent_off_52w_low_max: '',
     market_cap_min: '', market_cap_max: '',
-    approval_with_controls: '',
+    approval_with_controls: [],
     purge_amount_min: '', purge_amount_max: '',
     marginable_percent_min: '', marginable_percent_max: '',
     price_minus_sma_10_min: '', price_minus_sma_10_max: '',
@@ -207,6 +208,7 @@ const initialFilterState: FilterState = {
 };
 export default function StockScreenerPage() {
     const { stocks, metadata, loading, error, setStocks, setMetadata, setLoading, setError, refetch } = useStocks();
+    const [quickFilter, setQuickFilter] = useState<QuickFilterType>('');
     const [sortConfigs, setSortConfigs] = useState<Array<{ key: string; direction: 'asc' | 'desc' }>>([]);
     const [showColumnMenu, setShowColumnMenu] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
@@ -398,7 +400,7 @@ export default function StockScreenerPage() {
                         no_of_trades: item.no_of_trades, market_cap: item.market_cap,
 
                         // Static Info
-                        approval_with_controls: item.approval_with_controls || null,
+                        approval_with_controls: formatShariahApproval(item.approval_with_controls) !== '-' ? formatShariahApproval(item.approval_with_controls) : null,
                         purge_amount: item.purge_amount !== undefined && item.purge_amount !== null ? Number(item.purge_amount) : null,
                         marginable_percent: item.marginable_percent !== undefined && item.marginable_percent !== null ? Number(item.marginable_percent) : null,
 
@@ -523,14 +525,15 @@ export default function StockScreenerPage() {
         });
     }, []);
     const filterOptions = useMemo(() => {
-        const options = { industryGroups: new Set<string>(), sectors: new Set<string>(), industries: new Set<string>(), subIndustries: new Set<string>() };
+        const options = { industryGroups: new Set<string>(), sectors: new Set<string>(), industries: new Set<string>(), subIndustries: new Set<string>(), shariahStatuses: new Set<string>() };
         stocks.forEach(stock => {
             if (stock.industry_group) options.industryGroups.add(stock.industry_group);
             if (stock.sector) options.sectors.add(stock.sector);
             if (stock.industry) options.industries.add(stock.industry);
             if (stock.sub_industry) options.subIndustries.add(stock.sub_industry);
+            if (stock.approval_with_controls && typeof stock.approval_with_controls === 'string' && stock.approval_with_controls !== '-') options.shariahStatuses.add(stock.approval_with_controls);
         });
-        return { industryGroups: Array.from(options.industryGroups).sort(), sectors: Array.from(options.sectors).sort(), industries: Array.from(options.industries).sort(), subIndustries: Array.from(options.subIndustries).sort() };
+        return { industryGroups: Array.from(options.industryGroups).sort(), sectors: Array.from(options.sectors).sort(), industries: Array.from(options.industries).sort(), subIndustries: Array.from(options.subIndustries).sort(), shariahStatuses: Array.from(options.shariahStatuses).sort() };
     }, [stocks]);
     const activeFilters = useMemo(() => {
         const active: Array<{ label: string; value: string; key: keyof FilterState }> = [];
@@ -546,6 +549,11 @@ export default function StockScreenerPage() {
             const v = filters[key] as string;
             if (v && v !== 'any') active.push({ label, value: v.toUpperCase(), key });
         };
+
+        // Shariah & Margin
+        addCheckboxFilter('Shariah Status', 'approval_with_controls');
+        addRangeFilter('Purge Amount', 'purge_amount_min', 'purge_amount_max');
+        addRangeFilter('Marginable %', 'marginable_percent_min', 'marginable_percent_max');
 
         // SmartSelect
         addRangeFilter('RS Rating', 'rs_rating_min', 'rs_rating_max');
@@ -739,6 +747,11 @@ export default function StockScreenerPage() {
             if (!checkCheckbox(stock.sector_rs, filters.sector_rs)) return false;
             if (!checkCheckbox(stock.industry_rs, filters.industry_rs)) return false;
             if (!checkCheckbox(stock.sub_industry_rs, filters.sub_industry_rs)) return false;
+            
+            if (filters.approval_with_controls.length > 0 && !filters.approval_with_controls.includes(stock.approval_with_controls || '')) return false;
+            if (!checkRange(stock.purge_amount, 'purge_amount_min', 'purge_amount_max')) return false;
+            if (!checkRange(stock.marginable_percent, 'marginable_percent_min', 'marginable_percent_max')) return false;
+
             if (!checkRange(stock.price, 'price_min', 'price_max')) return false;
             if (!checkRange(stock.change, 'change_min', 'change_max', true)) return false;
             if (!checkRange(stock.percent_change, 'percent_change_min', 'percent_change_max', true)) return false;
@@ -994,8 +1007,30 @@ export default function StockScreenerPage() {
                 return 0;
             });
         }
+        // ── Quick filter: filter + sort (overrides manual sort) ──
+        if (quickFilter === 'top_gainers') {
+            return [...filtered]
+                .filter(s => parseFormattedNumber(s.percent_change, true) > 0)
+                .sort((a, b) => parseFormattedNumber(b.percent_change, true) - parseFormattedNumber(a.percent_change, true))
+                .slice(0, 5);
+        } else if (quickFilter === 'top_losers') {
+            return [...filtered]
+                .filter(s => parseFormattedNumber(s.percent_change, true) < 0)
+                .sort((a, b) => parseFormattedNumber(a.percent_change, true) - parseFormattedNumber(b.percent_change, true))
+                .slice(0, 5);
+        } else if (quickFilter === 'most_active_volume') {
+            return [...filtered]
+                .filter(s => parseFormattedNumber(s.volume) > 0)
+                .sort((a, b) => parseFormattedNumber(b.volume) - parseFormattedNumber(a.volume))
+                .slice(0, 5);
+        } else if (quickFilter === 'most_active_value') {
+            return [...filtered]
+                .filter(s => parseFormattedNumber(s.turnover) > 0)
+                .sort((a, b) => parseFormattedNumber(b.turnover) - parseFormattedNumber(a.turnover))
+                .slice(0, 5);
+        }
         return filtered;
-    }, [stocks, filters, sortConfigs]);
+    }, [stocks, filters, sortConfigs, quickFilter]);
     const handleExport = useCallback((format: 'csv' | 'xlsx' | 'xls' | 'txt') => {
         const visibleCols = columnDefinitions.filter(col => visibleColumns[col.visibleKey]);
         const headerLabels = visibleCols.map(col => col.label);
@@ -1039,7 +1074,7 @@ export default function StockScreenerPage() {
             `}</style>
 
             {/* ═══ TOP FILTER PANEL ═══ */}
-            <TopFilterPanel filters={filters} setFilters={setFilters} filterOptions={filterOptions} activeFiltersCount={activeFilters.length} clearAllFilters={clearAllFilters} />
+            <TopFilterPanel filters={filters} setFilters={setFilters} filterOptions={filterOptions} activeFiltersCount={activeFilters.length} clearAllFilters={clearAllFilters} quickFilter={quickFilter} setQuickFilter={setQuickFilter} />
 
             {/* ═══ CONTENT AREA ═══ */}
             <div className="flex-1 flex overflow-hidden">

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import ScreenerTable from '@/components/Screeners/ScreenerTable';
+import ScreenerFilterPanel, { initialScreenerFilters, ScreenerFilters } from '@/components/Screeners/ScreenerFilterPanel';
 import { motion } from 'framer-motion';
 import { Target, ShieldCheck } from 'lucide-react';
 
@@ -12,7 +13,7 @@ interface StockResult {
   sma_50: number;
   sma_150: number;
   sma_200: number;
-  rs_12m: number;
+  rs_rating: number;
   percent_off_52w_high: number;
   percent_off_52w_low: number;
 }
@@ -32,8 +33,7 @@ const ALRAYAN_CONDITIONS = [
 function AlrayanScreenerContent() {
   const [data, setData] = useState<StockResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(0);
-  const [limit, setLimit] = useState(50);
+  const [filters, setFilters] = useState<ScreenerFilters>(initialScreenerFilters);
   const [lastUpdate, setLastUpdate] = useState('');
 
   useEffect(() => {
@@ -127,14 +127,14 @@ function AlrayanScreenerContent() {
             sma_50: parseFloat(tech.sma50 || tech.sma_50 || 0),
             sma_150: parseFloat(tech.sma150 || tech.sma_150 || 0),
             sma_200: parseFloat(tech.sma200 || tech.sma_200 || 0),
-            rs_12m: parseFloat(rs.rs_rating || 0),
+            rs_rating: parseFloat(rs.rs_rating || 0),
             percent_off_52w_high: parseFloat(tech.percent_off_52w_high || 0),
             percent_off_52w_low: parseFloat(tech.percent_off_52w_low || 0)
           });
         }
 
         // Sort by RS Rating internally so top RS stocks show first
-        filteredStocks.sort((a, b) => b.rs_12m - a.rs_12m);
+        filteredStocks.sort((a, b) => b.rs_rating - a.rs_rating);
         
         setData(filteredStocks);
       } catch (error) {
@@ -147,43 +147,58 @@ function AlrayanScreenerContent() {
     fetchData();
   }, []);
 
-  const total = data.length;
-  
-  // Client-side pagination slicing
-  const paginatedData = useMemo(() => {
-    const start = page * limit;
-    return data.slice(start, start + limit);
-  }, [data, page, limit]);
+  // Local filtering based on UI panel
+  const filteredData = useMemo(() => {
+    return data.filter(stock => {
+      // Price
+      if (filters.price_min && stock.close < parseFloat(filters.price_min)) return false;
+      if (filters.price_max && stock.close > parseFloat(filters.price_max)) return false;
+
+      // SMA 50
+      if (filters.sma_50_min && stock.sma_50 < parseFloat(filters.sma_50_min)) return false;
+      if (filters.sma_50_max && stock.sma_50 > parseFloat(filters.sma_50_max)) return false;
+
+      // SMA 150
+      if (filters.sma_150_min && stock.sma_150 < parseFloat(filters.sma_150_min)) return false;
+      if (filters.sma_150_max && stock.sma_150 > parseFloat(filters.sma_150_max)) return false;
+
+      // SMA 200
+      if (filters.sma_200_min && stock.sma_200 < parseFloat(filters.sma_200_min)) return false;
+      if (filters.sma_200_max && stock.sma_200 > parseFloat(filters.sma_200_max)) return false;
+
+      // RS Rating
+      if (filters.rs_12m_min && stock.rs_rating < parseFloat(filters.rs_12m_min)) return false;
+      if (filters.rs_12m_max && stock.rs_rating > parseFloat(filters.rs_12m_max)) return false;
+
+      // Off 52W High
+      if (filters.percent_off_52w_high_min && stock.percent_off_52w_high < parseFloat(filters.percent_off_52w_high_min)) return false;
+      if (filters.percent_off_52w_high_max && stock.percent_off_52w_high > parseFloat(filters.percent_off_52w_high_max)) return false;
+
+      // Off 52W Low
+      if (filters.percent_off_52w_low_min && stock.percent_off_52w_low < parseFloat(filters.percent_off_52w_low_min)) return false;
+      if (filters.percent_off_52w_low_max && stock.percent_off_52w_low > parseFloat(filters.percent_off_52w_low_max)) return false;
+
+      return true;
+    });
+  }, [data, filters]);
+
+
+
+
 
   return (
-    <div style={{ width: '100%', minHeight: '100vh', backgroundColor: '#EDE8DC', color: '#2C2416', fontFamily: 'system-ui, sans-serif' }}>
+    <div style={{ width: '100%', minHeight: '100vh', backgroundColor: '#FFFFFF', color: '#111827', fontFamily: 'system-ui, sans-serif' }}>
       
-      {/* ── Hero Header ── */}
-      <div style={{ padding: '40px 32px 32px', borderBottom: '1px solid #D9D2C3', backgroundColor: '#1C3D2E', boxShadow: '0 2px 8px rgba(28,61,46,0.2)' }}>
-        <div style={{ maxWidth: '1600px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '20px' }}>
-          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5 }}>
-            <div style={{ marginBottom: '8px' }}>
-              <span style={{ padding: '3px 12px', borderRadius: '999px', backgroundColor: 'rgba(212,237,218,0.15)', color: '#A8D5B5', fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', border: '1px solid rgba(168,213,181,0.3)' }}>
-                Data Intel • Fixed Strategy
-              </span>
-            </div>
-            <h1 style={{ fontSize: '40px', fontWeight: 900, letterSpacing: '-0.02em', color: '#F5F0E8', marginBottom: '8px' }}>
-              <span style={{ color: '#A8D5B5' }}>Alrayan</span> Screener
-            </h1>
-            <p style={{ fontSize: '14px', color: 'rgba(212,237,218,0.7)', maxWidth: '480px', lineHeight: 1.6 }}>
-              A specialized multi-timeframe strategy tracking moving average alliances, CCI momentum triggers, and dominant Aroon trends logic dynamically.
-            </p>
-          </motion.div>
-          
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-            <div style={{ fontSize: '10px', color: 'rgba(212,237,218,0.5)', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '4px' }}>Last Data Sync</div>
-            <div style={{ fontSize: '13px', fontFamily: 'monospace', color: '#A8D5B5' }}>{lastUpdate || 'Real-time'} • Client Calculation</div>
-          </motion.div>
-        </div>
+      <div style={{ padding: '32px 32px 0 32px', maxWidth: '1600px', margin: '0 auto' }}>
+        <ScreenerFilterPanel 
+          filters={filters} 
+          setFilters={setFilters} 
+          clearAllFilters={() => setFilters(initialScreenerFilters)}
+        />
       </div>
 
       {/* ── Main Body ── */}
-      <div style={{ padding: '40px 32px 80px' }}>
+      <div style={{ padding: '0 32px 80px' }}>
         <div style={{ maxWidth: '1600px', margin: '0 auto', display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
           
           {/* Strategy Details Sidebar Card */}
@@ -192,8 +207,8 @@ function AlrayanScreenerContent() {
             animate={{ opacity: 1, x: 0 }}
             style={{
               width: '360px', flexShrink: 0,
-              backgroundColor: '#FDFAF5', border: '1px solid #D9D2C3', borderRadius: '20px',
-              boxShadow: '0 2px 12px rgba(44,36,22,0.08)', overflow: 'hidden',
+              backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '20px',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.08)', overflow: 'hidden',
               position: 'sticky', top: '32px', alignSelf: 'flex-start',
             }}
           >
@@ -205,31 +220,31 @@ function AlrayanScreenerContent() {
                     <Target className="w-5 h-5" />
                   </div>
                   <div>
-                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#2C2416', lineHeight: 1.2 }}>Alrayan Active</div>
-                    <div style={{ fontSize: '12px', color: '#A09880' }}>Meets Criteria</div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#111827', lineHeight: 1.2 }}>Alrayan Active</div>
+                    <div style={{ fontSize: '12px', color: '#9CA3AF' }}>Meets Criteria</div>
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '30px', fontWeight: 900, color: '#2C2416', lineHeight: 1 }}>{total}</div>
-                  <div style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#A09880', marginTop: '2px' }}>Assets</div>
+                  <div style={{ fontSize: '30px', fontWeight: 900, color: '#111827', lineHeight: 1 }}>{filteredData.length}</div>
+                  <div style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#9CA3AF', marginTop: '2px' }}>Assets</div>
                 </div>
               </div>
 
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '8px', backgroundColor: '#D4EDDA', border: '1px solid #A8D5B5', color: '#1C7A3F', fontSize: '11px', fontWeight: 700, width: 'fit-content' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '8px', backgroundColor: '#DCFCE7', border: '1px solid #BBF7D0', color: '#15803D', fontSize: '11px', fontWeight: 700, width: 'fit-content' }}>
                 <ShieldCheck style={{ width: '13px', height: '13px' }} />
                 Strict Check Passed
               </div>
-              <div style={{ height: '1px', backgroundColor: '#E8E2D5' }} />
+              <div style={{ height: '1px', backgroundColor: '#F3F4F6' }} />
 
               {/* Conditions List */}
               <div>
-                <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#A09880', marginBottom: '10px' }}>
+                <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#9CA3AF', marginBottom: '10px' }}>
                   Fixed Active Filters ({ALRAYAN_CONDITIONS.length})
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                   {ALRAYAN_CONDITIONS.map((cond, idx) => (
-                    <div key={idx} style={{ padding: '5px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#F5F0E8', border: '1px solid #E8E2D5' }}>
-                      <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#7A7060', fontWeight: 700 }}>{cond.label}</span>
+                    <div key={idx} style={{ padding: '5px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB' }}>
+                      <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7280', fontWeight: 700 }}>{cond.label}</span>
                       <span style={{ fontSize: '10px', fontFamily: 'monospace', fontWeight: 900, color: '#2962FF' }}>{cond.value}</span>
                     </div>
                   ))}
@@ -242,13 +257,8 @@ function AlrayanScreenerContent() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
               <ScreenerTable
-                data={paginatedData}
+                data={filteredData}
                 loading={loading}
-                total={total}
-                page={page}
-                limit={limit}
-                onPageChange={setPage}
-                onLimitChange={setLimit}
                 screenerColor="#2962FF"
               />
             </motion.div>
@@ -262,7 +272,7 @@ function AlrayanScreenerContent() {
 
 export default function AlrayanPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '100vh', backgroundColor: '#EDE8DC' }} />}>
+    <Suspense fallback={<div style={{ minHeight: '100vh', backgroundColor: '#FFFFFF' }} />}>
       <AlrayanScreenerContent />
     </Suspense>
   );

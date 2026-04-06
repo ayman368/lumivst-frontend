@@ -38,7 +38,7 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
     const [error, setError] = useState<string | null>(null);
     const [selectedSection, setSelectedSection] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [periodDisplayMode, setPeriodDisplayMode] = useState<'annual' | 'quarterly'>('annual');
+    const [periodDisplayMode, setPeriodDisplayMode] = useState<'all' | 'annual' | 'quarterly'>('all');
 
     useEffect(() => {
         async function fetchData() {
@@ -83,7 +83,7 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
 
     // ── Loading state ──
     if (loading) return (
-        <div style={{ display: 'flex', height: '600px', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FDFAF5', borderRadius: '20px', border: '1px solid #D9D2C3', boxShadow: '0 1px 6px rgba(44,36,22,0.06)' }}>
+        <div style={{ display: 'flex', height: '600px', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderRadius: '20px', border: '1px solid #E5E7EB', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
                 <div style={{ position: 'relative', width: '80px', height: '80px' }}>
                     <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid #E8E2D5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -102,7 +102,7 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
 
     // ── Error state ──
     if (error) return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '24px', backgroundColor: '#FDFAF5', border: '1px solid #F5AAAF', borderRadius: '16px', boxShadow: '0 1px 4px rgba(192,57,43,0.08)', maxWidth: '640px', margin: '80px auto 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '24px', backgroundColor: '#FFFFFF', border: '1px solid #F5AAAF', borderRadius: '16px', boxShadow: '0 1px 4px rgba(192,57,43,0.08)', maxWidth: '640px', margin: '80px auto 0' }}>
             <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#FADADD', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid #F5AAAF' }}>
                 <AlertCircle style={{ width: '24px', height: '24px', color: '#C0392B' }} />
             </div>
@@ -118,7 +118,7 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
     let periods = Object.keys(data).sort((a, b) => b.localeCompare(a));
     if (periodDisplayMode === 'annual')
         periods = periods.filter(p => p.toLowerCase().includes('annual') || p.toLowerCase().includes('year'));
-    else
+    else if (periodDisplayMode === 'quarterly')
         periods = periods.filter(p => !p.toLowerCase().includes('annual') && !p.toLowerCase().includes('year'));
 
     const allSections = new Set<string>();
@@ -141,8 +141,8 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
     return (
         <div style={{
             width: '100%', overflow: 'hidden', borderRadius: '20px',
-            boxShadow: '0 2px 12px rgba(44,36,22,0.08)', display: 'flex', flexDirection: 'column',
-            backgroundColor: '#FDFAF5', border: '1px solid #D9D2C3',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column',
+            backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB',
             height: 'calc(100vh - 100px)',
             fontFamily: 'system-ui, sans-serif',
         }}>
@@ -183,7 +183,7 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
             </div>
 
             {/* ── Section Tabs + Controls ── */}
-            <div style={{ backgroundColor: '#FDFAF5', borderBottom: '1px solid #D9D2C3', padding: '0 24px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexShrink: 0 }}>
+            <div style={{ backgroundColor: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: '0 24px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexShrink: 0 }}>
                 {/* Section tabs */}
                 <div style={{ display: 'flex', gap: '0', overflowX: 'auto' }}>
                     {sections.map(section => {
@@ -209,15 +209,15 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
                     {/* Period toggle */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '11px', fontWeight: 600, color: '#A09880' }}>Period:</span>
-                        <div style={{ display: 'flex', backgroundColor: '#F5F0E8', borderRadius: '8px', padding: '3px', border: '1px solid #E8E2D5' }}>
-                            {(['annual', 'quarterly'] as const).map(mode => (
+                        <div style={{ display: 'flex', backgroundColor: '#F3F4F6', borderRadius: '8px', padding: '3px', border: '1px solid #E5E7EB' }}>
+                            {(['all', 'annual', 'quarterly'] as const).map(mode => (
                                 <button key={mode} onClick={() => setPeriodDisplayMode(mode)} style={{
                                     padding: '4px 14px', fontSize: '11px', fontWeight: 600, borderRadius: '6px', border: 'none', cursor: 'pointer', transition: 'all 0.2s', textTransform: 'capitalize',
-                                    backgroundColor: periodDisplayMode === mode ? '#FDFAF5' : 'transparent',
-                                    color: periodDisplayMode === mode ? '#2C2416' : '#A09880',
-                                    boxShadow: periodDisplayMode === mode ? '0 1px 3px rgba(44,36,22,0.1)' : 'none',
+                                    backgroundColor: periodDisplayMode === mode ? '#FFFFFF' : 'transparent',
+                                    color: periodDisplayMode === mode ? '#111827' : '#6B7280',
+                                    boxShadow: periodDisplayMode === mode ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                                     borderWidth: '1px', borderStyle: 'solid',
-                                    borderColor: periodDisplayMode === mode ? '#D9D2C3' : 'transparent',
+                                    borderColor: periodDisplayMode === mode ? '#E5E7EB' : 'transparent',
                                 }}>
                                     {mode.charAt(0).toUpperCase() + mode.slice(1)}
                                 </button>
@@ -226,7 +226,7 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
                     </div>
 
                     {/* Search */}
-                    <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#F5F0E8', border: '1px solid #D9D2C3', borderRadius: '8px', overflow: 'hidden', transition: 'all 0.2s' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#F3F4F6', border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden', transition: 'all 0.2s' }}>
                         <div style={{ paddingLeft: '10px', paddingRight: '6px' }}>
                             <Search style={{ width: '14px', height: '14px', color: '#A09880' }} />
                         </div>
@@ -250,18 +250,18 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
             </div>
 
             {/* ── Data Matrix ── */}
-            <div style={{ flex: 1, overflow: 'auto', backgroundColor: '#EDE8DC' }}>
+            <div style={{ flex: 1, overflow: 'auto', backgroundColor: '#FFFFFF' }}>
                 <div style={{ minWidth: 'max-content', paddingBottom: '32px' }}>
                     <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                         <thead style={{ position: 'sticky', top: 0, zIndex: 30 }}>
-                            <tr style={{ backgroundColor: '#F5F0E8', boxShadow: '0 1px 0 #D9D2C3' }}>
+                            <tr style={{ backgroundColor: '#F9FAFB', boxShadow: '0 1px 0 #E5E7EB' }}>
                                 {/* Sticky row label header */}
                                 <th style={{
-                                    position: 'sticky', left: 0, zIndex: 40, backgroundColor: '#F5F0E8',
-                                    padding: '16px 24px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#A09880',
-                                    borderBottom: '1px solid #D9D2C3', borderRight: '1px solid #D9D2C3',
+                                    position: 'sticky', left: 0, zIndex: 40, backgroundColor: '#F9FAFB',
+                                    padding: '16px 24px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#6B7280',
+                                    borderBottom: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB',
                                     minWidth: '300px', maxWidth: '300px',
-                                    boxShadow: '4px 0 10px -3px rgba(44,36,22,0.08)',
+                                    boxShadow: '4px 0 10px -3px rgba(0,0,0,0.04)',
                                 }}>
                                     {selectedSection ? getSectionTitle(selectedSection) : 'Items'}
                                 </th>
@@ -270,9 +270,9 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
                                     return (
                                         <th key={p} style={{
                                             padding: '16px 24px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em',
-                                            textAlign: 'center', borderBottom: '1px solid #D9D2C3', minWidth: '140px', maxWidth: '250px',
+                                            textAlign: 'center', borderBottom: '1px solid #E5E7EB', minWidth: '140px', maxWidth: '250px',
                                         }}>
-                                            <span style={{ color: '#7A7060', backgroundColor: '#FDFAF5', padding: '4px 12px', borderRadius: '8px', border: '1px solid #D9D2C3', boxShadow: '0 1px 2px rgba(44,36,22,0.05)', display: 'inline-block' }}>
+                                            <span style={{ color: '#374151', backgroundColor: '#FFFFFF', padding: '4px 12px', borderRadius: '8px', border: '1px solid #E5E7EB', boxShadow: '0 1px 2px rgba(0,0,0,0.04)', display: 'inline-block' }}>
                                                 {title}
                                             </span>
                                         </th>
@@ -282,18 +282,18 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
                         </thead>
                         <tbody>
                             {filteredMetrics.map((metric, idx) => (
-                                <tr key={metric.key} style={{ backgroundColor: idx % 2 === 0 ? '#FDFAF5' : '#FAF7F0', borderBottom: '1px solid #E8E2D5', transition: 'background-color 0.15s' }}
-                                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#F0EBE0')}
-                                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = idx % 2 === 0 ? '#FDFAF5' : '#FAF7F0')}
+                                <tr key={metric.key} style={{ backgroundColor: idx % 2 === 0 ? '#FFFFFF' : '#F9FAFB', borderBottom: '1px solid #F3F4F6', transition: 'background-color 0.15s' }}
+                                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#EFF6FF')}
+                                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = idx % 2 === 0 ? '#FFFFFF' : '#F9FAFB')}
                                 >
                                     {/* Sticky metric label */}
                                     <td style={{
                                         position: 'sticky', left: 0, zIndex: 20,
-                                        padding: '14px 24px', borderBottom: '1px solid #E8E2D5', borderRight: '1px solid #D9D2C3',
+                                        padding: '14px 24px', borderBottom: '1px solid #F3F4F6', borderRight: '1px solid #E5E7EB',
                                         minWidth: '300px', maxWidth: '300px', backgroundColor: 'inherit',
-                                        boxShadow: '4px 0 10px -3px rgba(44,36,22,0.05)', verticalAlign: 'top',
+                                        boxShadow: '4px 0 10px -3px rgba(0,0,0,0.03)', verticalAlign: 'top',
                                     }}>
-                                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#2C2416', lineHeight: 1.5, paddingRight: '16px', wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827', lineHeight: 1.5, paddingRight: '16px', wordBreak: 'break-word', whiteSpace: 'normal' }}>
                                             {metric.label}
                                         </div>
                                     </td>
@@ -308,12 +308,12 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
 
                                         return (
                                             <td key={`${metric.key}-${p}`} style={{
-                                                padding: '14px 24px', borderBottom: '1px solid #E8E2D5',
+                                                padding: '14px 24px', borderBottom: '1px solid #F3F4F6',
                                                 textAlign: 'right', minWidth: '140px', maxWidth: '250px', verticalAlign: 'top',
                                             }}>
                                                 <div style={{
                                                     fontFamily: 'monospace', fontSize: '13px', fontWeight: 500, lineHeight: 1.5, wordBreak: 'break-word', whiteSpace: 'normal',
-                                                    color: isEmpty ? '#C8BFB0' : isPos === true ? '#1C7A3F' : isPos === false ? '#C0392B' : '#7A7060',
+                                                    color: isEmpty ? '#9CA3AF' : isPos === true ? '#15803D' : isPos === false ? '#DC2626' : '#374151',
                                                 }}>
                                                     {fmt(rawVal)}
                                                 </div>
@@ -341,8 +341,8 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
             <style>{`
                 ::-webkit-scrollbar { width: 8px; height: 8px; }
                 ::-webkit-scrollbar-track { background: transparent; }
-                ::-webkit-scrollbar-thumb { background: rgba(45,106,79,0.25); border-radius: 10px; border: 2px solid #EDE8DC; }
-                ::-webkit-scrollbar-thumb:hover { background: rgba(45,106,79,0.45); }
+                ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 10px; border: 2px solid #FFFFFF; }
+                ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.3); }
                 @keyframes xbrl-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
             `}</style>
         </div>

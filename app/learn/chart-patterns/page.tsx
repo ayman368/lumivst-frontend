@@ -252,11 +252,11 @@ export default function ChartPatternsPage() {
   return (
     <div style={{
       minHeight: 'calc(100vh - 64px)',
-      background: '#EDE8DC',
+      background: '#FFFFFF',
       padding: '0',
       fontFamily: 'system-ui, sans-serif',
       position: 'relative',
-      color: '#2C2416',
+      color: '#111827',
     }}>
       <style>{`
         @keyframes fadeUp {
@@ -264,18 +264,18 @@ export default function ChartPatternsPage() {
           to   { opacity: 1; transform: translateY(0); }
         }
         .pat-btn { transition: all 0.2s ease; }
-        .pat-btn:hover { background: rgba(44,36,22,0.04) !important; }
-        .pat-btn:hover .pat-name { color: #2C2416 !important; }
+        .pat-btn:hover { background: rgba(0,0,0,0.04) !important; }
+        .pat-btn:hover .pat-name { color: #111827 !important; }
         .detail-section { animation: fadeUp 0.35s ease; }
         .img-hover { transition: transform 0.3s ease, box-shadow 0.3s ease; }
-        .img-hover:hover { transform: scale(1.01); box-shadow: 0 12px 40px rgba(44,36,22,0.15); }
+        .img-hover:hover { transform: scale(1.01); box-shadow: 0 12px 40px rgba(0,0,0,0.15); }
       `}</style>
 
       {/* Page Header — Alrayan style */}
       <div style={{
-        borderBottom: '1px solid #D9D2C3',
-        backgroundColor: '#1C3D2E',
-        boxShadow: '0 2px 8px rgba(28,61,46,0.2)',
+        borderBottom: '1px solid #E5E7EB',
+        backgroundColor: '#111827',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
         padding: '40px 32px 32px',
         position: 'relative', zIndex: 1,
       }}>
@@ -283,20 +283,20 @@ export default function ChartPatternsPage() {
           <div style={{ marginBottom: '8px' }}>
             <span style={{
               padding: '3px 12px', borderRadius: '999px',
-              backgroundColor: 'rgba(212,237,218,0.15)', color: '#A8D5B5',
+              backgroundColor: 'rgba(255,255,255,0.15)', color: '#D1D5DB',
               fontSize: '10px', fontWeight: 700, letterSpacing: '0.2em',
-              textTransform: 'uppercase', border: '1px solid rgba(168,213,181,0.3)',
+              textTransform: 'uppercase', border: '1px solid rgba(255,255,255,0.2)',
             }}>
               Education • Technical Analysis
             </span>
           </div>
           <h1 style={{
             margin: 0, fontSize: '40px', fontWeight: 900,
-            color: '#F5F0E8', letterSpacing: '-0.02em', marginBottom: '8px',
+            color: '#F9FAFB', letterSpacing: '-0.02em', marginBottom: '8px',
           }}>
-            Understanding <span style={{ color: '#A8D5B5' }}>Chart Patterns</span>
+            Understanding <span style={{ color: '#D1D5DB' }}>Chart Patterns</span>
           </h1>
-          <p style={{ margin: 0, color: 'rgba(212,237,218,0.7)', fontSize: '14px', lineHeight: 1.6 }}>
+          <p style={{ margin: 0, color: 'rgba(255,255,255,0.7)', fontSize: '14px', lineHeight: 1.6 }}>
             11 essential formations every trader should master
           </p>
         </div>
@@ -319,22 +319,22 @@ export default function ChartPatternsPage() {
           {!active && (
             <div className="detail-section">
               <div style={{
-                backgroundColor: '#FDFAF5',
-                border: '1px solid #D9D2C3',
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #E5E7EB',
                 borderRadius: '20px',
                 padding: '32px',
                 marginBottom: '20px',
-                boxShadow: '0 2px 12px rgba(44,36,22,0.08)',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
                 overflow: 'hidden',
                 position: 'relative',
               }}>
-                <div style={{ height: '4px', backgroundColor: '#2962FF', position: 'absolute', top: 0, left: 0, right: 0 }} />
+                <div style={{ height: '4px', backgroundColor: '#374151', position: 'absolute', top: 0, left: 0, right: 0 }} />
                 {[
                   "Identifying chart patterns is simply a system for predicting stock market trends and turns! Hundreds of years of price charts have shown that prices tend to move in trends. (I'm sure we've all heard the saying, 'the trend is your friend.') Well, a trend is merely an indicator of an imbalance in the supply and demand. These changes can be seen by market action through changes in price.",
                   "These price changes often form meaningful chart patterns that can act as signals in trying to determine possible future trend developments. Research has proven that some patterns have high forecasting probabilities. These patterns include: The Cup & Handle, Flat Base, Ascending and Descending Triangles, Parabolic/Symmetrical Triangles, Wedges, Flags and Pennants, Channels and the Head and Shoulders Patterns. In my opinion, these are some of the best patterns to trade.",
                   "This section is designed to introduce you to some of these chart patterns, as well as teach you to identify repetitions in the market qualities, to make timely and more accurate decisions when predicting market trends.",
                 ].map((p, i) => (
-                  <p key={i} style={{ color: '#5C4A2A', fontSize: '15px', lineHeight: '1.9', margin: i < 2 ? '0 0 18px 0' : '0', fontWeight: 400 }}>{p}</p>
+                  <p key={i} style={{ color: '#4B5563', fontSize: '15px', lineHeight: '1.9', margin: i < 2 ? '0 0 18px 0' : '0', fontWeight: 400 }}>{p}</p>
                 ))}
               </div>
             </div>
@@ -350,16 +350,16 @@ export default function ChartPatternsPage() {
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: '6px',
                   background: 'transparent', border: 'none', cursor: 'pointer',
-                  color: '#A09880', fontSize: '13px', fontWeight: 500,
+                  color: '#9CA3AF', fontSize: '13px', fontWeight: 500,
                   padding: '0', marginBottom: '24px',
                   transition: 'color 0.2s',
                 }}
-                onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#5C4A2A'}
-                onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = '#A09880'}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#4B5563'}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = '#9CA3AF'}
               >
                 <ArrowLeft size={14} />
                 Chart Patterns
-                <span style={{ margin: '0 4px', color: '#D9D2C3' }}>/</span>
+                <span style={{ margin: '0 4px', color: '#E5E7EB' }}>/</span>
                 <span style={{ color: active.color }}>{active.name}</span>
               </button>
 
@@ -371,7 +371,7 @@ export default function ChartPatternsPage() {
                 }} />
                 <h2 style={{
                   fontSize: '30px', fontWeight: 800, margin: 0,
-                  color: '#2C2416',
+                  color: '#111827',
                   letterSpacing: '-0.5px',
                 }}>
                   The {active.name} Pattern
@@ -380,11 +380,11 @@ export default function ChartPatternsPage() {
 
               {/* Content body */}
               <div style={{
-                backgroundColor: '#FDFAF5',
-                border: '1px solid #D9D2C3',
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #E5E7EB',
                 borderRadius: '16px', padding: '28px 32px',
                 marginBottom: '24px',
-                boxShadow: '0 2px 8px rgba(44,36,22,0.06)',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
                 overflow: 'hidden',
                 position: 'relative',
               }}>
@@ -394,7 +394,7 @@ export default function ChartPatternsPage() {
                   <>
                     <div style={{ marginBottom: '24px' }}>
                       {active.paragraphs.map((p, i) => (
-                        <p key={i} style={{ color: '#5C4A2A', fontSize: '15px', lineHeight: '1.9', margin: i < active.paragraphs.length - 1 ? '0 0 16px 0' : '0' }}>{p}</p>
+                        <p key={i} style={{ color: '#4B5563', fontSize: '15px', lineHeight: '1.9', margin: i < active.paragraphs.length - 1 ? '0 0 16px 0' : '0' }}>{p}</p>
                       ))}
                     </div>
                     <div style={{ textAlign: 'center' }}>
@@ -411,22 +411,22 @@ export default function ChartPatternsPage() {
                         : <ImgPlaceholder label={`${active.name} Diagram`} height={250} />}
                     </div>
                     {active.paragraphs.map((p, i) => (
-                      <p key={i} style={{ color: '#5C4A2A', fontSize: '15px', lineHeight: '1.9', margin: i < active.paragraphs.length - 1 ? '0 0 16px 0' : '0' }}>{p}</p>
+                      <p key={i} style={{ color: '#4B5563', fontSize: '15px', lineHeight: '1.9', margin: i < active.paragraphs.length - 1 ? '0 0 16px 0' : '0' }}>{p}</p>
                     ))}
                   </>
                 ) : active.diagramPosition === 'middle' ? (
                   <>
-                    <p style={{ color: '#5C4A2A', fontSize: '15px', lineHeight: '1.9', margin: '0 0 20px 0' }}>{active.paragraphs[0]}</p>
+                    <p style={{ color: '#4B5563', fontSize: '15px', lineHeight: '1.9', margin: '0 0 20px 0' }}>{active.paragraphs[0]}</p>
                     <div style={{ textAlign: 'center', marginBottom: '20px' }}>
                       {active.diagramImg && <img src={active.diagramImg} alt={`${active.name} diagram`} style={imgStyle} className="img-hover" />}
                     </div>
                     {active.paragraphs.slice(1).map((p, i) => (
-                      <p key={i} style={{ color: '#5C4A2A', fontSize: '15px', lineHeight: '1.9', margin: i < active.paragraphs.length - 2 ? '0 0 16px 0' : '0' }}>{p}</p>
+                      <p key={i} style={{ color: '#4B5563', fontSize: '15px', lineHeight: '1.9', margin: i < active.paragraphs.length - 2 ? '0 0 16px 0' : '0' }}>{p}</p>
                     ))}
                   </>
                 ) : active.diagramPosition === 'pennant_custom' ? (
                   <>
-                    <p style={{ color: '#5C4A2A', fontSize: '15px', lineHeight: '1.9', margin: '0 0 20px 0' }}>{active.paragraphs[0]}</p>
+                    <p style={{ color: '#4B5563', fontSize: '15px', lineHeight: '1.9', margin: '0 0 20px 0' }}>{active.paragraphs[0]}</p>
                     <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                       {/* @ts-ignore */}
                       {active.diagramImg && <img src={active.diagramImg} alt="Pennants" style={imgStyle} className="img-hover" />}
@@ -440,13 +440,13 @@ export default function ChartPatternsPage() {
                         {active.bullets && (
                           <ol style={{ margin: 0, paddingLeft: '22px', listStyleType: 'decimal' }}>
                             {active.bullets.map((b: string, i: number) => (
-                              <li key={i} style={{ color: '#5C4A2A', fontSize: '15px', lineHeight: '1.85', marginBottom: i < active.bullets!.length - 1 ? '14px' : '0' }}>{b}</li>
+                              <li key={i} style={{ color: '#4B5563', fontSize: '15px', lineHeight: '1.85', marginBottom: i < active.bullets!.length - 1 ? '14px' : '0' }}>{b}</li>
                             ))}
                           </ol>
                         )}
                       </div>
                     </div>
-                    <p style={{ color: '#5C4A2A', fontSize: '15px', lineHeight: '1.9', margin: 0 }}>{active.paragraphs[1]}</p>
+                    <p style={{ color: '#4B5563', fontSize: '15px', lineHeight: '1.9', margin: 0 }}>{active.paragraphs[1]}</p>
                   </>
                 ) : active.diagramPosition === 'wedge_custom' ? (
                   <>
@@ -481,16 +481,16 @@ export default function ChartPatternsPage() {
               {/* @ts-ignore */}
               {active.bullets && active.diagramPosition !== 'pennant_custom' && (
                 <div style={{
-                  backgroundColor: '#FDFAF5',
-                  border: '1px solid #D9D2C3',
+                  backgroundColor: '#FFFFFF',
+                  border: '1px solid #E5E7EB',
                   borderRadius: '14px', padding: '24px 28px',
                   marginBottom: '16px',
-                  boxShadow: '0 2px 8px rgba(44,36,22,0.06)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
                 }}>
                   <ol style={{ margin: 0, paddingLeft: '22px', listStyleType: 'decimal' }}>
                     {active.bullets.map((b: string, i: number) => (
                       <li key={i} style={{
-                        color: i === active.bullets!.length - 1 ? '#1C7A3F' : '#5C4A2A',
+                        color: i === active.bullets!.length - 1 ? '#15803D' : '#4B5563',
                         fontSize: '15px', lineHeight: '1.8',
                         marginBottom: i < active.bullets!.length - 1 ? '12px' : '0',
                         fontWeight: i === active.bullets!.length - 1 ? 600 : 400,
@@ -511,7 +511,7 @@ export default function ChartPatternsPage() {
                   border: `1px solid ${active.color}30`,
                   borderLeft: `3px solid ${active.color}`,
                   borderRadius: '10px',
-                  color: '#7A7060',
+                  color: '#4B5563',
                   fontSize: '13.5px',
                   lineHeight: '1.75',
                   fontStyle: 'italic',
@@ -524,7 +524,7 @@ export default function ChartPatternsPage() {
               {/* After-note paragraph */}
               {/* @ts-ignore */}
               {active.afterNoteParagraph && (
-                <p style={{ color: '#5C4A2A', fontSize: '15px', lineHeight: '1.9', margin: '0 0 24px 0' }}>
+                <p style={{ color: '#4B5563', fontSize: '15px', lineHeight: '1.9', margin: '0 0 24px 0' }}>
                   {/* @ts-ignore */}
                   {active.afterNoteParagraph}
                 </p>
@@ -533,21 +533,21 @@ export default function ChartPatternsPage() {
               {/* Sample chart */}
               {active.sampleImg && (
                 <div style={{
-                  borderTop: '1px solid #D9D2C3',
+                  borderTop: '1px solid #E5E7EB',
                   paddingTop: '28px', marginTop: '8px',
                 }}>
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: '10px',
                     marginBottom: '20px',
                   }}>
-                    <div style={{ height: '1px', flex: 1, background: '#D9D2C3' }} />
+                    <div style={{ height: '1px', flex: 1, background: '#E5E7EB' }} />
                     <span style={{
                       fontSize: '11px', fontWeight: 700, letterSpacing: '2px',
-                      color: '#A09880', textTransform: 'uppercase', whiteSpace: 'nowrap',
+                      color: '#9CA3AF', textTransform: 'uppercase', whiteSpace: 'nowrap',
                     }}>
                       Sample Chart — {active.sampleLabel?.toUpperCase() || active.name.toUpperCase()}
                     </span>
-                    <div style={{ height: '1px', flex: 1, background: '#D9D2C3' }} />
+                    <div style={{ height: '1px', flex: 1, background: '#E5E7EB' }} />
                   </div>
                   <img src={active.sampleImg} alt={`${active.name} sample chart`} style={{ ...imgStyle, width: '100%' }} className="img-hover" />
                 </div>
@@ -562,20 +562,20 @@ export default function ChartPatternsPage() {
           position: 'sticky',
           top: '80px',
           height: 'fit-content',
-          borderLeft: '1px solid #D9D2C3',
+          borderLeft: '1px solid #E5E7EB',
           paddingTop: '24px',
           paddingBottom: '16px',
-          backgroundColor: '#F5F0E8',
+          backgroundColor: '#F9FAFB',
         }}>
           {/* Panel Header */}
           <div style={{
             padding: '4px 20px 16px',
-            borderBottom: '1px solid #D9D2C3',
+            borderBottom: '1px solid #E5E7EB',
             marginBottom: '4px',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <TrendingUp size={13} color="#1C3D2E" strokeWidth={2.5} />
-              <span style={{ fontSize: '10px', fontWeight: 700, color: '#1C3D2E', letterSpacing: '2px', textTransform: 'uppercase' }}>
+              <TrendingUp size={13} color="#111827" strokeWidth={2.5} />
+              <span style={{ fontSize: '10px', fontWeight: 700, color: '#111827', letterSpacing: '2px', textTransform: 'uppercase' }}>
                 11 Chart Patterns
               </span>
             </div>
@@ -602,8 +602,8 @@ export default function ChartPatternsPage() {
                   {/* Number badge */}
                   <span style={{
                     minWidth: '22px', height: '22px', borderRadius: '6px', flexShrink: 0,
-                    background: isActive ? p.color : '#E8E2D5',
-                    color: isActive ? '#fff' : '#A09880',
+                    background: isActive ? p.color : '#E5E7EB',
+                    color: isActive ? '#fff' : '#9CA3AF',
                     fontSize: '10px', fontWeight: 800,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     transition: 'all 0.2s ease',
@@ -616,7 +616,7 @@ export default function ChartPatternsPage() {
                     className="pat-name"
                     style={{
                       fontSize: '12.5px', fontWeight: isActive ? 600 : 400,
-                      color: isActive ? p.color : '#7A7060',
+                      color: isActive ? p.color : '#4B5563',
                       transition: 'color 0.2s ease', lineHeight: 1.4, flex: 1,
                     }}
                   >
@@ -627,7 +627,7 @@ export default function ChartPatternsPage() {
                   <ChevronRight
                     size={13}
                     style={{
-                      color: isActive ? p.color : '#C0B8A8',
+                      color: isActive ? p.color : '#D1D5DB',
                       transform: isActive ? 'translateX(2px)' : 'none',
                       transition: 'all 0.2s ease',
                       flexShrink: 0,

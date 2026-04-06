@@ -178,7 +178,10 @@ export interface Stock {
 
 }
 
+export type QuickFilterType = '' | 'top_gainers' | 'top_losers' | 'most_active_volume' | 'most_active_value';
+
 export interface FilterState {
+    quickFilter: QuickFilterType;
     rs_rating_min: string;
     rs_rating_max: string;
     acc_dis_rating: string[];
@@ -206,7 +209,7 @@ export interface FilterState {
     percent_off_52w_low_min: string;
     percent_off_52w_low_max: string;
 
-    approval_with_controls: string;
+    approval_with_controls: string[];
     purge_amount_min: string;
     purge_amount_max: string;
     marginable_percent_min: string;

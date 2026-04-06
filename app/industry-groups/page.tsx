@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { TrendingUp, TrendingDown, Filter, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { formatShariahApproval, formatPurgeAmount, formatMarginable } from '../stocks/utils/formatters';
+import * as XLSX from 'xlsx';
 
 interface IndustryGroup {
     id: number;
@@ -38,6 +40,9 @@ interface StockSummary {
     rs_rating_3_months_ago?: number;
     rs_rating_6_months_ago?: number;
     rs_rating_1_year_ago?: number;
+    approval_with_controls?: string;
+    purge_amount?: number | null;
+    marginable_percent?: number | null;
 }
 
 interface SortConfig {
@@ -92,6 +97,11 @@ interface StockFilterState {
     rs_rating_6_months_ago_max: string;
     rs_rating_1_year_ago_min: string;
     rs_rating_1_year_ago_max: string;
+    approval_with_controls: string[];
+    purge_amount_min: string;
+    purge_amount_max: string;
+    marginable_percent_min: string;
+    marginable_percent_max: string;
 }
 
 function CustomMultiSelect({
@@ -367,6 +377,7 @@ export default function IndustryGroupsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [showExportMenu, setShowExportMenu] = useState(false);
     const [collapseSignal, setCollapseSignal] = useState(0);
 
     const [filters, setFilters] = useState<FilterState>({
@@ -411,6 +422,11 @@ export default function IndustryGroupsPage() {
         rs_rating_6_months_ago_max: '',
         rs_rating_1_year_ago_min: '',
         rs_rating_1_year_ago_max: '',
+        approval_with_controls: [],
+        purge_amount_min: '',
+        purge_amount_max: '',
+        marginable_percent_min: '',
+        marginable_percent_max: '',
     });
 
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -475,13 +491,16 @@ export default function IndustryGroupsPage() {
         { key: 'symbol', label: 'Symbol', sortable: true },
         { key: 'company_name', label: 'Name', sortable: true },
         { key: 'rs_rating', label: 'RS Rating', sortable: true },
-        { key: 'rs_rating_1_week_ago', label: '1 Week Ago', sortable: true },
-        { key: 'rs_rating_4_weeks_ago', label: '4 Weeks Ago', sortable: true },
-        { key: 'rs_rating_3_months_ago', label: '3 Months Ago', sortable: true },
-        { key: 'rs_rating_6_months_ago', label: '6 Months Ago', sortable: true },
-        { key: 'rs_rating_1_year_ago', label: '1 Year Ago', sortable: true },
+        { key: 'rs_rating_1_week_ago', label: '1W Ago', sortable: true },
+        { key: 'rs_rating_4_weeks_ago', label: '4W Ago', sortable: true },
+        { key: 'rs_rating_3_months_ago', label: '3M Ago', sortable: true },
+        { key: 'rs_rating_6_months_ago', label: '6M Ago', sortable: true },
+        { key: 'rs_rating_1_year_ago', label: '1Y Ago', sortable: true },
         { key: 'industry', label: 'Industry', sortable: true },
         { key: 'sub_industry', label: 'Sub Industry', sortable: true },
+        { key: 'approval_with_controls', label: 'Shariah', sortable: true },
+        { key: 'purge_amount', label: 'Purge Amt', sortable: true },
+        { key: 'marginable_percent', label: 'Marginable%', sortable: true },
     ];
 
     useEffect(() => {
@@ -693,76 +712,65 @@ export default function IndustryGroupsPage() {
         if (!stocks) return [];
 
         let filtered = stocks.filter(stock => {
-            // تطبيق industry و sub industry من الفلاتر الرئيسية
             if (filters.industry.length > 0 && !filters.industry.includes(stock.industry)) return false;
             if (filters.sub_industry.length > 0 && !filters.sub_industry.includes(stock.sub_industry)) return false;
-
-            // Stock table specific filters
             if (stockFilters.symbol && !stock.symbol.toLowerCase().includes(stockFilters.symbol.toLowerCase())) return false;
             if (stockFilters.company_name && !stock.company_name.toLowerCase().includes(stockFilters.company_name.toLowerCase())) return false;
-
             if (!checkStockRange(stock.rs_rating, 'rs_rating_min', 'rs_rating_max')) return false;
             if (!checkStockRange(stock.rs_rating_1_week_ago, 'rs_rating_1_week_ago_min', 'rs_rating_1_week_ago_max')) return false;
             if (!checkStockRange(stock.rs_rating_4_weeks_ago, 'rs_rating_4_weeks_ago_min', 'rs_rating_4_weeks_ago_max')) return false;
             if (!checkStockRange(stock.rs_rating_3_months_ago, 'rs_rating_3_months_ago_min', 'rs_rating_3_months_ago_max')) return false;
             if (!checkStockRange(stock.rs_rating_6_months_ago, 'rs_rating_6_months_ago_min', 'rs_rating_6_months_ago_max')) return false;
             if (!checkStockRange(stock.rs_rating_1_year_ago, 'rs_rating_1_year_ago_min', 'rs_rating_1_year_ago_max')) return false;
-
+            
+            if (stockFilters.approval_with_controls.length > 0) {
+                const stockShariah = formatShariahApproval(stock.approval_with_controls) || '';
+                if (!stockFilters.approval_with_controls.includes(stockShariah)) return false;
+            }
+            if (!checkStockRange(stock.purge_amount, 'purge_amount_min', 'purge_amount_max')) return false;
+            if (!checkStockRange(stock.marginable_percent, 'marginable_percent_min', 'marginable_percent_max')) return false;
+            
             return true;
         });
 
         const currentSorts = stockSortConfigs[groupName] || [];
-        if (currentSorts.length > 0) {
-            filtered = [...filtered].sort((a, b) => {
-                for (const config of currentSorts) {
-                    const getValue = (item: StockSummary, key: string): any => {
-                        switch (key) {
-                            case 'symbol':
-                                return item.symbol.toLowerCase();
-                            case 'company_name':
-                                return item.company_name.toLowerCase();
-                            case 'rs_rating':
-                                return item.rs_rating || 0;
-                            case 'rs_rating_1_week_ago':
-                                return item.rs_rating_1_week_ago || 0;
-                            case 'rs_rating_4_weeks_ago':
-                                return item.rs_rating_4_weeks_ago || 0;
-                            case 'rs_rating_3_months_ago':
-                                return item.rs_rating_3_months_ago || 0;
-                            case 'rs_rating_6_months_ago':
-                                return item.rs_rating_6_months_ago || 0;
-                            case 'rs_rating_1_year_ago':
-                                return item.rs_rating_1_year_ago || 0;
-                            case 'industry':
-                                return item.industry.toLowerCase();
-                            case 'sub_industry':
-                                return item.sub_industry.toLowerCase();
-                            default:
-                                return 0;
-                        }
-                    };
+        // Default sort: rs_rating descending
+        const effectiveSorts = currentSorts.length > 0 ? currentSorts : [{ key: 'rs_rating', direction: 'desc' as const }];
 
-                    const aValue = getValue(a, config.key);
-                    const bValue = getValue(b, config.key);
-
-                    if (aValue === bValue) continue;
-
-                    if (typeof aValue === 'string' && typeof bValue === 'string') {
-                        const comparison = aValue.localeCompare(bValue);
-                        if (comparison !== 0) {
-                            return config.direction === 'asc' ? comparison : -comparison;
-                        }
-                    } else {
-                        const aNum = Number(aValue);
-                        const bNum = Number(bValue);
-                        if (aNum !== bNum) {
-                            return config.direction === 'asc' ? aNum - bNum : bNum - aNum;
-                        }
+        filtered = [...filtered].sort((a, b) => {
+            for (const config of effectiveSorts) {
+                const getValue = (item: StockSummary, key: string): any => {
+                    switch (key) {
+                        case 'symbol': return item.symbol.toLowerCase();
+                        case 'company_name': return item.company_name.toLowerCase();
+                        case 'rs_rating': return item.rs_rating ?? 0;
+                        case 'rs_rating_1_week_ago': return item.rs_rating_1_week_ago ?? 0;
+                        case 'rs_rating_4_weeks_ago': return item.rs_rating_4_weeks_ago ?? 0;
+                        case 'rs_rating_3_months_ago': return item.rs_rating_3_months_ago ?? 0;
+                        case 'rs_rating_6_months_ago': return item.rs_rating_6_months_ago ?? 0;
+                        case 'rs_rating_1_year_ago': return item.rs_rating_1_year_ago ?? 0;
+                        case 'industry': return item.industry.toLowerCase();
+                        case 'sub_industry': return item.sub_industry.toLowerCase();
+                        case 'approval_with_controls': return (item.approval_with_controls || '').toLowerCase();
+                        case 'purge_amount': return item.purge_amount ?? 0;
+                        case 'marginable_percent': return item.marginable_percent ?? 0;
+                        default: return 0;
                     }
+                };
+                const aValue = getValue(a, config.key);
+                const bValue = getValue(b, config.key);
+                if (aValue === bValue) continue;
+                if (typeof aValue === 'string' && typeof bValue === 'string') {
+                    const comparison = aValue.localeCompare(bValue);
+                    if (comparison !== 0) return config.direction === 'asc' ? comparison : -comparison;
+                } else {
+                    const aNum = Number(aValue);
+                    const bNum = Number(bValue);
+                    if (aNum !== bNum) return config.direction === 'asc' ? aNum - bNum : bNum - aNum;
                 }
-                return 0;
-            });
-        }
+            }
+            return 0;
+        });
 
         return filtered;
     }, [stocksCache, stockFilters, stockSortConfigs, filters.industry, filters.sub_industry]);
@@ -822,6 +830,11 @@ export default function IndustryGroupsPage() {
             rs_rating_6_months_ago_max: '',
             rs_rating_1_year_ago_min: '',
             rs_rating_1_year_ago_max: '',
+            approval_with_controls: [],
+            purge_amount_min: '',
+            purge_amount_max: '',
+            marginable_percent_min: '',
+            marginable_percent_max: '',
         });
 
         setSortConfigs([]);
@@ -836,11 +849,23 @@ export default function IndustryGroupsPage() {
         } else {
             newExpanded.add(groupName);
             setExpandedGroups(newExpanded);
-
             if (!stocksCache[groupName]) {
                 await fetchGroupStocks(groupName);
             }
         }
+    };
+
+    const expandAllGroups = async () => {
+        const allGroups = filteredData.map(item => item.industry_group);
+        const newExpanded = new Set(allGroups);
+        setExpandedGroups(newExpanded);
+        // Fetch stocks for groups not yet cached
+        const toFetch = allGroups.filter(g => !stocksCache[g] && !loadingStocks.has(g));
+        await Promise.all(toFetch.map(g => fetchGroupStocks(g)));
+    };
+
+    const collapseAllGroups = () => {
+        setExpandedGroups(new Set());
     };
 
     const fetchGroupStocks = async (groupName: string) => {
@@ -909,51 +934,151 @@ export default function IndustryGroupsPage() {
         return active;
     }, [filters]);
 
-    const exportToCSV = () => {
+    const exportData = (format: 'csv' | 'xls' | 'xlsx' | 'txt' | 'pdf') => {
         if (filteredData.length === 0) return;
 
-        const headers = [
-            'Rank',
-            'Industry Group',
-            'Sector',
-            'Num Stocks',
-            'Ind Mkt Val (Bil)',
-            'Rank 1 Week Ago',
-            'Rank 3 Months Ago',
-            'Rank 6 Months Ago',
-            'YTD Change %'
+        // Group rows and tables
+        const groupHeaders = [
+            'Order', 'Letter Grade', 'Industry Group', 'Sector', 'Num Stocks',
+            'Ind Group Rank', 'Last Week', '3 Mo Ago', '6 Mo Ago',
+            '% Chg YTD', 'Ind Mkt Val (Bil)', 'Change v Last Week'
         ];
 
-        const rows: (string | number)[][] = [];
+        const groupRows = filteredData.map((item, index) => [
+            index + 1,
+            item.letter_grade || '',
+            item.industry_group,
+            item.sector,
+            item.number_of_stocks,
+            item.rank ?? '',
+            item.rank_1_week_ago ?? '-',
+            item.rank_3_months_ago ?? '-',
+            item.rank_6_months_ago ?? '-',
+            item.ytd_change_percent != null ? item.ytd_change_percent.toFixed(2) : '-',
+            item.market_value ? item.market_value.toFixed(2) : '-',
+            item.change_vs_last_week ?? '-'
+        ]);
+
+        const stockHeaders = [
+            'Symbol', 'Name', 'RS Rating',
+            '1W Ago', '4W Ago', '3M Ago', '6M Ago', '1Y Ago',
+            'Industry', 'Sub Industry',
+            'Shariah Status', 'Purge Amount', 'Marginable %'
+        ];
+
+        const expandedStockTables: { title: string; rows: any[][] }[] = [];
 
         filteredData.forEach(item => {
-            rows.push([
-                item.rank,
-                `"${item.industry_group}"`,
-                `"${item.sector}"`,
-                item.number_of_stocks,
-                item.market_value ? item.market_value.toFixed(2) : '-',
-                item.rank_1_week_ago || '-',
-                item.rank_3_months_ago || '-',
-                item.rank_6_months_ago || '-',
-                item.ytd_change_percent.toFixed(2)
-            ]);
+            if (expandedGroups.has(item.industry_group) && stocksCache[item.industry_group]) {
+                const stocks = getFilteredStocks(item.industry_group);
+                if (stocks.length > 0) {
+                    const sRows = stocks.map(stock => [
+                        stock.symbol,
+                        stock.company_name,
+                        stock.rs_rating ?? '-',
+                        stock.rs_rating_1_week_ago ?? '-',
+                        stock.rs_rating_4_weeks_ago ?? '-',
+                        stock.rs_rating_3_months_ago ?? '-',
+                        stock.rs_rating_6_months_ago ?? '-',
+                        stock.rs_rating_1_year_ago ?? '-',
+                        stock.industry,
+                        stock.sub_industry,
+                        formatShariahApproval(stock.approval_with_controls),
+                        formatPurgeAmount(stock.purge_amount),
+                        formatMarginable(stock.marginable_percent)
+                    ]);
+                    expandedStockTables.push({
+                        title: `Stocks in ${item.industry_group}`,
+                        rows: sRows
+                    });
+                }
+            }
         });
 
-        const csvContent = [
-            headers.join(','),
-            ...rows.map(row => row.join(','))
-        ].join('\n');
+        if (format === 'pdf') {
+            import('jspdf').then(({ default: jsPDF }) => {
+                import('jspdf-autotable').then(({ default: autoTable }) => {
+                    const doc = new jsPDF({ orientation: 'landscape' });
+                    
+                    doc.setFontSize(14);
+                    doc.text("Industry Groups Ranking", 14, 15);
+                    
+                    autoTable(doc, {
+                        startY: 20,
+                        head: [groupHeaders],
+                        body: groupRows,
+                        theme: 'striped',
+                        styles: { fontSize: 8 },
+                        headStyles: { fillColor: [41, 128, 185] }
+                    });
+                    
+                    expandedStockTables.forEach(table => {
+                        autoTable(doc, {
+                            margin: { top: 20 },
+                            head: [[table.title]],
+                            body: [],
+                            theme: 'plain',
+                            styles: { fontSize: 10, fontStyle: 'bold', fillColor: [240, 240, 240] }
+                        });
+                        autoTable(doc, {
+                            head: [stockHeaders],
+                            body: table.rows,
+                            theme: 'striped',
+                            styles: { fontSize: 8 },
+                            headStyles: { fillColor: [52, 73, 94] }
+                        });
+                    });
+                    
+                    doc.save(`industry_groups_${new Date().toISOString().split('T')[0]}.pdf`);
+                });
+            });
+            return;
+        }
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.setAttribute('href', url);
-        link.setAttribute('download', `industry_groups_ranking_${new Date().toISOString().split('T')[0]}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        // For Excel/CSV/TXT: build a massive combined 2D array
+        const allSheetRows: any[][] = [];
+        allSheetRows.push(groupHeaders);
+        groupRows.forEach(r => allSheetRows.push(r));
+        
+        expandedStockTables.forEach(table => {
+            allSheetRows.push([]); // blank line
+            allSheetRows.push([table.title]); // title
+            allSheetRows.push(stockHeaders); // cols
+            table.rows.forEach(r => allSheetRows.push(r));
+        });
+
+        if (format === 'csv' || format === 'txt') {
+            const sep = format === 'csv' ? ',' : '\t';
+            const esc = (val: any) => {
+                if (val === null || val === undefined) return '';
+                const s = String(val);
+                if (s.includes(sep) || s.includes('"') || s.includes('\n')) {
+                    return `"${s.replace(/"/g, '""')}"`;
+                }
+                return s;
+            };
+
+            const content = allSheetRows.map(row => row.map(esc).join(sep)).join('\n');
+            const blob = new Blob([content], { type: format === 'csv' ? 'text/csv;charset=utf-8;' : 'text/plain;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `industry_groups_${new Date().toISOString().split('T')[0]}.${format}`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            return;
+        }
+
+        // XLS / XLSX
+        if (format === 'xls' || format === 'xlsx') {
+            const worksheet = XLSX.utils.aoa_to_sheet(allSheetRows);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Industry Groups");
+            XLSX.writeFile(workbook, `industry_groups_${new Date().toISOString().split('T')[0]}.${format}`);
+            return;
+        }
     };
 
     if (isLoading) return (
@@ -1012,22 +1137,62 @@ export default function IndustryGroupsPage() {
                 }
             `}</style>
 
-            <div className="flex">
+            <div className="flex relative">
                 {/* Sidebar */}
                 <div
                     className={`
-                        bg-white border-r border-gray-200 h-[calc(100vh-64px)] flex flex-col transition-all duration-300 ease-in-out overflow-hidden
-                        ${isSidebarOpen ? 'w-80 translate-x-0' : 'w-0 -translate-x-full opacity-0'}
+                        bg-white border-r border-gray-200 h-[calc(100vh-64px)] flex flex-col transition-all duration-300 ease-in-out flex-shrink-0
+                        ${isSidebarOpen ? 'w-80 opacity-100' : 'w-0 overflow-hidden opacity-0 pointer-events-none'}
                     `}
                 >
-                    <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 bg-white">
+                    <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 bg-white relative">
                         <button
-                            onClick={exportToCSV}
+                            onClick={() => setShowExportMenu(!showExportMenu)}
                             className="w-full px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center justify-center space-x-2 transition-all"
                         >
                             <Download className="w-4 h-4" />
-                            <span>Export to CSV</span>
+                            <span>Export Data</span>
                         </button>
+                        
+                        {showExportMenu && (
+                            <div className="absolute top-full left-4 right-4 mt-1 bg-white rounded-md shadow-lg z-50 border border-gray-200 py-1">
+                                <button
+                                    onClick={() => { exportData('pdf'); setShowExportMenu(false); }}
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                >
+                                    <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                                    <span>PDF Document (.pdf)</span>
+                                </button>
+                                <button
+                                    onClick={() => { exportData('csv'); setShowExportMenu(false); }}
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                >
+                                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                                    <span>comma delimited (.csv)</span>
+                                </button>
+                                <button
+                                    onClick={() => { exportData('xls'); setShowExportMenu(false); }}
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                >
+                                    <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                    <span>excel 97-2003 (.xls)</span>
+                                </button>
+                                <button
+                                    onClick={() => { exportData('xlsx'); setShowExportMenu(false); }}
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                >
+                                    <span className="w-2 h-2 bg-green-600 rounded-full"></span>
+                                    <span>excel (.xlsx)</span>
+                                </button>
+                                <button
+                                    onClick={() => { exportData('txt'); setShowExportMenu(false); }}
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                >
+                                    <span className="w-2 h-2 bg-gray-500 rounded-full"></span>
+                                    <span>Text (.txt)</span>
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
@@ -1231,15 +1396,55 @@ export default function IndustryGroupsPage() {
                                     onMinChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_1_year_ago_min: value }))}
                                     onMaxChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_1_year_ago_max: value }))}
                                 />
+
+                                <div className="pt-2 border-t border-gray-100">
+                                    <h4 className="text-[10px] font-bold text-gray-400 mb-3 tracking-wider uppercase">Shariah & Margin</h4>
+                                    
+                                    <div className="space-y-4">
+                                        <CustomMultiSelect
+                                            options={['Compliant', 'Non-compliant', 'Brokerage Compliant']}
+                                            selected={stockFilters.approval_with_controls}
+                                            onChange={(value) => setStockFilters(prev => ({ ...prev, approval_with_controls: value }))}
+                                            placeholder="Shariah Status"
+                                            icon={Filter}
+                                        />
+
+                                        <RangeFilter
+                                            label="Purge Amount"
+                                            minValue={stockFilters.purge_amount_min}
+                                            maxValue={stockFilters.purge_amount_max}
+                                            onMinChange={(value) => setStockFilters(prev => ({ ...prev, purge_amount_min: value }))}
+                                            onMaxChange={(value) => setStockFilters(prev => ({ ...prev, purge_amount_max: value }))}
+                                        />
+
+                                        <RangeFilter
+                                            label="Marginable %"
+                                            minValue={stockFilters.marginable_percent_min}
+                                            maxValue={stockFilters.marginable_percent_max}
+                                            onMinChange={(value) => setStockFilters(prev => ({ ...prev, marginable_percent_min: value }))}
+                                            onMaxChange={(value) => setStockFilters(prev => ({ ...prev, marginable_percent_max: value }))}
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         </FilterAccordion>
                     </div>
 
                     {/* Sidebar Footer */}
                     <div className="flex-shrink-0 px-4 py-4 border-t border-gray-200 bg-white">
-                        <div className="flex flex-col space-y-3">
+                        <div className="flex flex-col space-y-2">
                             <button
-                                onClick={() => setCollapseSignal(prev => prev + 1)}
+                                onClick={expandAllGroups}
+                                className="w-full px-4 py-2.5 text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-lg transition-all flex items-center justify-center space-x-2"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                                </svg>
+                                <span>Expand All Groups</span>
+                            </button>
+
+                            <button
+                                onClick={collapseAllGroups}
                                 className="w-full px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all flex items-center justify-center space-x-2"
                             >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1261,18 +1466,22 @@ export default function IndustryGroupsPage() {
                     </div>
                 </div>
 
+                {/* Sidebar Toggle Button - Center Edge */}
+                <button
+                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                    className="absolute top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-5 h-14 bg-white border border-gray-200 border-l-0 rounded-r-md shadow-sm text-gray-500 hover:text-gray-800 hover:bg-gray-50 transition-all duration-300 ease-in-out cursor-pointer outline-none focus:ring-0"
+                    style={{ left: isSidebarOpen ? '320px' : '0px' }}
+                    title={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+                >
+                    {isSidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                </button>
+
                 {/* Main Content */}
                 <div className="flex-1 flex flex-col h-[calc(100vh-64px)] overflow-hidden">
                     {/* Header */}
                     <div className="bg-white border-b border-gray-200 px-4 py-2 flex-shrink-0">
                         <div className="flex justify-between items-center">
                             <div className="flex items-center space-x-4">
-                                <button
-                                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                                    className="p-1 hover:bg-gray-100 rounded text-gray-500"
-                                >
-                                    {isSidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                                </button>
                                 <div className="flex items-center space-x-2">
                                     <span className="text-sm font-medium text-gray-700">
                                         Industry Groups: <span className="font-bold">{filteredData.length}</span> groups
@@ -1542,24 +1751,25 @@ export default function IndustryGroupsPage() {
                                                                         <tbody className="divide-y divide-gray-100">
                                                                             {filteredStocks.map(stock => (
                                                                                 <tr key={stock.symbol} className="hover:bg-gray-50">
-                                                                                    <td className="px-3 py-2 font-medium text-blue-600">
+                                                                                    <td className="px-2 py-1.5 font-medium text-blue-600 whitespace-nowrap">
                                                                                         <Link href={`/stocks/${stock.symbol}`} className="hover:underline">
                                                                                             {stock.symbol}
                                                                                         </Link>
                                                                                     </td>
-                                                                                    <td className="px-3 py-2 truncate max-w-[150px]" title={stock.company_name}>{stock.company_name}</td>
-                                                                                    <td className={`px-3 py-2 text-center font-bold ${(stock.rs_rating || 0) >= 80 ? 'text-green-600' :
-                                                                                        (stock.rs_rating || 0) >= 70 ? 'text-yellow-600' : 'text-gray-500'
-                                                                                        }`}>
-                                                                                        {stock.rs_rating || '-'}
+                                                                                    <td className="px-2 py-1.5 truncate max-w-[130px]" title={stock.company_name}>{stock.company_name}</td>
+                                                                                    <td className={`px-2 py-1.5 text-center font-bold ${(stock.rs_rating || 0) >= 80 ? 'text-green-600' : (stock.rs_rating || 0) >= 70 ? 'text-yellow-600' : 'text-gray-500'}`}>
+                                                                                        {stock.rs_rating ?? '-'}
                                                                                     </td>
-                                                                                    <td className="px-3 py-2 text-center text-gray-600">{stock.rs_rating_1_week_ago || '-'}</td>
-                                                                                    <td className="px-3 py-2 text-center text-gray-600">{stock.rs_rating_4_weeks_ago || '-'}</td>
-                                                                                    <td className="px-3 py-2 text-center text-gray-600">{stock.rs_rating_3_months_ago || '-'}</td>
-                                                                                    <td className="px-3 py-2 text-center text-gray-600">{stock.rs_rating_6_months_ago || '-'}</td>
-                                                                                    <td className="px-3 py-2 text-center text-gray-600">{stock.rs_rating_1_year_ago || '-'}</td>
-                                                                                    <td className="px-3 py-2 text-gray-500">{stock.industry}</td>
-                                                                                    <td className="px-3 py-2 text-gray-500">{stock.sub_industry}</td>
+                                                                                    <td className="px-2 py-1.5 text-center text-gray-600">{stock.rs_rating_1_week_ago ?? '-'}</td>
+                                                                                    <td className="px-2 py-1.5 text-center text-gray-600">{stock.rs_rating_4_weeks_ago ?? '-'}</td>
+                                                                                    <td className="px-2 py-1.5 text-center text-gray-600">{stock.rs_rating_3_months_ago ?? '-'}</td>
+                                                                                    <td className="px-2 py-1.5 text-center text-gray-600">{stock.rs_rating_6_months_ago ?? '-'}</td>
+                                                                                    <td className="px-2 py-1.5 text-center text-gray-600">{stock.rs_rating_1_year_ago ?? '-'}</td>
+                                                                                    <td className="px-2 py-1.5 text-gray-500 whitespace-nowrap">{stock.industry}</td>
+                                                                                    <td className="px-2 py-1.5 text-gray-500 whitespace-nowrap">{stock.sub_industry}</td>
+                                                                                    <td className="px-2 py-1.5 text-center text-gray-600 whitespace-nowrap">{formatShariahApproval(stock.approval_with_controls)}</td>
+                                                                                    <td className="px-2 py-1.5 text-center text-gray-600">{formatPurgeAmount(stock.purge_amount)}</td>
+                                                                                    <td className="px-2 py-1.5 text-center text-gray-600">{formatMarginable(stock.marginable_percent)}</td>
                                                                                 </tr>
                                                                             ))}
                                                                         </tbody>

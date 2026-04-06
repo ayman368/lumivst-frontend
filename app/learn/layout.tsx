@@ -17,8 +17,8 @@ export default function LearnLayout({ children }: { children: React.ReactNode })
     <div>
       {/* Sub-navigation header */}
       <div style={{
-        background: '#162f22',
-        borderBottom: '1px solid rgba(168,213,181,0.15)',
+        background: '#111827',
+        borderBottom: '1px solid rgba(255,255,255,0.15)',
         zIndex: 20,
       }}>
         <div style={{
@@ -40,20 +40,20 @@ export default function LearnLayout({ children }: { children: React.ReactNode })
                   padding: '14px 20px',
                   fontSize: '12.5px',
                   fontWeight: isActive ? 700 : 500,
-                  color: isActive ? '#A8D5B5' : 'rgba(212,237,218,0.4)',
+                  color: isActive ? '#D1D5DB' : 'rgba(255,255,255,0.4)',
                   textDecoration: 'none',
                   whiteSpace: 'nowrap',
-                  borderBottom: isActive ? '2px solid #A8D5B5' : '2px solid transparent',
+                  borderBottom: isActive ? '2px solid #D1D5DB' : '2px solid transparent',
                   transition: 'all 0.2s ease',
                   letterSpacing: '0.3px',
                   textTransform: 'uppercase',
                   fontFamily: 'system-ui, sans-serif',
                 }}
                 onMouseEnter={(e) => {
-                  if (!isActive) (e.currentTarget as HTMLElement).style.color = 'rgba(212,237,218,0.75)';
+                  if (!isActive) (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.75)';
                 }}
                 onMouseLeave={(e) => {
-                  if (!isActive) (e.currentTarget as HTMLElement).style.color = 'rgba(212,237,218,0.4)';
+                  if (!isActive) (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.4)';
                 }}
               >
                 {tab.label}

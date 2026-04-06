@@ -2,16 +2,16 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { createChart, ColorType, CrosshairMode, AreaSeries } from 'lightweight-charts';
-import { Calendar, TrendingUp, TrendingDown, Search, Filter, X, ChevronRight, BarChart3, Sparkles, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react';
+import { Calendar, TrendingUp, TrendingDown, Search, Filter, X, ChevronRight, ChevronLeft, BarChart3, Sparkles, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react';
 
-// ─── DESIGN TOKENS: Warm Cream × Forest Green ────────────────────────────────
-// Page bg:         #EDE8DC   Sidebar/Card bg: #FDFAF5
-// Border:          #D9D2C3   Border-light:    #E8E2D5
-// Navbar/Accent:   #1C3D2E   Accent mid:      #2D6A4F
-// Text primary:    #2C2416   Text secondary:  #7A7060   Text muted: #A09880
-// Badge green bg:  #D4EDDA   text: #1C7A3F   border: #A8D5B5
-// Badge red bg:    #FADADD   text: #C0392B   border: #F5AAAF
-// Badge amber bg:  #FEF3C7   text: #92400E   border: #FCD37A
+// ─── DESIGN TOKENS: Black & White ────────────────────────────────
+// Page bg:         #FFFFFF   Sidebar/Card bg: #FFFFFF
+// Border:          #E5E7EB   Border-light:    #F3F4F6
+// Navbar/Accent:   #111827   Accent mid:      #374151
+// Text primary:    #111827   Text secondary:  #4B5563   Text muted: #9CA3AF
+// Badge green bg:  #DCFCE7   text: #15803D   border: #BBF7D0
+// Badge red bg:    #FEE2E2   text: #B91C1C   border: #FECACA
+// Badge amber bg:  #FEF3C7   text: #B45309   border: #FDE68A
 // ─────────────────────────────────────────────────────────────────────────────
 
 function RSHistoryChart({ data, period }: { data: any[], period: string }) {
@@ -25,20 +25,20 @@ function RSHistoryChart({ data, period }: { data: any[], period: string }) {
         const chart = createChart(chartContainerRef.current, {
             layout: {
                 background: { type: ColorType.Solid, color: 'transparent' },
-                textColor: '#7A7060',
+                textColor: '#6B7280',
                 fontFamily: 'system-ui, sans-serif',
             },
             grid: {
-                vertLines: { color: 'rgba(217,210,195,0.6)' },
-                horzLines: { color: 'rgba(217,210,195,0.6)' },
+                vertLines: { color: 'rgba(229,231,235,0.6)' },
+                horzLines: { color: 'rgba(229,231,235,0.6)' },
             },
             crosshair: {
                 mode: CrosshairMode.Magnet,
-                vertLine: { labelBackgroundColor: '#1C3D2E' },
-                horzLine: { labelBackgroundColor: '#1C3D2E' },
+                vertLine: { labelBackgroundColor: '#111827' },
+                horzLine: { labelBackgroundColor: '#111827' },
             },
-            rightPriceScale: { borderColor: '#D9D2C3' },
-            timeScale: { borderColor: '#D9D2C3', timeVisible: false, fixLeftEdge: true, fixRightEdge: true },
+            rightPriceScale: { borderColor: '#E5E7EB' },
+            timeScale: { borderColor: '#E5E7EB', timeVisible: false, fixLeftEdge: true, fixRightEdge: true },
         });
 
         const areaSeries = chart.addSeries(AreaSeries, {
@@ -217,15 +217,15 @@ export default function RSScreener() {
     };
 
     const getRSBadge = (v: number) => {
-        if (v >= 90) return { bg: '#D4EDDA', text: '#1C7A3F', border: '#A8D5B5' };
-        if (v >= 70) return { bg: '#D4E8FF', text: '#1A5276', border: '#A8CCE8' };
-        if (v >= 50) return { bg: '#FEF3C7', text: '#92400E', border: '#FCD37A' };
-        if (v >= 30) return { bg: '#FFE8CC', text: '#7C3D00', border: '#F5C68A' };
-        return { bg: '#FADADD', text: '#C0392B', border: '#F5AAAF' };
+        if (v >= 90) return { bg: '#DCFCE7', text: '#15803D', border: '#BBF7D0' };
+        if (v >= 70) return { bg: '#E0F2FE', text: '#0369A1', border: '#BAE6FD' };
+        if (v >= 50) return { bg: '#FEF3C7', text: '#B45309', border: '#FDE68A' };
+        if (v >= 30) return { bg: '#FFEDD5', text: '#C2410C', border: '#FDBA74' };
+        return { bg: '#FEE2E2', text: '#B91C1C', border: '#FECACA' };
     };
 
     const formatReturn = (v: number | undefined) => v === undefined || v === null ? '-' : `${(v * 100).toFixed(1)}%`;
-    const returnColor = (v: number | undefined) => v === undefined || v === null ? '#A09880' : v > 0 ? '#1C7A3F' : v < 0 ? '#C0392B' : '#7A7060';
+    const returnColor = (v: number | undefined) => v === undefined || v === null ? '#9CA3AF' : v > 0 ? '#15803D' : v < 0 ? '#B91C1C' : '#4B5563';
 
     const getRSChange = () => {
         if (historyData.length < 2) return { value: 0, isPositive: true };
@@ -235,53 +235,41 @@ export default function RSScreener() {
     const rsChange = getRSChange();
 
     // Shared input style
-    const inputStyle = { backgroundColor: '#F5F0E8', border: '1px solid #D9D2C3', color: '#2C2416' };
+    const inputStyle = { backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB', color: '#111827' };
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#EDE8DC', color: '#2C2416', fontFamily: 'system-ui, sans-serif' }}>
+        <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#FFFFFF', color: '#111827', fontFamily: 'system-ui, sans-serif', position: 'relative' }}>
 
             {/* ── Sidebar ── */}
             <div style={{
                 width: sidebarCollapsed ? '64px' : '295px',
                 flexShrink: 0,
-                backgroundColor: '#FDFAF5',
-                borderRight: '1px solid #D9D2C3',
-                boxShadow: '2px 0 8px rgba(44,36,22,0.06)',
+                backgroundColor: '#FFFFFF',
+                borderRight: '1px solid #E5E7EB',
+                boxShadow: '2px 0 8px rgba(0,0,0,0.06)',
                 display: 'flex',
                 flexDirection: 'column',
                 transition: 'width 0.3s',
                 position: 'relative',
             }}>
-                {/* Toggle button */}
-                <button
-                    onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                    style={{
-                        position: 'absolute', right: '-12px', top: '24px', zIndex: 10,
-                        width: '24px', height: '24px', borderRadius: '50%',
-                        backgroundColor: '#1C3D2E', border: 'none', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(28,61,46,0.3)',
-                    }}
-                >
-                    <ChevronRight size={13} color="#D4EDDA" style={{ transform: sidebarCollapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.3s' }} />
-                </button>
 
                 {!sidebarCollapsed && (
                     <>
                         {/* Header */}
-                        <div style={{ padding: '20px', borderBottom: '1px solid #E8E2D5' }}>
+                        <div style={{ padding: '20px', borderBottom: '1px solid #F3F4F6' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
-                                <div style={{ width: '40px', height: '40px', borderRadius: '12px', backgroundColor: '#1C3D2E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <BarChart3 size={20} color="#A8D5B5" />
+                                <div style={{ width: '40px', height: '40px', borderRadius: '12px', backgroundColor: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <BarChart3 size={20} color="#FFFFFF" />
                                 </div>
                                 <div>
-                                    <div style={{ fontWeight: 700, fontSize: '15px', color: '#2C2416' }}>RS Screener</div>
-                                    <div style={{ fontSize: '11px', color: '#7A7060' }}>Relative Strength Analysis</div>
+                                    <div style={{ fontWeight: 700, fontSize: '15px', color: '#111827' }}>RS Screener</div>
+                                    <div style={{ fontSize: '11px', color: '#6B7280' }}>Relative Strength Analysis</div>
                                 </div>
                             </div>
 
                             {/* Search */}
                             <div style={{ position: 'relative', marginBottom: '14px' }}>
-                                <Search size={14} color="#A09880" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+                                <Search size={14} color="#9CA3AF" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
                                 <input
                                     type="text"
                                     placeholder="Search stocks..."
@@ -293,8 +281,8 @@ export default function RSScreener() {
 
                             {/* Quick filter label */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                                <Filter size={12} color="#A09880" />
-                                <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#A09880' }}>Quick Filters</span>
+                                <Filter size={12} color="#9CA3AF" />
+                                <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#9CA3AF' }}>Quick Filters</span>
                             </div>
 
                             {/* Filter grid */}
@@ -304,9 +292,9 @@ export default function RSScreener() {
                                     return (
                                         <button key={f.label} onClick={() => setFilterRange(f.range as [number, number])} style={{
                                             padding: '8px', borderRadius: '10px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s',
-                                            backgroundColor: active ? '#1C3D2E' : '#F5F0E8',
-                                            color: active ? '#D4EDDA' : '#7A7060',
-                                            border: `1px solid ${active ? '#1C3D2E' : '#D9D2C3'}`,
+                                            backgroundColor: active ? '#111827' : '#F9FAFB',
+                                            color: active ? '#FFFFFF' : '#6B7280',
+                                            border: `1px solid ${active ? '#111827' : '#E5E7EB'}`,
                                         }}>
                                             {f.label}
                                         </button>
@@ -316,40 +304,40 @@ export default function RSScreener() {
                         </div>
 
                         {/* Stock list */}
-                        <div style={{ overflowY: 'auto', flex: 1, padding: '10px' }}>
+                        <div style={{ overflowY: 'auto', maxHeight: '480px', padding: '10px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 8px 8px' }}>
-                                <span style={{ fontSize: '11px', color: '#A09880' }}>{filteredStocks.length} stocks</span>
-                                <Sparkles size={11} color="#2D6A4F" />
+                                <span style={{ fontSize: '11px', color: '#9CA3AF' }}>{filteredStocks.length} stocks</span>
+                                <Sparkles size={11} color="#374151" />
                             </div>
 
                             {loading ? (
                                 <div style={{ textAlign: 'center', padding: '32px 0' }}>
-                                    <Loader2 size={28} color="#2D6A4F" style={{ margin: '0 auto 8px', animation: 'spin 1s linear infinite' }} />
-                                    <p style={{ fontSize: '12px', color: '#A09880' }}>Loading stocks...</p>
+                                    <Loader2 size={28} color="#374151" style={{ margin: '0 auto 8px', animation: 'spin 1s linear infinite' }} />
+                                    <p style={{ fontSize: '12px', color: '#9CA3AF' }}>Loading stocks...</p>
                                 </div>
                             ) : filteredStocks.length === 0 ? (
-                                <p style={{ fontSize: '12px', color: '#A09880', textAlign: 'center', padding: '32px 0' }}>No stocks found</p>
+                                <p style={{ fontSize: '12px', color: '#9CA3AF', textAlign: 'center', padding: '32px 0' }}>No stocks found</p>
                             ) : filteredStocks.map(stock => {
                                 const isSelected = selectedStock?.symbol === stock.symbol;
                                 const badge = getRSBadge(stock.rs_rating);
                                 return (
                                     <div key={stock.symbol} onClick={() => setSelectedStock(stock)} style={{
                                         marginBottom: '6px', padding: '12px', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s', border: '1px solid',
-                                        backgroundColor: isSelected ? '#E8F5EE' : '#FDFAF5',
-                                        borderColor: isSelected ? '#2D6A4F' : '#E8E2D5',
-                                        boxShadow: isSelected ? '0 1px 6px rgba(28,61,46,0.12)' : 'none',
+                                        backgroundColor: isSelected ? '#F3F4F6' : '#FFFFFF',
+                                        borderColor: isSelected ? '#111827' : '#E5E7EB',
+                                        boxShadow: isSelected ? '0 1px 6px rgba(0,0,0,0.12)' : 'none',
                                     }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                                             <div style={{ flex: 1, minWidth: 0, marginRight: '8px' }}>
-                                                <div style={{ fontWeight: 700, fontSize: '13px', color: '#2C2416', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stock.company_name || stock.symbol}</div>
-                                                <div style={{ fontSize: '11px', color: '#A09880', fontFamily: 'monospace' }}>{stock.symbol}</div>
+                                                <div style={{ fontWeight: 700, fontSize: '13px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stock.company_name || stock.symbol}</div>
+                                                <div style={{ fontSize: '11px', color: '#9CA3AF', fontFamily: 'monospace' }}>{stock.symbol}</div>
                                             </div>
                                             <div style={{ padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 900, backgroundColor: badge.bg, color: badge.text, border: `1px solid ${badge.border}` }}>
                                                 {stock.rs_rating}
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
-                                            <span style={{ color: '#A09880' }}>12M Return</span>
+                                            <span style={{ color: '#9CA3AF' }}>12M Return</span>
                                             <span style={{ fontWeight: 700, color: returnColor(stock.return_12m), display: 'flex', alignItems: 'center', gap: '2px' }}>
                                                 {stock.return_12m !== undefined && stock.return_12m > 0 && <ArrowUpRight size={11} />}
                                                 {stock.return_12m !== undefined && stock.return_12m < 0 && <ArrowDownRight size={11} />}
@@ -365,22 +353,32 @@ export default function RSScreener() {
 
                 {sidebarCollapsed && (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 0', gap: '20px' }}>
-                        <div style={{ width: '32px', height: '32px', borderRadius: '10px', backgroundColor: '#1C3D2E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <BarChart3 size={16} color="#A8D5B5" />
+                        <div style={{ width: '32px', height: '32px', borderRadius: '10px', backgroundColor: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <BarChart3 size={16} color="#FFFFFF" />
                         </div>
-                        <Search size={14} color="#A09880" />
-                        <Filter size={14} color="#A09880" />
-                        <Sparkles size={12} color="#2D6A4F" />
+                        <Search size={14} color="#9CA3AF" />
+                        <Filter size={14} color="#9CA3AF" />
+                        <Sparkles size={12} color="#374151" />
                     </div>
                 )}
             </div>
+
+            {/* Sidebar Toggle Button - Center Edge */}
+            <button
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                className="absolute top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-5 h-14 bg-white border border-gray-200 border-l-0 rounded-r-md shadow-sm text-gray-500 hover:text-gray-800 hover:bg-gray-50 transition-all duration-300 ease-in-out cursor-pointer outline-none focus:ring-0"
+                style={{ left: sidebarCollapsed ? '64px' : '295px' }}
+                title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            >
+                {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            </button>
 
             {/* ── Main Content ── */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 {selectedStock ? (
                     <>
                         {/* Top bar */}
-                        <div style={{ padding: '20px 32px', backgroundColor: '#FDFAF5', borderBottom: '1px solid #D9D2C3', boxShadow: '0 1px 4px rgba(44,36,22,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 20 }}>
+                        <div style={{ padding: '20px 32px', backgroundColor: '#FFFFFF', borderBottom: '1px solid #E5E7EB', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 20 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                 {(() => {
                                     const b = getRSBadge(selectedStock.rs_rating); return (
@@ -390,15 +388,15 @@ export default function RSScreener() {
                                     );
                                 })()}
                                 <div>
-                                    <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#2C2416', marginBottom: '4px' }}>{selectedStock.company_name}</h1>
+                                    <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', marginBottom: '4px' }}>{selectedStock.company_name}</h1>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span style={{ fontSize: '13px', fontFamily: 'monospace', color: '#7A7060' }}>{selectedStock.symbol}</span>
-                                        <span style={{ color: '#D9D2C3' }}>•</span>
+                                        <span style={{ fontSize: '13px', fontFamily: 'monospace', color: '#6B7280' }}>{selectedStock.symbol}</span>
+                                        <span style={{ color: '#E5E7EB' }}>•</span>
                                         <span style={{
                                             fontSize: '12px', fontWeight: 700, padding: '3px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px',
-                                            backgroundColor: rsChange.isPositive ? '#D4EDDA' : '#FADADD',
-                                            color: rsChange.isPositive ? '#1C7A3F' : '#C0392B',
-                                            border: `1px solid ${rsChange.isPositive ? '#A8D5B5' : '#F5AAAF'}`,
+                                            backgroundColor: rsChange.isPositive ? '#DCFCE7' : '#FEE2E2',
+                                            color: rsChange.isPositive ? '#15803D' : '#B91C1C',
+                                            border: `1px solid ${rsChange.isPositive ? '#BBF7D0' : '#FECACA'}`,
                                         }}>
                                             {rsChange.isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                                             {rsChange.isPositive ? '+' : ''}{rsChange.value.toFixed(1)} pts ({selectedPeriod})
@@ -408,47 +406,47 @@ export default function RSScreener() {
                             </div>
 
                             {/* Period selector */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px', borderRadius: '14px', backgroundColor: '#EDE8DC', border: '1px solid #D9D2C3' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px', borderRadius: '14px', backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB' }}>
                                 {PERIOD_OPTIONS.map(opt => {
                                     const active = selectedPeriod === opt.label;
                                     return (
                                         <button key={opt.label} onClick={() => handlePeriodChange(opt.label)} style={{
                                             padding: '6px 12px', fontSize: '12px', fontWeight: 700, borderRadius: '10px', border: 'none', cursor: 'pointer', transition: 'all 0.2s',
-                                            backgroundColor: active ? '#1C3D2E' : 'transparent',
-                                            color: active ? '#D4EDDA' : '#7A7060',
-                                            boxShadow: active ? '0 1px 4px rgba(28,61,46,0.3)' : 'none',
+                                            backgroundColor: active ? '#111827' : 'transparent',
+                                            color: active ? '#FFFFFF' : '#6B7280',
+                                            boxShadow: active ? '0 1px 4px rgba(0,0,0,0.3)' : 'none',
                                         }}>{opt.label}</button>
                                     );
                                 })}
                                 <div style={{ position: 'relative' }} ref={datePickerRef}>
                                     <button onClick={() => setShowDatePicker(!showDatePicker)} style={{
                                         display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '12px', fontWeight: 700, borderRadius: '10px', border: 'none', cursor: 'pointer', transition: 'all 0.2s',
-                                        backgroundColor: showDatePicker || selectedPeriod === 'Custom' ? '#1C3D2E' : 'transparent',
-                                        color: showDatePicker || selectedPeriod === 'Custom' ? '#D4EDDA' : '#7A7060',
+                                        backgroundColor: showDatePicker || selectedPeriod === 'Custom' ? '#111827' : 'transparent',
+                                        color: showDatePicker || selectedPeriod === 'Custom' ? '#FFFFFF' : '#6B7280',
                                     }}>
                                         <Calendar size={13} />
                                         {selectedPeriod === 'Custom' && <span>Custom</span>}
                                     </button>
                                     {showDatePicker && (
-                                        <div style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, width: '340px', backgroundColor: '#FDFAF5', border: '1px solid #D9D2C3', borderRadius: '16px', boxShadow: '0 8px 32px rgba(44,36,22,0.12)', padding: '20px', zIndex: 50 }}>
+                                        <div style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, width: '340px', backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', padding: '20px', zIndex: 50 }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                                <span style={{ fontSize: '14px', fontWeight: 700, color: '#2C2416' }}>Custom Date Range</span>
-                                                <button onClick={() => setShowDatePicker(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#A09880' }}><X size={16} /></button>
+                                                <span style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>Custom Date Range</span>
+                                                <button onClick={() => setShowDatePicker(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF' }}><X size={16} /></button>
                                             </div>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                                                 {[{ label: 'Start Date', val: customStartDate, set: setCustomStartDate }, { label: 'End Date', val: customEndDate, set: setCustomEndDate }].map(({ label, val, set }) => (
                                                     <div key={label}>
-                                                        <label style={{ display: 'block', fontSize: '11px', color: '#7A7060', marginBottom: '6px', fontWeight: 600 }}>{label}</label>
+                                                        <label style={{ display: 'block', fontSize: '11px', color: '#6B7280', marginBottom: '6px', fontWeight: 600 }}>{label}</label>
                                                         <input type="date" value={val} onChange={e => set(e.target.value)} style={{ ...inputStyle, width: '100%', padding: '8px 10px', borderRadius: '10px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
                                                     </div>
                                                 ))}
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                                <button onClick={() => { setCustomStartDate(''); setCustomEndDate(''); setShowDatePicker(false); }} style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px', border: '1px solid #D9D2C3', backgroundColor: '#F5F0E8', color: '#7A7060', cursor: 'pointer' }}>Cancel</button>
+                                                <button onClick={() => { setCustomStartDate(''); setCustomEndDate(''); setShowDatePicker(false); }} style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '10px', border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB', color: '#6B7280', cursor: 'pointer' }}>Cancel</button>
                                                 <button onClick={handleApplyCustomRange} disabled={!customStartDate || !customEndDate} style={{
                                                     padding: '8px 16px', fontSize: '13px', fontWeight: 700, borderRadius: '10px', border: 'none', cursor: !customStartDate || !customEndDate ? 'not-allowed' : 'pointer',
-                                                    backgroundColor: !customStartDate || !customEndDate ? '#E8E2D5' : '#1C3D2E',
-                                                    color: !customStartDate || !customEndDate ? '#A09880' : '#D4EDDA',
+                                                    backgroundColor: !customStartDate || !customEndDate ? '#F3F4F6' : '#111827',
+                                                    color: !customStartDate || !customEndDate ? '#9CA3AF' : '#FFFFFF',
                                                 }}>Apply Range</button>
                                             </div>
                                         </div>
@@ -458,29 +456,29 @@ export default function RSScreener() {
                         </div>
 
                         {/* Body */}
-                        <div style={{ flex: 1, padding: '28px', overflowY: 'auto', backgroundColor: '#EDE8DC' }}>
+                        <div style={{ flex: 1, padding: '28px', overflowY: 'auto', backgroundColor: '#FFFFFF' }}>
                             {/* Chart */}
-                            <div style={{ backgroundColor: '#FDFAF5', border: '1px solid #D9D2C3', borderRadius: '20px', padding: '20px', marginBottom: '20px', boxShadow: '0 1px 6px rgba(44,36,22,0.06)', height: '440px', display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '20px', padding: '20px', marginBottom: '20px', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', height: '440px', display: 'flex', flexDirection: 'column' }}>
                                 <div style={{ marginBottom: '16px' }}>
-                                    <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#2C2416', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <div style={{ width: '3px', height: '20px', backgroundColor: '#2D6A4F', borderRadius: '2px' }} />
+                                    <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{ width: '3px', height: '20px', backgroundColor: '#374151', borderRadius: '2px' }} />
                                         RS Rating History
                                     </h2>
-                                    <p style={{ fontSize: '12px', color: '#A09880', marginTop: '2px' }}>{historyData.length} data points • {selectedPeriod}</p>
+                                    <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>{historyData.length} data points • {selectedPeriod}</p>
                                 </div>
                                 <div style={{ flex: 1 }}>
                                     {historyLoading ? (
                                         <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <div style={{ textAlign: 'center' }}>
-                                                <Loader2 size={40} color="#2D6A4F" style={{ margin: '0 auto 12px', animation: 'spin 1s linear infinite' }} />
-                                                <p style={{ fontSize: '13px', color: '#A09880' }}>Loading chart data...</p>
+                                                <Loader2 size={40} color="#374151" style={{ margin: '0 auto 12px', animation: 'spin 1s linear infinite' }} />
+                                                <p style={{ fontSize: '13px', color: '#9CA3AF' }}>Loading chart data...</p>
                                             </div>
                                         </div>
                                     ) : historyData.length === 0 ? (
                                         <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <div style={{ textAlign: 'center' }}>
-                                                <BarChart3 size={40} color="#D9D2C3" style={{ margin: '0 auto 12px' }} />
-                                                <p style={{ fontSize: '13px', color: '#A09880' }}>No data available for this period</p>
+                                                <BarChart3 size={40} color="#E5E7EB" style={{ margin: '0 auto 12px' }} />
+                                                <p style={{ fontSize: '13px', color: '#9CA3AF' }}>No data available for this period</p>
                                             </div>
                                         </div>
                                     ) : (
@@ -497,8 +495,8 @@ export default function RSScreener() {
                                     { label: '9M Return', value: selectedStock.return_9m },
                                     { label: '12M Return', value: selectedStock.return_12m },
                                 ].map(item => (
-                                    <div key={item.label} style={{ backgroundColor: '#FDFAF5', border: '1px solid #D9D2C3', borderRadius: '16px', padding: '20px', boxShadow: '0 1px 4px rgba(44,36,22,0.05)' }}>
-                                        <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#A09880', display: 'block', marginBottom: '8px' }}>{item.label}</span>
+                                    <div key={item.label} style={{ backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '16px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                                        <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#9CA3AF', display: 'block', marginBottom: '8px' }}>{item.label}</span>
                                         <div style={{ fontSize: '22px', fontWeight: 900, color: returnColor(item.value), display: 'flex', alignItems: 'center', gap: '4px' }}>
                                             {item.value !== undefined && item.value > 0 && <ArrowUpRight size={18} />}
                                             {item.value !== undefined && item.value < 0 && <ArrowDownRight size={18} />}
@@ -510,13 +508,13 @@ export default function RSScreener() {
                         </div>
                     </>
                 ) : (
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#EDE8DC' }}>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' }}>
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ width: '80px', height: '80px', borderRadius: '20px', backgroundColor: '#E8F5EE', border: '1px solid #A8D5B5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-                                <TrendingUp size={36} color="#2D6A4F" />
+                            <div style={{ width: '80px', height: '80px', borderRadius: '20px', backgroundColor: '#F3F4F6', border: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                                <TrendingUp size={36} color="#374151" />
                             </div>
-                            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#2C2416', marginBottom: '6px' }}>Select a Stock</h3>
-                            <p style={{ color: '#A09880' }}>Choose a stock from the sidebar to view detailed RS analysis</p>
+                            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', marginBottom: '6px' }}>Select a Stock</h3>
+                            <p style={{ color: '#9CA3AF' }}>Choose a stock from the sidebar to view detailed RS analysis</p>
                         </div>
                     </div>
                 )}
