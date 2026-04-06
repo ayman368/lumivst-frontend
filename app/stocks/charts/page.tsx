@@ -9,6 +9,7 @@ import LightweightChart from '../components/LightweightChart';
 import SymbolSearchModal from '../components/SymbolSearchModal';
 import ActiveFilterBadge from '../components/ActiveFilterBadge';
 const initialFilterState: FilterState = {
+    quickFilter: '',
     rs_rating_min: '', rs_rating_max: '',
     acc_dis_rating: [], industry_group_rs: [], sector_rs: [], industry_rs: [], sub_industry_rs: [],
     approval_with_controls: [],
