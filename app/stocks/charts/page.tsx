@@ -11,7 +11,7 @@ import ActiveFilterBadge from '../components/ActiveFilterBadge';
 const initialFilterState: FilterState = {
     rs_rating_min: '', rs_rating_max: '',
     acc_dis_rating: [], industry_group_rs: [], sector_rs: [], industry_rs: [], sub_industry_rs: [],
-    approval_with_controls: '',
+    approval_with_controls: [],
     purge_amount_min: '', purge_amount_max: '',
     marginable_percent_min: '', marginable_percent_max: '',
     price_min: '', price_max: '',
