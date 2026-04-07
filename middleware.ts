@@ -2,10 +2,34 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
-  // NOTE:
-  // Authentication cookies are issued by backend domain (cross-site HttpOnly),
-  // so frontend middleware cannot reliably validate auth state.
-  // Authorization/approval is enforced by backend + client auth checks.
+  const path = request.nextUrl.pathname;
+  const publicPaths = [
+    '/login',
+    '/register',
+    '/auth/',
+    '/pending-approval',
+    '/terms',
+    '/terms-of-service',
+    '/privacy',
+    '/privacy-policy',
+    '/delete-account',
+    '/about',
+    '/contact',
+  ];
+
+  const isPublicPath = publicPaths.some((p) => path.startsWith(p)) || path.startsWith('/api/public');
+  const authMarker = request.cookies.get('frontend_auth')?.value;
+
+  if (!authMarker && !isPublicPath) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('callbackUrl', `${path}${request.nextUrl.search}`);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  if (authMarker && (path === '/login' || path === '/register')) {
+    return NextResponse.redirect(new URL('/', request.url));
+  }
+
   return NextResponse.next();
 }
 

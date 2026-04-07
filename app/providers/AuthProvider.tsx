@@ -41,6 +41,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkAuth();
   }, []);
 
+  const setFrontendAuthMarker = (enabled: boolean) => {
+    if (typeof document === 'undefined') return;
+    if (enabled) {
+      const isSecure = window.location.protocol === 'https:';
+      document.cookie = `frontend_auth=1; path=/; max-age=604800; SameSite=Lax; ${isSecure ? 'Secure' : ''}`;
+    } else {
+      document.cookie = 'frontend_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+    }
+  };
+
   const checkAuth = async () => {
     try {
       const res = await fetch(`${API_URL}/api/auth/me`, {
@@ -51,16 +61,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userData = await res.json();
         if (userData && userData.is_approved === false) {
           setUser(null);
+          setFrontendAuthMarker(false);
           if (typeof window !== 'undefined' && window.location.pathname !== '/pending-approval') {
             router.push('/pending-approval');
           }
           return;
         }
         setUser(userData);
+        setFrontendAuthMarker(true);
       } else if (res.status === 401) {
         setUser(null);
+        setFrontendAuthMarker(false);
       } else if (res.status === 403) {
         setUser(null);
+        setFrontendAuthMarker(false);
         if (typeof window !== 'undefined' && window.location.pathname !== '/pending-approval') {
           router.push('/pending-approval');
         }
@@ -98,6 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const data = await res.json();
     if (data.user) {
       setUser(data.user);
+      setFrontendAuthMarker(true);
     } else {
       await checkAuth();
     }
@@ -146,6 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Ignore logout network failure on client.
     }
     setUser(null);
+    setFrontendAuthMarker(false);
     router.push('/login');
   };
 
