@@ -2,52 +2,10 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
-  const path = request.nextUrl.pathname;
-
-  // Define public paths (pages accessible without login)
-  const publicPaths = [
-    '/login',
-    '/register',
-    '/auth/',
-    '/pending-approval',
-    '/terms',
-    '/terms-of-service',
-    '/privacy',
-    '/privacy-policy',
-    '/delete-account',
-    '/about',
-    '/contact'
-  ];
-
-  // Check if this is a public path
-  const isPublicPath = publicPaths.some(p => path.startsWith(p)) || path.startsWith('/api/public');
-
-  const token = request.cookies.get('session_token')?.value;
-  const pendingToken = request.cookies.get('pending_token')?.value;
-
-  // Pending-approval users should stay on pending flow until approved.
-  if (pendingToken && !path.startsWith('/pending-approval') && !path.startsWith('/auth/')) {
-    return NextResponse.redirect(new URL('/pending-approval', request.url));
-  }
-
-  // 1. If NO TOKEN
-  if (!token) {
-    // Allow public paths
-    if (isPublicPath) {
-      return NextResponse.next();
-    }
-    // Redirect to login for ALL other paths (including /)
-    console.log(`[Middleware] No token, redirecting to login from: ${path}`);
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('callbackUrl', encodeURIComponent(path));
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // 2. If HAS TOKEN: trust backend for final authorization.
-  if (path === '/login' || path === '/register') {
-    return NextResponse.redirect(new URL('/', request.url));
-  }
-
+  // NOTE:
+  // Authentication cookies are issued by backend domain (cross-site HttpOnly),
+  // so frontend middleware cannot reliably validate auth state.
+  // Authorization/approval is enforced by backend + client auth checks.
   return NextResponse.next();
 }
 
