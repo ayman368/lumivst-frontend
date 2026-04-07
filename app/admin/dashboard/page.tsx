@@ -31,28 +31,21 @@ export default function AdminDashboard() {
     const [deletingId, setDeletingId] = useState<number | null>(null);
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            router.push('/admin/login');
-            return;
-        }
         fetchMessages();
     }, []);
 
     const fetchMessages = async (search?: string) => {
         setLoading(true);
         try {
-            const token = localStorage.getItem('token');
             const params = search ? { search } : {};
             const response = await axios.get(`${API_URL}/api/contact/`, {
-                headers: { Authorization: `Bearer ${token}` },
+                withCredentials: true,
                 params
             });
             setMessages(response.data);
         } catch (error: any) {
             console.error('Error fetching messages:', error);
             if (error.response?.status === 401 || error.response?.status === 403) {
-                localStorage.removeItem('token');
                 router.push('/admin/login');
             }
         } finally {
@@ -70,9 +63,8 @@ export default function AdminDashboard() {
 
         setDeletingId(id);
         try {
-            const token = localStorage.getItem('token');
             await axios.delete(`${API_URL}/api/contact/${id}`, {
-                headers: { Authorization: `Bearer ${token}` }
+                withCredentials: true
             });
             setMessages(messages.filter(msg => msg.id !== id));
         } catch (error) {
@@ -83,9 +75,10 @@ export default function AdminDashboard() {
         }
     };
 
-    const handleLogout = () => {
-        localStorage.removeItem('token');
-        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+    const handleLogout = async () => {
+        try {
+            await fetch(`${API_URL}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+        } catch {}
         router.push('/admin/login');
     };
 

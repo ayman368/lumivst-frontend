@@ -26,11 +26,8 @@ export default function ReportsPage() {
 
     const fetchCompanies = async () => {
         try {
-            const token = localStorage.getItem('token');
             const res = await fetch(`${API_BASE}/api/scraper/companies`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                credentials: 'include'
             });
             if (res.ok) {
                 const data = await res.json();

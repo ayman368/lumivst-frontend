@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AuthService } from '@/lib/services/auth';
 
 export default function PendingApproval() {
     const router = useRouter();
@@ -24,65 +23,34 @@ export default function PendingApproval() {
             }
         }
 
-        // Check status every 5 seconds
-        const interval = setInterval(async () => {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+        const eventSource = new EventSource(`${API_URL}/api/auth/pending-status/stream`, { withCredentials: true } as EventSourceInit);
+
+        eventSource.onmessage = async (event) => {
             try {
-                const tempToken = localStorage.getItem('tempToken');
-                if (!tempToken || !pendingUser) {
-                    console.log('No temp token or pending user available');
-                    return;
-                }
-
-                // Try to check auth status using temp token
-                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/auth/me`, {
-                    headers: {
-                        'Authorization': `Bearer ${tempToken}`
+                const payload = JSON.parse(event.data) as { approved?: boolean };
+                if (payload.approved) {
+                    const refreshResponse = await fetch(`${API_URL}/api/auth/refresh-token`, {
+                        method: 'POST',
+                        credentials: 'include'
+                    });
+                    if (refreshResponse.ok) {
+                        localStorage.removeItem('pendingUser');
+                        localStorage.removeItem('pendingApprovalMessage');
+                        eventSource.close();
+                        window.location.href = '/';
                     }
-                });
-
-                if (response.ok) {
-                    const user = await response.json();
-                    if (user && user.is_approved) {
-                        console.log('✅ User approved! Attempting to get fresh token...');
-                        clearInterval(interval);
-
-                        // Try to refresh token
-                        try {
-                            const refreshResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/auth/refresh-token`, {
-                                method: 'POST',
-                                headers: {
-                                    'Authorization': `Bearer ${tempToken}`
-                                }
-                            });
-
-                            if (refreshResponse.ok) {
-                                const refreshData = await refreshResponse.json();
-                                localStorage.setItem('token', refreshData.access_token);
-                                document.cookie = `session_token=${refreshData.access_token}; path=/; max-age=2592000; SameSite=Lax`;
-                                // Clear pending data
-                                localStorage.removeItem('tempToken');
-                                localStorage.removeItem('pendingUser');
-                                localStorage.removeItem('pendingApprovalMessage');
-                                // Redirect
-                                window.location.href = '/';
-                            }
-                        } catch (refreshError) {
-                            console.error('Token refresh failed:', refreshError);
-                            // Fallback: redirect to login
-                            localStorage.removeItem('tempToken');
-                            localStorage.removeItem('pendingUser');
-                            router.push('/login');
-                        }
-                    }
-                } else {
-                    console.log('User not approved yet or token invalid');
                 }
-            } catch (error) {
-                console.error('Check auth error:', error);
+            } catch {
+                // Ignore malformed stream event.
             }
-        }, 5000);
+        };
 
-        return () => clearInterval(interval);
+        eventSource.onerror = () => {
+            eventSource.close();
+        };
+
+        return () => eventSource.close();
     }, [router]);
 
     return (
@@ -132,7 +100,6 @@ export default function PendingApproval() {
 
                 <button
                     onClick={() => {
-                        localStorage.removeItem('tempToken');
                         localStorage.removeItem('pendingUser');
                         localStorage.removeItem('pendingApprovalMessage');
                         router.push('/login');
@@ -143,7 +110,7 @@ export default function PendingApproval() {
                 </button>
 
                 <p className="text-xs text-gray-500 mt-4">
-                    سيتم التحقق من الحالة كل 5 ثواني
+                    سيتم التحقق من الحالة تلقائياً
                 </p>
             </div>
         </div>

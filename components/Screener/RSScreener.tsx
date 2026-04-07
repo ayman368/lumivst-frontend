@@ -169,10 +169,7 @@ export default function RSScreener() {
 
     const fetchLatestRS = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const headers: HeadersInit = { 'Content-Type': 'application/json' };
-            if (token) headers['Authorization'] = `Bearer ${token}`;
-            const res = await fetch(`${API_URL}/api/rs/latest?limit=500`, { headers });
+            const res = await fetch(`${API_URL}/api/rs/latest?limit=500`, { credentials: 'include' });
             if (res.status === 401 || res.status === 403) return;
             const data = await res.json();
             if (data.data) { setStocks(data.data); if (data.data.length > 0) setSelectedStock(data.data[0]); }
@@ -196,10 +193,7 @@ export default function RSScreener() {
             if (fromDate) params.append('from_date', fromDate);
             if (finalToDate) params.append('to_date', finalToDate);
             let url = `${API_URL}/api/rs/${symbol}${params.toString() ? '?' + params.toString() : ''}`;
-            const token = localStorage.getItem('token');
-            const headers: HeadersInit = { 'Content-Type': 'application/json' };
-            if (token) headers['Authorization'] = `Bearer ${token}`;
-            const res = await fetch(url, { headers });
+            const res = await fetch(url, { credentials: 'include' });
             if (!res.ok) throw new Error('Failed');
             const data = await res.json();
             setHistoryData(Array.isArray(data) ? data : []);

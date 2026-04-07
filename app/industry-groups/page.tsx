@@ -508,15 +508,9 @@ export default function IndustryGroupsPage() {
             try {
                 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-                const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-                const headers: HeadersInit = { 'Content-Type': 'application/json' };
-                if (token) {
-                    headers['Authorization'] = `Bearer ${token}`;
-                }
-
                 const res = await fetch(`${API_URL}/api/industry-groups/latest`, {
-                    headers,
-                    cache: 'no-store'
+                    cache: 'no-store',
+                    credentials: 'include'
                 });
 
                 if (!res.ok) throw new Error('Failed to fetch data');
@@ -876,15 +870,9 @@ export default function IndustryGroupsPage() {
             const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
             const encodedGroup = encodeURIComponent(groupName);
 
-            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-            const headers: HeadersInit = { 'Content-Type': 'application/json' };
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
-
             const res = await fetch(`${API_URL}/api/industry-groups/stocks?industry_group=${encodedGroup}`, {
-                headers,
-                cache: 'no-store'
+                cache: 'no-store',
+                credentials: 'include'
             });
 
             if (res.ok) {

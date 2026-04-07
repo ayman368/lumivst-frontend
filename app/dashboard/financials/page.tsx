@@ -66,11 +66,8 @@ function DashboardFinancialsContent() {
     const fetchCompanies = async () => {
         setCompaniesLoading(true);
         try {
-            const token = localStorage.getItem('token');
             const res = await fetch(`${API_BASE}/api/scraper/companies`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                credentials: 'include'
             });
             if (!res.ok) throw new Error('Failed to fetch companies');
             const data = await res.json();
@@ -100,11 +97,8 @@ function DashboardFinancialsContent() {
         setLoading(true);
         setError(null);
         try {
-            const token = localStorage.getItem('token');
             const res = await fetch(`${API_BASE}/api/scraper/financials/${symbol}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                credentials: 'include'
             });
             if (!res.ok) throw new Error('Failed to fetch financial data');
             const data = await res.json();

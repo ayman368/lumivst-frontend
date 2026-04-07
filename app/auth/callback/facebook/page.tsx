@@ -9,27 +9,31 @@ function FacebookCallbackContent() {
 
     useEffect(() => {
         const code = searchParams.get('code');
+        const state = searchParams.get('state');
         if (!code) {
             setError('No authorization code found');
+            return;
+        }
+        if (!state) {
+            setError('Missing OAuth state');
             return;
         }
 
         const exchangeCode = async () => {
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/auth/facebook/callback?code=${code}`, {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/auth/facebook/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`, {
                     method: 'POST',
+                    credentials: 'include',
                 });
 
                 if (!res.ok) {
                     let errorMessage = 'Failed to exchange code';
                     let userData: any = null;
-                    let tempToken: string | null = null;
                     
                     try {
                         const errorData = await res.json();
                         errorMessage = errorData.detail || errorData.message || 'Failed to exchange code';
                         userData = errorData.user;
-                        tempToken = errorData.temp_token;
                     } catch (parseError) {
                         console.error('Failed to parse error response:', parseError);
                     }
@@ -42,9 +46,6 @@ function FacebookCallbackContent() {
                         if (userData) {
                             localStorage.setItem('pendingUser', JSON.stringify(userData));
                         }
-                        if (tempToken) {
-                            localStorage.setItem('tempToken', tempToken);
-                        }
                         localStorage.setItem('pendingApprovalMessage', errorMessage);
                         // Use window.location for immediate redirect without middleware interference
                         window.location.href = '/pending-approval';
@@ -54,11 +55,7 @@ function FacebookCallbackContent() {
                     throw new Error(errorMessage);
                 }
 
-                const data = await res.json();
-
-                // Store token in both places
-                localStorage.setItem('token', data.access_token);
-                document.cookie = `session_token=${data.access_token}; path=/; max-age=2592000; SameSite=Lax`;
+                await res.json();
 
                 // Redirect to home
                 window.location.href = '/';

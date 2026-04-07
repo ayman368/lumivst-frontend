@@ -238,11 +238,7 @@ export default function LightweightChart({
         setData([]);
 
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-        const headers: HeadersInit = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
-        fetch(`${API_URL}/api/prices/history/${symbol}?limit=10000`, { headers, signal: ctrl.signal })
+        fetch(`${API_URL}/api/prices/history/${symbol}?limit=10000`, { signal: ctrl.signal, credentials: 'include' })
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
             .then(json => setData(json.data || []))
             .catch(err => { if (err.name !== 'AbortError') setError(err.message); })

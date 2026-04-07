@@ -12,6 +12,7 @@ export default function ReportsTabs() {
     { name: 'Foreign Headroom', href: '/market-reports/foreign-headroom' },
     { name: 'Share Buybacks', href: '/market-reports/share-buybacks' },
     { name: 'SBL Positions', href: '/market-reports/sbl-positions' },
+    { name: 'Historical Reports', href: '/market-reports/historical-reports' },
   ];
 
   return (

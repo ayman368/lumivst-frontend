@@ -35,14 +35,13 @@ export default function ProfilePage() {
         setIsSaving(true);
 
         try {
-            const token = localStorage.getItem('token');
             const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
             const res = await fetch(`${API_URL}/api/auth/profile`, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify({
                     full_name: fullName,
                     email: email,
@@ -207,13 +206,10 @@ export default function ProfilePage() {
                             onClick={async () => {
                                 if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
                                     try {
-                                        const token = localStorage.getItem('token');
                                         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
                                         const res = await fetch(`${API_URL}/api/auth/delete-account`, {
                                             method: 'DELETE',
-                                            headers: {
-                                                'Authorization': `Bearer ${token}`
-                                            }
+                                            credentials: 'include'
                                         });
 
                                         if (!res.ok) {
@@ -221,8 +217,6 @@ export default function ProfilePage() {
                                         }
 
                                         // Clear local storage and redirect
-                                        localStorage.removeItem('token');
-                                        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
                                         window.location.href = '/';
                                     } catch (error) {
                                         alert('Failed to delete account. Please try again.');

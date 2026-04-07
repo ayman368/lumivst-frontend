@@ -76,12 +76,9 @@ export default function DashboardUploadPage() {
                 formData.append('description', description.trim());
             }
 
-            const token = localStorage.getItem('token');
             const res = await fetch(`${API_BASE}/api/scraper/upload-excel`, {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                },
+                credentials: 'include',
                 body: formData
             });
 

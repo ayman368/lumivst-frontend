@@ -30,8 +30,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  console.log('🔄 AuthProvider render, user:', user?.email || 'null', 'loading:', loading);
-
   // When auth is disabled we treat the user as not logged in (null)
   useEffect(() => {
     if (!AUTH_ENABLED) {
@@ -44,65 +42,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const checkAuth = async () => {
-    const token = localStorage.getItem('token');
-    console.log('🔍 Checking auth with token:', token ? 'Present' : 'Missing');
-
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
     try {
       const res = await fetch(`${API_URL}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
-
-      console.log('🔍 Auth check response:', res.status);
 
       if (res.ok) {
         const userData = await res.json();
-        console.log('✅ User authenticated:', userData.email);
-        setUser(userData);
-        // Refresh cookie
-        const isSecure = window.location.protocol === 'https:';
-        document.cookie = `session_token=${token}; path=/; max-age=604800; SameSite=Lax; ${isSecure ? 'Secure' : ''}`;
-      } else {
-        // Only log out if explicitly unauthorized (401)
-        if (res.status === 401) {
-          console.warn('⚠️ Auth check failed (401), removing token');
-          localStorage.removeItem('token');
-          document.cookie = 'session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+        if (userData && userData.is_approved === false) {
           setUser(null);
-        } else {
-          console.warn(`⚠️ Auth check returned ${res.status}, keeping token for now.`);
-          // Optionally we might want to keep the user as null but NOT clear the token,
-          // or assume they are logged in if we trust the token (risky).
-          // For now, let's NOT clear the token, allowing retry.
+          if (typeof window !== 'undefined' && window.location.pathname !== '/pending-approval') {
+            router.push('/pending-approval');
+          }
+          return;
+        }
+        setUser(userData);
+      } else if (res.status === 401) {
+        setUser(null);
+      } else if (res.status === 403) {
+        setUser(null);
+        if (typeof window !== 'undefined' && window.location.pathname !== '/pending-approval') {
+          router.push('/pending-approval');
         }
       }
-    } catch (e) {
-      console.error('❌ Auth check error:', e);
-      // Network error? Do NOT log out.
+    } catch {
+      // Network/transient issue; keep current state.
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const login = async (email: string, password: string) => {
     if (!AUTH_ENABLED) {
-      console.log('🔓 Login skipped – auth disabled');
       return;
     }
 
-    console.log('🔄 Attempting login...');
     const res = await fetch(`${API_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ email, password }),
     });
-
-    if (res.status === 404) {
-      throw new Error('NOT_FOUND');
-    }
 
     if (!res.ok) {
       let errorMessage = 'فشل تسجيل الدخول';
@@ -116,38 +96,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const data = await res.json();
-    localStorage.setItem('token', data.access_token);
-    // Set cookie for middleware
-    const isSecure = window.location.protocol === 'https:';
-    document.cookie = `session_token=${data.access_token}; path=/; max-age=604800; SameSite=Lax; ${isSecure ? 'Secure' : ''}`;
-
-    console.log('✅ Login successful, setting user data...');
-
-    // Backend returns user object in login response
     if (data.user) {
       setUser(data.user);
-      console.log('✅ User state updated:', data.user.full_name || data.user.email);
     } else {
-      // Fallback if backend doesn't return user
       await checkAuth();
     }
 
-    // Navigate to home using full reload
-    console.log('🔄 Navigating to home...');
     window.location.href = '/';
   };
 
   const register = async (email: string, password: string, fullName?: string) => {
     if (!AUTH_ENABLED) {
-      console.log('🔓 Register skipped – auth disabled');
       router.push('/');
       return;
     }
 
-    console.log('🔄 Attempting registration...');
     const res = await fetch(`${API_URL}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ email, password, full_name: fullName || '' }),
     });
 
@@ -162,37 +129,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(errorMessage);
     }
 
-    console.log('✅ Registration successful, logging in...');
-    const data = await res.json();
-    // data contains access_token
-    localStorage.setItem('token', data.access_token);
-    const isSecure = window.location.protocol === 'https:';
-    document.cookie = `session_token=${data.access_token}; path=/; max-age=604800; SameSite=Lax; ${isSecure ? 'Secure' : ''}`;
-
-    // Fetch user data to update state
-    await checkAuth();
-
-    window.location.href = '/';
+    router.push('/pending-approval');
   };
 
   const logout = async () => {
     if (!AUTH_ENABLED) {
-      console.log('🔓 Logout skipped – auth disabled');
       return;
     }
-    const token = localStorage.getItem('token');
-    if (token && user) {
-      try {
-        await fetch(`${API_URL}/api/auth/logout?user_id=${user.id}`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } catch (e) {
-        console.error("Logout failed", e);
-      }
+
+    try {
+      await fetch(`${API_URL}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // Ignore logout network failure on client.
     }
-    localStorage.removeItem('token');
-    document.cookie = 'session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
     setUser(null);
     router.push('/login');
   };

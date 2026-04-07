@@ -38,7 +38,7 @@ export default function LoginPage() {
   const handleSocialLogin = async (provider: string) => {
     if (provider === 'Google') {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/google/login`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/google/login`, { credentials: 'include' });
         const data = await res.json();
         if (data.url) {
           window.location.href = data.url;
@@ -52,7 +52,7 @@ export default function LoginPage() {
 
     if (provider === 'Facebook') {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/facebook/login`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/facebook/login`, { credentials: 'include' });
         const data = await res.json();
         if (data.url) {
           window.location.href = data.url;

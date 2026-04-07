@@ -1,5 +1,4 @@
 import axios from 'axios';
-import Cookies from 'js-cookie';
 
 const API_URL_RAW = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 // Ensure API_URL always has /api suffix
@@ -15,9 +14,10 @@ export interface User {
 }
 
 export interface AuthResponse {
-    access_token: string;
-    token_type: string;
-    user: User;
+    access_token?: string;
+    token_type?: string;
+    user?: User;
+    message?: string;
 }
 
 export const AuthService = {
@@ -26,12 +26,12 @@ export const AuthService = {
             const response = await axios.post<AuthResponse>(`${API_URL}/auth/login`, {
                 email,
                 password
+            }, {
+                withCredentials: true
             });
-
-            // Save token to cookie for Middleware
-            Cookies.set('session_token', response.data.access_token, { expires: 7 }); // 7 days
-            // Also save to localStorage for AuthProvider
-            localStorage.setItem('token', response.data.access_token);
+            if (!response.data?.user) {
+                throw new Error('Login response missing user data');
+            }
             return response.data.user;
         } catch (error: any) {
             if (error.response?.status === 403) {
@@ -47,29 +47,25 @@ export const AuthService = {
         }
     },
 
-    async register(data: any): Promise<void> {
+    async register(data: any): Promise<AuthResponse> {
         try {
-            const response = await axios.post(`${API_URL}/auth/register`, data);
-            Cookies.set('session_token', response.data.access_token, { expires: 7 });
-            localStorage.setItem('token', response.data.access_token);
+            const response = await axios.post<AuthResponse>(`${API_URL}/auth/register`, data, {
+                withCredentials: true
+            });
+            return response.data || {};
         } catch (error: any) {
             throw new Error(error.response?.data?.detail || 'Registration failed');
         }
     },
 
     logout() {
-        Cookies.remove('session_token');
-        localStorage.removeItem('token');
         window.location.href = '/login';
     },
 
     async checkAuth(): Promise<User> {
-        const token = Cookies.get('session_token');
-        if (!token) throw new Error("NOT_AUTHENTICATED");
-
         try {
             const response = await axios.get<User>(`${API_URL}/auth/me`, {
-                headers: { Authorization: `Bearer ${token}` }
+                withCredentials: true
             });
             return response.data;
         } catch (error: any) {
@@ -80,16 +76,13 @@ export const AuthService = {
     },
 
     async refreshToken(): Promise<User> {
-        const token = Cookies.get('session_token');
-        if (!token) throw new Error("NOT_AUTHENTICATED");
-
         try {
             const response = await axios.post<AuthResponse>(`${API_URL}/auth/refresh-token`, {}, {
-                headers: { Authorization: `Bearer ${token}` }
+                withCredentials: true
             });
-            // Save new token to BOTH cookie AND localStorage
-            Cookies.set('session_token', response.data.access_token, { expires: 7 });
-            localStorage.setItem('token', response.data.access_token);
+            if (!response.data?.user) {
+                throw new Error("TOKEN_REFRESH_FAILED");
+            }
             return response.data.user;
         } catch (error: any) {
             console.error("Token refresh failed:", error.response?.status, error.message);
@@ -97,7 +90,14 @@ export const AuthService = {
         }
     },
 
-    getToken() {
-        return Cookies.get('session_token');
+    async getToken(): Promise<string | null> {
+        try {
+            const response = await axios.post<AuthResponse>(`${API_URL}/auth/refresh-token`, {}, {
+                withCredentials: true
+            });
+            return response.data?.access_token || null;
+        } catch {
+            return null;
+        }
     }
 };

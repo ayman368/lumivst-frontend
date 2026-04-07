@@ -12,14 +12,10 @@ export default function useStocks() {
             setLoading(true);
             const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-            const headers: HeadersInit = { 'Content-Type': 'application/json' };
-            if (token) headers['Authorization'] = `Bearer ${token}`;
-
             const [pricesRes, rsRes, techRes] = await Promise.all([
-                fetch(`${API_URL}/api/prices/latest`, { cache: 'no-store', headers }),
-                fetch(`${API_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', headers }),
-                fetch(`${API_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', headers })
+                fetch(`${API_URL}/api/prices/latest`, { cache: 'no-store', credentials: 'include' }),
+                fetch(`${API_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', credentials: 'include' }),
+                fetch(`${API_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', credentials: 'include' })
             ]);
 
             if (!pricesRes.ok) throw new Error(`Failed to fetch prices: ${pricesRes.status}`);

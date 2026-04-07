@@ -120,16 +120,9 @@ export default function RSAnalysisPage() {
     }, [stocks, search, minRS, maxRS, selIndustry]);
     useEffect(() => { if (selected) fetchHistory(selected.symbol); }, [selected, period, startDate, endDate]);
 
-    const headers = () => {
-        const token = localStorage.getItem('token');
-        const h: HeadersInit = { 'Content-Type': 'application/json' };
-        if (token) h['Authorization'] = `Bearer ${token}`;
-        return h;
-    };
-
     const fetchData = async () => {
         try {
-            const res = await fetch(`${API_URL}/api/rs/latest?limit=500`, { headers: headers(), cache: 'no-store' });
+            const res = await fetch(`${API_URL}/api/rs/latest?limit=500`, { cache: 'no-store', credentials: 'include' });
             if (!res.ok) return;
             const d = await res.json();
             let data: StockRS[] = (d.data || []).map((s: any) => ({ ...s, rs_rating: s.rs_rating ?? s.RS ?? 0, company_name: s.company_name ?? s.Company ?? s.symbol, return_3m: s.return_3m ?? null, rank_3m: s.rank_3m ?? null }));
@@ -156,7 +149,7 @@ export default function RSAnalysisPage() {
             if (from) params.append('from_date', from);
             if (to) params.append('to_date', to);
             const url = `${API_URL}/api/rs/${symbol}${params.toString() ? '?' + params : ''}`;
-            const res = await fetch(url, { headers: headers(), cache: 'no-store' });
+            const res = await fetch(url, { cache: 'no-store', credentials: 'include' });
             if (res.ok) { const d = await res.json(); setHistory(Array.isArray(d) ? d : (d.data || [])); }
         } catch (e) { console.error(e); }
         finally { setHistLoading(false); }

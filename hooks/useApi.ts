@@ -24,17 +24,10 @@ export const useApi = () => {
         ...((options.headers as Record<string, string>) || {}),
       };
 
-      // Get token from localStorage if available
-      if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('token');
-        if (token) {
-          headers.Authorization = `Bearer ${token}`;
-        }
-      }
-
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
         ...options,
         headers,
+        credentials: 'include',
       });
 
       if (!response.ok) {

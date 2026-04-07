@@ -151,13 +151,6 @@ export default function TechnicalScreenerPage() {
         filterAndSortStocks();
     }, [searchQuery, sortBy, stocks, selectedDate]);
 
-    const getAuthHeaders = (): HeadersInit => {
-        const token = localStorage.getItem('token');
-        const headers: HeadersInit = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        return headers;
-    };
-
     const fetchScreenerData = async () => {
         setLoading(true);
         try {
@@ -169,7 +162,7 @@ export default function TechnicalScreenerPage() {
 
             const res = await fetch(
                 `${API_URL}/api/technical-screener/screener?${params.toString()}`,
-                { headers: getAuthHeaders() }
+                { credentials: 'include' }
             );
 
             if (!res.ok) throw new Error('Failed to fetch screener data');

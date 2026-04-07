@@ -33,12 +33,8 @@ export default function RSMatrix() {
 
     const fetchData = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const headers: HeadersInit = { 'Content-Type': 'application/json' };
-            if (token) headers['Authorization'] = `Bearer ${token}`;
-
             const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-            const res = await fetch(`${API_URL}/api/rs/latest?limit=500`, { headers });
+            const res = await fetch(`${API_URL}/api/rs/latest?limit=500`, { credentials: 'include' });
 
             if (!res.ok) {
                 console.error(`Fetch error: ${res.status}`);

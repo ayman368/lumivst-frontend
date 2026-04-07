@@ -39,9 +39,8 @@ export default function DashboardReportsPage() {
     const fetchCompanies = async () => {
         setCompaniesLoading(true);
         try {
-            const token = localStorage.getItem('token');
             const res = await fetch(`${API_BASE}/api/scraper/companies`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                credentials: 'include'
             });
             if (!res.ok) throw new Error('Failed to fetch companies');
             const data = await res.json();
@@ -66,9 +65,8 @@ export default function DashboardReportsPage() {
         setLoading(true);
         setError(null);
         try {
-            const token = localStorage.getItem('token');
             const res = await fetch(`${API_BASE}/api/scraper/excel-reports/${symbol}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                credentials: 'include'
             });
             if (!res.ok) throw new Error('Failed to fetch reports');
             const data = await res.json();
@@ -83,9 +81,8 @@ export default function DashboardReportsPage() {
 
     const handleDownload = async (report: ExcelReport) => {
         try {
-            const token = localStorage.getItem('token');
             const res = await fetch(`${API_BASE}${report.download_url}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                credentials: 'include'
             });
             if (!res.ok) throw new Error('Download failed');
 
