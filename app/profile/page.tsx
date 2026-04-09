@@ -39,7 +39,8 @@ export default function ProfilePage() {
             const res = await fetch(`${API_URL}/api/auth/profile`, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'x-csrf-token': '1',
                 },
                 credentials: 'include',
                 body: JSON.stringify({
@@ -209,6 +210,7 @@ export default function ProfilePage() {
                                         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
                                         const res = await fetch(`${API_URL}/api/auth/delete-account`, {
                                             method: 'DELETE',
+                                            headers: { 'x-csrf-token': '1' },
                                             credentials: 'include'
                                         });
 

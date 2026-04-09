@@ -1,6 +1,7 @@
 'use client';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useState, Suspense } from 'react';
+import { API_ENDPOINTS } from '@/lib/api/config';
 
 function ResetPasswordContent() {
     const searchParams = useSearchParams();
@@ -14,9 +15,9 @@ function ResetPasswordContent() {
         setLoading(true);
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/reset-password`, {
+            const res = await fetch(API_ENDPOINTS.AUTH.RESET_PASSWORD, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'x-csrf-token': '1' },
                 body: JSON.stringify({
                     token: token,
                     password: password  // Note: Backend expects 'password', not 'new_password' based on schema usually

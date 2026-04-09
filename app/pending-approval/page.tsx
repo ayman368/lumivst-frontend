@@ -1,11 +1,51 @@
 "use client";
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useCallback } from 'react';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export default function PendingApproval() {
-    const router = useRouter();
     const [message, setMessage] = useState('');
     const [pendingUser, setPendingUser] = useState<any>(null);
+    const [approved, setApproved] = useState(false);
+    const [checking, setChecking] = useState(true);
+
+    const checkApprovalStatus = useCallback(async () => {
+        try {
+            // Try the SSE/pending endpoint first (for OAuth flow with pending_token)
+            const res = await fetch(`${API_URL}/api/auth/pending-status/check`, {
+                credentials: 'include',
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                if (data.approved) {
+                    setApproved(true);
+                    return true;
+                }
+            }
+        } catch {
+            // Endpoint might not exist or token missing - try login flow
+        }
+
+        // Fallback: try to login again to check if approved (for both flows)
+        // If the user has a session_token, try /api/auth/me
+        try {
+            const meRes = await fetch(`${API_URL}/api/auth/me`, {
+                credentials: 'include',
+            });
+            if (meRes.ok) {
+                const userData = await meRes.json();
+                if (userData && userData.is_approved) {
+                    setApproved(true);
+                    return true;
+                }
+            }
+        } catch {
+            // No valid session
+        }
+
+        return false;
+    }, []);
 
     useEffect(() => {
         // Get pending info from localStorage
@@ -23,95 +63,127 @@ export default function PendingApproval() {
             }
         }
 
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-        const eventSource = new EventSource(`${API_URL}/api/auth/pending-status/stream`, { withCredentials: true } as EventSourceInit);
+        // Initial check
+        checkApprovalStatus().then(() => setChecking(false));
 
-        eventSource.onmessage = async (event) => {
-            try {
-                const payload = JSON.parse(event.data) as { approved?: boolean };
-                if (payload.approved) {
-                    const refreshResponse = await fetch(`${API_URL}/api/auth/refresh-token`, {
-                        method: 'POST',
-                        credentials: 'include'
-                    });
-                    if (refreshResponse.ok) {
-                        localStorage.removeItem('pendingUser');
-                        localStorage.removeItem('pendingApprovalMessage');
-                        eventSource.close();
-                        window.location.href = '/';
-                    }
-                }
-            } catch {
-                // Ignore malformed stream event.
+        // Poll every 5 seconds
+        const interval = setInterval(async () => {
+            const isApproved = await checkApprovalStatus();
+            if (isApproved) {
+                clearInterval(interval);
             }
-        };
+        }, 5000);
 
-        eventSource.onerror = () => {
-            eventSource.close();
-        };
+        return () => clearInterval(interval);
+    }, [checkApprovalStatus]);
 
-        return () => eventSource.close();
-    }, [router]);
+    // When approval is detected, redirect to login
+    useEffect(() => {
+        if (approved) {
+            localStorage.removeItem('pendingUser');
+            localStorage.removeItem('pendingApprovalMessage');
+
+            // Try activate-session to get proper session from pending token, then go home
+            fetch(`${API_URL}/api/auth/activate-session`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'x-csrf-token': '1' },
+            }).then(res => {
+                if (res.ok) {
+                    window.location.href = '/';
+                } else {
+                    // Try me endpoint as fallback if activate-session fails
+                    fetch(`${API_URL}/api/auth/me`, {
+                       credentials: 'include',
+                    }).then(res => {
+                       if(res.ok) {
+                            window.location.href = '/';
+                       } else {
+                            window.location.href = '/login';
+                       }
+                    }).catch(() => {
+                        window.location.href = '/login';
+                    });
+                }
+            }).catch(() => {
+                window.location.href = '/login';
+            });
+        }
+    }, [approved]);
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
             <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-                <div className="text-6xl mb-6">⏳</div>
+                {approved ? (
+                    <>
+                        <div className="text-6xl mb-6">✅</div>
+                        <h1 className="text-2xl font-bold mb-2 text-green-700">تم تفعيل حسابك!</h1>
+                        <p className="text-gray-500 text-sm mb-6">Account Approved</p>
+                        <p className="text-gray-600 text-sm">جاري تحويلك...</p>
+                        <div className="mt-4">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="text-6xl mb-6">⏳</div>
 
-                <h1 className="text-2xl font-bold mb-2 text-gray-900">الحساب قيد المراجعة</h1>
-                <p className="text-gray-500 text-sm mb-6">Account Under Review</p>
+                        <h1 className="text-2xl font-bold mb-2 text-gray-900">الحساب قيد المراجعة</h1>
+                        <p className="text-gray-500 text-sm mb-6">Account Under Review</p>
 
-                {pendingUser && (
-                    <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6 text-left">
-                        <p className="text-gray-700 text-sm">
-                            <strong>مرحباً {pendingUser.full_name || 'المستخدم'}</strong>
-                            <br />
-                            <br />
-                            <span className="text-xs text-gray-600">البريد: {pendingUser.email}</span>
-                        </p>
-                    </div>
-                )}
-
-                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 text-left">
-                    <p className="text-gray-700 text-sm">
-                        <strong>شكراً لتسجيلك!</strong>
-                        <br />
-                        <br />
-                        حسابك جاهز لكن بحاجة لموافقة من الإدارة.
-                        سيتم تفعيل حسابك قريباً.
-                        {message && (
-                            <>
-                                <br />
-                                <br />
-                                <span className="text-xs text-gray-600">({message})</span>
-                            </>
+                        {pendingUser && (
+                            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6 text-left">
+                                <p className="text-gray-700 text-sm">
+                                    <strong>مرحباً {pendingUser.full_name || 'المستخدم'}</strong>
+                                    <br />
+                                    <br />
+                                    <span className="text-xs text-gray-600">البريد: {pendingUser.email}</span>
+                                </p>
+                            </div>
                         )}
-                    </p>
-                </div>
 
-                <div className="mb-6">
-                    <div className="flex items-center justify-center">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce mx-2" style={{ animationDelay: '0.2s' }}></div>
-                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-                    </div>
-                    <p className="text-xs text-blue-600 mt-3">جاري التحقق من الحالة...</p>
-                </div>
+                        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 text-left">
+                            <p className="text-gray-700 text-sm">
+                                <strong>شكراً لتسجيلك!</strong>
+                                <br />
+                                <br />
+                                حسابك جاهز لكن بحاجة لموافقة من الإدارة.
+                                سيتم تفعيل حسابك قريباً.
+                                {message && (
+                                    <>
+                                        <br />
+                                        <br />
+                                        <span className="text-xs text-gray-600">({message})</span>
+                                    </>
+                                )}
+                            </p>
+                        </div>
 
-                <button
-                    onClick={() => {
-                        localStorage.removeItem('pendingUser');
-                        localStorage.removeItem('pendingApprovalMessage');
-                        router.push('/login');
-                    }}
-                    className="w-full px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                >
-                    تسجيل الخروج
-                </button>
+                        <div className="mb-6">
+                            <div className="flex items-center justify-center">
+                                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce mx-2" style={{ animationDelay: '0.2s' }}></div>
+                                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                            </div>
+                            <p className="text-xs text-blue-600 mt-3">جاري التحقق من الحالة...</p>
+                        </div>
 
-                <p className="text-xs text-gray-500 mt-4">
-                    سيتم التحقق من الحالة تلقائياً
-                </p>
+                        <button
+                            onClick={() => {
+                                localStorage.removeItem('pendingUser');
+                                localStorage.removeItem('pendingApprovalMessage');
+                                window.location.href = '/login';
+                            }}
+                            className="w-full px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                        >
+                            تسجيل الخروج
+                        </button>
+
+                        <p className="text-xs text-gray-500 mt-4">
+                            سيتم التحقق من الحالة تلقائياً كل 5 ثوانٍ
+                        </p>
+                    </>
+                )}
             </div>
         </div>
     );

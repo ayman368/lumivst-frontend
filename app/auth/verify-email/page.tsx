@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { Loader2, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { API_ENDPOINTS } from '@/lib/api/config';
 
 function VerifyEmailContent() {
     const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -15,23 +16,28 @@ function VerifyEmailContent() {
         const verifyEmail = async () => {
             if (!token) {
                 setStatus('error');
-                setMessage('رابط التحقق مفقود');
+                setMessage('رابط التحقق مفقود أو غير صالح.');
                 return;
             }
 
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/auth/verify-email?token=${token}`);
+                const res = await fetch(`${API_ENDPOINTS.AUTH.VERIFY_EMAIL}?token=${token}`);
                 const data = await res.json();
 
                 if (!res.ok) {
-                    throw new Error(data.detail || 'فشل التحقق من البريد الإلكتروني');
+                    // Log the actual backend error privately
+                    console.error("Email verification failed:", data.detail || res.statusText);
+                    // Throw a unified safe error
+                    throw new Error('فشل التحقق من البريد الإلكتروني. قد يكون الرابط منتهي الصلاحية.');
                 }
 
                 setStatus('success');
                 setMessage('تم تفعيل حسابك بنجاح! يمكنك الآن تسجيل الدخول.');
             } catch (error: any) {
+                console.error("verifyEmail error:", error);
                 setStatus('error');
-                setMessage(error.message);
+                // Use generic safe message in UI
+                setMessage(error.message || 'حدث خطأ أثناء معالجة الطلب، يرجى المحاولة لاحقاً.');
             }
         };
 

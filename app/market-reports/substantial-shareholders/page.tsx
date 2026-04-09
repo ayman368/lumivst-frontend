@@ -5,6 +5,8 @@ import axios from 'axios';
 import { useTableSort } from '../_components/useTableSort';
 import { SortableHeader } from '../_components/SortableHeader';
 import { ExportDropdown } from '../_components/ExportDropdown';
+import FilterBar from '../_components/FilterBar';
+import { useFilters } from '../_components/useFilters';
 
 type Shareholder = {
   id: number;
@@ -27,6 +29,19 @@ export default function SubstantialShareholdersPage() {
   const [error, setError] = useState<string | null>(null);
   const { sortConfigs, handleSort, clearSort, sortedData } = useTableSort<Shareholder>();
 
+  const {
+    searchValue,
+    rangeValues,
+    filteredData,
+    setSearchValue,
+    handleRangeChange,
+    handleClearAll,
+  } = useFilters<Shareholder>(
+    data,
+    ['company_name', 'shareholder_name'],
+    ['holding_percent_last_day', 'holding_percent_previous_day', 'change', 'managed_by_authorized_trading_day', 'managed_by_authorized_previous_day']
+  );
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -46,7 +61,7 @@ export default function SubstantialShareholdersPage() {
   if (error) return <div className="text-red-500 p-4">Error: {error}</div>;
   if (data.length === 0) return <div className="text-gray-500 p-4">No data available. Run the scraper first.</div>;
 
-  const displayed = sortedData(data);
+  const displayed = sortedData(filteredData);
 
   return (
     <div>
@@ -61,9 +76,9 @@ export default function SubstantialShareholdersPage() {
               Clear Sort ({sortConfigs.length})
             </button>
           )}
-          <ExportDropdown 
-            data={data} 
-            filename="substantial_shareholders" 
+          <ExportDropdown
+            data={displayed}
+            filename="substantial_shareholders"
             headers={[
               { label: 'Company Name', key: 'company_name' },
               { label: 'Shareholder Name', key: 'shareholder_name' },
@@ -71,12 +86,29 @@ export default function SubstantialShareholdersPage() {
               { label: '% Previous Trading Day', key: 'holding_percent_previous_day' },
               { label: 'Change', key: 'change' },
               { label: 'Managed By Authorized (Day)', key: 'managed_by_authorized_trading_day' },
-              { label: 'Managed By Authorized (Prev)', key: 'managed_by_authorized_previous_day' }
+              { label: 'Managed By Authorized (Prev)', key: 'managed_by_authorized_previous_day' },
             ]}
           />
           <span className="text-green-600 font-medium">Last Update Date: {data[0]?.report_date}</span>
         </div>
       </div>
+
+      <FilterBar
+        searchKeys={['company_name', 'shareholder_name']}
+        searchPlaceholder="Search by company or shareholder name..."
+        rangeFilters={[
+          { key: 'holding_percent_last_day', label: 'Holding % (Last Day)' },
+          { key: 'holding_percent_previous_day', label: 'Holding % (Prev Day)' },
+          { key: 'change', label: 'Change %' },
+          { key: 'managed_by_authorized_trading_day', label: 'Managed Auth. (Trading Day)' },
+          { key: 'managed_by_authorized_previous_day', label: 'Managed Auth. (Prev Day)' },
+        ]}
+        searchValue={searchValue}
+        rangeValues={rangeValues}
+        onSearchChange={setSearchValue}
+        onRangeChange={handleRangeChange}
+        onClearAll={handleClearAll}
+      />
 
       <div className="rounded-lg border border-gray-200 shadow-sm overflow-hidden flex flex-col">
         <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: TABLE_BODY_HEIGHT }}>
@@ -92,25 +124,58 @@ export default function SubstantialShareholdersPage() {
                 <SortableHeader label="Managed by Authorized (Previous Day)" sortKey="managed_by_authorized_previous_day" sortConfigs={sortConfigs} onSort={handleSort} className="text-center" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 text-gray-700">
-              {displayed.map((row, idx) => (
-                <tr key={row.id} className={`hover:bg-blue-50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`} style={{ height: ROW_HEIGHT }}>
-                  <td className="px-4 py-3 font-medium text-gray-900">{row.company_name}</td>
-                  <td className="px-4 py-3 font-arabic" dir="rtl">{row.shareholder_name}</td>
-                  <td className="px-4 py-3 text-center">{row.holding_percent_last_day}</td>
-                  <td className="px-4 py-3 text-center">{row.holding_percent_previous_day}</td>
-                  <td className="px-4 py-3 text-center">{row.change}</td>
-                  <td className="px-4 py-3 text-center">{row.managed_by_authorized_trading_day}</td>
-                  <td className="px-4 py-3 text-center">{row.managed_by_authorized_previous_day}</td>
-                </tr>
-              ))}
+            <tbody className="text-gray-700">
+              {(() => {
+                // Group consecutive rows by company_name to compute rowspans
+                const groups: { company: string; rows: typeof displayed }[] = [];
+                displayed.forEach((row) => {
+                  const last = groups[groups.length - 1];
+                  if (last && last.company === row.company_name) {
+                    last.rows.push(row);
+                  } else {
+                    groups.push({ company: row.company_name, rows: [row] });
+                  }
+                });
+
+                let globalIdx = 0;
+                return groups.map((group) =>
+                  group.rows.map((row, rowIdx) => {
+                    const isFirstInGroup = rowIdx === 0;
+                    const rowSpan = group.rows.length;
+                    const bgClass = globalIdx++ % 2 === 0 ? 'bg-white' : 'bg-gray-50/50';
+                    return (
+                      <tr
+                        key={row.id}
+                        className={`hover:bg-blue-50 transition-colors ${bgClass} border-t border-gray-100`}
+                        style={{ height: ROW_HEIGHT }}
+                      >
+                        {isFirstInGroup && (
+                          <td
+                            rowSpan={rowSpan}
+                            className="px-4 py-3 font-semibold text-gray-900 align-middle border-r border-gray-200 bg-gray-50/80"
+                            style={{ verticalAlign: 'middle' }}
+                          >
+                            {row.company_name}
+                          </td>
+                        )}
+                        <td className="px-4 py-3 font-arabic" dir="rtl">{row.shareholder_name}</td>
+                        <td className="px-4 py-3 text-center">{row.holding_percent_last_day}</td>
+                        <td className="px-4 py-3 text-center">{row.holding_percent_previous_day}</td>
+                        <td className="px-4 py-3 text-center">{row.change}</td>
+                        <td className="px-4 py-3 text-center">{row.managed_by_authorized_trading_day}</td>
+                        <td className="px-4 py-3 text-center">{row.managed_by_authorized_previous_day}</td>
+                      </tr>
+                    );
+                  })
+                );
+              })()}
             </tbody>
           </table>
         </div>
       </div>
 
       <p className="text-gray-400 text-xs mt-2">
-        {displayed.length} rows · Scroll to see more · Click header to sort · Click again to reverse · Click third time to remove
+        {displayed.length} of {data.length} rows · Scroll to see more · Click header to sort
       </p>
     </div>
   );

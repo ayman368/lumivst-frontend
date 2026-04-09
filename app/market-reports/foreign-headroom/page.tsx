@@ -5,6 +5,8 @@ import axios from 'axios';
 import { useTableSort } from '../_components/useTableSort';
 import { SortableHeader } from '../_components/SortableHeader';
 import { ExportDropdown } from '../_components/ExportDropdown';
+import FilterBar from '../_components/FilterBar';
+import { useFilters } from '../_components/useFilters';
 
 type ForeignHeadroom = {
   id: number;
@@ -25,6 +27,19 @@ export default function ForeignHeadroomPage() {
   const [error, setError] = useState<string | null>(null);
   const { sortConfigs, handleSort, clearSort, sortedData } = useTableSort<ForeignHeadroom>();
 
+  const {
+    searchValue,
+    rangeValues,
+    filteredData,
+    setSearchValue,
+    handleRangeChange,
+    handleClearAll,
+  } = useFilters<ForeignHeadroom>(
+    data,
+    ['symbol', 'company'],
+    ['foreign_limit', 'actual_foreign_ownership', 'ownership_room']
+  );
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -44,7 +59,7 @@ export default function ForeignHeadroomPage() {
   if (error) return <div className="text-red-500 p-4">Error: {error}</div>;
   if (data.length === 0) return <div className="text-gray-500 p-4">No data available. Run the scraper first.</div>;
 
-  const displayed = sortedData(data);
+  const displayed = sortedData(filteredData);
 
   return (
     <div>
@@ -59,20 +74,35 @@ export default function ForeignHeadroomPage() {
               Clear Sort ({sortConfigs.length})
             </button>
           )}
-          <ExportDropdown 
-            data={data} 
-            filename="foreign_headroom" 
+          <ExportDropdown
+            data={displayed}
+            filename="foreign_headroom"
             headers={[
               { label: 'Symbol', key: 'symbol' },
               { label: 'Company', key: 'company' },
               { label: 'Foreign Limit', key: 'foreign_limit' },
               { label: 'Actual Foreign Ownership', key: 'actual_foreign_ownership' },
-              { label: 'Ownership Room', key: 'ownership_room' }
+              { label: 'Ownership Room', key: 'ownership_room' },
             ]}
           />
           <span className="text-green-600 font-medium">Last Update Date: {data[0]?.report_date}</span>
         </div>
       </div>
+
+      <FilterBar
+        searchKeys={['symbol', 'company']}
+        searchPlaceholder="Search by symbol or company name..."
+        rangeFilters={[
+          { key: 'foreign_limit', label: 'Foreign Limit %' },
+          { key: 'actual_foreign_ownership', label: 'Actual Ownership %' },
+          { key: 'ownership_room', label: 'Ownership Room %' },
+        ]}
+        searchValue={searchValue}
+        rangeValues={rangeValues}
+        onSearchChange={setSearchValue}
+        onRangeChange={handleRangeChange}
+        onClearAll={handleClearAll}
+      />
 
       <div className="rounded-lg border border-gray-200 shadow-sm overflow-hidden flex flex-col">
         <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: TABLE_BODY_HEIGHT }}>
@@ -102,7 +132,7 @@ export default function ForeignHeadroomPage() {
       </div>
 
       <p className="text-gray-400 text-xs mt-2">
-        {displayed.length} rows · Scroll to see more · Click header to sort · Click again to reverse · Click third time to remove
+        {displayed.length} of {data.length} rows · Scroll to see more · Click header to sort
       </p>
     </div>
   );

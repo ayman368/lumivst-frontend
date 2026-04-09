@@ -64,6 +64,7 @@ export default function AdminDashboard() {
         setDeletingId(id);
         try {
             await axios.delete(`${API_URL}/api/contact/${id}`, {
+                headers: { 'x-csrf-token': '1' },
                 withCredentials: true
             });
             setMessages(messages.filter(msg => msg.id !== id));
@@ -77,7 +78,7 @@ export default function AdminDashboard() {
 
     const handleLogout = async () => {
         try {
-            await fetch(`${API_URL}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+            await fetch(`${API_URL}/api/auth/logout`, { method: 'POST', headers: { 'x-csrf-token': '1' }, credentials: 'include' });
         } catch {}
         router.push('/admin/login');
     };

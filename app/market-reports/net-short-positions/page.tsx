@@ -5,6 +5,8 @@ import axios from 'axios';
 import { useTableSort } from '../_components/useTableSort';
 import { SortableHeader } from '../_components/SortableHeader';
 import { ExportDropdown } from '../_components/ExportDropdown';
+import FilterBar from '../_components/FilterBar';
+import { useFilters } from '../_components/useFilters';
 
 type NetShortPosition = {
   id: number;
@@ -25,6 +27,19 @@ export default function NetShortPositionsPage() {
   const [error, setError] = useState<string | null>(null);
   const { sortConfigs, handleSort, clearSort, sortedData } = useTableSort<NetShortPosition>();
 
+  const {
+    searchValue,
+    rangeValues,
+    filteredData,
+    setSearchValue,
+    handleRangeChange,
+    handleClearAll,
+  } = useFilters<NetShortPosition>(
+    data,
+    ['symbol', 'company'],
+    ['percent_over_outstanding', 'percent_over_free_float', 'ratio_over_avg_daily']
+  );
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -44,7 +59,7 @@ export default function NetShortPositionsPage() {
   if (error) return <div className="text-red-500 p-4">Error: {error}</div>;
   if (data.length === 0) return <div className="text-gray-500 p-4">No data available. Run the scraper first.</div>;
 
-  const displayed = sortedData(data);
+  const displayed = sortedData(filteredData);
 
   return (
     <div>
@@ -59,20 +74,35 @@ export default function NetShortPositionsPage() {
               Clear Sort ({sortConfigs.length})
             </button>
           )}
-          <ExportDropdown 
-            data={data} 
-            filename="net_short_positions" 
+          <ExportDropdown
+            data={displayed}
+            filename="net_short_positions"
             headers={[
               { label: 'Symbol', key: 'symbol' },
               { label: 'Company', key: 'company' },
               { label: '% Over Outstanding', key: 'percent_over_outstanding' },
               { label: '% Over Free Float', key: 'percent_over_free_float' },
-              { label: 'Ratio Over Avg Daily', key: 'ratio_over_avg_daily' }
+              { label: 'Ratio Over Avg Daily', key: 'ratio_over_avg_daily' },
             ]}
           />
           <span className="text-green-600 font-medium">Last Update Date: {data[0]?.report_date}</span>
         </div>
       </div>
+
+      <FilterBar
+        searchKeys={['symbol', 'company']}
+        searchPlaceholder="Search by symbol or company name..."
+        rangeFilters={[
+          { key: 'percent_over_outstanding', label: '% Over Outstanding' },
+          { key: 'percent_over_free_float', label: '% Over Free Float' },
+          { key: 'ratio_over_avg_daily', label: 'Ratio Over Avg Daily' },
+        ]}
+        searchValue={searchValue}
+        rangeValues={rangeValues}
+        onSearchChange={setSearchValue}
+        onRangeChange={handleRangeChange}
+        onClearAll={handleClearAll}
+      />
 
       <div className="rounded-lg border border-gray-200 shadow-sm overflow-hidden flex flex-col">
         <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: TABLE_BODY_HEIGHT }}>
@@ -102,7 +132,7 @@ export default function NetShortPositionsPage() {
       </div>
 
       <p className="text-gray-400 text-xs mt-2">
-        {displayed.length} rows · Scroll to see more · Click header to sort · Click again to reverse · Click third time to remove
+        {displayed.length} of {data.length} rows · Scroll to see more · Click header to sort
       </p>
     </div>
   );

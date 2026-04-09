@@ -1,8 +1,7 @@
 "use client";
 import { useEffect, useState } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { AdminService } from '@/lib/services/admin';
-import { User } from '@/lib/services/auth';
+import { AdminService, User } from '@/lib/services/admin';
 
 export default function AdminUsersPage() {
     const [pendingUsers, setPendingUsers] = useState<User[]>([]);

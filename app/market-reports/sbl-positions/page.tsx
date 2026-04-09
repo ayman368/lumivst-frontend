@@ -5,6 +5,8 @@ import axios from 'axios';
 import { useTableSort } from '../_components/useTableSort';
 import { SortableHeader } from '../_components/SortableHeader';
 import { ExportDropdown } from '../_components/ExportDropdown';
+import FilterBar from '../_components/FilterBar';
+import { useFilters } from '../_components/useFilters';
 
 type SBLPosition = {
   id: number;
@@ -25,6 +27,19 @@ export default function SBLPositionsPage() {
   const [error, setError] = useState<string | null>(null);
   const { sortConfigs, handleSort, clearSort, sortedData } = useTableSort<SBLPosition>();
 
+  const {
+    searchValue,
+    rangeValues,
+    filteredData,
+    setSearchValue,
+    handleRangeChange,
+    handleClearAll,
+  } = useFilters<SBLPosition>(
+    data,
+    ['symbol', 'company'],
+    ['total_issued_shares', 'lent_asset_quantity', 'percent_of_lent_asset']
+  );
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -44,7 +59,7 @@ export default function SBLPositionsPage() {
   if (error) return <div className="text-red-500 p-4">Error: {error}</div>;
   if (data.length === 0) return <div className="text-gray-500 p-4">No data available. Run the scraper first.</div>;
 
-  const displayed = sortedData(data);
+  const displayed = sortedData(filteredData);
 
   return (
     <div>
@@ -59,20 +74,35 @@ export default function SBLPositionsPage() {
               Clear Sort ({sortConfigs.length})
             </button>
           )}
-          <ExportDropdown 
-            data={data} 
-            filename="sbl_positions" 
+          <ExportDropdown
+            data={displayed}
+            filename="sbl_positions"
             headers={[
               { label: 'Symbol', key: 'symbol' },
               { label: 'Company', key: 'company' },
               { label: 'Total Issued Shares Quantity', key: 'total_issued_shares' },
               { label: 'Lent Asset Quantity', key: 'lent_asset_quantity' },
-              { label: '% of Lent Asset', key: 'percent_of_lent_asset' }
+              { label: '% of Lent Asset', key: 'percent_of_lent_asset' },
             ]}
           />
           <span className="text-green-600 font-medium">Last Update Date: {data[0]?.report_date}</span>
         </div>
       </div>
+
+      <FilterBar
+        searchKeys={['symbol', 'company']}
+        searchPlaceholder="Search by symbol or company name..."
+        rangeFilters={[
+          { key: 'total_issued_shares', label: 'Total Issued Shares' },
+          { key: 'lent_asset_quantity', label: 'Lent Asset Quantity' },
+          { key: 'percent_of_lent_asset', label: '% of Lent Asset' },
+        ]}
+        searchValue={searchValue}
+        rangeValues={rangeValues}
+        onSearchChange={setSearchValue}
+        onRangeChange={handleRangeChange}
+        onClearAll={handleClearAll}
+      />
 
       <div className="rounded-lg border border-gray-200 shadow-sm overflow-hidden flex flex-col">
         <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: TABLE_BODY_HEIGHT }}>
@@ -102,7 +132,7 @@ export default function SBLPositionsPage() {
       </div>
 
       <p className="text-gray-400 text-xs mt-2">
-        {displayed.length} rows · Scroll to see more · Click header to sort · Click again to reverse · Click third time to remove
+        {displayed.length} of {data.length} rows · Scroll to see more · Click header to sort
       </p>
     </div>
   );

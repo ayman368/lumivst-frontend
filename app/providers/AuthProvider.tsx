@@ -7,6 +7,8 @@ interface User {
   id: number;
   email: string;
   full_name: string;
+  is_approved?: boolean;
+  is_admin?: boolean;
 }
 
 interface AuthContextType {
@@ -20,10 +22,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+import { API_ENDPOINTS } from '@/lib/api/config';
 
 // Read env variable to enable/disable auth (default enabled)
 const AUTH_ENABLED = process.env.NEXT_PUBLIC_AUTH_ENABLED !== 'false';
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -41,19 +43,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkAuth();
   }, []);
 
-  const setFrontendAuthMarker = (enabled: boolean) => {
-    if (typeof document === 'undefined') return;
-    if (enabled) {
-      const isSecure = window.location.protocol === 'https:';
-      document.cookie = `frontend_auth=1; path=/; max-age=604800; SameSite=Lax; ${isSecure ? 'Secure' : ''}`;
-    } else {
-      document.cookie = 'frontend_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-    }
-  };
-
   const checkAuth = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/auth/me`, {
+      const res = await fetch(API_ENDPOINTS.AUTH.ME, {
         credentials: 'include',
       });
 
@@ -61,26 +53,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userData = await res.json();
         if (userData && userData.is_approved === false) {
           setUser(null);
-          setFrontendAuthMarker(false);
-          if (typeof window !== 'undefined' && window.location.pathname !== '/pending-approval') {
+          if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/pending-approval')) {
             router.push('/pending-approval');
           }
           return;
         }
         setUser(userData);
-        setFrontendAuthMarker(true);
       } else if (res.status === 401) {
+        // Access token expired or invalid, try to refresh
+        try {
+          const refreshRes = await fetch(API_ENDPOINTS.AUTH.REFRESH_TOKEN, { 
+            method: 'POST', 
+            headers: { 'x-csrf-token': '1' },
+            credentials: 'include' 
+          });
+          
+          if (refreshRes.ok) {
+            // Successfully refreshed, check auth again
+            const retryRes = await fetch(API_ENDPOINTS.AUTH.ME, { credentials: 'include' });
+            if (retryRes.ok) {
+              const userData = await retryRes.json();
+              if (userData && userData.is_approved === false) {
+                setUser(null);
+                if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/pending-approval')) {
+                  router.push('/pending-approval');
+                }
+                return;
+              }
+              setUser(userData);
+              return; // Success after retry
+            }
+          }
+        } catch (refreshErr) {
+          console.warn("Failed to contact auth refresh endpoint", refreshErr);
+        }
+        
+        // If we reach here, refresh failed or retry failed
         setUser(null);
-        setFrontendAuthMarker(false);
       } else if (res.status === 403) {
         setUser(null);
-        setFrontendAuthMarker(false);
-        if (typeof window !== 'undefined' && window.location.pathname !== '/pending-approval') {
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/pending-approval')) {
           router.push('/pending-approval');
         }
       }
-    } catch {
-      // Network/transient issue; keep current state.
+    } catch (error) {
+      // Network/transient issue (CSP block, CORS, offline, backend hot-reloading in dev)
+      // Do NOT clear auth marker on network errors. If the backend is just restarting,
+      // destroying the session forces the developer to constantly log back in.
+      console.warn("Auth check encountered a network error or fetch was aborted:", error);
+      // We do not set user to null or clear auth marker here to preserve the session
+      // across hot reloads.
     } finally {
       setLoading(false);
     }
@@ -91,28 +113,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const res = await fetch(`${API_URL}/api/auth/login`, {
+    const res = await fetch(API_ENDPOINTS.AUTH.LOGIN, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': '1' },
       credentials: 'include',
       body: JSON.stringify({ email, password }),
     });
 
     if (!res.ok) {
       let errorMessage = 'فشل تسجيل الدخول';
+      let userData: any = null;
       try {
         const errorData = await res.json();
         errorMessage = errorData.detail || errorMessage;
+        userData = errorData.user;
       } catch (e) {
         // If json parsing fails, use default message
       }
+
+      // If 403 - account pending approval, redirect to pending page
+      if (res.status === 403) {
+        if (userData) {
+          localStorage.setItem('pendingUser', JSON.stringify(userData));
+        }
+        localStorage.setItem('pendingApprovalMessage', errorMessage);
+        window.location.href = '/pending-approval';
+        return;
+      }
+
       throw new Error(errorMessage);
     }
 
     const data = await res.json();
     if (data.user) {
       setUser(data.user);
-      setFrontendAuthMarker(true);
     } else {
       await checkAuth();
     }
@@ -126,9 +160,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const res = await fetch(`${API_URL}/api/auth/register`, {
+    const res = await fetch(API_ENDPOINTS.AUTH.REGISTER, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': '1' },
       credentials: 'include',
       body: JSON.stringify({ email, password, full_name: fullName || '' }),
     });
@@ -144,7 +178,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(errorMessage);
     }
 
-    router.push('/pending-approval');
+    // Store user data for the pending-approval page
+    try {
+      const data = await res.json();
+      if (data.user) {
+        localStorage.setItem('pendingUser', JSON.stringify(data.user));
+      }
+      if (data.message) {
+        localStorage.setItem('pendingApprovalMessage', data.message);
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    window.location.href = '/pending-approval';
   };
 
   const logout = async () => {
@@ -153,16 +200,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      await fetch(`${API_URL}/api/auth/logout`, {
+      await fetch(API_ENDPOINTS.AUTH.LOGOUT, {
         method: 'POST',
+        headers: { 'x-csrf-token': '1' },
         credentials: 'include',
       });
     } catch {
       // Ignore logout network failure on client.
     }
     setUser(null);
-    setFrontendAuthMarker(false);
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   return (

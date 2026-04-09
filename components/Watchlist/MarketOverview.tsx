@@ -16,14 +16,19 @@ interface StockRS {
 type SortKey = keyof StockRS;
 type SortDirection = 'asc' | 'desc';
 
+// نفس الـ interface من الكود التاني
+interface SortConfig {
+    key: SortKey;
+    direction: SortDirection;
+}
+
 export default function MarketOverview() {
     const [stocks, setStocks] = useState<StockRS[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
-    const [sortConfig, setSortConfig] = useState<{
-        key: SortKey;
-        direction: SortDirection;
-    }>({ key: 'rs_rating', direction: 'desc' });
+
+    // نفس نظام الـ sortConfigs array من الكود التاني
+    const [sortConfigs, setSortConfigs] = useState<SortConfig[]>([]);
 
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -54,7 +59,7 @@ export default function MarketOverview() {
         }
     };
 
-    // Filter and sort
+    // Filter and multi-sort - نفس منطق الترتيب من الكود التاني
     const filteredAndSortedStocks = useMemo(() => {
         let result = stocks.filter(stock => {
             if (!search) return true;
@@ -66,27 +71,34 @@ export default function MarketOverview() {
             );
         });
 
-        result.sort((a, b) => {
-            const aValue = a[sortConfig.key];
-            const bValue = b[sortConfig.key];
-            if (aValue === undefined || aValue === null) return 1;
-            if (bValue === undefined || bValue === null) return -1;
+        // Apply multi-sorting
+        if (sortConfigs.length > 0) {
+            result = [...result].sort((a, b) => {
+                for (const config of sortConfigs) {
+                    const aValue = a[config.key];
+                    const bValue = b[config.key];
 
-            if (typeof aValue === 'string' && typeof bValue === 'string') {
-                return sortConfig.direction === 'asc'
-                    ? aValue.localeCompare(bValue)
-                    : bValue.localeCompare(aValue);
-            }
-            if (typeof aValue === 'number' && typeof bValue === 'number') {
-                return sortConfig.direction === 'asc'
-                    ? aValue - bValue
-                    : bValue - aValue;
-            }
-            return 0;
-        });
+                    if (aValue === undefined || aValue === null) return 1;
+                    if (bValue === undefined || bValue === null) return -1;
+
+                    let comparison = 0;
+
+                    if (typeof aValue === 'string' && typeof bValue === 'string') {
+                        comparison = aValue.localeCompare(bValue);
+                    } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+                        comparison = aValue - bValue;
+                    }
+
+                    if (comparison !== 0) {
+                        return config.direction === 'asc' ? comparison : -comparison;
+                    }
+                }
+                return 0;
+            });
+        }
 
         return result;
-    }, [stocks, search, sortConfig]);
+    }, [stocks, search, sortConfigs]);
 
     // Pagination Logic
     const totalPages = Math.ceil(filteredAndSortedStocks.length / itemsPerPage);
@@ -103,13 +115,12 @@ export default function MarketOverview() {
 
     const getPageNumbers = () => {
         const pages = [];
-        // Max 500 items -> 20 pages max. We can show a smart list or just limited window.
         if (totalPages <= 7) {
             for (let i = 1; i <= totalPages; i++) pages.push(i);
         } else {
             if (currentPage <= 4) {
                 for (let i = 1; i <= 5; i++) pages.push(i);
-                pages.push(-1); // Ellipsis
+                pages.push(-1);
                 pages.push(totalPages);
             } else if (currentPage >= totalPages - 3) {
                 pages.push(1);
@@ -128,27 +139,37 @@ export default function MarketOverview() {
         return pages;
     };
 
+    // نفس handleSort من الكود التاني
     const handleSort = (key: SortKey) => {
-        setSortConfig(prev => {
-            if (prev.key === key) {
-                return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
-            } else {
-                const isStringKey = ['symbol', 'company_name', 'industry_group'].includes(key);
-                return { key, direction: isStringKey ? 'asc' : 'desc' };
+        setSortConfigs(prev => {
+            const existingIndex = prev.findIndex(config => config.key === key);
+
+            if (existingIndex === -1) {
+                // إضافة عمود جديد للترتيب
+                return [...prev, { key, direction: 'asc' }];
             }
+
+            const existing = prev[existingIndex];
+            if (existing.direction === 'asc') {
+                // تغيير الاتجاه إلى تنازلي
+                const newConfigs = [...prev];
+                newConfigs[existingIndex] = { ...existing, direction: 'desc' };
+                return newConfigs;
+            }
+
+            // إزالة العمود من الترتيب
+            return prev.filter((_, index) => index !== existingIndex);
         });
-        setCurrentPage(1); // Reset to first page on sort
+        setCurrentPage(1);
     };
 
     // --- وظيفة تصدير الملف CSV ---
     const exportToCSV = () => {
-        // العناوين
         const headers = ["Symbol", "Company", "Industry", "RS Rating", "3M Rank", "6M Rank", "9M Rank", "12M Rank"];
 
-        // تجهيز البيانات: نستخدم البيانات المفلترة والمرتبة حالياً
         const csvRows = filteredAndSortedStocks.map(stock => [
             stock.symbol,
-            `"${stock.company_name || ''}"`, // نضع النصوص داخل علامات تنصيص لتجنب مشاكل الفواصل
+            `"${stock.company_name || ''}"`,
             `"${stock.industry_group || ''}"`,
             stock.rs_rating,
             stock.rank_3m,
@@ -157,11 +178,9 @@ export default function MarketOverview() {
             stock.rank_12m
         ].join(","));
 
-        // إضافة BOM لدعم اللغة العربية في Excel
         const BOM = "\uFEFF";
         const csvContent = BOM + [headers.join(","), ...csvRows].join("\n");
 
-        // إنشاء رابط تحميل وهمي وتفعيله
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
@@ -172,14 +191,13 @@ export default function MarketOverview() {
         document.body.removeChild(link);
     };
 
-    const renderSortIcon = (columnKey: SortKey) => {
-        const isActive = sortConfig.key === columnKey;
-        return (
-            <span className={`inline-block ml-1 relative bottom-0.5 text-[10px] ${isActive ? 'opacity-100' : 'opacity-30'}`}>
-                {isActive && sortConfig.direction === 'asc' ? '▲' :
-                    isActive && sortConfig.direction === 'desc' ? '▼' : '⇅'}
-            </span>
-        );
+    // نفس getSortClass من الكود التاني
+    const getSortClass = (key: SortKey): string => {
+        const index = sortConfigs.findIndex(config => config.key === key);
+        if (index === -1) return 'cursor-pointer hover:bg-gray-50';
+
+        const direction = sortConfigs[index].direction;
+        return `cursor-pointer ${direction === 'asc' ? 'bg-blue-50' : 'bg-blue-50'}`;
     };
 
     if (loading) return (
@@ -200,9 +218,6 @@ export default function MarketOverview() {
                 </p>
 
                 <div className="flex flex-wrap justify-center gap-[8px] bg-white/10 p-[6px] rounded-[12px] mb-[30px]">
-
-
-                    {/* الزر المعدل ليقوم بالتصدير */}
                     <button
                         onClick={exportToCSV}
                         className="flex items-center gap-2 px-5 py-[10px] rounded-[8px] text-[0.95rem] font-medium transition-all duration-200 border border-black/10 bg-[#27ae60] text-white opacity-90 hover:bg-[#219150] hover:opacity-100 hover:-translate-y-[2px] hover:shadow-[0_4px_15px_rgba(39,174,96,0.4)] cursor-pointer"
@@ -236,18 +251,59 @@ export default function MarketOverview() {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto w-full">
+                {/* Sticky header container */}
+                <div className="overflow-x-auto w-full relative" style={{ maxHeight: '600px', overflowY: 'auto' }}>
                     <table className="w-full text-sm text-left border-collapse">
-                        <thead>
+                        <thead className="sticky top-0 z-10 bg-white shadow-sm">
                             <tr className="border-b border-gray-300">
-                                <SortableHeader label="Symbol" sortKey="symbol" currentSort={sortConfig} onSort={handleSort} icon={renderSortIcon} />
-                                <SortableHeader label="Company" sortKey="company_name" currentSort={sortConfig} onSort={handleSort} icon={renderSortIcon} />
-                                <SortableHeader label="Industry" sortKey="industry_group" currentSort={sortConfig} onSort={handleSort} icon={renderSortIcon} />
-                                <SortableHeader label="RS Rating" sortKey="rs_rating" currentSort={sortConfig} onSort={handleSort} icon={renderSortIcon} />
-                                <SortableHeader label="3M " sortKey="rank_3m" currentSort={sortConfig} onSort={handleSort} icon={renderSortIcon} />
-                                <SortableHeader label="6M " sortKey="rank_6m" currentSort={sortConfig} onSort={handleSort} icon={renderSortIcon} />
-                                <SortableHeader label="9M " sortKey="rank_9m" currentSort={sortConfig} onSort={handleSort} icon={renderSortIcon} />
-                                <SortableHeader label="12M " sortKey="rank_12m" currentSort={sortConfig} onSort={handleSort} icon={renderSortIcon} />
+                                {[
+                                    { key: 'symbol', label: 'Symbol' },
+                                    { key: 'company_name', label: 'Company' },
+                                    { key: 'industry_group', label: 'Industry' },
+                                    { key: 'rs_rating', label: 'RS Rating' },
+                                    { key: 'rank_3m', label: '3M' },
+                                    { key: 'rank_6m', label: '6M' },
+                                    { key: 'rank_9m', label: '9M' },
+                                    { key: 'rank_12m', label: '12M' }
+                                ].map(col => {
+                                    const sortIndex = sortConfigs.findIndex(config => config.key === col.key);
+                                    const isSorted = sortIndex !== -1;
+                                    const sortPriority = sortIndex + 1;
+                                    const sortDir = isSorted ? sortConfigs[sortIndex].direction : null;
+
+                                    return (
+                                        <th
+                                            key={col.key}
+                                            className={`
+                                                px-3 py-3 font-medium text-gray-600 cursor-pointer select-none
+                                                hover:bg-gray-100 transition-colors whitespace-nowrap
+                                                ${getSortClass(col.key as SortKey)}
+                                                ${isSorted ? 'bg-blue-50 text-blue-900 border-b-2 border-b-blue-500' : ''}
+                                            `}
+                                            onClick={() => handleSort(col.key as SortKey)}
+                                        >
+                                            <div className="flex items-center">
+                                                <span className="font-semibold">{col.label}</span>
+                                                <div className="flex flex-col ml-1">
+                                                    {isSorted ? (
+                                                        <span className="text-xs font-bold">
+                                                            {sortDir === 'asc' ? '▲' : '▼'}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[10px] text-gray-400 opacity-50 block leading-[8px]">
+                                                            ▲<br />▼
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {isSorted && (
+                                                    <span className="ml-1 inline-flex items-center justify-center w-4 h-4 bg-blue-600 text-white text-[10px] font-bold rounded-full flex-shrink-0">
+                                                        {sortPriority}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
                         <tbody>
@@ -307,19 +363,5 @@ export default function MarketOverview() {
 
             </div>
         </div>
-    );
-}
-
-function SortableHeader({ label, sortKey, currentSort, onSort, icon }: any) {
-    return (
-        <th
-            className="px-3 py-3 font-bold text-[#212529] cursor-pointer select-none pr-6 group"
-            onClick={() => onSort(sortKey)}
-        >
-            <div className="flex items-center justify-between">
-                {label}
-                {icon(sortKey)}
-            </div>
-        </th>
     );
 }

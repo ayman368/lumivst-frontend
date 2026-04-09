@@ -39,6 +39,7 @@ export default function ContactPage() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'x-csrf-token': '1',
                 },
                 body: JSON.stringify({
                     name: formData.name,

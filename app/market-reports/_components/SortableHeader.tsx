@@ -7,9 +7,11 @@ type Props = {
     sortConfigs: SortConfig[];
     onSort: (key: string) => void;
     className?: string;
+    rowSpan?: number;
+    colSpan?: number;
 };
 
-export function SortableHeader({ label, sortKey, sortConfigs, onSort, className = '' }: Props) {
+export function SortableHeader({ label, sortKey, sortConfigs, onSort, className = '', rowSpan, colSpan }: Props) {
     const config = sortConfigs.find((s) => s.key === sortKey);
     const isActive = !!config;
 
@@ -21,6 +23,8 @@ export function SortableHeader({ label, sortKey, sortConfigs, onSort, className 
         <th
             className={`px-4 py-3 font-semibold cursor-pointer select-none group ${className}`}
             onClick={() => onSort(sortKey)}
+            rowSpan={rowSpan}
+            colSpan={colSpan}
         >
             <div className={`flex items-center gap-1.5 whitespace-nowrap ${justifyClass}`}>
                 <span

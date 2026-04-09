@@ -3,6 +3,8 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 function GoogleCallbackContent() {
     const searchParams = useSearchParams();
     const [error, setError] = useState('');
@@ -21,9 +23,10 @@ function GoogleCallbackContent() {
 
         const exchangeCode = async () => {
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/auth/google/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`, {
+                const res = await fetch(`${API_URL}/api/auth/google/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`, {
                     method: 'POST',
                     credentials: 'include',
+                    headers: { 'x-csrf-token': '1' },
                 });
 
                 if (!res.ok) {
@@ -42,12 +45,10 @@ function GoogleCallbackContent() {
                     // If status is 403 (Forbidden) - account pending approval
                     if (res.status === 403) {
                         console.log('[Google Callback] Account pending admin approval', userData);
-                        // Store user info and temp token for pending approval page
                         if (userData) {
                             localStorage.setItem('pendingUser', JSON.stringify(userData));
                         }
                         localStorage.setItem('pendingApprovalMessage', errorMessage);
-                        // Use window.location for immediate redirect without middleware interference
                         window.location.href = '/pending-approval';
                         return;
                     }

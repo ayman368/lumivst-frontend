@@ -3,8 +3,7 @@ import { useState, FormEvent } from 'react';
 import { ShieldCheck, Mail, Lock, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_ENDPOINTS } from '@/lib/api/config';
 
 export default function AdminLoginPage() {
     const [email, setEmail] = useState('');
@@ -19,9 +18,12 @@ export default function AdminLoginPage() {
         setLoading(true);
 
         try {
-            const response = await axios.post(`${API_URL}/api/auth/login`, {
+            const response = await axios.post(API_ENDPOINTS.ADMIN.LOGIN, {
                 email,
                 password
+            }, {
+                headers: { 'x-csrf-token': '1' },
+                withCredentials: true
             });
 
             // Backend now issues HttpOnly session cookies.

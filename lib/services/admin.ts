@@ -1,5 +1,13 @@
 import axios from 'axios';
-import { User } from './auth';
+
+export interface User {
+  id: number;
+  email: string;
+  full_name: string;
+  is_verified: boolean;
+  is_approved: boolean;
+  is_admin: boolean;
+}
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const API_URL = BASE_URL.endsWith('/api') ? BASE_URL : `${BASE_URL}/api`;
@@ -14,6 +22,7 @@ export const AdminService = {
 
     async approveUser(userId: number): Promise<void> {
         await axios.post(`${API_URL}/admin/approve-user/${userId}`, {}, {
+            headers: { 'x-csrf-token': '1' },
             withCredentials: true
         });
     }

@@ -3,10 +3,14 @@ import type { NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
+
+  // Normalize path for comparison (remove trailing slash except for root)
+  const normalizedPath = path === '/' ? '/' : path.replace(/\/+$/, '');
+
   const publicPaths = [
     '/login',
     '/register',
-    '/auth/',
+    '/auth',
     '/pending-approval',
     '/terms',
     '/terms-of-service',
@@ -17,16 +21,32 @@ export async function middleware(request: NextRequest) {
     '/contact',
   ];
 
-  const isPublicPath = publicPaths.some((p) => path.startsWith(p)) || path.startsWith('/api/public');
-  const authMarker = request.cookies.get('frontend_auth')?.value;
+  const isPublicPath =
+    publicPaths.some((p) => normalizedPath === p || normalizedPath.startsWith(p + '/')) ||
+    normalizedPath.startsWith('/api/public');
 
-  if (!authMarker && !isPublicPath) {
+  // Secure server-side verification: check for HTTP-only session tokens
+  const hasSession = request.cookies.has('session_token');
+  const hasRefresh = request.cookies.has('refresh_token');
+  const hasPending = request.cookies.has('pending_token');
+
+  // User is considered authenticated if they have a valid active session or a valid refresh token.
+  // The Backend validates these tokens on API calls anyway.
+  const isAuthenticated = hasSession || hasRefresh;
+
+  // Not authenticated and trying to access protected page → redirect to login
+  if (!isAuthenticated && !isPublicPath) {
+    // If they have a pending token, send them to approval page instead of login
+    if (hasPending) {
+        return NextResponse.redirect(new URL('/pending-approval', request.url));
+    }
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('callbackUrl', `${path}${request.nextUrl.search}`);
     return NextResponse.redirect(loginUrl);
   }
 
-  if (authMarker && (path === '/login' || path === '/register')) {
+  // Authenticated and trying to access login/register → redirect to home
+  if (isAuthenticated && (normalizedPath === '/login' || normalizedPath === '/register')) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
@@ -37,7 +57,6 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except:
-     * - api routes (except auth-related) - let API handle its own auth
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
