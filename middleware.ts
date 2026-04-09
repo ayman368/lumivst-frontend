@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+// Temporary kill-switch for auth redirect loops in production.
+// Enable strict middleware auth only when cookie/domain architecture is finalized.
+const AUTH_GATE_ENABLED = process.env.NEXT_PUBLIC_AUTH_GATE_ENABLED === 'true';
+
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
@@ -35,10 +39,10 @@ export async function middleware(request: NextRequest) {
   const isAuthenticated = hasSession || hasRefresh;
 
   // Not authenticated and trying to access protected page → redirect to login
-  if (!isAuthenticated && !isPublicPath) {
+  if (AUTH_GATE_ENABLED && !isAuthenticated && !isPublicPath) {
     // If they have a pending token, send them to approval page instead of login
     if (hasPending) {
-        return NextResponse.redirect(new URL('/pending-approval', request.url));
+      return NextResponse.redirect(new URL('/pending-approval', request.url));
     }
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('callbackUrl', `${path}${request.nextUrl.search}`);
