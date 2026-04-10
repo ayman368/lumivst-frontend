@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import styles from '../../../styles/Financials.module.css'
 import { FinancialHeader } from '../../../../components/FinancialHeader'
+import { API_BASE_URL } from '@/lib/api/config';
 
 function cleanSymbol(symbol: string): string {
   return symbol.split('.')[0]
@@ -15,7 +16,7 @@ async function getStatisticsData(symbol: string, country: string = "Saudi Arabia
 
   console.log(`📊 Fetching statistics for ${symbol} - Country: ${country} - encoded: ${encodedCountry}`)
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const API_URL = API_BASE_URL;
 
   const response = await fetch(
     `${API_URL}/statistics/${cleanSym}?country=${encodedCountry}`,

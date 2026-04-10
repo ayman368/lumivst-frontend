@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, AreaSeries, IChartApi, CrosshairMode } from 'lightweight-charts';
 import { TrendingUp, Activity, BarChart2, Layers, BarChart3, Radio } from 'lucide-react';
 import ExportButton from './_components/ExportButton';
+import { API_BASE_URL } from '@/lib/api/config';
 
 interface BreadthItem {
     time: string;
@@ -92,7 +93,7 @@ export default function MarketBreadthPage() {
         async function fetchData() {
             try {
                 setLoading(true);
-                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+                const API_URL = API_BASE_URL;
                 const res = await fetch(`${API_URL}/api/market-breadth/percent-above-ma?period=${period}`);
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const json = await res.json();

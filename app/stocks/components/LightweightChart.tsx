@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import {
+import { API_BASE_URL } from '@/lib/api/config';
     createChart,
     ColorType,
     CandlestickSeries,
@@ -237,7 +238,7 @@ export default function LightweightChart({
         setError(null);
         setData([]);
 
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const API_URL = API_BASE_URL;
         fetch(`${API_URL}/api/prices/history/${symbol}?limit=10000`, { signal: ctrl.signal, credentials: 'include' })
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
             .then(json => setData(json.data || []))

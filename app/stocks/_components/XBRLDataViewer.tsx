@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Loader2, FileSpreadsheet, AlertCircle } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/api/config';
 
 interface MetricRecord {
     row_id: number;
@@ -26,7 +27,7 @@ export default function XBRLDataViewer({ symbol }: XBRLDataViewerProps) {
     useEffect(() => {
         async function fetchData() {
             try {
-                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+                const API_URL = API_BASE_URL;
                 const res = await fetch(`${API_URL}/api/financial-details/${symbol}/xbrl`);
                 if (!res.ok) throw new Error("Failed to fetch financial details");
                 const json = await res.json();

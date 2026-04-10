@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Mail, Phone, MapPin, Send } from 'lucide-react';
 import Link from 'next/link';
+import { API_BASE_URL } from '@/lib/api/config';
 
 export default function ContactPage() {
     const [formData, setFormData] = useState({
@@ -34,7 +35,7 @@ export default function ContactPage() {
         setResult(null);
 
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const API_URL = API_BASE_URL;
             const response = await fetch(`${API_URL}/api/contact/`, {
                 method: 'POST',
                 headers: {

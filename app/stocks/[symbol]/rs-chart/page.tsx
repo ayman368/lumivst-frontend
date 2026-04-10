@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
 import { format } from 'date-fns';
+import { API_BASE_URL } from '@/lib/api/config';
 
 interface RSData {
     date: string;
@@ -27,7 +28,7 @@ export default function RSChartPage({ params }: { params: Promise<{ symbol: stri
     const fetchRSData = async () => {
         setLoading(true);
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const API_URL = API_BASE_URL;
             const url = `${API_URL}/api/rs/${symbol}?from_date=${dateRange.from}&to_date=${dateRange.to}`;
             const res = await fetch(url);
 

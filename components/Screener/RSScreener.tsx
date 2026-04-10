@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { createChart, ColorType, CrosshairMode, AreaSeries } from 'lightweight-charts';
 import { Calendar, TrendingUp, TrendingDown, Search, Filter, X, ChevronRight, ChevronLeft, BarChart3, Sparkles, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/api/config';
 
 // ─── DESIGN TOKENS: Black & White ────────────────────────────────
 // Page bg:         #FFFFFF   Sidebar/Card bg: #FFFFFF
@@ -165,7 +166,7 @@ export default function RSScreener() {
         if (selectedStock) fetchHistoryWithPeriod(selectedStock.symbol);
     }, [selectedStock, selectedPeriod, customStartDate, customEndDate]);
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const API_URL = API_BASE_URL;
 
     const fetchLatestRS = async () => {
         try {

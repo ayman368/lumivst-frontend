@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API_BASE_URL } from '@/lib/api/config';
 
 interface ApiResponse<T = any> {
   data: T;
@@ -24,7 +25,7 @@ export const useApi = () => {
         ...((options.headers as Record<string, string>) || {}),
       };
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
         headers,
         credentials: 'include',

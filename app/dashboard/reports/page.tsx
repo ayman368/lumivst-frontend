@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { FileSpreadsheet, Download, Calendar, Search, Loader2, FolderOpen, Building2 } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/api/config';
 
 interface ExcelReport {
     id: number;
@@ -30,7 +31,7 @@ export default function DashboardReportsPage() {
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
 
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const API_BASE = API_BASE_URL;
 
     useEffect(() => {
         fetchCompanies();

@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { Calendar, X } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { createChart, ColorType, CrosshairMode, AreaSeries } from 'lightweight-charts';
+import { API_BASE_URL } from '@/lib/api/config';
 
 // ─── DESIGN TOKENS: Black & White ────────────────────────────────
 // Page bg: #FFFFFF  |  Card bg: #FFFFFF  |  Border: #E5E7EB
@@ -104,7 +105,7 @@ export default function RSAnalysisPage() {
     const [selIndustry, setSelIndustry] = useState('');
     const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
     const pickerRef = useRef<HTMLDivElement>(null);
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const API_URL = API_BASE_URL;
 
     useEffect(() => {
         const h = (e: MouseEvent) => { if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setShowPicker(false); };

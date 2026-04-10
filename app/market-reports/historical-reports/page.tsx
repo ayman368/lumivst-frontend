@@ -5,6 +5,7 @@ import axios from 'axios';
 import { useTableSort } from '../_components/useTableSort';
 import { SortableHeader } from '../_components/SortableHeader';
 import { ExportDropdown } from '../_components/ExportDropdown';
+import { API_BASE_URL } from '@/lib/api/config';
 
 type HistoricalReport = {
   id: number;
@@ -62,7 +63,7 @@ export default function HistoricalReportsPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+        const API_URL = API_BASE_URL;
         const response = await axios.get(`${API_URL}/api/market-reports/historical-reports`);
         setData(response.data);
       } catch (err: any) {

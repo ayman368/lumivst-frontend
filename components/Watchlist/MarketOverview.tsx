@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import { API_BASE_URL } from '@/lib/api/config';
 
 interface StockRS {
     symbol: string;
@@ -40,7 +41,7 @@ export default function MarketOverview() {
 
     const fetchData = async () => {
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const API_URL = API_BASE_URL;
             const res = await fetch(`${API_URL}/api/rs/latest?limit=500`, { credentials: 'include' });
 
             if (!res.ok) {

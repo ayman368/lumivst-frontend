@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import {
+import { API_BASE_URL } from '@/lib/api/config';
     Search,
     RefreshCw,
     Zap,
@@ -141,7 +142,7 @@ export default function TechnicalScreenerPage() {
     const [availableDates, setAvailableDates] = useState<string[]>([]);
     const [selectedDate, setSelectedDate] = useState<string>('');
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const API_URL = API_BASE_URL;
 
     useEffect(() => {
         fetchScreenerData();

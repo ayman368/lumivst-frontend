@@ -7,6 +7,7 @@ import { SortableHeader } from '../_components/SortableHeader';
 import { ExportDropdown } from '../_components/ExportDropdown';
 import FilterBar from '../_components/FilterBar';
 import { useFilters } from '../_components/useFilters';
+import { API_BASE_URL } from '@/lib/api/config';
 
 type Shareholder = {
   id: number;
@@ -45,7 +46,7 @@ export default function SubstantialShareholdersPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+        const API_URL = API_BASE_URL;
         const response = await axios.get(`${API_URL}/api/market-reports/substantial-shareholders`);
         setData(response.data);
       } catch (err: any) {

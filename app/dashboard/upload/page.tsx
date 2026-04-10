@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/api/config';
 
 export default function DashboardUploadPage() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -12,7 +13,7 @@ export default function DashboardUploadPage() {
     const [dragActive, setDragActive] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const API_BASE = API_BASE_URL;
 
     const handleDrag = (e: React.DragEvent) => {
         e.preventDefault();

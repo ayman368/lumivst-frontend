@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ChevronDown, FileText, Loader2 } from 'lucide-react';
 import FinancialReportsTable from '../../_components/FinancialReportsTable';
+import { API_BASE_URL } from '@/lib/api/config';
 
 interface Company {
     symbol: string;
@@ -18,7 +19,7 @@ export default function ReportsPage() {
     const [companies, setCompanies] = useState<Company[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const API_BASE = API_BASE_URL;
 
     useEffect(() => {
         fetchCompanies();

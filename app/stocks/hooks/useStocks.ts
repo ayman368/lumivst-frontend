@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Stock, StockMetadata } from '../types';
+import { API_BASE_URL } from '@/lib/api/config';
 
 export default function useStocks() {
     const [stocks, setStocks] = useState<Stock[]>([]);
@@ -10,12 +11,11 @@ export default function useStocks() {
     const fetchStocks = useCallback(async () => {
         try {
             setLoading(true);
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
             const [pricesRes, rsRes, techRes] = await Promise.all([
-                fetch(`${API_URL}/api/prices/latest`, { cache: 'no-store', credentials: 'include' }),
-                fetch(`${API_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', credentials: 'include' }),
-                fetch(`${API_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', credentials: 'include' })
+                fetch(`${API_BASE_URL}/api/prices/latest`, { cache: 'no-store', credentials: 'include' }),
+                fetch(`${API_BASE_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', credentials: 'include' }),
+                fetch(`${API_BASE_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', credentials: 'include' })
             ]);
 
             if (!pricesRes.ok) throw new Error(`Failed to fetch prices: ${pricesRes.status}`);

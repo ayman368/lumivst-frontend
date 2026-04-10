@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Loader2, FileSpreadsheet, AlertCircle, BarChart3, Search, X } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/api/config';
 
 // ─── DESIGN TOKENS: Warm Cream × Forest Green ────────────────────────────────
 // Page bg: #EDE8DC  |  Card bg: #FDFAF5  |  Row alt bg: #FAF7F0
@@ -43,7 +44,7 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
     useEffect(() => {
         async function fetchData() {
             try {
-                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+                const API_URL = API_BASE_URL;
                 const res = await fetch(`${API_URL}/api/financial-metrics/${symbol}/data-by-section`);
                 if (!res.ok) throw new Error('Failed to fetch financial data');
                 setData(await res.json());

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import {
+import { API_BASE_URL } from '@/lib/api/config';
     LayoutDashboard,
     MessageSquare,
     Search,
@@ -13,7 +14,7 @@ import {
     RefreshCw
 } from 'lucide-react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = API_BASE_URL;
 
 interface ContactMessage {
     id: number;

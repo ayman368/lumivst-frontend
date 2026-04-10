@@ -5,6 +5,7 @@ import ScreenerTable from '@/components/Screeners/ScreenerTable';
 import ScreenerFilterPanel, { initialScreenerFilters, ScreenerFilters } from '@/components/Screeners/ScreenerFilterPanel';
 import { motion } from 'framer-motion';
 import { Target, ShieldCheck } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/api/config';
 
 interface StockResult {
   symbol: string;
@@ -45,7 +46,7 @@ function AlrayanScreenerContent() {
     async function fetchData() {
       setLoading(true);
       try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const API_URL = API_BASE_URL;
 
         const [pricesRes, rsRes, techRes] = await Promise.all([
           fetch(`${API_URL}/api/prices/latest`, { cache: 'no-store', credentials: 'include' }),

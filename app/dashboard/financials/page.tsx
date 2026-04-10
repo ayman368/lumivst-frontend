@@ -7,6 +7,7 @@ import { StocksTopBar } from '../../stocks/_components/StocksTopBar';
 import { StockHeader } from '../../stocks/_components/StockHeader';
 import { StockTabs } from '../../stocks/_components/StockTabs';
 import { MOCK_STOCK_DATA } from '../../stocks/data/mockData';
+import { API_BASE_URL } from '@/lib/api/config';
 
 interface FinancialPeriod {
     period_end_date: string;
@@ -49,7 +50,7 @@ function DashboardFinancialsContent() {
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
 
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const API_BASE = API_BASE_URL;
 
     // Sync URL symbol with state
     useEffect(() => {

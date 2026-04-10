@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../providers/AuthProvider';
 import { User, Mail, Lock, AlertCircle, Check, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { API_BASE_URL } from '@/lib/api/config';
 
 export default function ProfilePage() {
     const { user, loading } = useAuth();
@@ -35,7 +36,7 @@ export default function ProfilePage() {
         setIsSaving(true);
 
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+            const API_URL = API_BASE_URL;
             const res = await fetch(`${API_URL}/api/auth/profile`, {
                 method: 'PUT',
                 headers: {
@@ -207,7 +208,7 @@ export default function ProfilePage() {
                             onClick={async () => {
                                 if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
                                     try {
-                                        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+                                        const API_URL = API_BASE_URL;
                                         const res = await fetch(`${API_URL}/api/auth/delete-account`, {
                                             method: 'DELETE',
                                             headers: { 'x-csrf-token': '1' },

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { TrendingUp, TrendingDown, Filter, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatShariahApproval, formatPurgeAmount, formatMarginable } from '../stocks/utils/formatters';
 import * as XLSX from 'xlsx';
+import { API_BASE_URL } from '@/lib/api/config';
 
 interface IndustryGroup {
     id: number;
@@ -506,7 +507,7 @@ export default function IndustryGroupsPage() {
     useEffect(() => {
         async function fetchData() {
             try {
-                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+                const API_URL = API_BASE_URL;
 
                 const res = await fetch(`${API_URL}/api/industry-groups/latest`, {
                     cache: 'no-store',
@@ -867,7 +868,7 @@ export default function IndustryGroupsPage() {
 
         setLoadingStocks(prev => new Set(prev).add(groupName));
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const API_URL = API_BASE_URL;
             const encodedGroup = encodeURIComponent(groupName);
 
             const res = await fetch(`${API_URL}/api/industry-groups/stocks?industry_group=${encodedGroup}`, {

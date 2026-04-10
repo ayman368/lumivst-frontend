@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { FileText, FileSpreadsheet, Loader2, AlertCircle } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/api/config';
 
 interface OfficialFiling {
     id: number;
@@ -41,7 +42,7 @@ export default function FinancialReportsTable({ symbol }: { symbol: string }) {
         setData({}); // Clear previous data strictly
         setYears([]); // Clear previous years
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const API_BASE_URL = API_BASE_URL;
             const res = await fetch(`${API_BASE_URL}/api/reports/${symbol}`);
 
             if (!res.ok) {
