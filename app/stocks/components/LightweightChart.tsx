@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import {
-import { API_BASE_URL } from '@/lib/api/config';
     createChart,
     ColorType,
     CandlestickSeries,
@@ -11,6 +10,7 @@ import { API_BASE_URL } from '@/lib/api/config';
     IChartApi,
     CrosshairMode,
 } from 'lightweight-charts';
+import { API_BASE_URL } from '@/lib/api/config';
 
 // ─── Data type ─────────────────────────────────────────────────────────────────
 interface CandleData {

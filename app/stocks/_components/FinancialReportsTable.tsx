@@ -42,7 +42,6 @@ export default function FinancialReportsTable({ symbol }: { symbol: string }) {
         setData({}); // Clear previous data strictly
         setYears([]); // Clear previous years
         try {
-            const API_BASE_URL = API_BASE_URL;
             const res = await fetch(`${API_BASE_URL}/api/reports/${symbol}`);
 
             if (!res.ok) {

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import {
-import { API_BASE_URL } from '@/lib/api/config';
     Search,
     RefreshCw,
     Zap,
@@ -13,6 +12,7 @@ import { API_BASE_URL } from '@/lib/api/config';
     Shield,
     TrendingUp as TrendingUpIcon,
 } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/api/config';
 
 interface ScreenerStock {
     symbol: string;

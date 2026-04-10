@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import {
-import { API_BASE_URL } from '@/lib/api/config';
     LayoutDashboard,
     MessageSquare,
     Search,
@@ -13,6 +12,7 @@ import { API_BASE_URL } from '@/lib/api/config';
     Loader2,
     RefreshCw
 } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/api/config';
 
 const API_URL = API_BASE_URL;
 
