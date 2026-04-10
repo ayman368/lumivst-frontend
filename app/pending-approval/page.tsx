@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from 'react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_ENDPOINTS } from '@/lib/api/config';
 
 export default function PendingApproval() {
     const [message, setMessage] = useState('');
@@ -12,7 +12,7 @@ export default function PendingApproval() {
     const checkApprovalStatus = useCallback(async () => {
         try {
             // Try the SSE/pending endpoint first (for OAuth flow with pending_token)
-            const res = await fetch(`${API_URL}/api/auth/pending-status/check`, {
+            const res = await fetch(API_ENDPOINTS.AUTH.PENDING_STATUS_CHECK, {
                 credentials: 'include',
             });
 
@@ -30,7 +30,7 @@ export default function PendingApproval() {
         // Fallback: try to login again to check if approved (for both flows)
         // If the user has a session_token, try /api/auth/me
         try {
-            const meRes = await fetch(`${API_URL}/api/auth/me`, {
+            const meRes = await fetch(API_ENDPOINTS.AUTH.ME, {
                 credentials: 'include',
             });
             if (meRes.ok) {
@@ -84,7 +84,7 @@ export default function PendingApproval() {
             localStorage.removeItem('pendingApprovalMessage');
 
             // Try activate-session to get proper session from pending token, then go home
-            fetch(`${API_URL}/api/auth/activate-session`, {
+            fetch(API_ENDPOINTS.AUTH.ACTIVATE_SESSION, {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'x-csrf-token': '1' },
@@ -93,7 +93,7 @@ export default function PendingApproval() {
                     window.location.href = '/';
                 } else {
                     // Try me endpoint as fallback if activate-session fails
-                    fetch(`${API_URL}/api/auth/me`, {
+                    fetch(API_ENDPOINTS.AUTH.ME, {
                        credentials: 'include',
                     }).then(res => {
                        if(res.ok) {

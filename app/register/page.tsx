@@ -5,6 +5,7 @@ import { useAuth } from '../providers/AuthProvider';
 import Link from 'next/link';
 import { GoogleIcon, FacebookIcon } from '../_components/ui/SocialIcons';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_ENDPOINTS } from '@/lib/api/config';
 
 interface LandingViewProps {
   onEmailClick: () => void;
@@ -225,7 +226,7 @@ export default function RegisterPage() {
   const handleSocialLogin = async (provider: string) => {
     if (provider === 'Google') {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/google/login`, { credentials: 'include' });
+        const res = await fetch(API_ENDPOINTS.AUTH.GOOGLE_LOGIN, { credentials: 'include' });
         const data = await res.json();
         if (data.url) {
           window.location.href = data.url;
@@ -239,7 +240,7 @@ export default function RegisterPage() {
 
     if (provider === 'Facebook') {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/facebook/login`, { credentials: 'include' });
+        const res = await fetch(API_ENDPOINTS.AUTH.FACEBOOK_LOGIN, { credentials: 'include' });
         const data = await res.json();
         if (data.url) {
           window.location.href = data.url;

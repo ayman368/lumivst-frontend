@@ -117,9 +117,9 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
 
     let periods = Object.keys(data).sort((a, b) => b.localeCompare(a));
     if (periodDisplayMode === 'annual')
-        periods = periods.filter(p => p.toLowerCase().includes('annual') || p.toLowerCase().includes('year'));
+        periods = periods.filter(p => /annual/i.test(p));
     else if (periodDisplayMode === 'quarterly')
-        periods = periods.filter(p => !p.toLowerCase().includes('annual') && !p.toLowerCase().includes('year'));
+        periods = periods.filter(p => !/annual/i.test(p));
 
     const allSections = new Set<string>();
     Object.values(data).forEach(pd => Object.keys(pd).forEach(s => allSections.add(s)));
@@ -266,7 +266,7 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
                                     {selectedSection ? getSectionTitle(selectedSection) : 'Items'}
                                 </th>
                                 {periods.map(p => {
-                                    let title = p.split('::')[0].replace(' ANNUAL', '');
+                                    let title = p.replace(/\s*(annual)/i, ' Annual').trim();
                                     return (
                                         <th key={p} style={{
                                             padding: '16px 24px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em',

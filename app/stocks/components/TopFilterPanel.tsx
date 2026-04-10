@@ -376,6 +376,21 @@ export default function TopFilterPanel({
                 <RangeRow label="RS Rating (0–99)"
                     minVal={f.rs_rating_min} maxVal={f.rs_rating_max}
                     onMin={v => s({ rs_rating_min: v })} onMax={v => s({ rs_rating_max: v })} />
+                <RangeRow label="RS 1M (0–99)"
+                    minVal={f.rank_1m_min} maxVal={f.rank_1m_max}
+                    onMin={v => s({ rank_1m_min: v })} onMax={v => s({ rank_1m_max: v })} />
+                <RangeRow label="RS 3M (0–99)"
+                    minVal={f.rank_3m_min} maxVal={f.rank_3m_max}
+                    onMin={v => s({ rank_3m_min: v })} onMax={v => s({ rank_3m_max: v })} />
+                <RangeRow label="RS 6M (0–99)"
+                    minVal={f.rank_6m_min} maxVal={f.rank_6m_max}
+                    onMin={v => s({ rank_6m_min: v })} onMax={v => s({ rank_6m_max: v })} />
+                <RangeRow label="RS 9M (0–99)"
+                    minVal={f.rank_9m_min} maxVal={f.rank_9m_max}
+                    onMin={v => s({ rank_9m_min: v })} onMax={v => s({ rank_9m_max: v })} />
+                <RangeRow label="RS 12M (0–99)"
+                    minVal={f.rank_12m_min} maxVal={f.rank_12m_max}
+                    onMin={v => s({ rank_12m_min: v })} onMax={v => s({ rank_12m_max: v })} />
                 <SectionHead>Accumulation / Distribution</SectionHead>
                 <RatingRow label="Acc/Dis Rating" selected={f.acc_dis_rating} onChange={v => s({ acc_dis_rating: v })} />
                 <RatingRow label="Industry Group RS" selected={f.industry_group_rs} onChange={v => s({ industry_group_rs: v })} />

@@ -14,6 +14,11 @@ interface StockResult {
   sma_150: number;
   sma_200: number;
   rs_rating: number;
+  rank_1m: number;
+  rank_3m: number;
+  rank_6m: number;
+  rank_9m: number;
+  rank_12m: number;
   percent_off_52w_high: number;
   percent_off_52w_low: number;
 }
@@ -125,6 +130,11 @@ function AlrayanScreenerContent() {
             sma_150: parseFloat(tech.sma150 || tech.sma_150 || 0),
             sma_200: parseFloat(tech.sma200 || tech.sma_200 || 0),
             rs_rating: parseFloat(rs.rs_rating || 0),
+            rank_1m: parseFloat(rs.rank_1m || 0),
+            rank_3m: parseFloat(rs.rank_3m || 0),
+            rank_6m: parseFloat(rs.rank_6m || 0),
+            rank_9m: parseFloat(rs.rank_9m || 0),
+            rank_12m: parseFloat(rs.rank_12m || 0),
             percent_off_52w_high: parseFloat(tech.percent_off_52w_high || 0),
             percent_off_52w_low: parseFloat(tech.percent_off_52w_low || 0)
           });
@@ -167,6 +177,21 @@ function AlrayanScreenerContent() {
       if (filters.rs_12m_min && stock.rs_rating < parseFloat(filters.rs_12m_min)) return false;
       if (filters.rs_12m_max && stock.rs_rating > parseFloat(filters.rs_12m_max)) return false;
 
+      if (filters.rank_1m_min && stock.rank_1m < parseFloat(filters.rank_1m_min)) return false;
+      if (filters.rank_1m_max && stock.rank_1m > parseFloat(filters.rank_1m_max)) return false;
+
+      if (filters.rank_3m_min && stock.rank_3m < parseFloat(filters.rank_3m_min)) return false;
+      if (filters.rank_3m_max && stock.rank_3m > parseFloat(filters.rank_3m_max)) return false;
+
+      if (filters.rank_6m_min && stock.rank_6m < parseFloat(filters.rank_6m_min)) return false;
+      if (filters.rank_6m_max && stock.rank_6m > parseFloat(filters.rank_6m_max)) return false;
+
+      if (filters.rank_9m_min && stock.rank_9m < parseFloat(filters.rank_9m_min)) return false;
+      if (filters.rank_9m_max && stock.rank_9m > parseFloat(filters.rank_9m_max)) return false;
+
+      if (filters.rank_12m_min && stock.rank_12m < parseFloat(filters.rank_12m_min)) return false;
+      if (filters.rank_12m_max && stock.rank_12m > parseFloat(filters.rank_12m_max)) return false;
+
       // Off 52W High
       if (filters.percent_off_52w_high_min && stock.percent_off_52w_high < parseFloat(filters.percent_off_52w_high_min)) return false;
       if (filters.percent_off_52w_high_max && stock.percent_off_52w_high > parseFloat(filters.percent_off_52w_high_max)) return false;
@@ -186,7 +211,7 @@ function AlrayanScreenerContent() {
   return (
     <div style={{ width: '100%', minHeight: '100vh', backgroundColor: '#FFFFFF', color: '#111827', fontFamily: 'system-ui, sans-serif' }}>
       
-      <div style={{ padding: '32px 32px 0 32px', maxWidth: '1600px', margin: '0 auto' }}>
+      <div style={{ padding: '32px 32px 0 32px', maxWidth: '1920px', margin: '0 auto' }}>
         <ScreenerFilterPanel 
           filters={filters} 
           setFilters={setFilters} 
@@ -196,7 +221,7 @@ function AlrayanScreenerContent() {
 
       {/* ── Main Body ── */}
       <div style={{ padding: '0 32px 80px' }}>
-        <div style={{ maxWidth: '1600px', margin: '0 auto', display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
+        <div style={{ maxWidth: '1920px', margin: '0 auto', display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
           
           {/* Strategy Details Sidebar Card */}
           <motion.div

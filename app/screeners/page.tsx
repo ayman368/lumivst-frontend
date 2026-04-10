@@ -23,6 +23,11 @@ interface StockResult {
   sma_150: number;
   sma_200: number;
   rs_rating: number;
+  rank_1m: number;
+  rank_3m: number;
+  rank_6m: number;
+  rank_9m: number;
+  rank_12m: number;
   percent_off_52w_high: number;
   percent_off_52w_low: number;
 }
@@ -206,7 +211,12 @@ function ScreenersContent() {
       if (response && response.data && Array.isArray(response.data.data)) {
         const mapped = response.data.data.map((s: any) => ({
           ...s,
-          rs_rating: s.rs_rating ?? s.rs_12m ?? 0
+          rs_rating: s.rs_rating ?? s.rs_12m ?? 0,
+          rank_1m: s.rank_1m ?? 0,
+          rank_3m: s.rank_3m ?? 0,
+          rank_6m: s.rank_6m ?? 0,
+          rank_9m: s.rank_9m ?? 0,
+          rank_12m: s.rank_12m ?? 0
         }));
         setData(mapped);
       }
@@ -241,6 +251,21 @@ function ScreenersContent() {
       // RS Rating
       if (filters.rs_12m_min && stock.rs_rating < parseFloat(filters.rs_12m_min)) return false;
       if (filters.rs_12m_max && stock.rs_rating > parseFloat(filters.rs_12m_max)) return false;
+      
+      if (filters.rank_1m_min && stock.rank_1m < parseFloat(filters.rank_1m_min)) return false;
+      if (filters.rank_1m_max && stock.rank_1m > parseFloat(filters.rank_1m_max)) return false;
+
+      if (filters.rank_3m_min && stock.rank_3m < parseFloat(filters.rank_3m_min)) return false;
+      if (filters.rank_3m_max && stock.rank_3m > parseFloat(filters.rank_3m_max)) return false;
+
+      if (filters.rank_6m_min && stock.rank_6m < parseFloat(filters.rank_6m_min)) return false;
+      if (filters.rank_6m_max && stock.rank_6m > parseFloat(filters.rank_6m_max)) return false;
+
+      if (filters.rank_9m_min && stock.rank_9m < parseFloat(filters.rank_9m_min)) return false;
+      if (filters.rank_9m_max && stock.rank_9m > parseFloat(filters.rank_9m_max)) return false;
+
+      if (filters.rank_12m_min && stock.rank_12m < parseFloat(filters.rank_12m_min)) return false;
+      if (filters.rank_12m_max && stock.rank_12m > parseFloat(filters.rank_12m_max)) return false;
 
       // Off 52W High
       if (filters.percent_off_52w_high_min && stock.percent_off_52w_high < parseFloat(filters.percent_off_52w_high_min)) return false;
@@ -257,17 +282,17 @@ function ScreenersContent() {
   return (
     <div style={{ width: '100%', minHeight: '100vh', backgroundColor: '#FFFFFF', color: '#111827', fontFamily: 'system-ui, sans-serif' }}>
 
-      <div style={{ padding: '32px 32px 0 32px', maxWidth: '1600px', margin: '0 auto' }}>
-        <ScreenerFilterPanel 
-          filters={filters} 
-          setFilters={setFilters} 
+      <div style={{ padding: '32px 32px 0 32px', maxWidth: '1920px', margin: '0 auto' }}>
+        <ScreenerFilterPanel
+          filters={filters}
+          setFilters={setFilters}
           clearAllFilters={() => setFilters(initialScreenerFilters)}
         />
       </div>
 
       {/* ── Tab Navigation ── */}
       <div style={{ backgroundColor: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: '0 32px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-        <div style={{ maxWidth: '1600px', margin: '0 auto', display: 'flex', gap: '4px', overflowX: 'auto', padding: '10px 0' }}>
+        <div style={{ maxWidth: '1920px', margin: '0 auto', display: 'flex', gap: '4px', overflowX: 'auto', padding: '10px 0' }}>
           {SCREENERS.map(screener => {
             const active = activeTab === screener.id;
             return (
@@ -293,7 +318,7 @@ function ScreenersContent() {
 
       {/* ── Main Body ── */}
       <div style={{ padding: '32px', paddingBottom: '80px' }}>
-        <div style={{ maxWidth: '1600px', margin: '0 auto', display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
+        <div style={{ maxWidth: '1920px', margin: '0 auto', display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
 
           {/* Strategy Card */}
           <AnimatePresence mode="wait">

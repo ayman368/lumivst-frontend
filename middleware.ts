@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Temporary kill-switch for auth redirect loops in production.
-// Enable strict middleware auth only when cookie/domain architecture is finalized.
-const AUTH_GATE_ENABLED = process.env.NEXT_PUBLIC_AUTH_GATE_ENABLED === 'true';
-
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
+
+  // Skip middleware for proxied API requests (handled by rewrites)
+  if (path.startsWith('/api/')) {
+    return NextResponse.next();
+  }
 
   // Normalize path for comparison (remove trailing slash except for root)
   const normalizedPath = path === '/' ? '/' : path.replace(/\/+$/, '');
@@ -26,21 +27,18 @@ export async function middleware(request: NextRequest) {
   ];
 
   const isPublicPath =
-    publicPaths.some((p) => normalizedPath === p || normalizedPath.startsWith(p + '/')) ||
-    normalizedPath.startsWith('/api/public');
+    publicPaths.some((p) => normalizedPath === p || normalizedPath.startsWith(p + '/'));
 
-  // Secure server-side verification: check for HTTP-only session tokens
+  // Now that API is proxied through the same origin, backend HttpOnly cookies
+  // (session_token, refresh_token, pending_token) are first-party and visible here.
   const hasSession = request.cookies.has('session_token');
   const hasRefresh = request.cookies.has('refresh_token');
   const hasPending = request.cookies.has('pending_token');
 
-  // User is considered authenticated if they have a valid active session or a valid refresh token.
-  // The Backend validates these tokens on API calls anyway.
   const isAuthenticated = hasSession || hasRefresh;
 
   // Not authenticated and trying to access protected page → redirect to login
-  if (AUTH_GATE_ENABLED && !isAuthenticated && !isPublicPath) {
-    // If they have a pending token, send them to approval page instead of login
+  if (!isAuthenticated && !isPublicPath) {
     if (hasPending) {
       return NextResponse.redirect(new URL('/pending-approval', request.url));
     }

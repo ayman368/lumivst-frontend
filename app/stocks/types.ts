@@ -31,6 +31,12 @@ export interface Stock {
     marginable_percent?: number;
 
     rs_rating?: number;
+    rank_1m?: number;
+    rank_3m?: number;
+    rank_6m?: number;
+    rank_9m?: number;
+    rank_12m?: number;
+
     industry_group_rs?: string;
     sector_rs?: string;
     industry_rs?: string;
@@ -184,6 +190,16 @@ export interface FilterState {
     quickFilter: QuickFilterType;
     rs_rating_min: string;
     rs_rating_max: string;
+    rank_1m_min: string;
+    rank_1m_max: string;
+    rank_3m_min: string;
+    rank_3m_max: string;
+    rank_6m_min: string;
+    rank_6m_max: string;
+    rank_9m_min: string;
+    rank_9m_max: string;
+    rank_12m_min: string;
+    rank_12m_max: string;
     acc_dis_rating: string[];
     industry_group_rs: string[];
     sector_rs: string[];

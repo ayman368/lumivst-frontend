@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_ENDPOINTS } from '@/lib/api/config';
 
 function GoogleCallbackContent() {
     const searchParams = useSearchParams();
@@ -23,7 +23,7 @@ function GoogleCallbackContent() {
 
         const exchangeCode = async () => {
             try {
-                const res = await fetch(`${API_URL}/api/auth/google/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`, {
+                const res = await fetch(`${API_ENDPOINTS.AUTH.GOOGLE_CALLBACK}?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`, {
                     method: 'POST',
                     credentials: 'include',
                     headers: { 'x-csrf-token': '1' },

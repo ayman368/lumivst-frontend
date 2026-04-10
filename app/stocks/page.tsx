@@ -21,6 +21,11 @@ import { cleanSymbol, cleanName, parseFormattedNumber, formatNumber, formatNumbe
 const initialFilterState: FilterState = {
     quickFilter: '',
     rs_rating_min: '', rs_rating_max: '',
+    rank_1m_min: '', rank_1m_max: '',
+    rank_3m_min: '', rank_3m_max: '',
+    rank_6m_min: '', rank_6m_max: '',
+    rank_9m_min: '', rank_9m_max: '',
+    rank_12m_min: '', rank_12m_max: '',
     acc_dis_rating: [], industry_group_rs: [], sector_rs: [], industry_rs: [], sub_industry_rs: [],
     price_min: '', price_max: '',
     change_min: '', change_max: '',
@@ -229,6 +234,11 @@ export default function StockScreenerPage() {
         { key: 'name', label: 'Name', visibleKey: 'name' },
         { key: 'charts', label: 'Charts', visibleKey: 'charts' },
         { key: 'rs_rating', label: 'RS Rating', visibleKey: 'rs_rating' },
+        { key: 'rank_1m', label: 'RS 1M', visibleKey: 'rank_1m' },
+        { key: 'rank_3m', label: 'RS 3M', visibleKey: 'rank_3m' },
+        { key: 'rank_6m', label: 'RS 6M', visibleKey: 'rank_6m' },
+        { key: 'rank_9m', label: 'RS 9M', visibleKey: 'rank_9m' },
+        { key: 'rank_12m', label: 'RS 12M', visibleKey: 'rank_12m' },
         { key: 'acc_dis_rating', label: 'Acc/Dis Rating', visibleKey: 'acc_dis_rating' },
         { key: 'industry_group_rs', label: 'Industry Group RS', visibleKey: 'industry_group_rs' },
         { key: 'sector_rs', label: 'Sector RS', visibleKey: 'sector_rs' },
@@ -368,145 +378,8 @@ export default function StockScreenerPage() {
     }, [filters]);
     const clearAllFilters = useCallback(() => { setFilters(initialFilterState); }, []);
     useEffect(() => {
-        async function fetchStocks() {
-            try {
-                setLoading(true);
-                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-                const [pricesRes, rsRes, techRes] = await Promise.all([
-                    fetch(`${API_URL}/api/prices/latest`, { cache: 'no-store', credentials: 'include' }),
-                    fetch(`${API_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', credentials: 'include' }),
-                    fetch(`${API_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', credentials: 'include' })
-                ]);
-                if (!pricesRes.ok) throw new Error(`Failed to fetch prices: ${pricesRes.status}`);
-                const pricesData = await pricesRes.json();
-                const rsData = rsRes.ok ? await rsRes.json() : { data: [] };
-                const techData = techRes.ok ? await techRes.json() : { data: [] };
-                const rsMap = new Map((rsData.data || []).map((item: any) => [String(item.symbol), item]));
-                const techMap = new Map((techData.data || []).map((item: any) => [String(item.symbol), item]));
-                const mappedStocks = (pricesData.data || []).map((item: any) => {
-                    const symbolStr = String(item.symbol);
-                    const rsInfo: any = rsMap.get(symbolStr) || {};
-                    const techInfo: any = techMap.get(symbolStr) || {};
-                    return {
-                        symbol: item.symbol, name: item.company_name || '',
-                        industry_group: item.industry_group || '', sector: item.sector || '',
-                        industry: item.industry || '', sub_industry: item.sub_industry || '',
-                        price: item.close, change: item.change, percent_change: item.change_percent,
-                        volume: item.volume_traded, turnover: item.value_traded_sar,
-                        open: item.open, high: item.high, low: item.low,
-                        no_of_trades: item.no_of_trades, market_cap: item.market_cap,
-
-                        // Static Info
-                        approval_with_controls: formatShariahApproval(item.approval_with_controls) !== '-' ? formatShariahApproval(item.approval_with_controls) : null,
-                        purge_amount: item.purge_amount !== undefined && item.purge_amount !== null ? Number(item.purge_amount) : null,
-                        marginable_percent: item.marginable_percent !== undefined && item.marginable_percent !== null ? Number(item.marginable_percent) : null,
-
-                        rs_rating: rsInfo.rs_rating || 0,
-                        industry_group_rs: rsInfo.industry_group_rs_rating || '',
-                        sector_rs: rsInfo.sector_rs_rating || '',
-                        industry_rs: rsInfo.industry_rs_rating || '',
-                        sub_industry_rs: rsInfo.sub_industry_rs_rating || '',
-                        acc_dis_rating: rsInfo.acc_dis_rating || '',
-                        price_minus_sma_10: techInfo.price_minus_sma_10, price_minus_sma_21: techInfo.price_minus_sma_21,
-                        price_minus_sma_50: techInfo.price_minus_sma_50, price_minus_sma_150: techInfo.price_minus_sma_150,
-                        price_minus_sma_200: techInfo.price_minus_sma_200,
-                        // SMA values — exclusively from techInfo
-                        sma_50: techInfo.sma50 ?? techInfo.sma_50 ?? undefined,
-                        sma_150: techInfo.sma150 ?? techInfo.sma_150 ?? undefined,
-                        sma_200: techInfo.sma200 ?? techInfo.sma_200 ?? undefined,
-                        fifty_two_week_high_price: techInfo.fifty_two_week_high, fifty_two_week_low_price: techInfo.fifty_two_week_low,
-                        average_volume_50: techInfo.average_volume_50,
-                        price_vs_sma_10_percent: techInfo.price_vs_sma_10_percent, price_vs_sma_21_percent: techInfo.price_vs_sma_21_percent,
-                        price_vs_sma_50_percent: techInfo.price_vs_sma_50_percent, price_vs_sma_150_percent: techInfo.price_vs_sma_150_percent,
-                        price_vs_sma_200_percent: techInfo.price_vs_sma_200_percent,
-                        price_vs_ema_10_percent: (() => { const e = techInfo.ema10 ?? techInfo.ema_10; return e ? ((item.close - e) / e) * 100 : null; })(),
-                        price_vs_ema_21_percent: (() => { const e = techInfo.ema21 ?? techInfo.ema_21; return e ? ((item.close - e) / e) * 100 : null; })(),
-                        percent_off_52w_high: techInfo.percent_off_52w_high, percent_off_52w_low: techInfo.percent_off_52w_low,
-                        vol_diff_50_percent: techInfo.vol_diff_50_percent, trading_view_symbol: item.trading_view_symbol,
-                        // EMA — exclusively from stock_indicators (PineScript-exact)
-                        ema_10: techInfo.ema_10 ?? techInfo.ema10 ?? undefined,
-                        ema_21: techInfo.ema_21 ?? techInfo.ema21 ?? undefined,
-                        ema10: techInfo.ema10 ?? undefined,
-                        ema21: techInfo.ema21 ?? undefined,
-                        // SMA 50/150/200 — exclusively from stock_indicators
-                        sma50: techInfo.sma50 ?? techInfo.sma_50 ?? undefined,
-                        sma150: techInfo.sma150 ?? techInfo.sma_150 ?? undefined,
-                        sma200: techInfo.sma200 ?? techInfo.sma_200 ?? undefined,
-                        // Derived SMAs (stock_indicators only)
-                        sma_3: techInfo.sma3_rsi3 ?? techInfo.sma_3 ?? undefined,
-                        ema_20_sma3: techInfo.ema20_sma3 ?? undefined,
-                        // SMA 4/9/18 daily — exclusively from stock_indicators
-                        sma_4: techInfo.sma4 ?? undefined,
-                        sma_9: techInfo.sma9_close ?? techInfo.sma9 ?? undefined,
-                        sma_18: techInfo.sma18 ?? undefined,
-                        // Weekly SMAs — exclusively from stock_indicators
-                        sma_4w: techInfo.sma_4w ?? techInfo.sma4_w ?? undefined,
-                        sma_9w: techInfo.sma_9w ?? techInfo.sma9_w ?? undefined,
-                        sma_18w: techInfo.sma_18w ?? techInfo.sma18_w ?? undefined,
-                        sma_30w: techInfo.sma_30w ?? undefined,
-                        sma_40w: techInfo.sma_40w ?? undefined,
-                        sma_200_1m_ago: techInfo.sma_200_1m_ago ?? undefined,
-                        sma_200_2m_ago: techInfo.sma_200_2m_ago ?? undefined,
-                        sma_200_3m_ago: techInfo.sma_200_3m_ago ?? undefined,
-                        sma_200_4m_ago: techInfo.sma_200_4m_ago ?? undefined,
-                        sma_200_5m_ago: techInfo.sma_200_5m_ago ?? undefined,
-                        // ✅ MA COMPARISON CONDITIONS (Boolean)
-                        ema10_gt_sma50: techInfo.ema10_gt_sma50 ?? false,
-                        ema10_gt_sma200: techInfo.ema10_gt_sma200 ?? false,
-                        ema21_gt_sma50: techInfo.ema21_gt_sma50 ?? false,
-                        ema21_gt_sma200: techInfo.ema21_gt_sma200 ?? false,
-                        sma50_gt_sma150: techInfo.sma50_gt_sma150 ?? false,
-                        sma50_gt_sma200: techInfo.sma50_gt_sma200 ?? false,
-                        sma150_gt_sma200: techInfo.sma150_gt_sma200 ?? false,
-                        sma200_gt_sma200_1m_ago: techInfo.sma200_gt_sma200_1m_ago ?? false,
-                        sma200_gt_sma200_2m_ago: techInfo.sma200_gt_sma200_2m_ago ?? false,
-                        sma200_gt_sma200_3m_ago: techInfo.sma200_gt_sma200_3m_ago ?? false,
-                        sma200_gt_sma200_4m_ago: techInfo.sma200_gt_sma200_4m_ago ?? false,
-                        sma200_gt_sma200_5m_ago: techInfo.sma200_gt_sma200_5m_ago ?? false,
-                        // CCI & Aroon — exclusively from stock_indicators (PineScript-exact)
-                        cci_14: techInfo.cci ?? undefined,
-                        cci_ema_20: techInfo.cci_ema20 ?? undefined,
-                        aroon_up: techInfo.aroon_up ?? undefined,
-                        aroon_down: techInfo.aroon_down ?? undefined,
-                        rsi_14: techInfo.rsi_14 ?? null, sma9_rsi: techInfo.sma9_rsi ?? null,
-                        wma45_rsi: techInfo.wma45_rsi ?? null, sma9_close: techInfo.sma9_close ?? null,
-                        the_number: techInfo.the_number ?? null, the_number_hl: techInfo.the_number_hl ?? null,
-                        the_number_ll: techInfo.the_number_ll ?? null, stamp_s9rsi: techInfo.stamp_s9rsi ?? null,
-                        stamp_e45cfg: techInfo.stamp_e45cfg ?? null, cfg_daily: techInfo.cfg_daily ?? null,
-                        cfg_sma4: techInfo.cfg_sma4 ?? null, cfg_ema45: techInfo.cfg_ema45 ?? null,
-                        cfg_wma45: techInfo.cfg_wma45 ?? null,
-                        sma4: techInfo.sma4 ?? null, sma9_price: techInfo.sma9 ?? null,
-                        sma18: techInfo.sma18 ?? null, wma45_close: techInfo.wma45_close ?? null,
-                        cci: techInfo.cci ?? null, cci_ema20: techInfo.cci_ema20 ?? null,
-                        rsi_w: techInfo.rsi_w ?? null, sma9_rsi_w: techInfo.sma9_rsi_w ?? null,
-                        wma45_rsi_w: techInfo.wma45_rsi_w ?? null, ema45_rsi_w: techInfo.ema45_rsi_w ?? null,
-                        sma9_close_w: techInfo.sma9_close_w ?? null,
-                        the_number_w: techInfo.the_number_w ?? null, the_number_hl_w: techInfo.the_number_hl_w ?? null,
-                        the_number_ll_w: techInfo.the_number_ll_w ?? null, stamp_s9rsi_w: techInfo.stamp_s9rsi_w ?? null,
-                        stamp_e45cfg_w: techInfo.stamp_e45cfg_w ?? null, cfg_w: techInfo.cfg_w ?? null,
-                        cfg_sma4_w: techInfo.cfg_sma4_w ?? null, cfg_ema45_w: techInfo.cfg_ema45_w ?? null,
-                        cfg_wma45_w: techInfo.cfg_wma45_w ?? null,
-                        close_w: techInfo.close_w ?? techInfo.close ?? null, sma4_w: techInfo.sma4_w ?? null,
-                        sma9_w: techInfo.sma9_w ?? null, sma18_w: techInfo.sma18_w ?? null,
-                        wma45_close_w: techInfo.wma45_close_w ?? null, cci_w: techInfo.cci_w ?? null,
-                        cci_ema20_w: techInfo.cci_ema20_w ?? null, aroon_up_w: techInfo.aroon_up_w ?? null,
-                        aroon_down_w: techInfo.aroon_down_w ?? null,
-                        stamp_e45rsi: techInfo.stamp_e45rsi ?? null, stamp_e20sma3: techInfo.stamp_e20sma3 ?? null,
-                        stamp_e45rsi_w: techInfo.stamp_e45rsi_w ?? null, stamp_e20sma3_w: techInfo.stamp_e20sma3_w ?? null,
-                        ema20_sma3: techInfo.ema20_sma3 ?? null,
-                        ema20_sma3_w: techInfo.ema20_sma3_w ?? null,
-                    };
-
-                });
-                setStocks(mappedStocks);
-                setMetadata({ exchange: 'Tadawul', currency: 'SAR', datetime: pricesData.date ? pricesData.date.toString() : new Date().toISOString().split('T')[0], timezone: 'Asia/Riyadh' });
-            } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to connect to server');
-            } finally {
-                setLoading(false);
-            }
-        }
-        fetchStocks();
+        // Data is now entirely fetched and mapped by useStocks()
+        // No need to duplicate the fetch logic here.
     }, []);
     const handleSort = useCallback((key: string) => {
         setSortConfigs(prev => {
@@ -554,6 +427,11 @@ export default function StockScreenerPage() {
 
         // SmartSelect
         addRangeFilter('RS Rating', 'rs_rating_min', 'rs_rating_max');
+        addRangeFilter('RS 1M', 'rank_1m_min', 'rank_1m_max');
+        addRangeFilter('RS 3M', 'rank_3m_min', 'rank_3m_max');
+        addRangeFilter('RS 6M', 'rank_6m_min', 'rank_6m_max');
+        addRangeFilter('RS 9M', 'rank_9m_min', 'rank_9m_max');
+        addRangeFilter('RS 12M', 'rank_12m_min', 'rank_12m_max');
         addCheckboxFilter('A/D Rating', 'acc_dis_rating');
         addCheckboxFilter('Group RS', 'industry_group_rs');
         addCheckboxFilter('Sector RS', 'sector_rs');
@@ -739,6 +617,11 @@ export default function StockScreenerPage() {
                 return allowedValues.some(rating => value.startsWith(rating));
             };
             if (!checkRange(stock.rs_rating, 'rs_rating_min', 'rs_rating_max')) return false;
+            if (!checkRange(stock.rank_1m, 'rank_1m_min', 'rank_1m_max')) return false;
+            if (!checkRange(stock.rank_3m, 'rank_3m_min', 'rank_3m_max')) return false;
+            if (!checkRange(stock.rank_6m, 'rank_6m_min', 'rank_6m_max')) return false;
+            if (!checkRange(stock.rank_9m, 'rank_9m_min', 'rank_9m_max')) return false;
+            if (!checkRange(stock.rank_12m, 'rank_12m_min', 'rank_12m_max')) return false;
             if (!checkCheckbox(stock.acc_dis_rating, filters.acc_dis_rating)) return false;
             if (!checkCheckbox(stock.industry_group_rs, filters.industry_group_rs)) return false;
             if (!checkCheckbox(stock.sector_rs, filters.sector_rs)) return false;
@@ -1186,6 +1069,11 @@ export default function StockScreenerPage() {
                                                     case 'name': content = <Link href={`/stocks/${cleanSym}/financials?period=annual&country=Saudi Arabia`} className="text-gray-900 font-medium hover:text-blue-600 block truncate" title={cleanName(stock.name)}>{cleanName(stock.name)}</Link>; break;
                                                     case 'charts': content = <button className="text-gray-400 hover:text-blue-600"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg></button>; break;
                                                     case 'rs_rating': content = <span className={`font-bold ${(stock.rs_rating || 0) >= 80 ? 'text-green-600' : (stock.rs_rating || 0) >= 70 ? 'text-yellow-600' : 'text-gray-500'}`}>{stock.rs_rating || '-'}</span>; break;
+                                                    case 'rank_1m': content = <span className={`font-bold ${(stock.rank_1m || 0) >= 80 ? 'text-green-600' : (stock.rank_1m || 0) >= 70 ? 'text-yellow-600' : 'text-gray-500'}`}>{stock.rank_1m || '-'}</span>; break;
+                                                    case 'rank_3m': content = <span className={`font-bold ${(stock.rank_3m || 0) >= 80 ? 'text-green-600' : (stock.rank_3m || 0) >= 70 ? 'text-yellow-600' : 'text-gray-500'}`}>{stock.rank_3m || '-'}</span>; break;
+                                                    case 'rank_6m': content = <span className={`font-bold ${(stock.rank_6m || 0) >= 80 ? 'text-green-600' : (stock.rank_6m || 0) >= 70 ? 'text-yellow-600' : 'text-gray-500'}`}>{stock.rank_6m || '-'}</span>; break;
+                                                    case 'rank_9m': content = <span className={`font-bold ${(stock.rank_9m || 0) >= 80 ? 'text-green-600' : (stock.rank_9m || 0) >= 70 ? 'text-yellow-600' : 'text-gray-500'}`}>{stock.rank_9m || '-'}</span>; break;
+                                                    case 'rank_12m': content = <span className={`font-bold ${(stock.rank_12m || 0) >= 80 ? 'text-green-600' : (stock.rank_12m || 0) >= 70 ? 'text-yellow-600' : 'text-gray-500'}`}>{stock.rank_12m || '-'}</span>; break;
                                                     case 'acc_dis_rating': content = <RatingBadge value={stock.acc_dis_rating} />; break;
                                                     case 'industry_group_rs': content = <RatingBadge value={stock.industry_group_rs} />; break;
                                                     case 'sector_rs': content = <RatingBadge value={stock.sector_rs} />; break;

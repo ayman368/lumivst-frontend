@@ -9,6 +9,11 @@ export interface ScreenerFilters {
     sma_150_min: string; sma_150_max: string;
     sma_200_min: string; sma_200_max: string;
     rs_12m_min: string; rs_12m_max: string;
+    rank_1m_min: string; rank_1m_max: string;
+    rank_3m_min: string; rank_3m_max: string;
+    rank_6m_min: string; rank_6m_max: string;
+    rank_9m_min: string; rank_9m_max: string;
+    rank_12m_min: string; rank_12m_max: string;
     percent_off_52w_high_min: string; percent_off_52w_high_max: string;
     percent_off_52w_low_min: string; percent_off_52w_low_max: string;
 }
@@ -19,6 +24,11 @@ export const initialScreenerFilters: ScreenerFilters = {
     sma_150_min: '', sma_150_max: '',
     sma_200_min: '', sma_200_max: '',
     rs_12m_min: '', rs_12m_max: '',
+    rank_1m_min: '', rank_1m_max: '',
+    rank_3m_min: '', rank_3m_max: '',
+    rank_6m_min: '', rank_6m_max: '',
+    rank_9m_min: '', rank_9m_max: '',
+    rank_12m_min: '', rank_12m_max: '',
     percent_off_52w_high_min: '', percent_off_52w_high_max: '',
     percent_off_52w_low_min: '', percent_off_52w_low_max: '',
 };
@@ -145,6 +155,27 @@ export default function ScreenerFilterPanel({ filters, setFilters, clearAllFilte
                         <RangeRow label="RS Rating"
                             minVal={filters.rs_12m_min} maxVal={filters.rs_12m_max}
                             onMinChange={v => set('rs_12m_min', v)} onMaxChange={v => set('rs_12m_max', v)} />
+                    </Section>
+
+                    <div className="w-px self-stretch bg-[#F3F4F6]" />
+
+                    {/* ── RELATIVE STRENGTH ── */}
+                    <Section title="Relative Strength">
+                        <RangeRow label="RS 1M"
+                            minVal={filters.rank_1m_min} maxVal={filters.rank_1m_max}
+                            onMinChange={v => set('rank_1m_min', v)} onMaxChange={v => set('rank_1m_max', v)} />
+                        <RangeRow label="RS 3M"
+                            minVal={filters.rank_3m_min} maxVal={filters.rank_3m_max}
+                            onMinChange={v => set('rank_3m_min', v)} onMaxChange={v => set('rank_3m_max', v)} />
+                        <RangeRow label="RS 6M"
+                            minVal={filters.rank_6m_min} maxVal={filters.rank_6m_max}
+                            onMinChange={v => set('rank_6m_min', v)} onMaxChange={v => set('rank_6m_max', v)} />
+                        <RangeRow label="RS 9M"
+                            minVal={filters.rank_9m_min} maxVal={filters.rank_9m_max}
+                            onMinChange={v => set('rank_9m_min', v)} onMaxChange={v => set('rank_9m_max', v)} />
+                        <RangeRow label="RS 12M"
+                            minVal={filters.rank_12m_min} maxVal={filters.rank_12m_max}
+                            onMinChange={v => set('rank_12m_min', v)} onMaxChange={v => set('rank_12m_max', v)} />
                     </Section>
 
                     <div className="w-px self-stretch bg-[#F3F4F6]" />

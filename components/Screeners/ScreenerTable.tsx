@@ -24,6 +24,11 @@ interface StockResult {
   sma_150: number;
   sma_200: number;
   rs_rating: number;
+  rank_1m: number;
+  rank_3m: number;
+  rank_6m: number;
+  rank_9m: number;
+  rank_12m: number;
   percent_off_52w_high: number;
   percent_off_52w_low: number;
 }
@@ -49,6 +54,11 @@ const COLUMN_DEFS: { key: keyof StockResult | '#'; label: string; sortable: bool
   { key: 'sma_150', label: 'SMA 150', sortable: true },
   { key: 'sma_200', label: 'SMA 200', sortable: true },
   { key: 'rs_rating', label: 'RS Rating', sortable: true },
+  { key: 'rank_1m', label: '1M', sortable: true },
+  { key: 'rank_3m', label: '3M', sortable: true },
+  { key: 'rank_6m', label: '6M', sortable: true },
+  { key: 'rank_9m', label: '9M', sortable: true },
+  { key: 'rank_12m', label: '12M', sortable: true },
   { key: 'percent_off_52w_high', label: 'Off 52W High', sortable: true },
   { key: 'percent_off_52w_low', label: 'Off 52W Low', sortable: true },
 ];
@@ -155,8 +165,8 @@ export default function ScreenerTable({
       return;
     }
 
-    const headers = ['Symbol', 'Company Name', 'Price', 'SMA 50', 'SMA 150', 'SMA 200', 'RS Rating', 'Off 52W High', 'Off 52W Low'];
-    const rows = sortedData.map(s => [s.symbol, s.company_name, s.close, s.sma_50, s.sma_150, s.sma_200, s.rs_rating, s.percent_off_52w_high, s.percent_off_52w_low]);
+    const headers = ['Symbol', 'Company Name', 'Price', 'SMA 50', 'SMA 150', 'SMA 200', 'RS Rating', '1M', '3M', '6M', '9M', '12M', 'Off 52W High', 'Off 52W Low'];
+    const rows = sortedData.map(s => [s.symbol, s.company_name, s.close, s.sma_50, s.sma_150, s.sma_200, s.rs_rating, s.rank_1m, s.rank_3m, s.rank_6m, s.rank_9m, s.rank_12m, s.percent_off_52w_high, s.percent_off_52w_low]);
     
     if (format === 'csv' || format === 'txt') {
       const sep = format === 'csv' ? ',' : '\t';
@@ -389,6 +399,15 @@ export default function ScreenerTable({
                         </span>
                       </div>
                     </TableCell>
+
+                    {/* Additional RS timeframes */}
+                    {[stock.rank_1m, stock.rank_3m, stock.rank_6m, stock.rank_9m, stock.rank_12m].map((rank, i) => (
+                      <TableCell key={`rank-${i}`} style={{ padding: '14px 20px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <span className={`font-bold ${(rank || 0) >= 80 ? 'text-green-600' : (rank || 0) >= 70 ? 'text-yellow-600' : 'text-gray-500'}`}>
+                          {rank !== undefined && rank !== null ? Math.round(rank) : '-'}
+                        </span>
+                      </TableCell>
+                    ))}
 
                     {/* Off 52W High */}
                     <TableCell style={{ padding: '14px 20px', textAlign: 'center', whiteSpace: 'nowrap' }}>

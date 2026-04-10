@@ -61,6 +61,11 @@ export default function useStocks() {
 
                     // Try to get RS data from prices table first, then from rs-v2 API
                     rs_rating: rsInfo.rs_rating ?? item.rs_rating ?? 0,
+                    rank_1m: rsInfo.rank_1m,
+                    rank_3m: rsInfo.rank_3m,
+                    rank_6m: rsInfo.rank_6m,
+                    rank_9m: rsInfo.rank_9m,
+                    rank_12m: rsInfo.rank_12m,
                     industry_group_rs: rsInfo.industry_group_rs_rating ?? item.industry_group_rs ?? '',
                     sector_rs: rsInfo.sector_rs_rating ?? item.sector_rs ?? '',
                     industry_rs: rsInfo.industry_rs_rating ?? item.industry_rs ?? '',

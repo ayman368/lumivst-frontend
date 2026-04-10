@@ -3,6 +3,20 @@ const nextConfig = {
   trailingSlash: true,
   poweredByHeader: false,
   compress: true,
+
+  // Proxy all /api/* requests to the backend.
+  // This makes cookies first-party (set on www.rebh.ai instead of onrender.com)
+  // which allows the Next.js middleware to read them for auth gating.
+  async rewrites() {
+    const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${backendUrl}/api/:path*`,
+      },
+    ];
+  },
+
   async headers() {
     return [
       {
@@ -26,23 +40,3 @@ const nextConfig = {
 }
 
 export default nextConfig
-
-
-
-
-
-
-
-// import type { NextConfig } from "next";
-
-// const nextConfig: NextConfig = {
-//   output: 'standalone',
-//   trailingSlash: true,
-//   poweredByHeader: false,
-//   compress: true,
-//   images: {
-//     domains: ['your-domain.com'],
-//   },
-// };
-
-// export default nextConfig;

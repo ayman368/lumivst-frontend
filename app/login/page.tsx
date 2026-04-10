@@ -5,6 +5,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../providers/AuthProvider';
 import Link from 'next/link';
 import { GoogleIcon, FacebookIcon } from '../_components/ui/SocialIcons';
+import { API_ENDPOINTS } from '@/lib/api/config';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -38,7 +39,7 @@ export default function LoginPage() {
   const handleSocialLogin = async (provider: string) => {
     if (provider === 'Google') {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/google/login`, { credentials: 'include' });
+        const res = await fetch(API_ENDPOINTS.AUTH.GOOGLE_LOGIN, { credentials: 'include' });
         const data = await res.json();
         if (data.url) {
           window.location.href = data.url;
@@ -52,7 +53,7 @@ export default function LoginPage() {
 
     if (provider === 'Facebook') {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/facebook/login`, { credentials: 'include' });
+        const res = await fetch(API_ENDPOINTS.AUTH.FACEBOOK_LOGIN, { credentials: 'include' });
         const data = await res.json();
         if (data.url) {
           window.location.href = data.url;
