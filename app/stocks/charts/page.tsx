@@ -11,6 +11,11 @@ import ActiveFilterBadge from '../components/ActiveFilterBadge';
 const initialFilterState: FilterState = {
     quickFilter: '',
     rs_rating_min: '', rs_rating_max: '',
+    rank_1m_min: '', rank_1m_max: '',
+    rank_3m_min: '', rank_3m_max: '',
+    rank_6m_min: '', rank_6m_max: '',
+    rank_9m_min: '', rank_9m_max: '',
+    rank_12m_min: '', rank_12m_max: '',
     acc_dis_rating: [], industry_group_rs: [], sector_rs: [], industry_rs: [], sub_industry_rs: [],
     approval_with_controls: [],
     purge_amount_min: '', purge_amount_max: '',
