@@ -8,11 +8,15 @@ function ResetPasswordContent() {
     const token = searchParams.get('token');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
     const router = useRouter();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
+        setError('');
+        setSuccess('');
 
         try {
             const res = await fetch(API_ENDPOINTS.AUTH.RESET_PASSWORD, {
@@ -20,19 +24,21 @@ function ResetPasswordContent() {
                 headers: { 'Content-Type': 'application/json', 'x-csrf-token': '1' },
                 body: JSON.stringify({
                     token: token,
-                    password: password  // Note: Backend expects 'password', not 'new_password' based on schema usually
+                    password: password
                 })
             });
 
             if (res.ok) {
-                alert('Password changed successfully!');
-                router.push('/login');
+                setSuccess('تم تغيير كلمة المرور بنجاح. سيتم تحويلك لتسجيل الدخول...');
+                setTimeout(() => {
+                    router.push('/login');
+                }, 2000);
             } else {
                 const data = await res.json();
-                alert(data.detail || 'Invalid or expired token');
+                setError(data.detail || 'الرابط غير صالح أو منتهي الصلاحية');
             }
         } catch (e) {
-            alert('An error occurred');
+            setError('حدث خطأ غير متوقع');
         } finally {
             setLoading(false);
         }
@@ -45,9 +51,19 @@ function ResetPasswordContent() {
     );
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4 w-full">
+        <form onSubmit={handleSubmit} className="space-y-4 w-full" dir="rtl">
+            {error && (
+                <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-200">
+                    {error}
+                </div>
+            )}
+            {success && (
+                <div className="bg-green-50 text-green-600 p-3 rounded-lg text-sm border border-green-200">
+                    {success}
+                </div>
+            )}
             <div className="space-y-1">
-                <label className="block text-sm text-gray-600">New Password</label>
+                <label className="block text-sm text-gray-600">كلمة المرور الجديدة</label>
                 <input
                     type="password"
                     required
@@ -61,7 +77,7 @@ function ResetPasswordContent() {
                 className="w-full bg-black text-white font-bold py-3 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
                 disabled={loading}
             >
-                {loading ? 'Updating...' : 'Update Password'}
+                {loading ? 'جاري التحديث...' : 'تغيير كلمة المرور'}
             </button>
         </form>
     )

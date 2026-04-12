@@ -2,8 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from '../app/providers/AuthProvider'
-import styles from '../app/styles/Navbar.module.css'
-import { User, LogOut } from 'lucide-react'
+import { User } from 'lucide-react'
 
 // Recursive Dropdown Component for nested menus
 function DropdownItem({
@@ -13,71 +12,79 @@ function DropdownItem({
   setActiveMobile,
   setActiveDropdown,
   parentShowNested,
-  styles
 }: any) {
-  const [showNested, setShowNested] = useState(false);
+  const [showNested, setShowNested] = useState(false)
 
-  // Close nested menus automatically when the parent dropdown closes
   useEffect(() => {
     if (parentShowNested === false) {
-      setShowNested(false);
+      setShowNested(false)
     }
-  }, [parentShowNested]);
+  }, [parentShowNested])
 
-  return (
-    <div
-      key={index}
-      className={styles['dropdown-item-wrapper']}
-      onMouseEnter={() => !activeMobile && setShowNested(true)}
-      onMouseLeave={() => !activeMobile && setShowNested(false)}
-    >
-      {item.items ? (
-        <>
-          <button className={styles['navbar-dropdown-link']}>
-            {item.en}
-            <svg
-              className={styles['dropdown-arrow']}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5l7 7-7 7"
-              />
-            </svg>
-          </button>
-          {/* Nested Dropdown */}
-          <div className={`${styles['navbar-nested-dropdown']} ${showNested ? styles['show'] : ''}`}>
-            {item.items.map((nestedItem: any, nestedIndex: number) => (
-              <DropdownItem
-                key={nestedIndex}
-                item={nestedItem}
-                index={nestedIndex}
-                activeMobile={activeMobile}
-                setActiveMobile={setActiveMobile}
-                setActiveDropdown={setActiveDropdown}
-                parentShowNested={showNested}
-                styles={styles}
-              />
-            ))}
-          </div>
-        </>
-      ) : (
-        <Link
-          href={item.href}
-          className={styles['navbar-dropdown-link']}
-          onClick={() => {
-            setActiveMobile(false)
-            setActiveDropdown(null)
-          }}
+  if (item.items) {
+    return (
+      <div
+        key={index}
+        className="relative flex flex-col"
+        onMouseEnter={() => !activeMobile && setShowNested(true)}
+        onMouseLeave={() => !activeMobile && setShowNested(false)}
+      >
+        <button
+          className="w-full flex justify-between items-center px-4 py-3 text-[13px] border-b border-gray-100 transition-colors duration-200 hover:bg-black/[0.02] text-left bg-none border-l-0 border-r-0 border-t-0 cursor-pointer"
+          style={{ color: 'var(--dropdown-text, #374151)' }}
         >
           {item.en}
-        </Link>
-      )}
-    </div>
+          <svg
+            className="w-4 h-4 ml-2 transition-transform duration-300"
+            style={{ transform: showNested ? 'translateX(4px)' : 'translateX(0)' }}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+
+        {/* Nested Dropdown */}
+        <div
+          className="absolute top-0 left-full ml-2 rounded-md border z-[1002] min-w-[200px] transition-all duration-300"
+          style={{
+            background: 'var(--dropdown-bg, #ffffff)',
+            borderColor: 'var(--dropdown-border, #e5e7eb)',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+            opacity: showNested ? 1 : 0,
+            visibility: showNested ? 'visible' : 'hidden',
+            transform: showNested ? 'translateX(0)' : 'translateX(-10px)',
+          }}
+        >
+          {item.items.map((nestedItem: any, nestedIndex: number) => (
+            <DropdownItem
+              key={nestedIndex}
+              item={nestedItem}
+              index={nestedIndex}
+              activeMobile={activeMobile}
+              setActiveMobile={setActiveMobile}
+              setActiveDropdown={setActiveDropdown}
+              parentShowNested={showNested}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <Link
+      href={item.href}
+      className="block px-4 py-3 text-[13px] border-b border-gray-100 transition-colors duration-200 hover:bg-black/[0.02] last:border-b-0"
+      style={{ color: 'var(--dropdown-text, #374151)' }}
+      onClick={() => {
+        setActiveMobile(false)
+        setActiveDropdown(null)
+      }}
+    >
+      {item.en}
+    </Link>
   )
 }
 
@@ -85,7 +92,6 @@ export default function Navbar() {
   const [activeMobile, setActiveMobile] = useState(false)
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const [isMounted, setIsMounted] = useState(false)
   const navbarRef = useRef<HTMLDivElement>(null)
   const userMenuRef = useRef<HTMLDivElement>(null)
   const { user, logout } = useAuth()
@@ -122,7 +128,7 @@ export default function Navbar() {
                 { en: 'Trend - 5 Months', href: '/screeners?tab=trend-5-months' },
                 { en: 'Trend - 5 Month Wide', href: '/screeners?tab=trend-5-months-wide' },
                 { en: 'Power Play', href: '/screeners?tab=power-play' },
-              ]
+              ],
             },
             {
               en: 'Meeshal',
@@ -130,11 +136,10 @@ export default function Navbar() {
               items: [
                 { en: 'RSI', href: '/screeners/rsi' },
                 { en: 'Alrayan', href: '/screeners/alrayan' },
-              ]
-            }
-          ]
+              ],
+            },
+          ],
         },
-
       ],
     },
     watchlist: {
@@ -158,7 +163,7 @@ export default function Navbar() {
             { en: 'Understanding Chart Patterns', href: '/learn/chart-patterns' },
             { en: 'Useful Stock Resources', href: '/learn/useful-stock-sources' },
             { en: 'Recommended Reading', href: '/learn/recommended-reading' },
-          ]
+          ],
         },
       ],
     },
@@ -202,7 +207,6 @@ export default function Navbar() {
     }
   }
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (navbarRef.current && !navbarRef.current.contains(event.target as Node)) {
@@ -213,61 +217,103 @@ export default function Navbar() {
         setShowUserMenu(false)
       }
     }
-
     document.addEventListener('mousedown', handleClickOutside)
-    setIsMounted(true)
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   return (
     <nav
-      className={styles['navbar-gf']}
       ref={navbarRef}
       dir="ltr"
+      className="w-full sticky top-0 z-[1000] font-[Inter,arial,helvetica,sans-serif] transition-all duration-500"
+      style={{
+        backgroundColor: 'var(--navbar-bg, #ffffff)',
+        boxShadow: 'var(--navbar-shadow, 0 1px 3px rgba(0,0,0,0.1))',
+        minHeight: '56px',
+        maxHeight: '56px',
+      }}
     >
-      <div className={styles['navbar-container']}>
+      <div
+        className="max-w-[1600px] mx-auto px-1 flex items-center justify-start gap-5 h-14"
+      >
         {/* Logo */}
-        <Link href="/" className={styles['navbar-logo']}>
-          <div className={styles['logo-wrapper']}>
-            <img src="/favicon.ico" alt="REBH Logo" className={styles['logo-img']} />
+        <Link
+          href="/"
+          className="flex items-center gap-2 no-underline p-1 pr-0 rounded-lg transition-all duration-300 hover:-translate-y-px"
+          style={{ ['--tw-bg-opacity' as any]: '0.05' }}
+        >
+          <div
+            className="flex items-center justify-center w-8 h-8 bg-white rounded-lg transition-all duration-300 border"
+            style={{
+              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+              borderColor: 'rgba(0,0,0,0.05)',
+            }}
+          >
+            <img src="/favicon.ico" alt="REBH Logo" className="w-[22px] h-[22px] object-contain" />
           </div>
-          <span className={styles['logo-text']}>REBH</span>
+          <span
+            className="text-[22px] font-extrabold tracking-[-0.04em] bg-gradient-to-br from-blue-800 to-blue-500 bg-clip-text text-transparent flex items-center"
+            style={{ fontFamily: "'Inter', sans-serif" }}
+          >
+            REBH
+          </span>
         </Link>
 
         {/* Main Menu */}
-        <div className={`${styles['navbar-menu']} ${activeMobile ? styles.active : ''}`}>
+        <div
+          className={`flex items-center h-full md:flex-row md:static md:overflow-visible md:max-h-none
+            ${activeMobile
+              ? 'flex-col items-stretch absolute top-14 left-0 right-0 overflow-hidden max-h-[500px]'
+              : 'max-md:max-h-0 max-md:overflow-hidden max-md:flex-col max-md:items-stretch max-md:absolute max-md:top-14 max-md:left-0 max-md:right-0'
+            }
+          `}
+          style={{
+            backgroundColor: 'var(--navbar-bg, #ffffff)',
+            transition: 'max-height 0.5s ease-in-out',
+          }}
+        >
           {Object.entries(menuItems).map(([key, item]) => (
             <div
               key={key}
-              className={`${styles['navbar-item']} ${activeDropdown === key ? styles.active : ''}`}
+              className={`relative h-full flex items-center max-md:h-auto max-md:border-b`}
+              style={{ borderColor: 'var(--navbar-border, #e5e7eb)' }}
               onMouseEnter={() => !activeMobile && setActiveDropdown(key)}
               onMouseLeave={() => !activeMobile && setActiveDropdown(null)}
             >
               <button
-                className={styles['navbar-link']}
+                className="flex items-center gap-1.5 px-3 h-full text-[14px] font-medium whitespace-nowrap border-none bg-transparent cursor-pointer transition-all duration-300 max-md:px-4 max-md:py-4 max-md:justify-between max-md:w-full"
+                style={{ color: 'var(--navbar-text, #374151)' }}
                 onClick={() => activeMobile && toggleDropdown(key)}
               >
                 {item.en}
                 <svg
-                  className={styles['navbar-arrow']}
+                  className="w-4 h-4 transition-transform duration-300"
+                  style={{ transform: activeDropdown === key ? 'rotate(180deg)' : 'rotate(0deg)' }}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
 
-              {/* Dropdown Menu */}
-              <div className={styles['navbar-dropdown']}>
+              {/* Dropdown */}
+              <div
+                className="absolute top-full left-0 rounded-md border min-w-[200px] z-[1001] transition-all duration-300
+                  max-md:static max-md:rounded-none max-md:border-none max-md:shadow-none max-md:overflow-hidden"
+                style={{
+                  background: 'var(--dropdown-bg, #ffffff)',
+                  borderColor: 'var(--dropdown-border, #e5e7eb)',
+                  boxShadow: activeMobile ? 'none' : '0 4px 20px rgba(0,0,0,0.15)',
+                  opacity: activeMobile ? 1 : (activeDropdown === key ? 1 : 0),
+                  visibility: activeMobile
+                    ? (activeDropdown === key ? 'visible' : 'hidden')
+                    : (activeDropdown === key ? 'visible' : 'hidden'),
+                  transform: activeMobile ? 'none' : (activeDropdown === key ? 'translateY(0)' : 'translateY(-10px)'),
+                  maxHeight: activeMobile ? (activeDropdown === key ? '300px' : '0') : undefined,
+                  backgroundColor: activeMobile ? 'var(--navbar-active-bg, #f9fafb)' : 'var(--dropdown-bg, #ffffff)',
+                }}
+              >
                 {item.items.map((subItem: any, index: number) => (
                   <DropdownItem
                     key={index}
@@ -277,7 +323,6 @@ export default function Navbar() {
                     setActiveMobile={setActiveMobile}
                     setActiveDropdown={setActiveDropdown}
                     parentShowNested={activeDropdown === key}
-                    styles={styles}
                   />
                 ))}
               </div>
@@ -286,28 +331,27 @@ export default function Navbar() {
         </div>
 
         {/* Auth Actions */}
-        <div className={styles['navbar-actions']}>
-          <div className={styles['navbar-auth']}>
-            <Link href="/stocks" className={styles['navbar-link']}>
-              Stocks
-            </Link>
-            <Link href="/stocks/market-breadth" className={styles['navbar-link']}>
-              Market Breadth
-            </Link>
-            <Link href="/stocks/charts" className={styles['navbar-link']}>
-              Charts
-            </Link>
-            <Link href="/industry-groups" className={styles['navbar-link']}>
-              Industry Groups
-            </Link>
-            <Link href="/pricing" className={styles['navbar-link']}>
-              Pricing
-            </Link>
-            <Link href="/contact" className={styles['navbar-link']}>
-              Contact Us
-            </Link>
+        <div className="flex items-center gap-3 ml-auto">
+          <div className="flex items-center gap-1">
+            {[
+              { href: '/stocks', label: 'Stocks' },
+              { href: '/market-reports', label: 'Market Reports' },
+              { href: '/stocks/market-breadth', label: 'Market Breadth' },
+              { href: '/stocks/charts', label: 'Charts' },
+              { href: '/industry-groups', label: 'Industry Groups' },
+              { href: '/pricing', label: 'Pricing' },
+              { href: '/contact', label: 'Contact Us' },
+            ].map(({ href, label }) => (
+              <Link
+                key={href}
+                href={href}
+                className="flex items-center px-3 h-14 text-[14px] font-medium whitespace-nowrap no-underline transition-all duration-300 hover:bg-black/5"
+                style={{ color: 'var(--navbar-text, #374151)' }}
+              >
+                {label}
+              </Link>
+            ))}
 
-            {/* Conditional Rendering based on user login status */}
             {user ? (
               <div className="relative" ref={userMenuRef}>
                 <button
@@ -318,7 +362,7 @@ export default function Navbar() {
                 </button>
 
                 {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl py-2 z-50 border border-gray-100 transform origin-top-right">
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl py-2 z-50 border border-gray-100 origin-top-right">
                     <div className="px-4 py-2 border-b border-gray-100">
                       <p className="text-sm font-semibold text-gray-900 truncate">{user.full_name}</p>
                       <p className="text-xs text-gray-500 truncate">{user.email}</p>
@@ -340,14 +384,26 @@ export default function Navbar() {
                 )}
               </div>
             ) : (
-              <Link href="/login" className={`${styles['navbar-auth-link']} ${styles.login}`}>
+              <Link
+                href="/login"
+                className="text-[13px] font-medium px-4 py-2 rounded transition-all duration-300 border no-underline"
+                style={{
+                  color: 'var(--navbar-text, #374151)',
+                  borderColor: 'var(--navbar-border, #e5e7eb)',
+                  background: 'transparent',
+                }}
+              >
                 Login
               </Link>
             )}
           </div>
 
           {/* Mobile Toggle */}
-          <button className={styles['navbar-mobile-toggle']} onClick={toggleMobile}>
+          <button
+            className="md:hidden bg-transparent border-none cursor-pointer p-2 text-xl"
+            style={{ color: 'var(--navbar-text, #374151)' }}
+            onClick={toggleMobile}
+          >
             ☰
           </button>
         </div>

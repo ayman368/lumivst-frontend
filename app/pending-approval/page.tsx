@@ -48,20 +48,8 @@ export default function PendingApproval() {
     }, []);
 
     useEffect(() => {
-        // Get pending info from localStorage
-        const pendingMessage = localStorage.getItem('pendingApprovalMessage');
-        if (pendingMessage) {
-            setMessage(pendingMessage);
-        }
-
-        const pendingUserData = localStorage.getItem('pendingUser');
-        if (pendingUserData) {
-            try {
-                setPendingUser(JSON.parse(pendingUserData));
-            } catch (e) {
-                console.error('Failed to parse pending user:', e);
-            }
-        }
+        // Pending user data is no longer stored in localStorage for security reasons.
+        // The page relies on the pending_token cookie and API checks instead.
 
         // Initial check
         checkApprovalStatus().then(() => setChecking(false));
@@ -80,8 +68,7 @@ export default function PendingApproval() {
     // When approval is detected, redirect to login
     useEffect(() => {
         if (approved) {
-            localStorage.removeItem('pendingUser');
-            localStorage.removeItem('pendingApprovalMessage');
+
 
             // Try activate-session to get proper session from pending token, then go home
             fetch(API_ENDPOINTS.AUTH.ACTIVATE_SESSION, {
@@ -170,8 +157,6 @@ export default function PendingApproval() {
 
                         <button
                             onClick={() => {
-                                localStorage.removeItem('pendingUser');
-                                localStorage.removeItem('pendingApprovalMessage');
                                 window.location.href = '/login';
                             }}
                             className="w-full px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"

@@ -3,16 +3,15 @@ import Link from 'next/link';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Filter, ChevronLeft, ChevronRight, PanelLeft, Search, CheckCircle2, XCircle, Shield, TrendingUp as TrendingUpIcon } from 'lucide-react';
 import RatingBadge from './components/RatingBadge';
-import CustomMultiSelect from './components/CustomMultiSelect';
-import RangeFilter from './components/RangeFilter';
-import CustomDropdown from './components/CustomDropdown';
-import CheckboxGroup from './components/CheckboxGroup';
+// import CustomMultiSelect from './components/CustomMultiSelect';
+// import RangeFilter from './components/RangeFilter';
+// import CustomDropdown from './components/CustomDropdown';
+// import CheckboxGroup from './components/CheckboxGroup';
 import ActiveFilterBadge from './components/ActiveFilterBadge';
-import FilterAccordion from './components/FilterAccordion';
+// import FilterAccordion from './components/FilterAccordion';
 import ExportMenu from './components/ExportMenu';
 import ColumnSelector from './components/ColumnSelector';
 import FilterSidebar from './components/FilterSidebar';
-// import StockTable from './components/StockTable';
 import TopFilterPanel from './components/TopFilterPanel';
 import useStocks from './hooks/useStocks';
 import type { Stock, StockMetadata, FilterState, QuickFilterType } from './types';
@@ -627,7 +626,7 @@ export default function StockScreenerPage() {
             if (!checkCheckbox(stock.sector_rs, filters.sector_rs)) return false;
             if (!checkCheckbox(stock.industry_rs, filters.industry_rs)) return false;
             if (!checkCheckbox(stock.sub_industry_rs, filters.sub_industry_rs)) return false;
-            
+
             if (filters.approval_with_controls.length > 0 && !filters.approval_with_controls.includes(stock.approval_with_controls || '')) return false;
             if (!checkRange(stock.purge_amount, 'purge_amount_min', 'purge_amount_max')) return false;
             if (!checkRange(stock.marginable_percent, 'marginable_percent_min', 'marginable_percent_max')) return false;

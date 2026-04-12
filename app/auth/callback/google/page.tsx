@@ -44,11 +44,7 @@ function GoogleCallbackContent() {
                     
                     // If status is 403 (Forbidden) - account pending approval
                     if (res.status === 403) {
-                        console.log('[Google Callback] Account pending admin approval', userData);
-                        if (userData) {
-                            localStorage.setItem('pendingUser', JSON.stringify(userData));
-                        }
-                        localStorage.setItem('pendingApprovalMessage', errorMessage);
+                        console.log('[Google Callback] Account pending admin approval');
                         window.location.href = '/pending-approval';
                         return;
                     }

@@ -133,10 +133,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // If 403 - account pending approval, redirect to pending page
       if (res.status === 403) {
-        if (userData) {
-          localStorage.setItem('pendingUser', JSON.stringify(userData));
-        }
-        localStorage.setItem('pendingApprovalMessage', errorMessage);
         window.location.href = '/pending-approval';
         return;
       }
@@ -176,19 +172,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // If json parsing fails, use default message
       }
       throw new Error(errorMessage);
-    }
-
-    // Store user data for the pending-approval page
-    try {
-      const data = await res.json();
-      if (data.user) {
-        localStorage.setItem('pendingUser', JSON.stringify(data.user));
-      }
-      if (data.message) {
-        localStorage.setItem('pendingApprovalMessage', data.message);
-      }
-    } catch (e) {
-      // ignore
     }
 
     window.location.href = '/pending-approval';
