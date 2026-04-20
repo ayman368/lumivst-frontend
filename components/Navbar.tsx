@@ -173,7 +173,7 @@ export default function Navbar() {
       items: [
         { en: 'Economy', href: '/market/economy' },
         { en: 'US Market', href: '/market/us' },
-        { en: 'Saudi Market', href: '/market/saudi' },
+        { en: 'Saudi Market', href: '/saudi' },
         { en: 'Sectors', href: '/market/sectors' },
       ],
     },

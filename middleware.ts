@@ -32,10 +32,13 @@ export async function middleware(request: NextRequest) {
   // Now that API is proxied through the same origin, backend HttpOnly cookies
   // (session_token, refresh_token, pending_token) are first-party and visible here.
   const hasSession = request.cookies.has('session_token');
-  const hasRefresh = request.cookies.has('refresh_token');
   const hasPending = request.cookies.has('pending_token');
 
-  const isAuthenticated = hasSession || hasRefresh;
+  // IMPORTANT:
+  // Do not treat refresh_token alone as authenticated state.
+  // A stale refresh cookie (common in Firefox cache/cookie edge cases) can lock users
+  // out of /login by forcing redirect to home while /api/auth/me still returns 401.
+  const isAuthenticated = hasSession;
 
   // Not authenticated and trying to access protected page → redirect to login
   if (!isAuthenticated && !isPublicPath) {

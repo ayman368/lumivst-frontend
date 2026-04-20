@@ -283,6 +283,7 @@ function AlrayanScreenerContent() {
                 data={filteredData}
                 loading={loading}
                 screenerColor="#2962FF"
+                exportFileNamePrefix="Alrayan"
               />
             </motion.div>
           </div>

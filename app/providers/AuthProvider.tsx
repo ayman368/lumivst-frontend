@@ -31,6 +31,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const isPublicPath = (path: string) => {
+    const publicPaths = [
+      '/login',
+      '/register',
+      '/auth',
+      '/pending-approval',
+      '/terms',
+      '/terms-of-service',
+      '/privacy',
+      '/privacy-policy',
+      '/delete-account',
+      '/about',
+      '/contact',
+    ];
+    return publicPaths.some((p) => path === p || path.startsWith(`${p}/`));
+  };
 
   // When auth is disabled we treat the user as not logged in (null)
   useEffect(() => {
@@ -90,6 +106,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // If we reach here, refresh failed or retry failed
         setUser(null);
+        if (typeof window !== 'undefined' && !isPublicPath(window.location.pathname)) {
+          window.location.href = '/login';
+        }
       } else if (res.status === 403) {
         setUser(null);
         if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/pending-approval')) {

@@ -37,6 +37,7 @@ interface ScreenerTableProps {
   data: StockResult[];
   loading: boolean;
   screenerColor?: string;
+  exportFileNamePrefix?: string;
 }
 
 type SortDirection = 'asc' | 'desc';
@@ -64,7 +65,7 @@ const COLUMN_DEFS: { key: keyof StockResult | '#'; label: string; sortable: bool
 ];
 
 export default function ScreenerTable({
-  data, loading, screenerColor = '#374151',
+  data, loading, screenerColor = '#374151', exportFileNamePrefix = 'REBH_Screeners',
 }: ScreenerTableProps) {
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(50);
@@ -87,33 +88,22 @@ export default function ScreenerTable({
   }, [data]);
 
   const handleSort = (key: keyof StockResult) => {
+    setPage(0);
     setSortConfigs((prevConfigs) => {
       const existingConfigIndex = prevConfigs.findIndex((config) => config.key === key);
-      const isShiftPressed = (window.event as MouseEvent)?.shiftKey;
 
-      if (!isShiftPressed) {
-        if (existingConfigIndex !== -1) {
-          const currentDirection = prevConfigs[existingConfigIndex].direction;
-          if (currentDirection === 'desc') {
-            return []; // Third click removes single sort
-          }
-          return [{ key, direction: 'desc' }]; // Toggle to desc
-        }
-        return [{ key, direction: 'asc' }]; // First click asc
+      if (existingConfigIndex === -1) {
+        return [...prevConfigs, { key, direction: 'asc' }];
       }
 
-      const newConfigs = [...prevConfigs];
-      if (existingConfigIndex !== -1) {
-        const currentDirection = newConfigs[existingConfigIndex].direction;
-        if (currentDirection === 'desc') {
-          newConfigs.splice(existingConfigIndex, 1);
-        } else {
-          newConfigs[existingConfigIndex].direction = 'desc';
-        }
-      } else {
-        newConfigs.push({ key, direction: 'asc' });
+      const currentDirection = prevConfigs[existingConfigIndex].direction;
+      if (currentDirection === 'asc') {
+        const newConfigs = [...prevConfigs];
+        newConfigs[existingConfigIndex] = { ...newConfigs[existingConfigIndex], direction: 'desc' };
+        return newConfigs;
       }
-      return newConfigs;
+
+      return prevConfigs.filter((_, index) => index !== existingConfigIndex);
     });
   };
 
@@ -153,13 +143,16 @@ export default function ScreenerTable({
   const handleExport = useCallback((format: 'csv' | 'xls' | 'xlsx' | 'txt' | 'tv') => {
     const d = new Date();
     const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const filename = `REBH_Screeners_${dateStr}`;
+    const plainFileName = `${exportFileNamePrefix === 'Alrayan' ? `${exportFileNamePrefix}_${dateStr}` : `${exportFileNamePrefix}_${dateStr}`}`;
+    const tvFileName = exportFileNamePrefix === 'Alrayan'
+      ? `REBH_${exportFileNamePrefix}_${dateStr}_TradingView`
+      : `${plainFileName}_TradingView`;
 
     if (format === 'tv') {
       const tvContent = sortedData.map(s => `TADAWUL:${s.symbol}`).join('\n');
       const link = document.createElement('a');
       link.href = URL.createObjectURL(new Blob([tvContent], { type: 'text/csv;charset=utf-8;' }));
-      link.download = `${filename}_TradingView.csv`;
+      link.download = `${tvFileName}.csv`;
       link.click();
       setShowExportMenu(false);
       return;
@@ -173,13 +166,13 @@ export default function ScreenerTable({
       const content = [headers.join(sep), ...rows.map(r => r.join(sep))].join('\n');
       const link = document.createElement('a');
       link.href = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8;' }));
-      link.download = `${filename}.${format}`;
+      link.download = `${plainFileName}.${format}`;
       link.click();
     } else {
       const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Screener Data');
-      XLSX.writeFile(wb, `${filename}.${format}`, { bookType: format === 'xls' ? 'biff8' : 'xlsx' });
+      XLSX.writeFile(wb, `${plainFileName}.${format}`, { bookType: format === 'xls' ? 'biff8' : 'xlsx' });
     }
     setShowExportMenu(false);
   }, [sortedData]);
