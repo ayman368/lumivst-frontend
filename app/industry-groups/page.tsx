@@ -373,6 +373,56 @@ function ActiveFilterBadge({
     );
 }
 
+/**
+ * Calculates a heatmap background + text color for a single RS cell.
+ * Colors are relative to the stock's own min/max across all time periods,
+ * so we see the momentum trend (red old → green new = accumulation phase).
+ */
+function getRSHeatmapStyle(value: number | null | undefined, rowMin: number, rowMax: number): React.CSSProperties {
+    if (value == null) return {};
+
+    const range = rowMax - rowMin;
+    // If all values are identical, render neutral amber
+    const pct = range === 0 ? 0.5 : (value - rowMin) / range;
+
+    // Interpolate: 0% → red (220,38,38)  50% → amber (251,191,36)  100% → green (22,163,74)
+    let r: number, g: number, b: number;
+    if (pct <= 0.5) {
+        const t = pct / 0.5;
+        r = Math.round(220 + (251 - 220) * t);
+        g = Math.round(38 + (191 - 38) * t);
+        b = Math.round(38 + (36 - 38) * t);
+    } else {
+        const t = (pct - 0.5) / 0.5;
+        r = Math.round(251 + (22 - 251) * t);
+        g = Math.round(191 + (163 - 191) * t);
+        b = Math.round(36 + (74 - 36) * t);
+    }
+
+    // Use white text on dark backgrounds (roughly pct < 0.25 or pct > 0.75)
+    const textColor = pct < 0.25 || pct > 0.72 ? '#ffffff' : '#1a1a1a';
+
+    return {
+        backgroundColor: `rgb(${r},${g},${b})`,
+        color: textColor,
+    };
+}
+
+/** Extracts the min & max RS values across all 6 time periods for a stock row */
+function getRSRowExtremes(stock: StockSummary): { rowMin: number; rowMax: number } {
+    const vals = [
+        stock.rs_rating,
+        stock.rs_rating_1_week_ago,
+        stock.rs_rating_4_weeks_ago,
+        stock.rs_rating_3_months_ago,
+        stock.rs_rating_6_months_ago,
+        stock.rs_rating_1_year_ago,
+    ].filter((v): v is number => v != null);
+
+    if (vals.length === 0) return { rowMin: 0, rowMax: 100 };
+    return { rowMin: Math.min(...vals), rowMax: Math.max(...vals) };
+}
+
 export default function IndustryGroupsPage() {
     const [data, setData] = useState<IndustryGroup[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -429,6 +479,22 @@ export default function IndustryGroupsPage() {
         marginable_percent_min: '',
         marginable_percent_max: '',
     });
+
+    const [rsMomentumFilters, setRsMomentumFilters] = useState<string[]>([]);
+
+    const RS_MOMENTUM_OPTIONS = [
+        { key: 'full_chain', label: 'RS > 1W > 4W > 3M > 6M > 1Y', check: (s: StockSummary) => (s.rs_rating ?? 0) > (s.rs_rating_1_week_ago ?? 0) && (s.rs_rating_1_week_ago ?? 0) > (s.rs_rating_4_weeks_ago ?? 0) && (s.rs_rating_4_weeks_ago ?? 0) > (s.rs_rating_3_months_ago ?? 0) && (s.rs_rating_3_months_ago ?? 0) > (s.rs_rating_6_months_ago ?? 0) && (s.rs_rating_6_months_ago ?? 0) > (s.rs_rating_1_year_ago ?? 0) },
+        { key: 'rs_gt_1w', label: 'RS > 1W', check: (s: StockSummary) => (s.rs_rating ?? 0) > (s.rs_rating_1_week_ago ?? 0) },
+        { key: '1w_gt_4w', label: 'RS 1W > 4W', check: (s: StockSummary) => (s.rs_rating_1_week_ago ?? 0) > (s.rs_rating_4_weeks_ago ?? 0) },
+        { key: '3m_gt_6m', label: 'RS 3M > 6M', check: (s: StockSummary) => (s.rs_rating_3_months_ago ?? 0) > (s.rs_rating_6_months_ago ?? 0) },
+        { key: '6m_gt_1y', label: 'RS 6M > 1Y', check: (s: StockSummary) => (s.rs_rating_6_months_ago ?? 0) > (s.rs_rating_1_year_ago ?? 0) },
+    ];
+
+    const toggleRsMomentumFilter = (key: string) => {
+        setRsMomentumFilters(prev =>
+            prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+        );
+    };
 
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
     const [stocksCache, setStocksCache] = useState<Record<string, StockSummary[]>>({});
@@ -717,14 +783,20 @@ export default function IndustryGroupsPage() {
             if (!checkStockRange(stock.rs_rating_3_months_ago, 'rs_rating_3_months_ago_min', 'rs_rating_3_months_ago_max')) return false;
             if (!checkStockRange(stock.rs_rating_6_months_ago, 'rs_rating_6_months_ago_min', 'rs_rating_6_months_ago_max')) return false;
             if (!checkStockRange(stock.rs_rating_1_year_ago, 'rs_rating_1_year_ago_min', 'rs_rating_1_year_ago_max')) return false;
-            
+
+            // RS Momentum Filters — each active key must pass (AND logic)
+            for (const key of rsMomentumFilters) {
+                const option = RS_MOMENTUM_OPTIONS.find(o => o.key === key);
+                if (option && !option.check(stock)) return false;
+            }
+
             if (stockFilters.approval_with_controls.length > 0) {
                 const stockShariah = formatShariahApproval(stock.approval_with_controls) || '';
                 if (!stockFilters.approval_with_controls.includes(stockShariah)) return false;
             }
             if (!checkStockRange(stock.purge_amount, 'purge_amount_min', 'purge_amount_max')) return false;
             if (!checkStockRange(stock.marginable_percent, 'marginable_percent_min', 'marginable_percent_max')) return false;
-            
+
             return true;
         });
 
@@ -768,7 +840,7 @@ export default function IndustryGroupsPage() {
         });
 
         return filtered;
-    }, [stocksCache, stockFilters, stockSortConfigs, filters.industry, filters.sub_industry]);
+    }, [stocksCache, stockFilters, stockSortConfigs, filters.industry, filters.sub_industry, rsMomentumFilters]);
 
     const clearFilter = useCallback((key: keyof FilterState) => {
         if (Array.isArray(filters[key])) {
@@ -834,6 +906,7 @@ export default function IndustryGroupsPage() {
 
         setSortConfigs([]);
         setStockSortConfigs({});
+        setRsMomentumFilters([]);
     }, []);
 
     const toggleGroup = async (groupName: string) => {
@@ -988,10 +1061,10 @@ export default function IndustryGroupsPage() {
             import('jspdf').then(({ default: jsPDF }) => {
                 import('jspdf-autotable').then(({ default: autoTable }) => {
                     const doc = new jsPDF({ orientation: 'landscape' });
-                    
+
                     doc.setFontSize(14);
                     doc.text("Industry Groups Ranking", 14, 15);
-                    
+
                     autoTable(doc, {
                         startY: 20,
                         head: [groupHeaders],
@@ -1000,7 +1073,7 @@ export default function IndustryGroupsPage() {
                         styles: { fontSize: 8 },
                         headStyles: { fillColor: [41, 128, 185] }
                     });
-                    
+
                     expandedStockTables.forEach(table => {
                         autoTable(doc, {
                             margin: { top: 20 },
@@ -1017,7 +1090,7 @@ export default function IndustryGroupsPage() {
                             headStyles: { fillColor: [52, 73, 94] }
                         });
                     });
-                    
+
                     doc.save(`industry_groups_${new Date().toISOString().split('T')[0]}.pdf`);
                 });
             });
@@ -1028,7 +1101,7 @@ export default function IndustryGroupsPage() {
         const allSheetRows: any[][] = [];
         allSheetRows.push(groupHeaders);
         groupRows.forEach(r => allSheetRows.push(r));
-        
+
         expandedStockTables.forEach(table => {
             allSheetRows.push([]); // blank line
             allSheetRows.push([table.title]); // title
@@ -1142,7 +1215,7 @@ export default function IndustryGroupsPage() {
                             <Download className="w-4 h-4" />
                             <span>Export Data</span>
                         </button>
-                        
+
                         {showExportMenu && (
                             <div className="absolute top-full left-4 right-4 mt-1 bg-white rounded-md shadow-lg z-50 border border-gray-200 py-1">
                                 <button
@@ -1386,9 +1459,34 @@ export default function IndustryGroupsPage() {
                                     onMaxChange={(value) => setStockFilters(prev => ({ ...prev, rs_rating_1_year_ago_max: value }))}
                                 />
 
+                                {/* RS MOMENTUM TREND FILTERS */}
+                                <div className="pt-2 border-t border-gray-100">
+                                    <h4 className="text-[10px] font-bold text-gray-400 mb-2 tracking-wider uppercase">RS Momentum Trend</h4>
+                                    <div className="space-y-1.5">
+                                        {RS_MOMENTUM_OPTIONS.map(option => {
+                                            const isChecked = rsMomentumFilters.includes(option.key);
+                                            return (
+                                                <label
+                                                    key={option.key}
+                                                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors text-[11px]
+                                                        ${isChecked ? 'bg-green-50 text-green-800 border border-green-200' : 'hover:bg-gray-50 text-gray-700 border border-transparent'}`}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isChecked}
+                                                        onChange={() => toggleRsMomentumFilter(option.key)}
+                                                        className="w-3.5 h-3.5 accent-green-600 flex-shrink-0"
+                                                    />
+                                                    <span className="font-medium">{option.label}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
                                 <div className="pt-2 border-t border-gray-100">
                                     <h4 className="text-[10px] font-bold text-gray-400 mb-3 tracking-wider uppercase">Shariah & Margin</h4>
-                                    
+
                                     <div className="space-y-4">
                                         <CustomMultiSelect
                                             options={['Compliant', 'Non-compliant', 'Brokerage Compliant']}
@@ -1486,7 +1584,7 @@ export default function IndustryGroupsPage() {
                         </div>
 
                         {/* Active Filters */}
-                        {activeFilters.length > 0 && (
+                        {(activeFilters.length > 0 || rsMomentumFilters.length > 0) && (
                             <div className="mt-2 flex flex-wrap gap-2">
                                 {activeFilters.map((filter, index) => (
                                     <ActiveFilterBadge
@@ -1496,6 +1594,16 @@ export default function IndustryGroupsPage() {
                                         onRemove={() => clearFilter(filter.key)}
                                     />
                                 ))}
+                                {rsMomentumFilters.map(key => {
+                                    const option = RS_MOMENTUM_OPTIONS.find(o => o.key === key);
+                                    if (!option) return null;
+                                    return (
+                                        <span key={key} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 border border-green-300">
+                                            {option.label}
+                                            <button onClick={() => toggleRsMomentumFilter(key)} className="ml-1 text-green-600 hover:text-green-900">×</button>
+                                        </span>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
@@ -1738,29 +1846,61 @@ export default function IndustryGroupsPage() {
                                                                             </tr>
                                                                         </thead>
                                                                         <tbody className="divide-y divide-gray-100">
-                                                                            {filteredStocks.map(stock => (
-                                                                                <tr key={stock.symbol} className="hover:bg-gray-50">
-                                                                                    <td className="px-2 py-1.5 font-medium text-blue-600 whitespace-nowrap">
-                                                                                        <Link href={`/stocks/${stock.symbol}`} className="hover:underline">
-                                                                                            {stock.symbol}
-                                                                                        </Link>
-                                                                                    </td>
-                                                                                    <td className="px-2 py-1.5 truncate max-w-[130px]" title={stock.company_name}>{stock.company_name}</td>
-                                                                                    <td className={`px-2 py-1.5 text-center font-bold ${(stock.rs_rating || 0) >= 80 ? 'text-green-600' : (stock.rs_rating || 0) >= 70 ? 'text-yellow-600' : 'text-gray-500'}`}>
-                                                                                        {stock.rs_rating ?? '-'}
-                                                                                    </td>
-                                                                                    <td className="px-2 py-1.5 text-center text-gray-600">{stock.rs_rating_1_week_ago ?? '-'}</td>
-                                                                                    <td className="px-2 py-1.5 text-center text-gray-600">{stock.rs_rating_4_weeks_ago ?? '-'}</td>
-                                                                                    <td className="px-2 py-1.5 text-center text-gray-600">{stock.rs_rating_3_months_ago ?? '-'}</td>
-                                                                                    <td className="px-2 py-1.5 text-center text-gray-600">{stock.rs_rating_6_months_ago ?? '-'}</td>
-                                                                                    <td className="px-2 py-1.5 text-center text-gray-600">{stock.rs_rating_1_year_ago ?? '-'}</td>
-                                                                                    <td className="px-2 py-1.5 text-gray-500 whitespace-nowrap">{stock.industry}</td>
-                                                                                    <td className="px-2 py-1.5 text-gray-500 whitespace-nowrap">{stock.sub_industry}</td>
-                                                                                    <td className="px-2 py-1.5 text-center text-gray-600 whitespace-nowrap">{formatShariahApproval(stock.approval_with_controls)}</td>
-                                                                                    <td className="px-2 py-1.5 text-center text-gray-600">{formatPurgeAmount(stock.purge_amount)}</td>
-                                                                                    <td className="px-2 py-1.5 text-center text-gray-600">{formatMarginable(stock.marginable_percent)}</td>
-                                                                                </tr>
-                                                                            ))}
+                                                                            {filteredStocks.map(stock => {
+                                                                                const { rowMin, rowMax } = getRSRowExtremes(stock);
+                                                                                return (
+                                                                                    <tr key={stock.symbol} className="hover:bg-gray-50">
+                                                                                        <td className="px-2 py-1.5 font-medium text-blue-600 whitespace-nowrap">
+                                                                                            <Link href={`/stocks/${stock.symbol}`} className="hover:underline">
+                                                                                                {stock.symbol}
+                                                                                            </Link>
+                                                                                        </td>
+                                                                                        <td className="px-2 py-1.5 truncate max-w-[130px]" title={stock.company_name}>{stock.company_name}</td>
+                                                                                        {/* RS Rating — current (leftmost = most recent) */}
+                                                                                        <td
+                                                                                            className="px-2 py-1.5 text-center font-bold rounded-sm"
+                                                                                            style={getRSHeatmapStyle(stock.rs_rating, rowMin, rowMax)}
+                                                                                        >
+                                                                                            {stock.rs_rating ?? '-'}
+                                                                                        </td>
+                                                                                        <td
+                                                                                            className="px-2 py-1.5 text-center font-semibold rounded-sm"
+                                                                                            style={getRSHeatmapStyle(stock.rs_rating_1_week_ago, rowMin, rowMax)}
+                                                                                        >
+                                                                                            {stock.rs_rating_1_week_ago ?? '-'}
+                                                                                        </td>
+                                                                                        <td
+                                                                                            className="px-2 py-1.5 text-center font-semibold rounded-sm"
+                                                                                            style={getRSHeatmapStyle(stock.rs_rating_4_weeks_ago, rowMin, rowMax)}
+                                                                                        >
+                                                                                            {stock.rs_rating_4_weeks_ago ?? '-'}
+                                                                                        </td>
+                                                                                        <td
+                                                                                            className="px-2 py-1.5 text-center font-semibold rounded-sm"
+                                                                                            style={getRSHeatmapStyle(stock.rs_rating_3_months_ago, rowMin, rowMax)}
+                                                                                        >
+                                                                                            {stock.rs_rating_3_months_ago ?? '-'}
+                                                                                        </td>
+                                                                                        <td
+                                                                                            className="px-2 py-1.5 text-center font-semibold rounded-sm"
+                                                                                            style={getRSHeatmapStyle(stock.rs_rating_6_months_ago, rowMin, rowMax)}
+                                                                                        >
+                                                                                            {stock.rs_rating_6_months_ago ?? '-'}
+                                                                                        </td>
+                                                                                        <td
+                                                                                            className="px-2 py-1.5 text-center font-semibold rounded-sm"
+                                                                                            style={getRSHeatmapStyle(stock.rs_rating_1_year_ago, rowMin, rowMax)}
+                                                                                        >
+                                                                                            {stock.rs_rating_1_year_ago ?? '-'}
+                                                                                        </td>
+                                                                                        <td className="px-2 py-1.5 text-gray-500 whitespace-nowrap">{stock.industry}</td>
+                                                                                        <td className="px-2 py-1.5 text-gray-500 whitespace-nowrap">{stock.sub_industry}</td>
+                                                                                        <td className="px-2 py-1.5 text-center text-gray-600 whitespace-nowrap">{formatShariahApproval(stock.approval_with_controls)}</td>
+                                                                                        <td className="px-2 py-1.5 text-center text-gray-600">{formatPurgeAmount(stock.purge_amount)}</td>
+                                                                                        <td className="px-2 py-1.5 text-center text-gray-600">{formatMarginable(stock.marginable_percent)}</td>
+                                                                                    </tr>
+                                                                                );
+                                                                            })}
                                                                         </tbody>
                                                                     </table>
                                                                 </div>

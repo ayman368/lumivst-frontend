@@ -126,22 +126,22 @@ export default function SaudiMarketNavbar() {
     //     { en: 'S&P 500 P/E Ratio', href: '/market/sp500-pe-ratio' },
     //   ],
     // },
-    // interestRate: {
-    //   en: 'Interest Rate',
-    //   href: '/market/saudi/interest-rate',
-    //   items: [
-    //     { en: 'CME FedWatch', href: '/interest-rate/cme-fedwatch' },
-    //     { en: 'SOFR Futures', href: '/interest-rate/sofr-futures' },
-    //   ],
-    // },
-    // spread: {
-    //   en: 'Spread',
-    //   href: '/market/saudi/spread',
-    //   items: [
-    //     { en: 'BBB Corporate Spread', href: '/spread/bbb-corporate' },
-    //     { en: 'A Corporate Spread', href: '/spread/a-corporate' },
-    //   ],
-    // },
+    interestRate: {
+      en: 'Interest Rate',
+      href: '/market/saudi/interest-rate',
+      items: [
+        { en: 'CME FedWatch', href: '/interest-rate/cme-fedwatch' },
+        { en: 'SOFR Futures', href: '/interest-rate/sofr-futures' },
+      ],
+    },
+    spread: {
+      en: 'Spread',
+      href: '/market/saudi/spread',
+      items: [
+        { en: 'BBB Corporate Spread', href: '/spread/bbb-corporate' },
+        { en: 'A Corporate Spread', href: '/spread/a-corporate' },
+      ],
+    },
   }
 
   const toggleMobile = () => {

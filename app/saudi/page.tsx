@@ -43,22 +43,22 @@ export default function SaudiMarketPage() {
     //     { en: 'S&P 500 P/E Ratio', href: '/market/sp500-pe-ratio' },
     //   ],
     // },
-    // {
-    //   en: 'Interest Rate',
-    //   href: '/saudi/interest-rate',
-    //   items: [
-    //     { en: 'CME FedWatch', href: '/interest-rate/cme-fedwatch' },
-    //     { en: 'SOFR Futures', href: '/interest-rate/sofr-futures' },
-    //   ],
-    // },
-    // {
-    //   en: 'Spread',
-    //   href: '/saudi/spread',
-    //   items: [
-    //     { en: 'BBB Corporate Spread', href: '/spread/bbb-corporate' },
-    //     { en: 'A Corporate Spread', href: '/spread/a-corporate' },
-    //   ],
-    // },
+    {
+      en: 'Interest Rate',
+      href: '/saudi/interest-rate',
+      items: [
+        { en: 'CME FedWatch', href: '/interest-rate/cme-fedwatch' },
+        { en: 'SOFR Futures', href: '/interest-rate/sofr-futures' },
+      ],
+    },
+    {
+      en: 'Spread',
+      href: '/saudi/spread',
+      items: [
+        { en: 'BBB Corporate Spread', href: '/spread/bbb-corporate' },
+        { en: 'A Corporate Spread', href: '/spread/a-corporate' },
+      ],
+    },
   ]
 
   const toggleExpanded = (key: string) => {
@@ -121,9 +121,8 @@ export default function SaudiMarketPage() {
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
       <div
-        className={`${
-          sidebarOpen ? 'w-64' : 'w-20'
-        } bg-white border-r border-gray-200 transition-all duration-300 flex flex-col`}
+        className={`${sidebarOpen ? 'w-64' : 'w-20'
+          } bg-white border-r border-gray-200 transition-all duration-300 flex flex-col`}
       >
         {/* Sidebar Header */}
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
