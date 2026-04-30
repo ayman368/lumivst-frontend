@@ -145,6 +145,10 @@ export default function YieldCurveAnalysis() {
   const [hidden4, setHidden4] = useState<Record<string, boolean>>({});
   const [hidden5, setHidden5] = useState<Record<string, boolean>>({});
 
+  // Spread chart zoom states
+  const [spread1Zoom, setSpread1Zoom] = useState('All');
+  const [spread2Zoom, setSpread2Zoom] = useState('All');
+
   useEffect(() => {
     (async () => {
       try {
@@ -165,29 +169,9 @@ export default function YieldCurveAnalysis() {
     })();
   }, []);
 
-  const [isPlaying, setIsPlaying] = useState(false);
-
   useEffect(() => {
     if (ycData.length > 0 && histIndex < 0) setHistIndex(ycData.length - 1);
   }, [ycData, histIndex]);
-
-  // Animation Engine
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isPlaying) {
-      timer = setInterval(() => {
-        setHistIndex(prev => {
-          const next = prev + Math.max(1, Math.floor(ycData.length / 300)); // Playback speed
-          if (next >= ycData.length - 1) {
-            setIsPlaying(false);
-            return ycData.length - 1;
-          }
-          return next;
-        });
-      }, 50);
-    }
-    return () => clearInterval(timer);
-  }, [isPlaying, ycData.length]);
 
   /* ── Derived data ──────────────────────────────────────────────────── */
   const latest = ycData.length ? ycData[ycData.length - 1] : null;
@@ -223,6 +207,9 @@ export default function YieldCurveAnalysis() {
       .filter(d => d.year_10 !== null && d.year_1 !== null && d.year_2 !== null)
       .map(d => ({ date: d.report_date, spread10y1y: +(d.year_10! - d.year_1!).toFixed(2), spread10y2y: +(d.year_10! - d.year_2!).toFixed(2) }));
   }, [ycData]);
+
+  const filteredSpread1 = useMemo(() => filterByZoom(spreadData, spread1Zoom), [spreadData, spread1Zoom]);
+  const filteredSpread2 = useMemo(() => filterByZoom(spreadData, spread2Zoom), [spreadData, spread2Zoom]);
 
   const demoCurves = useMemo(() => {
     const normal = findClosestDate(ycData, '2021-04-15');
@@ -426,56 +413,102 @@ export default function YieldCurveAnalysis() {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       <div style={SECTION}>
         <h2 style={H2}>Inverted Yield Curve</h2>
-        <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 580px' }}>
-            <h3 style={H3}>Historical Treasury Yield Spread (10Y–1Y)</h3>
-            <div style={{ height: 240, marginBottom: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 28 }}>
+
+          {/* ── LEFT: Charts ── */}
+          <div style={{ minWidth: 0 }}>
+            {/* Chart 1: 10Y-1Y */}
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 4 }}>
+              <h3 style={{ ...H3, margin: 0 }}>Historical Treasury Yield Spread (10Y–1Y)</h3>
+              <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, color: '#6b7280', marginRight: 4 }}>Zoom</span>
+                {['1m', '3m', '6m', 'YTD', '1y', '5y', '10y', 'All'].map(z => (
+                  <button key={z} onClick={() => setSpread1Zoom(z)}
+                    style={{ padding: '2px 7px', fontSize: 11, fontWeight: spread1Zoom === z ? 700 : 400, color: spread1Zoom === z ? '#111827' : '#6b7280',
+                      background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: spread1Zoom === z ? 'underline' : 'none', textUnderlineOffset: 3 }}>
+                    {z}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ position: 'relative', height: 220, marginBottom: 4 }}>
+              {filteredSpread1.length > 0 && (
+                <div style={{ position: 'absolute', right: 28, top: '40%', zIndex: 10, fontSize: 13, fontWeight: 700, color: '#1d4ed8' }}>
+                  {filteredSpread1[filteredSpread1.length - 1].spread10y1y.toFixed(2)}%
+                </div>
+              )}
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={spreadData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <LineChart data={filteredSpread1} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                   <CartesianGrid {...GRID} />
-                  {RECESSIONS.map((r, i) => <ReferenceArea key={i} x1={r.start} x2={r.end} fill="#e5e7eb" fillOpacity={0.5} />)}
-                  <ReferenceLine y={0} stroke="#ef4444" strokeWidth={1.5} strokeDasharray="4 3" />
-                  <XAxis dataKey="date" minTickGap={60} tickFormatter={v => new Date(v).getFullYear().toString()} tick={TICK} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                  {RECESSIONS.map((r, i) => <ReferenceArea key={i} x1={r.start} x2={r.end} fill="#d1d5db" fillOpacity={0.45} />)}
+                  <ReferenceLine y={0} stroke="#ef4444" strokeWidth={1.5} />
+                  <XAxis dataKey="date" minTickGap={80} tickFormatter={v => new Date(v).getFullYear().toString()} tick={TICK} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
                   <YAxis domain={[-5, 5]} ticks={[-5, -2.5, 0, 2.5, 5]} tickFormatter={v => v % 1 === 0 ? `${v}%` : `${v.toFixed(1)}%`} tick={TICK} tickLine={false} axisLine={false} width={38} />
                   <Tooltip formatter={(v: any) => v != null ? `${Number(v).toFixed(2)}%` : '—'} labelFormatter={(l: any) => new Date(l).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} />
                   <Line type="monotone" dataKey="spread10y1y" name="10Y − 1Y" stroke="#1d4ed8" strokeWidth={1.2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            <h3 style={H3}>Historical Treasury Yield Spread (10Y–2Y)</h3>
-            <div style={{ height: 240 }}>
+            <div style={{ textAlign: 'center', fontSize: 11, color: '#6b7280', marginBottom: 20 }}>━ Treasury Yield Spread (10Y-1Y)</div>
+
+            {/* Chart 2: 10Y-2Y */}
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 4 }}>
+              <h3 style={{ ...H3, margin: 0 }}>Historical Treasury Yield Spread (10Y–2Y)</h3>
+              <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, color: '#6b7280', marginRight: 4 }}>Zoom</span>
+                {['1m', '3m', '6m', 'YTD', '1y', '5y', '10y', 'All'].map(z => (
+                  <button key={z} onClick={() => setSpread2Zoom(z)}
+                    style={{ padding: '2px 7px', fontSize: 11, fontWeight: spread2Zoom === z ? 700 : 400, color: spread2Zoom === z ? '#111827' : '#6b7280',
+                      background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: spread2Zoom === z ? 'underline' : 'none', textUnderlineOffset: 3 }}>
+                    {z}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ position: 'relative', height: 220, marginBottom: 4 }}>
+              {filteredSpread2.length > 0 && (
+                <div style={{ position: 'absolute', right: 28, top: '40%', zIndex: 10, fontSize: 13, fontWeight: 700, color: '#7c3aed' }}>
+                  {filteredSpread2[filteredSpread2.length - 1].spread10y2y.toFixed(2)}%
+                </div>
+              )}
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={spreadData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <LineChart data={filteredSpread2} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                   <CartesianGrid {...GRID} />
-                  {RECESSIONS.map((r, i) => <ReferenceArea key={i} x1={r.start} x2={r.end} fill="#e5e7eb" fillOpacity={0.5} />)}
-                  <ReferenceLine y={0} stroke="#ef4444" strokeWidth={1.5} strokeDasharray="4 3" />
-                  <XAxis dataKey="date" minTickGap={60} tickFormatter={v => new Date(v).getFullYear().toString()} tick={TICK} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                  {RECESSIONS.map((r, i) => <ReferenceArea key={i} x1={r.start} x2={r.end} fill="#d1d5db" fillOpacity={0.45} />)}
+                  <ReferenceLine y={0} stroke="#ef4444" strokeWidth={1.5} />
+                  <XAxis dataKey="date" minTickGap={80} tickFormatter={v => new Date(v).getFullYear().toString()} tick={TICK} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
                   <YAxis domain={[-5, 5]} ticks={[-5, -2.5, 0, 2.5, 5]} tickFormatter={v => v % 1 === 0 ? `${v}%` : `${v.toFixed(1)}%`} tick={TICK} tickLine={false} axisLine={false} width={38} />
                   <Tooltip formatter={(v: any) => v != null ? `${Number(v).toFixed(2)}%` : '—'} labelFormatter={(l: any) => new Date(l).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} />
                   <Line type="monotone" dataKey="spread10y2y" name="10Y − 2Y" stroke="#7c3aed" strokeWidth={1.2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 8 }}>* The grey zones indicate US recessions.</p>
+            <div style={{ textAlign: 'center', fontSize: 11, color: '#6b7280', marginBottom: 6 }}>━ Treasury Yield Spread (10Y-2Y)</div>
+            <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>* The grey zones indicate US recessions.</p>
           </div>
-          <div style={{ flex: '0 1 320px', fontSize: 14, color: '#374151', lineHeight: 1.75 }}>
-            <p>An <strong>inverted yield curve</strong> occurs when yields on short-term bonds rise above the yields on longer-term bonds of the same credit quality, which has proven to be a relatively reliable indicator of an economic recession.</p>
-            <p style={{ marginTop: 12 }}>The inverted yield curve can be observed when the yield spread between long-term yield and short-term yield is less than zero, as shown in the left two graphs.</p>
-            <p style={{ marginTop: 12 }}>An inverted yield curve has predicted the past 7 recessions.</p>
-            <div style={{ marginTop: 24 }}>
-              <h4 style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 10 }}>Discover related topics</h4>
-              {['US Bond Yield Curve', 'Inverted Yield Curve Bonds', 'Bonds Inverted Yield Curve', 'The US Treasury Yield Curve 1961 to the Present'].map(t => (
-                <div key={t} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6', fontSize: 13, color: '#1d4ed8', cursor: 'default' }}>{t} →</div>
-              ))}
-            </div>
+
+          {/* ── RIGHT: Description ── */}
+          <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.8 }}>
+            <p>An <strong>inverted yield curve</strong> occurs when yields on short-term bonds rise above the yields on longer-term bonds of the same credit quality, which has proven to be a relatively reliable indicator of an economic recession. The inverted yield curve can be observed when the yield spread between long-term yield and short-term yield is less than zero, as shown in the left two graphs.</p>
+
+            <p style={{ marginTop: 16 }}>The gray bars throughout the charts indicate the past U.S. recessions since 1967. A quick look at the &quot;Historical Treasury Yield Spread (10Y-1Y)&quot; graph suggests that historically, an economic recession generally follows once the yield spread drops below 0% (the red Y-axis). This is especially true for recessions during the late 1900s. The yield spread reached an all-time low of -3.10% around April 1980, during the economic recession of the early 1980s.</p>
+
+            <p style={{ marginTop: 16 }}>An inverted yield curve has predicted the past <strong>7 recessions</strong>.</p>
           </div>
+
         </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* SECTION 4: Historical Yield Curve  (GuruFocus style)              */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* This section displays: (1) A yield curve snapshot for a user-selected */}
+      {/* date using an interactive slider, and (2) An overlay chart comparing   */}
+      {/* S&P 500 index with 1Y and 10Y Treasury yields over time. Both charts */}
+      {/* help visualize historical relationships between equity markets and    */}
+      {/* bond yields, with clickable date selection for detailed analysis.     */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      <div style={SECTION}>
+      {false && <div style={SECTION}>
         <h2 style={H2}>Historical Yield Curve</h2>
 
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -510,7 +543,6 @@ export default function YieldCurveAnalysis() {
               <div style={{ position: 'relative' }}>
                 <input type="range" min={0} max={ycData.length - 1} value={histIndex >= 0 ? histIndex : 0}
                   onChange={e => {
-                    setIsPlaying(false);
                     setHistIndex(parseInt(e.target.value));
                   }}
                   style={{ width: '100%', accentColor: '#1d4ed8', cursor: 'ew-resize' }}
@@ -520,19 +552,6 @@ export default function YieldCurveAnalysis() {
                 <span>{ycData[0]?.report_date.slice(0, 4)}</span>
                 <span>{ycData[ycData.length - 1]?.report_date.slice(0, 4)}</span>
               </div>
-            </div>
-
-            {/* GuruFocus + / Current buttons */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 0 }}>
-              <button style={{ border: '1px solid #d1d5db', borderRight: 'none', background: '#fff', padding: '2px 8px', fontSize: 13, borderTopLeftRadius: 4, borderBottomLeftRadius: 4, color: '#374151', cursor: 'pointer' }}
-                onClick={() => setHistIndex(prev => Math.min(ycData.length - 1, prev + 22))}
-              >+</button>
-              <button style={{ border: '1px solid #d1d5db', background: '#fff', padding: '2px 8px', fontSize: 11, borderTopRightRadius: 4, borderBottomRightRadius: 4, color: '#3b82f6', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
-                onClick={() => setHistIndex(ycData.length - 1)}
-              >
-                Current
-                <span style={{ fontSize: 9 }}>✖</span>
-              </button>
             </div>
           </div>
 
@@ -559,7 +578,6 @@ export default function YieldCurveAnalysis() {
                 <LineChart data={filteredOverlay} margin={{ top: 5, right: 45, left: 10, bottom: 5 }}
                   onClick={(e: any) => {
                     if (e && e.activeLabel) {
-                      setIsPlaying(false);
                       const idx = ycData.findIndex(d => d.report_date >= e.activeLabel);
                       if (idx !== -1) setHistIndex(idx);
                     }
@@ -606,30 +624,21 @@ export default function YieldCurveAnalysis() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-
-            {/* Play controls */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
-              <div style={{ border: '1px solid #d1d5db', borderRadius: 4, display: 'flex', overflow: 'hidden' }}>
-                <button
-                  onClick={() => setIsPlaying(true)}
-                  style={{ background: isPlaying ? '#f3f4f6' : '#fff', borderRight: '1px solid #d1d5db', padding: '4px 12px', fontSize: 10, cursor: 'pointer', border: 'none' }}>
-                  ▶
-                </button>
-                <button
-                  onClick={() => setIsPlaying(false)}
-                  style={{ background: !isPlaying ? '#f3f4f6' : '#fff', padding: '4px 12px', fontSize: 10, cursor: 'pointer', border: 'none' }}>
-                  ⏸
-                </button>
-              </div>
-            </div>
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* SECTION 5: Historical 10Y Treasury Yield vs S&P 500              */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* This section displays a dual-axis chart comparing the 10-Year         */}
+      {/* Treasury Yield with S&P 500 P/E ratio (TTM) over time. The section   */}
+      {/* includes zoom controls to analyze different time periods and helps    */}
+      {/* investors understand the inverse relationship between Treasury yields */}
+      {/* and stock market valuations. Higher yields typically correlate with   */}
+      {/* lower P/E multiples as discount rates rise.                          */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      <div style={SECTION}>
+      {false && <div style={SECTION}>
         <h2 style={H2}>Historical Treasury Yield vs. S&P 500 P/E</h2>
         <h3 style={{ ...H3, textAlign: 'center' }}>Historical 10Y Treasury Yield vs. S&P 500 P/E(TTM)</h3>
 
@@ -689,7 +698,7 @@ export default function YieldCurveAnalysis() {
             </LineChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </div>}
 
     </div>
   );

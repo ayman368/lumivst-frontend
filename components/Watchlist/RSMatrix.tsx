@@ -211,21 +211,29 @@ function MatrixCard({ title, range, variant, arrow, list, total }: any) {
                             className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-[#f8f9fa] border border-[#e9ecef] hover:border-[#2962ff] transition-all"
                         >
                             <div className={`w-2 h-2 rounded-full shrink-0 ${s.dot}`}></div>
-                            <div className={`stock-name-cell flex-1 text-[0.85rem] font-medium text-[#333] leading-tight break-words min-w-0`}>
+                            <div className={`stock-name-cell flex-1 text-[0.85rem] font-medium text-[#333] leading-tight break-words min-w-0 flex items-center gap-1`}>
                                 {item.company_name || item.symbol}
+                                {item.prev_rs_rating && item.prev_rs_rating < item.rs_rating && (
+                                    <div className="relative group inline-block">
+                                        <span className="text-green-600 text-sm font-bold cursor-help flex-shrink-0">↑</span>
+                                        <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                            Previous: {item.prev_rs_rating}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
-                                <div className="text-[0.8rem] font-bold text-[#666] bg-white px-2 py-1 rounded shadow-sm">
-                                    {item.rs_rating}
-                                </div>
                                 {movement && (
                                     <div className="flex items-center gap-1">
-                                        <span className={`text-base font-bold ${movement.color}`}>{movement.arrow}</span>
                                         <span className={`text-[0.65rem] px-1.5 py-0.5 rounded font-bold whitespace-nowrap uppercase ${movement.badgeClass}`}>
                                             From {movement.from}
                                         </span>
+                                        <span className={`text-base font-bold ${movement.color}`}>{movement.arrow}</span>
                                     </div>
                                 )}
+                                <div className="text-[0.8rem] font-bold text-[#666] bg-white px-2 py-1 rounded shadow-sm">
+                                    {item.rs_rating}
+                                </div>
                             </div>
                         </div>
                     );

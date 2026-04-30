@@ -17,7 +17,7 @@ export default function EconomicIndicatorsLayout({
   const pathname = usePathname();
 
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="w-full px-4 py-8">
 
       {/* ── Header ── */}
       <div className="flex items-start justify-between mb-7">

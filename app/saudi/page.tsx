@@ -39,7 +39,7 @@ export default function SaudiMarketPage() {
     //   href: '/saudi/market',
     //   items: [
     //     { en: 'YRI Earnings Outlook', href: '/market/yri-earnings-outlook' },
-    //     { en: 'S&P 500 A Effective Yield', href: '/market/sp500-a-effective-yield' },
+    //     { en: 'S&P 500 Earnings Yield', href: '/market/sp500-earnings-yield' },
     //     { en: 'S&P 500 P/E Ratio', href: '/market/sp500-pe-ratio' },
     //   ],
     // },
@@ -48,7 +48,7 @@ export default function SaudiMarketPage() {
       href: '/saudi/interest-rate',
       items: [
         { en: 'CME FedWatch', href: '/interest-rate/cme-fedwatch' },
-        { en: 'SOFR Futures', href: '/interest-rate/sofr-futures' },
+        { en: 'Eurodollar Futures', href: '/interest-rate/eurodollar-futures' },
       ],
     },
     {

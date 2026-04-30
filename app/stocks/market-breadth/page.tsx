@@ -1,19 +1,55 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { createChart, ColorType, AreaSeries, IChartApi, CrosshairMode } from 'lightweight-charts';
-import { TrendingUp, Activity, BarChart2, Layers, BarChart3, Radio } from 'lucide-react';
-import ExportButton from './_components/ExportButton';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import {
+    createChart,
+    ColorType,
+    AreaSeries,
+    IChartApi,
+    ISeriesApi,
+    CrosshairMode,
+} from 'lightweight-charts';
+import {
+    TrendingUp,
+    Activity,
+    BarChart2,
+    BarChart3,
+    Radio,
+    Maximize2,
+    Minimize2,
+    Eye,
+    EyeOff,
+    Download,
+    FileText,
+    Image as ImgIcon,
+    Table2,
+    Scan,
+} from 'lucide-react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import * as XLSX from 'xlsx';
 import { API_BASE_URL } from '@/lib/api/config';
+
+/* ─── Types ─────────────────────────────────────────────────────────────── */
 
 interface BreadthItem {
     time: string;
     total: number;
     pct_above_20: number;
     pct_above_50: number;
-    pct_above_100: number;
+    pct_above_150: number;
     pct_above_200: number;
+    ma50_20: number;
+    ma200_20: number;
+    ma50_50: number;
+    ma200_50: number;
+    ma50_150: number;
+    ma200_150: number;
+    ma50_200: number;
+    ma200_200: number;
 }
+
+/* ─── Config ─────────────────────────────────────────────────────────────── */
 
 const CHART_CONFIGS = [
     {
@@ -23,10 +59,11 @@ const CHART_CONFIGS = [
         badge: 'MA20',
         lineColor: '#0F7A5A',
         topColor: 'rgba(15,122,90,0.09)',
-        glowColor: 'rgba(15,122,90,0.18)',
         accentLight: '#E6F5F0',
         icon: Activity,
         desc: 'Percentage of TASI constituents trading above their 20-day moving average',
+        avgKeys: ['ma50_20', 'ma200_20'] as const,
+        avgLabels: ['AVG 50', 'AVG 200'],
     },
     {
         key: 'pct_above_50' as const,
@@ -35,22 +72,24 @@ const CHART_CONFIGS = [
         badge: 'MA50',
         lineColor: '#1560A8',
         topColor: 'rgba(21,96,168,0.08)',
-        glowColor: 'rgba(21,96,168,0.18)',
         accentLight: '#E8F0FA',
         icon: TrendingUp,
         desc: 'Percentage of TASI constituents trading above their 50-day moving average',
+        avgKeys: ['ma50_50', 'ma200_50'] as const,
+        avgLabels: ['AVG 50', 'AVG 200'],
     },
     {
-        key: 'pct_above_100' as const,
-        label: '100-Day',
+        key: 'pct_above_150' as const,
+        label: '150-Day',
         sublabel: 'Long-Term Foundation',
-        badge: 'MA100',
+        badge: 'MA150',
         lineColor: '#A0600A',
         topColor: 'rgba(160,96,10,0.08)',
-        glowColor: 'rgba(160,96,10,0.18)',
         accentLight: '#FBF3E6',
         icon: BarChart2,
-        desc: 'Percentage of TASI constituents trading above their 100-day moving average',
+        desc: 'Percentage of TASI constituents trading above their 150-day moving average',
+        avgKeys: ['ma50_150', 'ma200_150'] as const,
+        avgLabels: ['AVG 50', 'AVG 200'],
     },
     {
         key: 'pct_above_200' as const,
@@ -59,12 +98,15 @@ const CHART_CONFIGS = [
         badge: 'MA200',
         lineColor: '#B02040',
         topColor: 'rgba(176,32,64,0.08)',
-        glowColor: 'rgba(176,32,64,0.18)',
         accentLight: '#FAE8EC',
         icon: BarChart3,
         desc: 'Percentage of TASI constituents trading above their 200-day moving average',
+        avgKeys: ['ma50_200', 'ma200_200'] as const,
+        avgLabels: ['AVG 50', 'AVG 200'],
     },
-];
+] as const;
+
+/* ─── Component ─────────────────────────────────────────────────────────── */
 
 export default function MarketBreadthPage() {
     const [data, setData] = useState<BreadthItem[]>([]);
@@ -72,29 +114,53 @@ export default function MarketBreadthPage() {
     const [error, setError] = useState<string | null>(null);
     const [tick, setTick] = useState(0);
     const [period, setPeriod] = useState('ALL');
+    const [selectedAverages, setSelectedAverages] = useState<Record<number, string>>({});
+    const [seriesVisible, setSeriesVisible] = useState<Record<number, boolean>>({ 0: true, 1: true, 2: true, 3: true });
+    const [fullscreenIdx, setFullscreenIdx] = useState<number | null>(null);
+    const [exportOpen, setExportOpen] = useState(false);
+    const [exportStatus, setExportStatus] = useState<string | null>(null);
 
-    // ── ref for export capture ──────────────────────────────────────────────────
+    // Hover tooltip state per chart
+    const [hoverValues, setHoverValues] = useState<Record<number, { main: number | null; avg: number | null; time: string | null }>>({});
+
+    /* refs */
     const pageRef = useRef<HTMLDivElement>(null);
+    const isRestoringRef = useRef(false); // Add this flag to prevent sync during restore
 
-    const chartRefs = [
+    const cardRefs = [
         useRef<HTMLDivElement>(null),
         useRef<HTMLDivElement>(null),
         useRef<HTMLDivElement>(null),
         useRef<HTMLDivElement>(null),
     ];
-    const chartsRef = useRef<IChartApi[]>([]);
 
+    const canvasRefs = [
+        useRef<HTMLDivElement>(null),
+        useRef<HTMLDivElement>(null),
+        useRef<HTMLDivElement>(null),
+        useRef<HTMLDivElement>(null),
+    ];
+
+    const chartsRef = useRef<IChartApi[]>([]);
+    const mainSeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>([null, null, null, null]);
+    const avgSeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>([null, null, null, null]);
+    const isSyncing = useRef(false);
+    const savedRangeRef = useRef<any>(null);
+
+    /* ── tick for live dot ── */
     useEffect(() => {
-        const id = setInterval(() => setTick(t => t + 1), 1400);
+        const id = setInterval(() => setTick((t) => t + 1), 1400);
         return () => clearInterval(id);
     }, []);
 
+    /* ── fetch data ── */
     useEffect(() => {
         async function fetchData() {
             try {
                 setLoading(true);
-                const API_URL = API_BASE_URL;
-                const res = await fetch(`${API_URL}/api/market-breadth/percent-above-ma?period=${period}`);
+                const res = await fetch(
+                    `${API_BASE_URL}/api/market-breadth/percent-above-ma?period=${period}`
+                );
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const json = await res.json();
                 if (json.data && Array.isArray(json.data)) setData(json.data);
@@ -108,10 +174,30 @@ export default function MarketBreadthPage() {
         fetchData();
     }, [period]);
 
+    /* ── build / rebuild charts ── */
     useEffect(() => {
         if (data.length === 0) return;
 
-        const baseChartOptions = {
+        /* 🔹 CRITICAL FIX: Save current zoom range BEFORE destroying charts */
+        if (chartsRef.current.length > 0 && !isRestoringRef.current) {
+            try {
+                const range = chartsRef.current[0].timeScale().getVisibleLogicalRange();
+                if (range) {
+                    savedRangeRef.current = range;
+                    console.log('✅ Saved range before rebuild:', range);
+                }
+            } catch (e) {
+                console.warn('Could not save range:', e);
+            }
+        }
+
+        /* destroy previous */
+        chartsRef.current.forEach((c) => c.remove());
+        chartsRef.current = [];
+        mainSeriesRef.current = [null, null, null, null];
+        avgSeriesRef.current = [null, null, null, null];
+
+        const baseOptions = {
             layout: {
                 background: { type: ColorType.Solid, color: 'transparent' },
                 textColor: '#94A3B8',
@@ -125,7 +211,7 @@ export default function MarketBreadthPage() {
             rightPriceScale: {
                 borderColor: '#E8ECF2',
                 autoScale: true,
-                scaleMargins: { top: 0.1, bottom: 0.1 },
+                scaleMargins: { top: 0.08, bottom: 0.08 },
             },
             timeScale: {
                 borderColor: '#E8ECF2',
@@ -148,26 +234,21 @@ export default function MarketBreadthPage() {
                     labelBackgroundColor: '#1E293B',
                 },
             },
-            height: 210,
-        };
-
-        chartsRef.current.forEach(c => c.remove());
-        chartsRef.current = [];
-
-        const syncCrosshair = (source: IChartApi, targets: IChartApi[]) => {
-            source.timeScale().subscribeVisibleLogicalRangeChange(range => {
-                if (range) targets.forEach(c => c.timeScale().setVisibleLogicalRange(range));
-            });
         };
 
         CHART_CONFIGS.forEach((cfg, i) => {
-            const container = chartRefs[i].current;
+            const container = canvasRefs[i].current;
             if (!container) return;
             container.innerHTML = '';
 
-            const chart = createChart(container, baseChartOptions);
+            const chart = createChart(container, {
+                ...baseOptions,
+                width: container.clientWidth,
+                height: container.clientHeight || 180,
+            });
             chartsRef.current.push(chart);
 
+            /* main series */
             const series = chart.addSeries(AreaSeries, {
                 lineColor: cfg.lineColor,
                 topColor: cfg.topColor,
@@ -180,13 +261,41 @@ export default function MarketBreadthPage() {
                 lastValueVisible: true,
                 priceLineVisible: false,
                 autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
+                visible: seriesVisible[i] !== false,
             });
-
             series.setData(
-                data.map(item => ({ time: item.time, value: item[cfg.key] as number })) as any
+                data.map((item) => ({ time: item.time, value: item[cfg.key] as number })) as any
             );
+            mainSeriesRef.current[i] = series;
 
-            [20, 50, 80].forEach(level =>
+            /* avg overlay series */
+            const avgKey = selectedAverages[i];
+            if (avgKey && avgKey in data[0]) {
+                const avgSeries = chart.addSeries(AreaSeries, {
+                    lineColor: cfg.lineColor,
+                    topColor: 'rgba(0,0,0,0)',
+                    bottomColor: 'rgba(0,0,0,0)',
+                    lineWidth: 1.5 as any,
+                    lineStyle: 1,
+                    crosshairMarkerVisible: true,
+                    crosshairMarkerRadius: 3,
+                    crosshairMarkerBorderColor: cfg.lineColor,
+                    crosshairMarkerBackgroundColor: '#FFFFFF',
+                    lastValueVisible: true,
+                    priceLineVisible: false,
+                    autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
+                });
+                avgSeries.setData(
+                    data.map((item) => ({
+                        time: item.time,
+                        value: item[avgKey as keyof BreadthItem] as number,
+                    })) as any
+                );
+                avgSeriesRef.current[i] = avgSeries;
+            }
+
+            /* reference lines */
+            [20, 50, 80].forEach((level) =>
                 series.createPriceLine({
                     price: level,
                     color: '#E2E8F0',
@@ -196,66 +305,287 @@ export default function MarketBreadthPage() {
                 })
             );
 
-            chart.timeScale().fitContent();
+            // Don't call fitContent here, we'll restore zoom later
         });
 
-        const allCharts = chartsRef.current;
-        allCharts.forEach(c => syncCrosshair(c, allCharts.filter(x => x !== c)));
+        /* ── sync time-scale scroll/zoom ── */
+        chartsRef.current.forEach((chart, i) => {
+            chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+                // Skip sync if we're restoring zoom
+                if (!range || isSyncing.current || isRestoringRef.current) return;
 
-        const handleResize = () => {
-            chartsRef.current.forEach((chart, i) => {
-                const el = chartRefs[i].current;
-                if (el) chart.applyOptions({ width: el.clientWidth });
+                isSyncing.current = true;
+                chartsRef.current.forEach((c, j) => {
+                    if (j !== i) c.timeScale().setVisibleLogicalRange(range);
+                });
+                setTimeout(() => { isSyncing.current = false; }, 0);
+
+                /* Save the range when user changes it (for future rebuilds) */
+                if (!isRestoringRef.current && chartsRef.current[0]) {
+                    try {
+                        const newRange = chartsRef.current[0].timeScale().getVisibleLogicalRange();
+                        if (newRange) {
+                            savedRangeRef.current = newRange;
+                            console.log('📌 Saved user zoom:', newRange);
+                        }
+                    } catch { }
+                }
             });
-        };
-        window.addEventListener('resize', handleResize);
+        });
+
+        /* ── sync crosshair + update hover tooltip values ── */
+        chartsRef.current.forEach((chart, i) => {
+            chart.subscribeCrosshairMove((param) => {
+                // Update hover tooltip for this chart
+                const mainS = mainSeriesRef.current[i];
+                const avgS = avgSeriesRef.current[i];
+
+                if (!param.point || !param.time || !mainS) {
+                    setHoverValues((prev) => ({ ...prev, [i]: { main: null, avg: null, time: null } }));
+                } else {
+                    const mainVal = param.seriesData.get(mainS);
+                    const avgVal = avgS ? param.seriesData.get(avgS) : null;
+                    const mainNum = mainVal && 'value' in mainVal ? (mainVal as any).value : null;
+                    const avgNum = avgVal && 'value' in avgVal ? (avgVal as any).value : null;
+                    const timeStr = typeof param.time === 'string'
+                        ? param.time
+                        : typeof param.time === 'number'
+                            ? String(param.time)
+                            : `${(param.time as any).year}-${String((param.time as any).month).padStart(2, '0')}-${String((param.time as any).day).padStart(2, '0')}`;
+                    setHoverValues((prev) => ({ ...prev, [i]: { main: mainNum, avg: avgNum, time: timeStr } }));
+                }
+
+                // Sync crosshair to all other charts
+                chartsRef.current.forEach((targetChart, j) => {
+                    if (j === i) return;
+                    const targetSeries = mainSeriesRef.current[j];
+                    if (!param.point || !param.time || !targetSeries) {
+                        try { targetChart.clearCrosshairPosition(); } catch { }
+                        return;
+                    }
+                    try {
+                        const price = targetSeries.coordinateToPrice(param.point.y);
+                        if (price !== null)
+                            targetChart.setCrosshairPosition(price, param.time, targetSeries);
+                    } catch { }
+                });
+            });
+        });
+
+        /* ── ResizeObserver for dynamic sizing ── */
+        const ro = new ResizeObserver(() => {
+            chartsRef.current.forEach((chart, i) => {
+                const el = canvasRefs[i].current;
+                if (!el) return;
+                chart.applyOptions({
+                    width: el.clientWidth,
+                    height: Math.max(el.clientHeight, 100),
+                });
+            });
+        });
+        canvasRefs.forEach((r) => { if (r.current) ro.observe(r.current); });
+
+        /* 
+         * 🔹 CRITICAL FIX: Restore zoom after charts are fully created
+         * Use multiple requestAnimationFrame to ensure charts are ready
+         */
+        const rangeToRestore = savedRangeRef.current;
+        console.log('🔄 Attempting to restore range:', rangeToRestore);
+
+        if (rangeToRestore) {
+            isRestoringRef.current = true;
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    chartsRef.current.forEach((chart) => {
+                        try {
+                            chart.timeScale().setVisibleLogicalRange(rangeToRestore);
+                            console.log('✅ Restored zoom successfully');
+                        } catch (e) {
+                            console.warn('Failed to restore zoom:', e);
+                            // Fallback to fitContent if restore fails
+                            chart.timeScale().fitContent();
+                        }
+                    });
+                    // Reset restore flag after a short delay
+                    setTimeout(() => {
+                        isRestoringRef.current = false;
+                    }, 100);
+                });
+            });
+        } else {
+            // No saved range, fit all charts
+            requestAnimationFrame(() => {
+                chartsRef.current.forEach((chart) => {
+                    chart.timeScale().fitContent();
+                });
+            });
+        }
+
         return () => {
-            window.removeEventListener('resize', handleResize);
-            chartsRef.current.forEach(c => c.remove());
+            ro.disconnect();
+            // Don't clear savedRangeRef here! Keep it for next rebuild
+            chartsRef.current.forEach((c) => c.remove());
             chartsRef.current = [];
         };
-    }, [data]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [data, selectedAverages]);
 
-    if (loading && data.length === 0) return (
-        <div style={S.fullscreen}>
-            <style>{GLOBAL_CSS}</style>
-            <div style={S.loadingWrap}>
-                <svg width="36" height="36" viewBox="0 0 36 36" style={{ animation: 'spin 1s linear infinite' }}>
-                    <circle cx="18" cy="18" r="15" fill="none" stroke="#E2E8F0" strokeWidth="2" />
-                    <path d="M18 3 A15 15 0 0 1 33 18" fill="none" stroke="#0F7A5A" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-                <p style={{ fontSize: '11px', color: '#94A3B8', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '20px', fontFamily: '"DM Sans", sans-serif', fontWeight: 500 }}>
-                    Loading market data
-                </p>
-            </div>
-        </div>
-    );
+    /* ── reset saved range when period changes (data structure changes) ── */
+    useEffect(() => {
+        // Reset saved zoom when period changes because data range is completely different
+        savedRangeRef.current = null;
+        console.log('🔄 Period changed, reset saved range');
+    }, [period]);
 
-    if (error) return (
-        <div style={S.fullscreen}>
-            <style>{GLOBAL_CSS}</style>
-            <div style={S.errorCard}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                    <Activity size={18} color="#B02040" />
+    /* ── toggle main series visibility without rebuilding ── */
+    useEffect(() => {
+        Object.entries(seriesVisible).forEach(([idx, vis]) => {
+            const s = mainSeriesRef.current[Number(idx)];
+            if (s) s.applyOptions({ visible: vis });
+        });
+    }, [seriesVisible]);
+
+    /* ── fullscreen per card ── */
+    const handleFullscreen = (i: number) => {
+        const el = cardRefs[i].current;
+        if (!el) return;
+        if (!document.fullscreenElement) {
+            el.requestFullscreen?.().then(() => setFullscreenIdx(i)).catch(() => { });
+        } else {
+            document.exitFullscreen?.().then(() => setFullscreenIdx(null)).catch(() => { });
+        }
+    };
+
+    useEffect(() => {
+        const onChange = () => {
+            if (!document.fullscreenElement) setFullscreenIdx(null);
+        };
+        document.addEventListener('fullscreenchange', onChange);
+        return () => document.removeEventListener('fullscreenchange', onChange);
+    }, []);
+
+    /* ── fit content (all charts) ── */
+    const fitAll = () => {
+        // Reset saved range when manually fitting
+        savedRangeRef.current = null;
+        chartsRef.current.forEach((c) => c.timeScale().fitContent());
+    };
+
+    /* ─── Export helpers ──────────────────────────────────────────────────── */
+    const today = () => new Date().toISOString().slice(0, 10);
+    const notify = (msg: string) => {
+        setExportStatus(msg);
+        setTimeout(() => setExportStatus(null), 2500);
+    };
+
+    const exportPDF = async () => {
+        setExportOpen(false);
+        if (!pageRef.current) return;
+        notify('Generating PDF…');
+        try {
+            const canvas = await html2canvas(pageRef.current, {
+                scale: 2, useCORS: true, backgroundColor: '#F8FAFC',
+            });
+            const pdf = new jsPDF({
+                orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+                unit: 'px',
+                format: [canvas.width / 2, canvas.height / 2],
+            });
+            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, canvas.width / 2, canvas.height / 2);
+            pdf.save(`TASI-Market-Breadth-${today()}.pdf`);
+            notify('PDF saved ✓');
+        } catch { notify('PDF export failed'); }
+    };
+
+    const exportImage = async () => {
+        setExportOpen(false);
+        if (!pageRef.current) return;
+        notify('Capturing screenshot…');
+        try {
+            const canvas = await html2canvas(pageRef.current, {
+                scale: 2, useCORS: true, backgroundColor: '#F8FAFC',
+            });
+            const link = document.createElement('a');
+            link.download = `TASI-Market-Breadth-${today()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            notify('Image saved ✓');
+        } catch { notify('Image export failed'); }
+    };
+
+    const exportExcel = () => {
+        setExportOpen(false);
+        if (!data.length) return;
+        notify('Preparing Excel file…');
+        const rows = data.map((d) => ({
+            Date: d.time,
+            'Total Constituents': d.total,
+            '% Above MA20': +d.pct_above_20.toFixed(2),
+            '% Above MA50': +d.pct_above_50.toFixed(2),
+            '% Above MA150': +d.pct_above_150.toFixed(2),
+            '% Above MA200': +d.pct_above_200.toFixed(2),
+        }));
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [{ wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 15 }, { wch: 15 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Market Breadth');
+        XLSX.writeFile(wb, `TASI-Market-Breadth-${today()}.xlsx`);
+        notify('Excel downloaded ✓');
+    };
+
+    /* ─── Loading / Error states ──────────────────────────────────────────── */
+
+    if (loading && data.length === 0)
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center"
+                style={{ fontFamily: '"DM Sans", sans-serif' }}>
+                <div className="flex flex-col items-center gap-5">
+                    <svg width="36" height="36" viewBox="0 0 36 36" className="animate-spin">
+                        <circle cx="18" cy="18" r="15" fill="none" stroke="#E2E8F0" strokeWidth="2" />
+                        <path d="M18 3 A15 15 0 0 1 33 18" fill="none" stroke="#0F7A5A"
+                            strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                    <p className="text-xs text-slate-400 uppercase tracking-widest font-medium">
+                        Loading market data
+                    </p>
                 </div>
-                <p style={{ fontSize: '13px', color: '#B02040', fontFamily: '"DM Sans", sans-serif', fontWeight: 500 }}>Connection Failed</p>
-                <p style={{ fontSize: '11px', color: '#94A3B8', fontFamily: '"DM Sans", sans-serif', marginTop: '6px' }}>{error}</p>
             </div>
-        </div>
-    );
+        );
+
+    if (error)
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center"
+                style={{ fontFamily: '"DM Sans", sans-serif' }}>
+                <div className="bg-white border border-red-100 rounded-xl p-10 text-center max-w-sm">
+                    <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+                        <Activity size={18} color="#B02040" />
+                    </div>
+                    <p className="text-sm font-semibold text-red-700">Connection Failed</p>
+                    <p className="text-xs text-slate-400 mt-1">{error}</p>
+                </div>
+            </div>
+        );
 
     const latest = data[data.length - 1];
 
-    return (
-        <div style={S.page}>
-            <style>{GLOBAL_CSS}</style>
+    /* ─── Render ──────────────────────────────────────────────────────────── */
 
-            {/* ── Header ── */}
-            <header style={S.header}>
-                <div style={S.headerInner}>
-                    <div style={S.headerLeft}>
-                        <div style={S.logoWrap}>
-                            <svg width="18" height="18" viewBox="0 0 20 18" fill="none">
+    return (
+        <div
+            className="w-screen h-screen flex flex-col bg-slate-50 overflow-hidden"
+            style={{ fontFamily: '"DM Sans", sans-serif' }}
+        >
+            {/* ── Header ──────────────────────────────────────────────────────── */}
+            <header
+                className="bg-white border-b border-slate-200 flex-shrink-0 z-50"
+                style={{ boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
+            >
+                <div className="w-full px-5 h-[60px] flex items-center justify-between gap-6">
+
+                    {/* left brand */}
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                        <div className="w-[34px] h-[34px] bg-slate-50 border border-slate-200 rounded-[9px] flex items-center justify-center flex-shrink-0">
+                            <svg width="16" height="16" viewBox="0 0 20 18" fill="none">
                                 <rect x="0" y="10" width="3.5" height="8" rx="1" fill="#0F7A5A" />
                                 <rect x="5.5" y="6" width="3.5" height="12" rx="1" fill="#1560A8" />
                                 <rect x="11" y="2" width="3.5" height="16" rx="1" fill="#A0600A" />
@@ -263,193 +593,399 @@ export default function MarketBreadthPage() {
                             </svg>
                         </div>
                         <div>
-                            <div style={S.headerTitleRow}>
-                                <h1 style={S.headerTitle}>Market Breadth</h1>
-                                <div style={S.breadcrumbSep}>/</div>
-                                <span style={S.breadcrumbSub}>TASI Analysis</span>
-                                <span style={S.liveDot}>
-                                    <span style={{
-                                        width: '5px', height: '5px', borderRadius: '50%',
-                                        background: '#0F7A5A',
-                                        display: 'inline-block',
-                                        opacity: tick % 2 === 0 ? 1 : 0.25,
-                                        transition: 'opacity 0.5s ease',
-                                    }} />
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-[14px] font-bold text-slate-900 tracking-tight m-0">
+                                    Market Breadth
+                                </h1>
+                                <span className="text-slate-300">/</span>
+                                <span className="text-[12px] text-slate-500">TASI Analysis</span>
+                                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded ml-1">
+                                    <span
+                                        className="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block"
+                                        style={{ opacity: tick % 2 === 0 ? 1 : 0.25, transition: 'opacity 0.5s ease' }}
+                                    />
                                     Live
                                 </span>
                             </div>
-                            <p style={S.headerDesc}>Constituent breadth across moving average thresholds</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5 leading-none">
+                                Constituent breadth across moving average thresholds
+                            </p>
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {/* right controls */}
+                    <div className="flex items-center gap-2.5">
 
-                        {/* ── Period Selector ── */}
-                        <div style={{ display: 'flex', background: '#F8FAFC', border: '1px solid #E8ECF2', padding: '4px', borderRadius: '10px', gap: '2px' }}>
-                            {['5D', '1M', '6M', '1Y', '5Y', '10Y', 'ALL'].map(p => (
+                        {/* period selector */}
+                        <div className="flex bg-slate-50 border border-slate-200 p-0.5 rounded-[9px] gap-0.5">
+                            {['5D', '1M', '6M', '1Y', '5Y', '10Y', 'ALL'].map((p) => (
                                 <button
                                     key={p}
                                     onClick={() => setPeriod(p)}
-                                    style={{
-                                        border: 'none',
-                                        background: period === p ? '#FFFFFF' : 'transparent',
-                                        color: period === p ? '#0F172A' : '#64748B',
-                                        boxShadow: period === p ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                                        padding: '6px 12px',
-                                        borderRadius: '6px',
-                                        fontSize: '12px',
-                                        fontWeight: 600,
-                                        cursor: 'pointer',
-                                        fontFamily: '"DM Sans", sans-serif',
-                                        transition: 'all 0.2s ease',
-                                        opacity: period === p ? 1 : (loading ? 0.5 : 1),
-                                    }}
                                     disabled={loading}
+                                    className={[
+                                        'px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all border-none cursor-pointer',
+                                        period === p
+                                            ? 'bg-white text-slate-900 shadow-sm'
+                                            : 'bg-transparent text-slate-500 hover:text-slate-700',
+                                        loading ? 'opacity-50' : '',
+                                    ].join(' ')}
                                 >
                                     {p}
                                 </button>
                             ))}
                         </div>
 
-                        {/* ── Stats Row ── */}
-                        <div style={S.statsRow}>
+                        {/* stat blocks */}
+                        <div className="flex items-center bg-slate-50 border border-slate-200 rounded-[9px] px-3.5 py-2 gap-4">
                             {CHART_CONFIGS.map((cfg, i) => {
                                 const val = latest ? Math.round(latest[cfg.key] as number) : 0;
                                 return (
-                                    <div key={cfg.key} style={{ ...S.statBlock, ...(i > 0 ? { borderLeft: '1px solid #F1F5F9' } : {}) }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px' }}>
-                                            <span style={{ width: '7px', height: '7px', borderRadius: '2px', background: cfg.lineColor, display: 'inline-block', flexShrink: 0 }} />
-                                            <span style={{ fontSize: '10px', color: '#94A3B8', fontFamily: '"DM Sans", sans-serif', fontWeight: 500, letterSpacing: '0.06em' }}>{cfg.badge}</span>
+                                    <div key={cfg.key} className={i > 0 ? 'pl-4 border-l border-slate-100' : ''}>
+                                        <div className="flex items-center gap-1 mb-0.5">
+                                            <span
+                                                className="w-[6px] h-[6px] rounded-[2px] inline-block flex-shrink-0"
+                                                style={{ background: cfg.lineColor }}
+                                            />
+                                            <span className="text-[9px] text-slate-400 font-medium tracking-wide">
+                                                {cfg.badge}
+                                            </span>
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '1px' }}>
-                                            <span style={{ fontSize: '20px', fontWeight: 700, color: '#0F172A', fontFamily: '"DM Sans", sans-serif', lineHeight: 1, letterSpacing: '-0.02em' }}>{val}</span>
-                                            <span style={{ fontSize: '11px', color: '#94A3B8', fontFamily: '"DM Sans", sans-serif' }}>%</span>
+                                        <div className="flex items-baseline gap-0.5">
+                                            <span className="text-[18px] font-bold text-slate-900 leading-none tracking-tight">
+                                                {val}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400">%</span>
                                         </div>
-                                        <div style={{ marginTop: '6px', height: '3px', borderRadius: '2px', background: '#F1F5F9', overflow: 'hidden' }}>
-                                            <div style={{ height: '100%', borderRadius: '2px', width: `${val}%`, background: cfg.lineColor, transition: 'width 0.6s ease' }} />
+                                        <div className="mt-1 h-[3px] rounded-full bg-slate-100 overflow-hidden w-[60px]">
+                                            <div
+                                                className="h-full rounded-full transition-all duration-700"
+                                                style={{ width: `${val}%`, background: cfg.lineColor }}
+                                            />
                                         </div>
                                     </div>
                                 );
                             })}
                         </div>
 
-                        {/* ── Export Button ── */}
-                        <ExportButton data={data} captureRef={pageRef as React.RefObject<HTMLElement>} />
+                        {/* fit-all button */}
+                        <button
+                            onClick={fitAll}
+                            title="Fit all charts to data"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-medium text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+                        >
+                            <Scan size={13} />
+                            Fit All
+                        </button>
 
+                        {/* export button */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setExportOpen((o) => !o)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[12px] font-medium text-slate-800 hover:bg-slate-50 transition-colors cursor-pointer"
+                            >
+                                <Download size={13} />
+                                Export
+                                <svg
+                                    width="10" height="10" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                                    style={{ transform: exportOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}
+                                >
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                            </button>
+
+                            {exportOpen && (
+                                <div className="absolute top-[calc(100%+6px)] right-0 min-w-[210px] bg-white border border-slate-200 rounded-xl overflow-hidden z-[999]"
+                                    style={{ boxShadow: '0 8px 24px rgba(15,23,42,0.10)' }}>
+                                    <div className="px-3.5 py-2 text-[10px] text-slate-400 uppercase tracking-widest font-semibold border-b border-slate-100">
+                                        Export as
+                                    </div>
+                                    {[
+                                        {
+                                            icon: <FileText size={13} color="#B02040" />, bg: '#FEF2F2',
+                                            label: 'PDF Report', sub: 'Full page with all charts', action: exportPDF,
+                                        },
+                                        {
+                                            icon: <ImgIcon size={13} color="#4338CA" />, bg: '#EEF2FF',
+                                            label: 'PNG Image', sub: 'Screenshot of the dashboard', action: exportImage,
+                                        },
+                                        null,
+                                        {
+                                            icon: <Table2 size={13} color="#166534" />, bg: '#F0FFF4',
+                                            label: 'Excel / CSV', sub: 'Raw breadth data table', action: exportExcel,
+                                        },
+                                    ].map((item, idx) =>
+                                        item === null ? (
+                                            <div key={idx} className="h-px bg-slate-100 mx-3.5 my-1" />
+                                        ) : (
+                                            <button
+                                                key={idx}
+                                                onClick={item.action}
+                                                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 hover:bg-slate-50 transition-colors text-left cursor-pointer border-none bg-transparent"
+                                            >
+                                                <div
+                                                    className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                                                    style={{ background: item.bg }}
+                                                >
+                                                    {item.icon}
+                                                </div>
+                                                <div>
+                                                    <div className="text-[13px] font-medium text-slate-800">{item.label}</div>
+                                                    <div className="text-[11px] text-slate-400">{item.sub}</div>
+                                                </div>
+                                            </button>
+                                        )
+                                    )}
+                                    <div className="px-3.5 pb-3">
+                                        <div className="text-[10px] text-slate-400 bg-slate-50 rounded-md px-2.5 py-1.5 leading-relaxed">
+                                            Exports all 4 MA charts and summary bar
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {exportStatus && (
+                                <div className="absolute top-[calc(100%+6px)] right-0 flex items-center gap-2 px-3.5 py-2.5 bg-white border border-slate-200 rounded-lg z-[1000] text-xs text-slate-800 whitespace-nowrap"
+                                    style={{ boxShadow: '0 4px 12px rgba(15,23,42,0.08)' }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                                        stroke="#0F7A5A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                    {exportStatus}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
-                <div style={S.headerRainbow} />
+
+                {/* rainbow rule */}
+                <div
+                    className="h-[2px]"
+                    style={{
+                        background: 'linear-gradient(90deg, #0F7A5A 0%, #1560A8 33%, #A0600A 66%, #B02040 100%)',
+                        opacity: 0.3,
+                    }}
+                />
             </header>
 
-            {/* ── Main (captured for export) ── */}
-            <main ref={pageRef} style={S.main}>
-
-                {/* Summary bar */}
-                <div style={S.summaryBar}>
-                    <div style={S.summaryBarInner}>
+            {/* ── Main content ────────────────────────────────────────────────── */}
+            <main
+                ref={pageRef}
+                className="flex-1 min-h-0 flex flex-col w-full px-4 pt-2 pb-2"
+            >
+                {/* summary bar */}
+                <div
+                    className="bg-white border border-slate-200 rounded-[9px] px-4 py-2 flex justify-between items-center mb-2 flex-shrink-0"
+                    style={{ boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}
+                >
+                    <div className="flex items-center gap-4 flex-wrap">
                         {CHART_CONFIGS.map((cfg, i) => {
                             const val = latest ? (latest[cfg.key] as number) : 50;
                             const rounded = Math.round(val);
-                            const label = val >= 70 ? 'Bullish' : val <= 30 ? 'Bearish' : 'Neutral';
-                            const dot = val >= 70 ? '#0F7A5A' : val <= 30 ? '#B02040' : '#A0600A';
-                            const bg = val >= 70 ? '#E6F5F0' : val <= 30 ? '#FAE8EC' : '#FBF3E6';
+                            const s =
+                                val >= 70
+                                    ? { label: 'Bullish', color: '#0F7A5A', bg: '#E6F5F0' }
+                                    : val <= 30
+                                        ? { label: 'Bearish', color: '#B02040', bg: '#FAE8EC' }
+                                        : { label: 'Neutral', color: '#A0600A', bg: '#FBF3E6' };
                             return (
-                                <div key={cfg.key} style={{ display: 'flex', alignItems: 'center', gap: '10px', ...(i > 0 ? { paddingLeft: '20px', borderLeft: '1px solid #E8ECF2' } : {}) }}>
-                                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#475569', fontFamily: '"DM Sans", sans-serif' }}>{cfg.label} MA</span>
-                                    <span style={{ fontSize: '11px', color: cfg.lineColor, fontWeight: 700, fontFamily: '"DM Sans", sans-serif' }}>{rounded}%</span>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: dot, fontFamily: '"DM Sans", sans-serif', background: bg, padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
-                                        <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: dot, display: 'inline-block' }} />
-                                        {label}
+                                <div
+                                    key={cfg.key}
+                                    className={`flex items-center gap-2 ${i > 0 ? 'pl-4 border-l border-slate-200' : ''}`}
+                                >
+                                    <span className="text-[11px] font-semibold text-slate-500">{cfg.label} MA</span>
+                                    <span className="text-[11px] font-bold" style={{ color: cfg.lineColor }}>
+                                        {rounded}%
+                                    </span>
+                                    <span
+                                        className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                                        style={{ color: s.color, background: s.bg }}
+                                    >
+                                        <span className="w-1 h-1 rounded-full inline-block" style={{ background: s.color }} />
+                                        {s.label}
                                     </span>
                                 </div>
                             );
                         })}
                     </div>
-                    <span style={{ fontSize: '10px', color: '#CBD5E1', fontFamily: '"DM Sans", sans-serif', flexShrink: 0 }}>
-                        {latest?.time || '—'}
-                    </span>
+                    <span className="text-[10px] text-slate-300 flex-shrink-0">{latest?.time || '—'}</span>
                 </div>
 
-                {/* Chart Grid */}
-                <div style={S.grid}>
+                {/* CHART GRID */}
+                <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-2">
                     {CHART_CONFIGS.map((cfg, i) => {
                         const Icon = cfg.icon;
-                        const val = latest ? (latest[cfg.key] as number).toFixed(1) : '—';
-                        const numVal = latest ? (latest[cfg.key] as number) : 50;
-                        const prev = data.length > 2 ? (data[data.length - 2][cfg.key] as number) : numVal;
+                        const hover = hoverValues[i];
+                        const displayVal = hover?.main != null
+                            ? hover.main.toFixed(1)
+                            : latest ? (latest[cfg.key] as number).toFixed(1) : '—';
+                        const numVal = hover?.main != null
+                            ? hover.main
+                            : latest ? (latest[cfg.key] as number) : 50;
+                        const prev =
+                            data.length > 1 ? (data[data.length - 2][cfg.key] as number) : numVal;
                         const delta = Math.abs(numVal - prev).toFixed(1);
                         const isUp = numVal >= prev;
+                        const isVisible = seriesVisible[i] !== false;
+                        const isFS = fullscreenIdx === i;
+                        const hasAvg = !!selectedAverages[i];
+                        const avgDisplayVal = hover?.avg != null ? hover.avg.toFixed(1) : null;
 
                         return (
-                            <div key={cfg.key} className="chart-card" style={{ ...S.card, '--accent': cfg.lineColor } as any}>
-
-                                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '3px', background: cfg.lineColor }} />
-
-                                <div style={S.cardHead}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: cfg.accentLight, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                            <Icon size={15} color={cfg.lineColor} strokeWidth={2} />
+                            <div
+                                key={cfg.key}
+                                ref={cardRefs[i]}
+                                className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col relative min-h-0 transition-all duration-200"
+                                style={{
+                                    borderLeft: `3px solid ${cfg.lineColor}`,
+                                    boxShadow: '0 1px 3px rgba(15,23,42,0.05)',
+                                }}
+                            >
+                                {/* card header */}
+                                <div className="px-4 pt-2.5 pb-1.5 flex justify-between items-start flex-shrink-0">
+                                    <div className="flex items-center gap-2">
+                                        <div
+                                            className="w-[30px] h-[30px] rounded-[8px] flex items-center justify-center flex-shrink-0"
+                                            style={{ background: cfg.accentLight }}
+                                        >
+                                            <Icon size={14} color={cfg.lineColor} strokeWidth={2} />
                                         </div>
                                         <div>
-                                            <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A', fontFamily: '"DM Sans", sans-serif', letterSpacing: '-0.01em' }}>
+                                            <div className="text-[12px] font-semibold text-slate-900 tracking-tight leading-none">
                                                 {cfg.label} Moving Average
                                             </div>
-                                            <div style={{ fontSize: '10px', color: '#94A3B8', fontFamily: '"DM Sans", sans-serif', marginTop: '2px', letterSpacing: '0.03em' }}>
+                                            <div className="text-[10px] text-slate-400 mt-0.5 tracking-wide leading-none">
                                                 {cfg.sublabel}
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '5px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px' }}>
-                                            <span style={{ fontSize: '28px', fontWeight: 700, color: '#0F172A', fontFamily: '"DM Sans", sans-serif', lineHeight: 1, letterSpacing: '-0.03em' }}>{val}</span>
-                                            <span style={{ fontSize: '13px', color: '#94A3B8', fontWeight: 500 }}>%</span>
+                                    <div className="flex flex-col items-end gap-0.5">
+                                        <div className="flex items-baseline gap-0.5">
+                                            <span className="text-[22px] font-bold text-slate-900 leading-none tracking-tight">
+                                                {displayVal}
+                                            </span>
+                                            <span className="text-[11px] text-slate-400 font-medium">%</span>
+                                            {avgDisplayVal && hasAvg && (
+                                                <span className="text-[11px] ml-1.5 font-medium" style={{ color: cfg.lineColor, opacity: 0.65 }}>
+                                                    / {avgDisplayVal}%
+                                                </span>
+                                            )}
                                         </div>
-                                        <span style={{
-                                            fontSize: '10px', fontWeight: 600,
-                                            color: isUp ? '#0F7A5A' : '#B02040',
-                                            background: isUp ? '#E6F5F0' : '#FAE8EC',
-                                            padding: '2px 7px', borderRadius: '4px',
-                                            fontFamily: '"DM Sans", sans-serif',
-                                            letterSpacing: '0.02em',
-                                        }}>
-                                            {isUp ? '▲' : '▼'} {delta}%
-                                        </span>
+                                        {hover?.time ? (
+                                            <span className="text-[10px] text-slate-400 font-medium">{hover.time}</span>
+                                        ) : (
+                                            <span
+                                                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded tracking-wide ${isUp ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}
+                                            >
+                                                {isUp ? '▲' : '▼'} {delta}%
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
 
-                                <div style={{ padding: '0 20px 10px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                        <span style={{ fontSize: '9px', color: '#CBD5E1', fontFamily: '"DM Sans", sans-serif', letterSpacing: '0.1em', fontWeight: 500 }}>OVERSOLD · 30</span>
-                                        <span style={{ fontSize: '9px', color: '#CBD5E1', fontFamily: '"DM Sans", sans-serif', letterSpacing: '0.1em', fontWeight: 500 }}>70 · OVERBOUGHT</span>
+                                {/* progress bar */}
+                                <div className="px-4 pb-1.5 flex-shrink-0">
+                                    <div className="flex justify-between mb-0.5">
+                                        <span className="text-[9px] text-slate-300 uppercase tracking-widest font-medium">
+                                            OVERSOLD · 30
+                                        </span>
+                                        <span className="text-[9px] text-slate-300 uppercase tracking-widest font-medium">
+                                            70 · OVERBOUGHT
+                                        </span>
                                     </div>
-                                    <div style={{ height: '5px', background: '#F1F5F9', borderRadius: '3px', position: 'relative', overflow: 'hidden' }}>
-                                        <div style={{
-                                            position: 'absolute', left: 0, top: 0, bottom: 0,
-                                            width: `${numVal}%`,
-                                            background: numVal >= 70
-                                                ? `linear-gradient(90deg, #0F7A5A44, #0F7A5A)`
-                                                : numVal <= 30
-                                                    ? `linear-gradient(90deg, #B0204044, #B02040)`
-                                                    : `linear-gradient(90deg, ${cfg.lineColor}44, ${cfg.lineColor})`,
-                                            borderRadius: '3px',
-                                            transition: 'width 0.8s cubic-bezier(0.16,1,0.3,1)',
-                                        }} />
-                                        {[30, 50, 70].map(t => (
-                                            <div key={t} style={{ position: 'absolute', left: `${t}%`, top: 0, bottom: 0, width: '1px', background: 'rgba(255,255,255,0.7)', zIndex: 1 }} />
+                                    <div className="h-[4px] bg-slate-100 rounded-full relative overflow-hidden">
+                                        <div
+                                            className="absolute left-0 top-0 bottom-0 rounded-full transition-all duration-700"
+                                            style={{
+                                                width: `${numVal}%`,
+                                                background:
+                                                    numVal >= 70
+                                                        ? `linear-gradient(90deg, #0F7A5A44, #0F7A5A)`
+                                                        : numVal <= 30
+                                                            ? `linear-gradient(90deg, #B0204044, #B02040)`
+                                                            : `linear-gradient(90deg, ${cfg.lineColor}44, ${cfg.lineColor})`,
+                                            }}
+                                        />
+                                        {[30, 50, 70].map((t) => (
+                                            <div
+                                                key={t}
+                                                className="absolute top-0 bottom-0 w-px bg-white/70 z-10"
+                                                style={{ left: `${t}%` }}
+                                            />
                                         ))}
                                     </div>
                                 </div>
 
-                                <div style={{ height: '1px', background: '#F8FAFC', marginLeft: '20px' }} />
+                                {/* button row */}
+                                <div className="px-3 py-1 flex items-center gap-1 border-y border-slate-100 flex-shrink-0">
+                                    {cfg.avgKeys.map((key, idx) => (
+                                        <button
+                                            key={key}
+                                            onClick={() =>
+                                                setSelectedAverages((prev) => ({
+                                                    ...prev,
+                                                    [i]: prev[i] === key ? '' : key,
+                                                }))
+                                            }
+                                            className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border"
+                                            style={{
+                                                borderColor: selectedAverages[i] === key ? cfg.lineColor : '#E2E8F0',
+                                                background: selectedAverages[i] === key ? cfg.lineColor : 'transparent',
+                                                color: selectedAverages[i] === key ? '#FFFFFF' : '#64748B',
+                                            }}
+                                        >
+                                            {cfg.avgLabels[idx]}
+                                        </button>
+                                    ))}
 
-                                <div style={{ padding: '8px 12px 4px', flex: 1 }}>
-                                    <div ref={chartRefs[i]} style={{ width: '100%' }} />
+                                    <div className="flex-1" />
+
+                                    <button
+                                        onClick={() =>
+                                            setSeriesVisible((prev) => ({ ...prev, [i]: !prev[i] }))
+                                        }
+                                        title={isVisible ? 'Hide original data' : 'Show original data'}
+                                        className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border flex items-center gap-1"
+                                        style={{
+                                            borderColor: !isVisible ? cfg.lineColor : '#E2E8F0',
+                                            background: !isVisible ? cfg.lineColor : 'transparent',
+                                            color: !isVisible ? '#FFFFFF' : '#64748B',
+                                        }}
+                                    >
+                                        {isVisible ? <Eye size={9} /> : <EyeOff size={9} />}
+                                        <span>Data</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => chartsRef.current[i]?.timeScale().fitContent()}
+                                        title="Fit data to screen"
+                                        className="w-[24px] h-[24px] flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer bg-transparent"
+                                    >
+                                        <Scan size={10} />
+                                    </button>
+
+                                    <button
+                                        onClick={() => handleFullscreen(i)}
+                                        title={isFS ? 'Exit fullscreen' : 'Fullscreen'}
+                                        className="w-[24px] h-[24px] flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer bg-transparent"
+                                    >
+                                        {isFS ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
+                                    </button>
                                 </div>
 
-                                <div style={S.cardFooter}>
-                                    <span style={{ fontSize: '10px', color: '#CBD5E1', fontFamily: '"DM Sans", sans-serif', lineHeight: 1.4 }}>{cfg.desc}</span>
-                                    <span style={{ fontSize: '10px', color: '#CBD5E1', fontFamily: '"DM Sans", sans-serif', whiteSpace: 'nowrap', flexShrink: 0, marginLeft: '12px', fontWeight: 500 }}>
+                                {/* chart canvas */}
+                                <div className="flex-1 min-h-0 p-1">
+                                    <div ref={canvasRefs[i]} className="w-full h-full" />
+                                </div>
+
+                                {/* card footer */}
+                                <div className="px-4 py-1 border-t border-slate-50 flex justify-between items-center flex-shrink-0">
+                                    <span className="text-[9px] text-slate-300 leading-relaxed line-clamp-1">
+                                        {cfg.desc}
+                                    </span>
+                                    <span className="text-[9px] text-slate-300 ml-3 flex-shrink-0 font-medium">
                                         {data.length.toLocaleString()} obs
                                     </span>
                                 </div>
@@ -458,186 +994,17 @@ export default function MarketBreadthPage() {
                     })}
                 </div>
 
-                {/* Footer strip */}
-                <div style={S.footerStrip}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Radio size={10} color="#CBD5E1" />
-                        <span>TASI Market Breadth Index · Constituent moving average analysis · All values in percentage terms</span>
+                {/* footer strip */}
+                <div className="mt-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg flex justify-between items-center text-[9px] text-slate-300 tracking-wide flex-shrink-0">
+                    <div className="flex items-center gap-1.5">
+                        <Radio size={9} color="#CBD5E1" />
+                        <span>
+                            TASI Market Breadth Index · Constituent moving average analysis · All values in percentage terms
+                        </span>
                     </div>
-                    <span>SMA 20 · 50 · 100 · 200</span>
+                    <span>SMA 20 · 50 · 150 · 200</span>
                 </div>
             </main>
         </div>
     );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const S: Record<string, React.CSSProperties> = {
-    page: {
-        minHeight: '100vh',
-        backgroundColor: '#F8FAFC',
-        fontFamily: '"DM Sans", sans-serif',
-    },
-    fullscreen: {
-        minHeight: '100vh',
-        backgroundColor: '#F8FAFC',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-    },
-    loadingWrap: {
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-    },
-    errorCard: {
-        background: '#FFFFFF',
-        border: '1px solid #FEE2E2',
-        borderRadius: '12px',
-        padding: '32px 40px',
-        textAlign: 'center',
-        maxWidth: '360px',
-    },
-    header: {
-        background: '#FFFFFF',
-        borderBottom: '1px solid #E8ECF2',
-        position: 'sticky', top: 0, zIndex: 50,
-        boxShadow: '0 1px 3px rgba(15,23,42,0.04)',
-    },
-    headerInner: {
-        maxWidth: '1600px', margin: '0 auto',
-        padding: '0 28px',
-        height: '68px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: '32px',
-    },
-    headerLeft: {
-        display: 'flex', alignItems: 'center', gap: '14px', flexShrink: 0,
-    },
-    logoWrap: {
-        width: '38px', height: '38px',
-        background: '#F8FAFC',
-        border: '1px solid #E2E8F0',
-        borderRadius: '9px',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexShrink: 0,
-    },
-    headerTitleRow: {
-        display: 'flex', alignItems: 'center', gap: '8px',
-    },
-    headerTitle: {
-        fontSize: '15px', fontWeight: 700, color: '#0F172A',
-        letterSpacing: '-0.02em', margin: 0,
-        fontFamily: '"DM Sans", sans-serif',
-    },
-    breadcrumbSep: {
-        fontSize: '14px', color: '#CBD5E1',
-    },
-    breadcrumbSub: {
-        fontSize: '13px', color: '#64748B', fontWeight: 400,
-        fontFamily: '"DM Sans", sans-serif',
-    },
-    liveDot: {
-        display: 'inline-flex', alignItems: 'center', gap: '5px',
-        fontSize: '10px', fontWeight: 600, color: '#0F7A5A',
-        background: '#E6F5F0',
-        padding: '3px 8px', borderRadius: '4px',
-        letterSpacing: '0.04em',
-        marginLeft: '4px',
-        fontFamily: '"DM Sans", sans-serif',
-    },
-    headerDesc: {
-        fontSize: '11px', color: '#94A3B8', margin: '2px 0 0',
-        fontFamily: '"DM Sans", sans-serif',
-    },
-    statsRow: {
-        display: 'flex', alignItems: 'center',
-        background: '#F8FAFC',
-        border: '1px solid #E8ECF2',
-        borderRadius: '10px',
-        padding: '10px 18px',
-        gap: '20px',
-    },
-    statBlock: {
-        minWidth: '78px',
-        paddingLeft: '20px',
-    },
-    headerRainbow: {
-        height: '2px',
-        background: 'linear-gradient(90deg, #0F7A5A 0%, #1560A8 33%, #A0600A 66%, #B02040 100%)',
-        opacity: 0.3,
-    },
-    summaryBar: {
-        background: '#FFFFFF',
-        border: '1px solid #E8ECF2',
-        borderRadius: '10px',
-        padding: '10px 20px',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        marginBottom: '16px',
-        boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
-    },
-    summaryBarInner: {
-        display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap',
-    },
-    main: {
-        maxWidth: '1600px', margin: '0 auto',
-        padding: '20px 28px 48px',
-    },
-    grid: {
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '14px',
-    },
-    card: {
-        background: '#FFFFFF',
-        border: '1px solid #E8ECF2',
-        borderRadius: '12px',
-        overflow: 'hidden',
-        position: 'relative',
-        paddingLeft: '3px',
-        display: 'flex', flexDirection: 'column',
-        boxShadow: '0 1px 3px rgba(15,23,42,0.05)',
-        transition: 'box-shadow 0.2s ease, transform 0.2s ease',
-    },
-    cardHead: {
-        padding: '16px 20px 12px 20px',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-    },
-    cardFooter: {
-        padding: '8px 20px 12px',
-        borderTop: '1px solid #F1F5F9',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    },
-    footerStrip: {
-        marginTop: '16px',
-        padding: '10px 18px',
-        background: '#FFFFFF',
-        border: '1px solid #E8ECF2',
-        borderRadius: '8px',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        fontSize: '10px', color: '#CBD5E1', letterSpacing: '0.04em',
-        fontFamily: '"DM Sans", sans-serif',
-    },
-};
-
-const GLOBAL_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap');
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-
-  .chart-card:hover {
-    box-shadow: 0 4px 20px rgba(15,23,42,0.08), 0 0 0 1px rgba(15,23,42,0.05) !important;
-    transform: translateY(-1px);
-  }
-
-  ::-webkit-scrollbar { width: 4px; height: 4px; }
-  ::-webkit-scrollbar-track { background: #F8FAFC; }
-  ::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 2px; }
-  ::-webkit-scrollbar-thumb:hover { background: #CBD5E1; }
-
-  @media (max-width: 960px) {
-    .chart-card { grid-column: span 2 !important; }
-  }
-`;

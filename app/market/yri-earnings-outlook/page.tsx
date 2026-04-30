@@ -2,10 +2,31 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { LayoutGrid, List, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutGrid, List, X, ChevronLeft, ChevronRight, ArrowLeftRight, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 
-// You can edit the titles here to match the 13 charts you have
+/* ─── Types ──────────────────────────────────────────────────────────── */
+
+interface Figure1Row {
+  period: string;
+  ae: string;
+  yri_level: number;
+  yri_yoy: number;
+  consensus_level: number;
+  consensus_yoy: number;
+}
+
+interface Figure2Row {
+  period: string;
+  ae: string;
+  revenue_growth: number | null;
+  revenue: number;
+  earnings: number;
+  profit_margin: number;
+}
+
+/* ─── Chart Config ───────────────────────────────────────────────────── */
+
 const chartsData = [
   { id: 1, title: "S&P 500 EARNINGS FORECASTS: YRI VS ANALYSTS' CONSENSUS" },
   { id: 2, title: "YRI FORECASTS: S&P 500 REVENUES, EARNINGS & PROFIT MARGIN" },
@@ -22,9 +43,221 @@ const chartsData = [
   { id: 13, title: "S&P 500 REVENUE SURPRISE HISTORY" },
 ];
 
+/* ─── Sortable Table for Figure 1 ────────────────────────────────────── */
+
+function Figure1Table({ data }: { data: Figure1Row[] }) {
+  const [sortKey, setSortKey] = useState<keyof Figure1Row | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (key: keyof Figure1Row) => {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
+  const sorted = [...data].sort((a, b) => {
+    if (!sortKey) return 0;
+    const av = a[sortKey], bv = b[sortKey];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (typeof av === 'string' && typeof bv === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    return sortDir === 'asc' ? (av as number) - (bv as number) : (bv as number) - (av as number);
+  });
+
+  const SortIcon = ({ col }: { col: keyof Figure1Row }) => {
+    if (sortKey !== col) return <ArrowUpDown size={11} className="opacity-30" />;
+    return sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />;
+  };
+
+  const cols: { key: keyof Figure1Row; label: string; align?: string }[] = [
+    { key: 'period', label: 'Year / Quarter' },
+    { key: 'ae', label: 'a / e' },
+    { key: 'yri_level', label: 'Yardeni Research - Level', align: 'right' },
+    { key: 'yri_yoy', label: 'y/y%', align: 'right' },
+    { key: 'consensus_level', label: 'Analysts\' Consensus - Level', align: 'right' },
+    { key: 'consensus_yoy', label: 'y/y%', align: 'right' },
+  ];
+
+  return (
+    <div className="w-full aspect-[794/1042] p-4 md:p-5 bg-white flex flex-col items-center">
+      <div className="w-full h-full border-[3px] border-[#333] bg-white shadow-sm relative overflow-hidden">
+        <div className="absolute inset-0 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
+          <table className="w-full text-[12px] border-collapse bg-white">
+        <thead className="sticky top-0 z-10">
+          <tr className="bg-[#2d6a54] text-white">
+            {cols.map(c => (
+              <th
+                key={c.key}
+                onClick={() => handleSort(c.key)}
+                className={`px-2 py-1.5 font-bold cursor-pointer hover:bg-[#245845] transition-colors select-none whitespace-nowrap border-b border-[#333] border-r last:border-r-0 border-white/20 ${c.align === 'right' ? 'text-right' : 'text-center'}`}
+              >
+                <span className="inline-flex items-center gap-1">
+                  {c.label} <SortIcon col={c.key} />
+                </span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((row, i) => {
+            const isYear = !row.period.includes('Q');
+            return (
+              <tr
+                key={i}
+                className={`border-b border-gray-100 transition-colors hover:bg-[#e8f5ee] ${isYear ? 'bg-[#f0f7f4] font-semibold' : 'bg-white'}`}
+              >
+                <td className="px-2 py-0.5 text-center font-semibold text-gray-800 border-r border-gray-300">{row.period}</td>
+                <td className="px-2 py-0.5 text-center border-r border-gray-300">
+                  <span className={`text-[10px] font-bold px-1 py-0.5 rounded ${row.ae === 'e' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
+                    {row.ae}
+                  </span>
+                </td>
+                <td className="px-2 py-1 text-center font-mono font-semibold text-gray-800 border-r border-gray-300">{row.yri_level.toFixed(1)}</td>
+                <td className={`px-2 py-1 text-center font-mono font-semibold border-r border-gray-300 ${row.yri_yoy >= 0 ? 'text-gray-800' : 'text-red-600'}`}>{row.yri_yoy.toFixed(1)}</td>
+                <td className="px-2 py-1 text-center font-mono font-semibold text-gray-800 border-r border-gray-300">{row.consensus_level.toFixed(1)}</td>
+                <td className={`px-2 py-1 text-center font-mono font-semibold ${row.consensus_yoy >= 0 ? 'text-gray-800' : 'text-red-600'}`}>{row.consensus_yoy.toFixed(1)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Sortable Table for Figure 2 ────────────────────────────────────── */
+
+function Figure2Table({ data }: { data: Figure2Row[] }) {
+  const [sortKey, setSortKey] = useState<keyof Figure2Row | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (key: keyof Figure2Row) => {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
+  const sorted = [...data].sort((a, b) => {
+    if (!sortKey) return 0;
+    const av = a[sortKey], bv = b[sortKey];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (typeof av === 'string' && typeof bv === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    return sortDir === 'asc' ? (av as number) - (bv as number) : (bv as number) - (av as number);
+  });
+
+  const SortIcon = ({ col }: { col: keyof Figure2Row }) => {
+    if (sortKey !== col) return <ArrowUpDown size={11} className="opacity-30" />;
+    return sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />;
+  };
+
+  const cols: { key: keyof Figure2Row; label: string; align?: string }[] = [
+    { key: 'period', label: 'Year / Quarter' },
+    { key: 'ae', label: 'a/e' },
+    { key: 'revenue_growth', label: 'Rev Growth y/y%', align: 'right' },
+    { key: 'revenue', label: 'Revenue ($)', align: 'right' },
+    { key: 'earnings', label: 'Earnings ($)', align: 'right' },
+    { key: 'profit_margin', label: 'Profit Margin %', align: 'right' },
+  ];
+
+  return (
+    <div className="w-full aspect-[794/1042] p-4 md:p-5 bg-white flex flex-col items-center">
+      <div className="w-full h-full border-[3px] border-[#333] bg-white shadow-sm relative overflow-hidden">
+        <div className="absolute inset-0 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
+          <table className="w-full text-[12px] border-collapse bg-white">
+        <thead className="sticky top-0 z-10">
+          <tr className="bg-[#2d6a54] text-white">
+            {cols.map(c => (
+              <th
+                key={c.key}
+                onClick={() => handleSort(c.key)}
+                className={`px-2 py-1.5 font-bold cursor-pointer hover:bg-[#245845] transition-colors select-none whitespace-nowrap border-b border-[#333] border-r last:border-r-0 border-white/20 ${c.align === 'right' ? 'text-right' : 'text-center'}`}
+              >
+                <span className="inline-flex items-center gap-1">
+                  {c.label} <SortIcon col={c.key} />
+                </span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((row, i) => {
+            const isYear = !row.period.includes('Q');
+            return (
+              <tr
+                key={i}
+                className={`border-b border-gray-100 transition-colors hover:bg-[#e8f5ee] ${isYear ? 'bg-[#f0f7f4] font-semibold' : 'bg-white'}`}
+              >
+                <td className="px-2 py-0.5 text-center font-semibold text-gray-800 border-r border-gray-300">{row.period}</td>
+                <td className="px-2 py-0.5 text-center border-r border-gray-300">
+                  <span className={`text-[10px] font-bold px-1 py-0.5 rounded ${row.ae === 'e' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
+                    {row.ae}
+                  </span>
+                </td>
+                <td className={`px-2 py-1 text-center font-mono font-semibold border-r border-gray-300 ${row.revenue_growth == null ? 'text-gray-400' : row.revenue_growth >= 0 ? 'text-gray-800' : 'text-red-600'}`}>
+                  {row.revenue_growth != null ? `${row.revenue_growth.toFixed(1)}` : 'na'}
+                </td>
+                <td className="px-2 py-1 text-center font-mono font-semibold text-gray-800 border-r border-gray-300">{row.revenue.toFixed(1)}</td>
+                <td className="px-2 py-1 text-center font-mono font-semibold text-gray-800 border-r border-gray-300">{row.earnings.toFixed(1)}</td>
+                <td className="px-2 py-1 text-center font-mono font-semibold text-gray-800">{row.profit_margin.toFixed(1)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Main Page ──────────────────────────────────────────────────────── */
+
 export default function YRIEarningsOutlookPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'detail'>('grid');
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  // Toggle state: which figures are showing table vs image
+  const [tableMode, setTableMode] = useState<Record<number, boolean>>({});
+
+  // Data for figures 1 & 2
+  const [fig1Data, setFig1Data] = useState<Figure1Row[] | null>(null);
+  const [fig2Data, setFig2Data] = useState<Figure2Row[] | null>(null);
+
+  // Load data on demand
+  const loadFigureData = async (figId: number) => {
+    try {
+      const res = await fetch(`/yri-earnings/figure${figId}_data.json`);
+      if (!res.ok) return;
+      const json = await res.json();
+      if (figId === 1) setFig1Data(json);
+      if (figId === 2) setFig2Data(json);
+    } catch (e) {
+      console.error(`Failed to load figure${figId} data:`, e);
+    }
+  };
+
+  const toggleTableMode = async (figId: number) => {
+    const isCurrentlyTable = tableMode[figId];
+    if (!isCurrentlyTable) {
+      // Switching to table — load data if not loaded
+      if (figId === 1 && !fig1Data) await loadFigureData(1);
+      if (figId === 2 && !fig2Data) await loadFigureData(2);
+    }
+    setTableMode(prev => ({ ...prev, [figId]: !prev[figId] }));
+  };
+
+  const hasTableData = (figId: number) => figId === 1 || figId === 2;
 
   return (
     <div className="min-h-screen bg-[#fafafa]">
@@ -79,43 +312,72 @@ export default function YRIEarningsOutlookPage() {
               ? 'grid-cols-1 xl:grid-cols-2' 
               : 'grid-cols-1 max-w-5xl mx-auto'
           }`}>
-            {chartsData.map((chart) => (
-              <div 
-                key={chart.id} 
-                className="bg-white border border-gray-200 shadow-sm rounded-lg overflow-hidden flex flex-col hover:shadow-md transition-shadow duration-300"
-              >
-                {/* Card Header */}
-                <div className="p-5 md:p-6 pb-4 flex items-start gap-4 border-b border-gray-50">
-                  <div className="bg-[#eaf4ef] border border-[#cae4d8] text-[#2c7a62] px-3 py-1 rounded text-sm font-semibold shrink-0">
-                    Figure {chart.id}
-                  </div>
-                  <h2 className="text-[#1a2332] font-bold text-lg leading-tight pt-0.5 uppercase">
-                    {chart.title}
-                  </h2>
-                </div>
+            {chartsData.map((chart) => {
+              const isTable = tableMode[chart.id];
+              const canToggle = hasTableData(chart.id);
 
-                {/* Card Body - Image Placeholder */}
+              return (
                 <div 
-                  className="flex-1 flex flex-col cursor-zoom-in"
-                  onClick={() => setLightboxIndex(chart.id - 1)}
+                  key={chart.id} 
+                  className="bg-white border border-gray-200 shadow-sm rounded-lg overflow-hidden flex flex-col hover:shadow-md transition-shadow duration-300"
                 >
-                  <div className="relative w-full overflow-hidden">
-                    <img 
-                      src={`/yri-earnings/figure${chart.id}.png`}
-                      alt={chart.title}
-                      className="w-full h-auto"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        const parent = e.currentTarget.parentElement;
-                        if (parent) {
-                          parent.innerHTML = `<div class="p-12 text-center text-gray-500 font-medium w-full min-h-[300px] flex flex-col items-center justify-center border-t border-gray-100 bg-[#fcfcfc]"><p>Image Not Found</p><p class="text-xs text-gray-400 mt-2 font-mono">public/yri-earnings/figure${chart.id}.png</p></div>`;
-                        }
-                      }}
-                    />
+                  {/* Card Header */}
+                  <div className="p-5 md:p-6 pb-4 flex items-start gap-4 border-b border-gray-50">
+                    <div className="bg-[#eaf4ef] border border-[#cae4d8] text-[#2c7a62] px-3 py-1 rounded text-sm font-semibold shrink-0">
+                      Figure {chart.id}
+                    </div>
+                    <h2 className="text-[#1a2332] font-bold text-lg leading-tight pt-0.5 uppercase flex-1">
+                      {chart.title}
+                    </h2>
+
+                    {/* Toggle Button — only for figures with table data */}
+                    {canToggle && (
+                      <button
+                        onClick={() => toggleTableMode(chart.id)}
+                        title={isTable ? 'Show image' : 'Show interactive table'}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all border shrink-0 cursor-pointer ${
+                          isTable
+                            ? 'bg-[#2d6a54] text-white border-[#2d6a54] hover:bg-[#245845]'
+                            : 'bg-white text-[#2d6a54] border-[#2d6a54] hover:bg-[#eaf4ef]'
+                        }`}
+                      >
+                        <ArrowLeftRight size={13} />
+                        <span>{isTable ? 'Image' : 'Table'}</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Card Body */}
+                  <div className="flex-1 flex flex-col bg-white">
+                    {isTable && chart.id === 1 && fig1Data ? (
+                      <Figure1Table data={fig1Data} />
+                    ) : isTable && chart.id === 2 && fig2Data ? (
+                      <Figure2Table data={fig2Data} />
+                    ) : (
+                      <div 
+                        className="cursor-zoom-in"
+                        onClick={() => setLightboxIndex(chart.id - 1)}
+                      >
+                        <div className="relative w-full overflow-hidden">
+                          <img 
+                            src={`/yri-earnings/figure${chart.id}.png`}
+                            alt={chart.title}
+                            className="w-full h-auto"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const parent = e.currentTarget.parentElement;
+                              if (parent) {
+                                parent.innerHTML = `<div class="p-12 text-center text-gray-500 font-medium w-full min-h-[300px] flex flex-col items-center justify-center border-t border-gray-100 bg-[#fcfcfc]"><p>Image Not Found</p><p class="text-xs text-gray-400 mt-2 font-mono">public/yri-earnings/figure${chart.id}.png</p></div>`;
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
         </div>

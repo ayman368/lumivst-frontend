@@ -1,17 +1,30 @@
 'use client';
 
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine
+import {
+  BarChart, Bar, LineChart, Line, AreaChart, Area,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine
 } from 'recharts';
 import { API_BASE_URL } from '@/lib/api/config';
+import EditGraphSidebar, {
+  defaultFormatSettings,
+  GraphFormatSettings,
+} from './EditGraphSidebar';
+import {
+  DataPoint,
+  applyFrequencyTransform,
+  applyOutputUnitsTransform,
+  getTransformedYAxisLabel,
+  calculateXAxisTicks,
+  formatXAxisLabel,
+  calculateYAxisTicks,
+} from './dataTransforms';
 
 export default function NFPChangeView() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Date Range and Mode State
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [displayMode, setDisplayMode] = useState<'Value' | 'Chg' | 'Chg%'>('Value');
@@ -19,50 +32,48 @@ export default function NFPChangeView() {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const datePickerRef = useRef<HTMLDivElement>(null);
 
+  // ── Format settings ──
+  const [formatSettings, setFormatSettings] = useState<GraphFormatSettings>({
+    ...defaultFormatSettings,
+    graphType: 'Bar',
+  });
+  const [chartHeight, setChartHeight] = useState(350);
+  const [chartWidth, setChartWidth] = useState(1320);
+
+  // ── Transformation state ──
+  const [selectedFrequency, setSelectedFrequency] = useState('Monthly');
+  const [outputUnits, setOutputUnits] = useState('Select');
+
+  /* ── Close date picker on outside click ── */
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node)) {
         setIsDatePickerOpen(false);
       }
     }
-    if (isDatePickerOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    if (isDatePickerOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isDatePickerOpen]);
 
-
-
+  /* ── Fetch data ── */
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true);
-        // Fetch PAYEMS data
         const res = await fetch(`${API_BASE_URL}/api/economic-indicators/PAYEMS?limit=3000`);
         if (!res.ok) throw new Error('Data fetch failed');
         const json = await res.json();
-        
-        // Reverse to chronological
-        const chronologicalData = json.map((item: any) => ({
-          date: item.report_date,
-          value: item.value
-        })).reverse();
-        
-        // Calculate Month-over-Month Change mathematically mapped down to all 3 modes
-        const diffData = [];
+
+        const chronologicalData = json
+          .map((item: any) => ({ date: item.report_date, value: item.value }))
+          .reverse();
+
+        const diffData: any[] = [];
         for (let i = 2; i < chronologicalData.length; i++) {
-          const currentTotal = chronologicalData[i].value;
-          const prevTotal = chronologicalData[i - 1].value;
-          const prevPrevTotal = chronologicalData[i - 2].value;
-
-          const nfpValue = currentTotal - prevTotal;              // Direct Change
-          const prevNfpValue = prevTotal - prevPrevTotal;
-
-          const chg = nfpValue - prevNfpValue;                    // Chg of the Change
+          const nfpValue = chronologicalData[i].value - chronologicalData[i - 1].value;
+          const prevNfpValue = chronologicalData[i - 1].value - chronologicalData[i - 2].value;
+          const chg = nfpValue - prevNfpValue;
           const chgPercent = prevNfpValue !== 0 ? (chg / Math.abs(prevNfpValue)) * 100 : 0;
-
           diffData.push({
             date: chronologicalData[i].date,
             Value: nfpValue,
@@ -73,15 +84,13 @@ export default function NFPChangeView() {
 
         setData(diffData);
 
-        // Default to selectedRange initially
         if (diffData.length > 0) {
-            const latestDateStr = diffData[diffData.length - 1].date;
-            setEndDate(latestDateStr);
-            const d = new Date(latestDateStr);
-            d.setFullYear(d.getFullYear() - 5);
-            setStartDate(d.toISOString().split('T')[0]);
+          const latestDateStr = diffData[diffData.length - 1].date;
+          setEndDate(latestDateStr);
+          const d = new Date(latestDateStr);
+          d.setFullYear(d.getFullYear() - 5);
+          setStartDate(d.toISOString().split('T')[0]);
         }
-
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -91,253 +100,346 @@ export default function NFPChangeView() {
     fetchData();
   }, []);
 
-  // Filtered data based on range
+  /* ── Transform pipeline ── */
   const filteredData = useMemo(() => {
     if (!startDate || !endDate) return data;
-    return data.filter(d => d.date >= startDate && d.date <= endDate);
-  }, [data, startDate, endDate]);
+    let filtered = data.filter((d) => d.date >= startDate && d.date <= endDate);
+
+    // Apply frequency aggregation
+    if (selectedFrequency !== 'Monthly' && filtered.length > 0) {
+      const asDataPoints: DataPoint[] = filtered.map((d) => ({ date: d.date, value: d[displayMode] }));
+      const aggregated = applyFrequencyTransform(asDataPoints, selectedFrequency);
+      return aggregated.map((d) => ({
+        date: d.date,
+        Value: d.value,
+        Chg: d.value,
+        'Chg%': d.value,
+        _aggregated: true,
+      }));
+    }
+
+    // Apply output units
+    if (outputUnits !== 'Select' && filtered.length > 0) {
+      const asDataPoints: DataPoint[] = filtered.map((d) => ({ date: d.date, value: d[displayMode] }));
+      const transformed = applyOutputUnitsTransform(asDataPoints, outputUnits, selectedFrequency);
+      return transformed.map((d) => ({
+        date: d.date,
+        Value: d.value,
+        Chg: d.value,
+        'Chg%': d.value,
+        _transformed: true,
+      }));
+    }
+
+    return filtered;
+  }, [data, startDate, endDate, selectedFrequency, outputUnits, displayMode]);
 
   const handleRangeClick = (years: number | 'MAX') => {
     if (data.length === 0) return;
     const latestDateStr = data[data.length - 1].date;
     setSelectedRange(years);
     setEndDate(latestDateStr);
-
     if (years === 'MAX') {
-        setStartDate(data[0].date);
+      setStartDate(data[0].date);
     } else {
-        const d = new Date(latestDateStr);
-        d.setFullYear(d.getFullYear() - years);
-        const newStart = d.toISOString().split('T')[0];
-        const actualStart = data[0].date;
-        setStartDate(newStart < actualStart ? actualStart : newStart);
+      const d = new Date(latestDateStr);
+      d.setFullYear(d.getFullYear() - years);
+      const newStart = d.toISOString().split('T')[0];
+      const actualStart = data[0].date;
+      setStartDate(newStart < actualStart ? actualStart : newStart);
     }
   };
 
-  // Dynamically determine X-Axis ticks depending on length
-  let xAxisTicks: string[] = [];
-  if (filteredData.length > 0) {
-      const len = filteredData.length;
-      
-      if (len <= 24) {  
-          // Up to 2 years: show every single month
-          xAxisTicks = filteredData.map(d => d.date);
-      } else if (len <= 12 * 7) { 
-          // 3 to 7 years: show quarters
-          xAxisTicks = filteredData.filter(d => ['01', '04', '07', '10'].includes(d.date.substring(5, 7))).map(d => d.date);
-      } else if (len <= 12 * 20) {
-          // 10 to 20 years: show every single year
-          xAxisTicks = filteredData.filter(d => d.date.endsWith('-01-01')).map(d => d.date);
-      } else {
-          // MAX: show every 5 years (e.g., 1940, 1945, 1950) to prevent overlap
-          xAxisTicks = filteredData.filter(d => {
-              const month = d.date.substring(5, 7);
-              const year = parseInt(d.date.substring(0, 4));
-              return month === '01' && year % 5 === 0;
-          }).map(d => d.date);
-      }
-  }
+  /* ── X-Axis ticks ── */
+  const { ticks: xAxisTicks, formatType: xAxisFormatType } = useMemo(() => {
+    return calculateXAxisTicks(filteredData);
+  }, [filteredData]);
 
-  // Dynamically determine Y-Axis ticks based on Trading Economics algorithm OR explicit overrides
+  /* ── Y-Axis ticks ── */
   let yAxisTicks: number[] | undefined = undefined;
   let yDomain: [number, number] | ['auto', 'auto'] = ['auto', 'auto'];
 
-  if (displayMode === 'Chg%' || selectedRange === 'MAX' || selectedRange === 10) {
-      // Dynamic Trading Economics TE-like math for MAX and 10Y and percentage
-      if (filteredData.length > 0) {
-          const vals = filteredData.map(d => d[displayMode]);
-          const dataMax = Math.max(...vals, 0);
-          const dataMin = Math.min(...vals, 0);
+  const isOutputTransformed = outputUnits !== 'Select' || selectedFrequency !== 'Monthly';
 
-          const span = dataMax - dataMin;
-          if (span > 0) {
-              const pairs = [[5, 0], [4, -1], [3, -2], [2, -3], [1, -4], [0, -5]];
-              let bestStep = Infinity;
-              let bestPair = [5, 0];
-
-              for (const [N, M] of pairs) {
-                  if (N === 0 && dataMax > 0) continue; 
-                  if (M === 0 && dataMin < 0) continue; 
-                  
-                  let reqStepP = N > 0 ? dataMax / N : 0;
-                  let reqStepN = M < 0 ? Math.abs(dataMin) / Math.abs(M) : 0;
-                  
-                  let requiredStep = Math.max(reqStepP, reqStepN);
-                  if (requiredStep < bestStep) {
-                      bestStep = requiredStep;
-                      bestPair = [N, M];
-                  }
-              }
-
-              if (bestStep === 0) bestStep = 1;
-              const magnitude = Math.pow(10, Math.floor(Math.log10(bestStep))); 
-              const normalized = bestStep / magnitude; 
-              
-              const roundMult = 2; 
-              const roundedNormalized = Math.ceil(normalized * roundMult) / roundMult; 
-              const finalStep = roundedNormalized * magnitude;
-
-              const [N, M] = bestPair;
-              const generatedTicks = [];
-              for (let i = M; i <= N; i++) {
-                  generatedTicks.push(i * finalStep);
-              }
-              yAxisTicks = generatedTicks;
-              yDomain = [M * finalStep, N * finalStep];
-          }
-      }
-  } else {
-      // Strict hardcoded exact match for 1Y, 3Y, 5Y as requested by the user
-      if (selectedRange === 1) {
-          yAxisTicks = [-130, -65, 0, 65, 130, 195];
-          yDomain = [-130, 195];
-      } else if (selectedRange === 3) {
-          yAxisTicks = [-170, -85, 0, 85, 170, 255];
-          yDomain = [-170, 255];
-      } else if (selectedRange === 5) {
-          yAxisTicks = [-200, 0, 200, 400, 600, 800, 1000];
-          yDomain = [-200, 1000];
-      }
+  if (filteredData.length > 0) {
+    const vals = filteredData.map((d) => d[displayMode]);
+    const min = Math.min(...vals, 0); // Include 0 to ground NFP charts
+    const max = Math.max(...vals, 0);
+    const { ticks, domain } = calculateYAxisTicks(min, max, 8);
+    yAxisTicks = ticks;
+    yDomain = domain;
   }
 
-  const formatXAxis = (dateStr: string) => {
-    if (!dateStr) return '';
-    const month = dateStr.substring(5, 7);
-    const year = dateStr.substring(0, 4);
-    if (month === '01') return year;    // January shows as Year (e.g., "2024")
-    const d = new Date(dateStr + 'T12:00:00');
-    return d.toLocaleDateString('en-US', { month: 'short' }); // Apr, Jul, Oct
-  };
+  const dynamicYAxisLabel = isOutputTransformed
+    ? getTransformedYAxisLabel('Thousand', 'Thousands of Persons', outputUnits)
+    : (displayMode === 'Chg%' ? '%' : 'Thousand');
 
-  // Custom toolitp absolutely matching screenshot
+  const formatXAxis = (dateStr: string) => formatXAxisLabel(dateStr, xAxisFormatType);
+
+  /* ── Custom Tooltip ── */
   const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const dateObj = new Date(label + "T12:00:00");
-      const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-      const val = payload[0].value;
-      
-      let displayStr = '';
-      if (displayMode === 'Chg%') {
-          displayStr = val > 0 ? `+${val.toFixed(2)}%` : `${val.toFixed(2)}%`;
+    if (!formatSettings.showTooltip) return null;
+    if (!active || !payload || !payload.length) return null;
+    const dateObj = new Date(label + 'T12:00:00');
+    const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    const val = payload[0].value;
+    let displayStr = '';
+    if (isOutputTransformed && outputUnits !== 'Select') {
+      if (dynamicYAxisLabel.includes('Percent') || dynamicYAxisLabel.includes('Rate')) {
+        displayStr = val > 0 ? `+${val.toFixed(2)}%` : `${val.toFixed(2)}%`;
+      } else if (dynamicYAxisLabel.includes('Index')) {
+        displayStr = val.toFixed(1);
       } else {
-          const rounded = Math.round(val).toLocaleString();
-          displayStr = `${rounded} Thousand`;
+        displayStr = `${Math.round(val).toLocaleString()}`;
       }
-      
-      return (
-        <div className="bg-white text-[11px] px-3 py-1.5 border border-blue-300 rounded shadow-[0_2px_6px_rgba(0,0,0,0.15)] text-center min-w-[90px] z-50">
-          <div className="font-bold text-gray-800 pb-1 mb-1 border-b border-gray-400">{dateStr}</div>
-          <div className="text-gray-800">{displayStr}</div>
-        </div>
-      );
+    } else if (displayMode === 'Chg%') {
+      displayStr = val > 0 ? `+${val.toFixed(2)}%` : `${val.toFixed(2)}%`;
+    } else {
+      displayStr = `${Math.round(val).toLocaleString()} Thousand`;
     }
-    return null;
+    return (
+      <div className="bg-white text-[11px] px-3 py-1.5 border border-blue-300 rounded shadow-[0_2px_6px_rgba(0,0,0,0.15)] text-center min-w-[90px] z-50">
+        <div className="font-bold text-gray-800 pb-1 mb-1 border-b border-gray-400">{dateStr}</div>
+        <div className="text-gray-800">{displayStr}</div>
+      </div>
+    );
   };
 
+  /* ── Derived style helpers (same pattern as EconomicIndicatorView) ── */
+  const getStrokeDasharray = (): string | undefined => {
+    if (formatSettings.lineStyle === 'Dashed') return '6 3';
+    if (formatSettings.lineStyle === 'Dotted') return '2 3';
+    return undefined;
+  };
+
+  const getDotProps = (): false | object => {
+    if (formatSettings.markType === 'None') return false;
+    return { r: formatSettings.markWidth, fill: formatSettings.lineColor };
+  };
+
+  const yAxisOrientation = formatSettings.yAxisPosition === 'Right' ? 'right' : 'left';
+
+  /* ── Chart renderer ── */
+  const renderChart = () => {
+    const commonProps = {
+      data: filteredData,
+      margin: { top: 25, right: 30, left: 10, bottom: 5 },
+    };
+
+    const commonXAxisEl = (
+      <XAxis
+        dataKey="date"
+        ticks={xAxisTicks}
+        tickFormatter={formatXAxis}
+        tick={{ fontSize: 11, fill: '#111' }}
+        tickMargin={10}
+        tickLine={false}
+        axisLine={{ stroke: '#d1d5db' }}
+        interval={0}
+      />
+    );
+
+    const commonYAxisEl = (
+      <YAxis
+        orientation={yAxisOrientation}
+        domain={yDomain}
+        ticks={yAxisTicks}
+        label={
+          formatSettings.showAxisTitles
+            ? { value: dynamicYAxisLabel, angle: 0, position: 'top', offset: 12, style: { textAnchor: 'middle', fill: '#888', fontSize: 10 } }
+            : undefined
+        }
+        tickFormatter={(val) =>
+          displayMode === 'Chg%' || isOutputTransformed
+            ? parseFloat(val.toString()).toFixed(1)
+            : Math.round(val).toLocaleString()
+        }
+        tick={{ fontSize: 11, fill: '#111' }}
+        tickLine={false}
+        axisLine={false}
+        width={40}
+        scale={formatSettings.logScaleLeft ? 'log' : 'auto'}
+      />
+    );
+
+    const commonTooltipEl = (
+      <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
+    );
+
+    switch (formatSettings.graphType) {
+      case 'Line':
+        return (
+          <LineChart {...commonProps}>
+            <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="#f0f0f0" />
+            {commonXAxisEl}{commonYAxisEl}{commonTooltipEl}
+            <ReferenceLine y={0} stroke="#cdcdcd" strokeWidth={1.5} />
+            <Line
+              type="monotone"
+              dataKey={displayMode}
+              stroke={formatSettings.lineColor}
+              strokeWidth={formatSettings.lineWidth}
+              strokeDasharray={getStrokeDasharray()}
+              dot={getDotProps() as any}
+              isAnimationActive={false}
+            />
+          </LineChart>
+        );
+
+      case 'Area':
+        return (
+          <AreaChart {...commonProps}>
+            <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="#f0f0f0" />
+            {commonXAxisEl}{commonYAxisEl}{commonTooltipEl}
+            <ReferenceLine y={0} stroke="#cdcdcd" strokeWidth={1.5} />
+            <Area
+              type="monotone"
+              dataKey={displayMode}
+              stroke={formatSettings.lineColor}
+              fill={formatSettings.lineColor + '33'}
+              strokeWidth={formatSettings.lineWidth}
+              strokeDasharray={getStrokeDasharray()}
+              isAnimationActive={false}
+            />
+          </AreaChart>
+        );
+
+      case 'Scatter':
+        return (
+          <LineChart {...commonProps}>
+            <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="#f0f0f0" />
+            {commonXAxisEl}{commonYAxisEl}{commonTooltipEl}
+            <ReferenceLine y={0} stroke="#cdcdcd" strokeWidth={1.5} />
+            <Line
+              type="monotone"
+              dataKey={displayMode}
+              stroke="transparent"
+              dot={{ r: formatSettings.markWidth || 2, fill: formatSettings.lineColor }}
+              isAnimationActive={false}
+            />
+          </LineChart>
+        );
+
+      case 'Bar':
+      default:
+        return (
+          <BarChart {...commonProps} barCategoryGap={selectedRange === 'MAX' ? '0%' : '15%'}>
+            <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="#f0f0f0" />
+            {commonXAxisEl}{commonYAxisEl}{commonTooltipEl}
+            <ReferenceLine y={0} stroke="#cdcdcd" strokeWidth={1.5} />
+            <Bar dataKey={displayMode} isAnimationActive={false}>
+              {filteredData.map((entry, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  // FIX: use lineColor for positive bars; dim it for negative
+                  fill={entry[displayMode] >= 0 ? formatSettings.lineColor : formatSettings.lineColor + '88'}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        );
+    }
+  };
+
+  /* ── Render ── */
   return (
     <div className="bg-white p-2">
-      {/* Top Header Controls aligned to top left like TE */}
-      <div className="flex justify-start mb-4 pl-1 relative" ref={datePickerRef}>
-        <div className="flex items-center border border-[#ccc] rounded-sm bg-white h-[30px] my-1 text-[#555]">
-            <div 
+      {/* Top controls row */}
+      <div className="flex items-center justify-between mb-4 pl-1">
+
+        {/* Left: Date range picker */}
+        <div className="relative flex" ref={datePickerRef}>
+          <div className="flex items-center border border-[#ccc] rounded-sm bg-white h-[30px] my-1 text-[#555]">
+            <div
               onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
               className={`px-2 border-r border-[#ccc] flex items-center justify-center h-full hover:bg-gray-100 cursor-pointer ${isDatePickerOpen ? 'bg-[#e5e7eb]' : ''}`}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                  <line x1="16" y1="2" x2="16" y2="6"></line>
-                  <line x1="8" y1="2" x2="8" y2="6"></line>
-                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
               </svg>
             </div>
-            <button onClick={() => handleRangeClick(1)} className={`px-2.5 h-full text-[11px] tracking-wide ${selectedRange === 1 ? 'bg-[#e5e7eb] text-[#333]' : 'text-gray-600 hover:bg-gray-50'}`}>1Y</button>
-            <button onClick={() => handleRangeClick(3)} className={`px-2.5 h-full text-[11px] tracking-wide ${selectedRange === 3 ? 'bg-[#e5e7eb] text-[#333]' : 'text-gray-600 hover:bg-gray-50'}`}>3Y</button>
-            <button onClick={() => handleRangeClick(5)} className={`px-2.5 h-full text-[11px] tracking-wide ${selectedRange === 5 ? 'bg-[#e5e7eb] text-[#333]' : 'text-gray-600 hover:bg-gray-50'}`}>5Y</button>
-            <button onClick={() => handleRangeClick(10)} className={`px-2.5 h-full text-[11px] tracking-wide ${selectedRange === 10 ? 'bg-[#e5e7eb] text-[#333]' : 'text-gray-600 hover:bg-gray-50'}`}>10Y</button>
-            <button onClick={() => handleRangeClick('MAX')} className={`px-3 h-full text-[11px] tracking-wide ${selectedRange === 'MAX' ? 'bg-[#e5e7eb] text-[#333]' : 'text-gray-600 hover:bg-gray-50'}`}>MAX</button>
+            {([1, 3, 5, 10] as const).map((y) => (
+              <button
+                key={y}
+                onClick={() => handleRangeClick(y)}
+                className={`px-2.5 h-full text-[11px] tracking-wide ${selectedRange === y ? 'bg-[#e5e7eb] text-[#333]' : 'text-gray-600 hover:bg-gray-50'}`}
+              >
+                {y}Y
+              </button>
+            ))}
+            <button
+              onClick={() => handleRangeClick('MAX')}
+              className={`px-3 h-full text-[11px] tracking-wide ${selectedRange === 'MAX' ? 'bg-[#e5e7eb] text-[#333]' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+              MAX
+            </button>
+          </div>
+
+          {/* Date Picker Popover */}
+          {isDatePickerOpen && (
+            <div className="absolute top-[40px] left-0 bg-white border border-[#ccc] shadow-[0_2px_8px_rgba(0,0,0,0.1)] p-2 z-[60] flex flex-col space-y-2 w-[140px]">
+              <input
+                type="date"
+                className="border border-[#ccc] px-1 py-1 text-[11px] text-center w-full focus:outline-none focus:border-[#4d7eb2]"
+                value={startDate}
+                onChange={(e) => { setStartDate(e.target.value); setSelectedRange(0 as any); }}
+              />
+              <input
+                type="date"
+                className="border border-[#ccc] px-1 py-1 text-[11px] text-center w-full focus:outline-none focus:border-[#4d7eb2]"
+                value={endDate}
+                onChange={(e) => { setEndDate(e.target.value); setSelectedRange(0 as any); }}
+              />
+            </div>
+          )}
         </div>
 
-        {/* Date Picker Popover */}
-        {isDatePickerOpen && (
-            <div className="absolute top-[40px] left-1 bg-white border border-[#ccc] shadow-[0_2px_8px_rgba(0,0,0,0.1)] p-2 z-[60] flex flex-col space-y-2 w-[140px]">
-                <input 
-                  type="date" 
-                  className="border border-[#ccc] px-1 py-1 text-[11px] text-center w-full focus:outline-none focus:border-[#4d7eb2]" 
-                  value={startDate} 
-                  onChange={e => { setStartDate(e.target.value); setSelectedRange(0); }} 
-                />
-                <input 
-                  type="date" 
-                  className="border border-[#ccc] px-1 py-1 text-[11px] text-center w-full focus:outline-none focus:border-[#4d7eb2]" 
-                  value={endDate} 
-                  onChange={e => { setEndDate(e.target.value); setSelectedRange(0); }} 
-                />
-            </div>
-        )}
+        {/* Right: Edit Graph button – FIX: passes both h and w to onSizeApply */}
+        <EditGraphSidebar
+          lineInfo={{
+            seriesId: 'PAYEMS',
+            label: 'All Employees, Total Nonfarm (Monthly Change)',
+            units: 'Thousands of Persons',
+            frequency: 'Monthly',
+            seasonalAdjustment: 'Seasonally Adjusted',
+          }}
+          formatSettings={formatSettings}
+          onFormatChange={setFormatSettings}
+          onSizeApply={(h, w) => { setChartHeight(h); setChartWidth(w); }}
+          onFrequencyChange={(f) => setSelectedFrequency(f)}
+          onOutputUnitsChange={(u) => setOutputUnits(u)}
+        />
       </div>
 
+      {/* Chart */}
       {loading ? (
         <div className="flex justify-center items-center h-64 text-gray-500">Loading data...</div>
       ) : error ? (
         <div className="text-red-500 bg-red-50 p-4 rounded-md">{error}</div>
       ) : filteredData.length === 0 ? (
-         <div className="flex justify-center items-center h-64 text-gray-500">No data available. Go to Admin Dashboard to Update Data.</div>
+        <div className="flex justify-center items-center h-64 text-gray-500">No data available. Go to Admin Dashboard to Update Data.</div>
       ) : (
-        <div className="border border-gray-200">
-          <div className="h-[350px] w-full pt-6">
+        <div className="border border-gray-200 overflow-x-auto">
+          <div style={{ height: chartHeight, width: chartWidth, minWidth: '100%' }} className="pt-6">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={filteredData}
-                margin={{ top: 25, right: 30, left: 10, bottom: 5 }}
-                barCategoryGap={selectedRange === 'MAX' ? "0%" : "15%"}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="#f0f0f0"/>
-                <XAxis 
-                  dataKey="date" 
-                  ticks={xAxisTicks}
-                  tickFormatter={formatXAxis}
-                  tick={{ fontSize: 11, fill: '#111' }} 
-                  tickMargin={10}
-                  tickLine={false}
-                  axisLine={{ stroke: '#d1d5db' }}
-                  interval={0}
-                />
-                <YAxis 
-                  domain={yDomain}
-                  ticks={yAxisTicks}
-                  label={{ value: displayMode === 'Chg%' ? '%' : 'Thousand', angle: 0, position: 'top', offset: 12, style: { textAnchor: 'middle', fill: '#888', fontSize: 10 } }} 
-                  tickFormatter={(val) => displayMode === 'Chg%' ? parseFloat(val.toString()).toFixed(1) : Math.round(val).toLocaleString()}
-                  tick={{ fontSize: 11, fill: '#111' }}
-                  tickLine={false}
-                  axisLine={false}
-                  width={40}
-                  orientation="right"
-                />
-                <Tooltip 
-                  content={<CustomTooltip />}
-                  cursor={{ fill: 'rgba(0,0,0,0.03)' }}
-                />
-                <ReferenceLine y={0} stroke="#cdcdcd" strokeWidth={1.5} />
-                <Bar dataKey={displayMode} isAnimationActive={false}>
-                  {filteredData.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={entry[displayMode] >= 0 ? '#4d7eb2' : '#f4dcb0'} 
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
+              {renderChart()}
             </ResponsiveContainer>
           </div>
-          
-          {/* Bottom Footer Legends */}
+
+          {/* Footer */}
           <div className="flex justify-between items-center text-[11px] px-6 py-2 border-t border-gray-100 mb-1">
-              <div className="text-gray-400">U.S. Bureau of Labor Statistics</div>
-              <div className="flex space-x-4 font-semibold">
-                  <button onClick={() => setDisplayMode('Value')} className={`${displayMode === 'Value' ? 'text-[#0088cc]' : 'text-[#333]'} hover:text-[#0088cc] flex items-center`}>Value</button>
-                  <button onClick={() => setDisplayMode('Chg')} className={`${displayMode === 'Chg' ? 'text-[#0088cc]' : 'text-[#333]'} hover:text-[#0088cc] flex items-center`}>Chg</button>
-                  <button onClick={() => setDisplayMode('Chg%')} className={`${displayMode === 'Chg%' ? 'text-[#0088cc]' : 'text-[#333]'} hover:text-[#0088cc] flex items-center`}>Chg%</button>
-              </div>
+            <div className="text-gray-400">U.S. Bureau of Labor Statistics</div>
+            <div className="flex space-x-4 font-semibold">
+              {(['Value', 'Chg', 'Chg%'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setDisplayMode(mode)}
+                  className={`${displayMode === mode ? 'text-[#0088cc]' : 'text-[#333]'} hover:text-[#0088cc]`}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
