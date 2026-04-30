@@ -846,7 +846,7 @@ function buildExport(
 // MAIN PAGE COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function IndustryGroupsPage() {
+function IndustryGroupsContent() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [collapseSignal, setCollapseSignal] = useState(0);
@@ -1356,5 +1356,13 @@ export default function IndustryGroupsPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function IndustryGroupsPage() {
+    return (
+        <React.Suspense fallback={<div className="flex h-screen items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+            <IndustryGroupsContent />
+        </React.Suspense>
     );
 }

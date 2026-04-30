@@ -4,6 +4,8 @@ import type {
   CompanyFinancials,
   CompanyListItem,
   KpisResponse,
+  FinancialSection,
+  CompanyMeta,
 } from '@/types/xbrl-financials'
 
 async function apiFetch<T>(path: string): Promise<T> {
@@ -23,7 +25,10 @@ export const getCompany = (symbol: string): Promise<CompanyFinancials> =>
 export const getCompanySections = (symbol: string): Promise<{ sections: string[] }> =>
   apiFetch(`/api/companies/${symbol}/sections`)
 
-export const getSection = (symbol: string, section: string) =>
+export const getSection = (
+  symbol: string,
+  section: string,
+): Promise<FinancialSection & { meta: CompanyMeta }> =>
   apiFetch(`/api/companies/${symbol}/sections/${section}`)
 
 export const getKpis = (symbol: string, section: string): Promise<KpisResponse> =>
