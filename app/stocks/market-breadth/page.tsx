@@ -51,6 +51,9 @@ interface BreadthItem {
 
 /* ─── Config ─────────────────────────────────────────────────────────────── */
 
+const AVG50_COLOR = '#E02020';   // Red for AVG 50
+const AVG200_COLOR = '#1A1A1A';  // Black for AVG 200
+
 const CHART_CONFIGS = [
     {
         key: 'pct_above_20' as const,
@@ -114,18 +117,19 @@ export default function MarketBreadthPage() {
     const [error, setError] = useState<string | null>(null);
     const [tick, setTick] = useState(0);
     const [period, setPeriod] = useState('ALL');
-    const [selectedAverages, setSelectedAverages] = useState<Record<number, string>>({});
+    // Changed: now supports a Set of selected keys per chart index
+    const [selectedAverages, setSelectedAverages] = useState<Record<number, Set<string>>>({});
     const [seriesVisible, setSeriesVisible] = useState<Record<number, boolean>>({ 0: true, 1: true, 2: true, 3: true });
     const [fullscreenIdx, setFullscreenIdx] = useState<number | null>(null);
     const [exportOpen, setExportOpen] = useState(false);
     const [exportStatus, setExportStatus] = useState<string | null>(null);
 
-    // Hover tooltip state per chart
-    const [hoverValues, setHoverValues] = useState<Record<number, { main: number | null; avg: number | null; time: string | null }>>({});
+    // Hover tooltip state per chart — now supports both avg values
+    const [hoverValues, setHoverValues] = useState<Record<number, { main: number | null; avg50: number | null; avg200: number | null; time: string | null }>>({});
 
     /* refs */
     const pageRef = useRef<HTMLDivElement>(null);
-    const isRestoringRef = useRef(false); // Add this flag to prevent sync during restore
+    const isRestoringRef = useRef(false);
 
     const cardRefs = [
         useRef<HTMLDivElement>(null),
@@ -143,7 +147,9 @@ export default function MarketBreadthPage() {
 
     const chartsRef = useRef<IChartApi[]>([]);
     const mainSeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>([null, null, null, null]);
-    const avgSeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>([null, null, null, null]);
+    // Changed: now two avg series per chart (index 0 = avg50, index 1 = avg200)
+    const avg50SeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>([null, null, null, null]);
+    const avg200SeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>([null, null, null, null]);
     const isSyncing = useRef(false);
     const savedRangeRef = useRef<any>(null);
 
@@ -178,13 +184,12 @@ export default function MarketBreadthPage() {
     useEffect(() => {
         if (data.length === 0) return;
 
-        /* 🔹 CRITICAL FIX: Save current zoom range BEFORE destroying charts */
+        /* Save current zoom range BEFORE destroying charts */
         if (chartsRef.current.length > 0 && !isRestoringRef.current) {
             try {
                 const range = chartsRef.current[0].timeScale().getVisibleLogicalRange();
                 if (range) {
                     savedRangeRef.current = range;
-                    console.log('✅ Saved range before rebuild:', range);
                 }
             } catch (e) {
                 console.warn('Could not save range:', e);
@@ -195,7 +200,8 @@ export default function MarketBreadthPage() {
         chartsRef.current.forEach((c) => c.remove());
         chartsRef.current = [];
         mainSeriesRef.current = [null, null, null, null];
-        avgSeriesRef.current = [null, null, null, null];
+        avg50SeriesRef.current = [null, null, null, null];
+        avg200SeriesRef.current = [null, null, null, null];
 
         const baseOptions = {
             layout: {
@@ -268,30 +274,58 @@ export default function MarketBreadthPage() {
             );
             mainSeriesRef.current[i] = series;
 
-            /* avg overlay series */
-            const avgKey = selectedAverages[i];
-            if (avgKey && avgKey in data[0]) {
-                const avgSeries = chart.addSeries(AreaSeries, {
-                    lineColor: cfg.lineColor,
+            const selectedSet = selectedAverages[i] || new Set<string>();
+
+            /* avg50 overlay series — shown if avg50 key is selected */
+            const avg50Key = cfg.avgKeys[0]; // e.g. 'ma50_20'
+            if (selectedSet.has(avg50Key) && avg50Key in data[0]) {
+                const avg50Series = chart.addSeries(AreaSeries, {
+                    lineColor: AVG50_COLOR,
                     topColor: 'rgba(0,0,0,0)',
                     bottomColor: 'rgba(0,0,0,0)',
                     lineWidth: 1.5 as any,
                     lineStyle: 1,
                     crosshairMarkerVisible: true,
                     crosshairMarkerRadius: 3,
-                    crosshairMarkerBorderColor: cfg.lineColor,
+                    crosshairMarkerBorderColor: AVG50_COLOR,
                     crosshairMarkerBackgroundColor: '#FFFFFF',
                     lastValueVisible: true,
                     priceLineVisible: false,
                     autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
                 });
-                avgSeries.setData(
+                avg50Series.setData(
                     data.map((item) => ({
                         time: item.time,
-                        value: item[avgKey as keyof BreadthItem] as number,
+                        value: item[avg50Key as keyof BreadthItem] as number,
                     })) as any
                 );
-                avgSeriesRef.current[i] = avgSeries;
+                avg50SeriesRef.current[i] = avg50Series;
+            }
+
+            /* avg200 overlay series — shown if avg200 key is selected */
+            const avg200Key = cfg.avgKeys[1]; // e.g. 'ma200_20'
+            if (selectedSet.has(avg200Key) && avg200Key in data[0]) {
+                const avg200Series = chart.addSeries(AreaSeries, {
+                    lineColor: AVG200_COLOR,
+                    topColor: 'rgba(0,0,0,0)',
+                    bottomColor: 'rgba(0,0,0,0)',
+                    lineWidth: 1.5 as any,
+                    lineStyle: 1,
+                    crosshairMarkerVisible: true,
+                    crosshairMarkerRadius: 3,
+                    crosshairMarkerBorderColor: AVG200_COLOR,
+                    crosshairMarkerBackgroundColor: '#FFFFFF',
+                    lastValueVisible: true,
+                    priceLineVisible: false,
+                    autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
+                });
+                avg200Series.setData(
+                    data.map((item) => ({
+                        time: item.time,
+                        value: item[avg200Key as keyof BreadthItem] as number,
+                    })) as any
+                );
+                avg200SeriesRef.current[i] = avg200Series;
             }
 
             /* reference lines */
@@ -304,14 +338,11 @@ export default function MarketBreadthPage() {
                     axisLabelVisible: false,
                 })
             );
-
-            // Don't call fitContent here, we'll restore zoom later
         });
 
         /* ── sync time-scale scroll/zoom ── */
         chartsRef.current.forEach((chart, i) => {
             chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-                // Skip sync if we're restoring zoom
                 if (!range || isSyncing.current || isRestoringRef.current) return;
 
                 isSyncing.current = true;
@@ -320,14 +351,10 @@ export default function MarketBreadthPage() {
                 });
                 setTimeout(() => { isSyncing.current = false; }, 0);
 
-                /* Save the range when user changes it (for future rebuilds) */
                 if (!isRestoringRef.current && chartsRef.current[0]) {
                     try {
                         const newRange = chartsRef.current[0].timeScale().getVisibleLogicalRange();
-                        if (newRange) {
-                            savedRangeRef.current = newRange;
-                            console.log('📌 Saved user zoom:', newRange);
-                        }
+                        if (newRange) savedRangeRef.current = newRange;
                     } catch { }
                 }
             });
@@ -336,23 +363,25 @@ export default function MarketBreadthPage() {
         /* ── sync crosshair + update hover tooltip values ── */
         chartsRef.current.forEach((chart, i) => {
             chart.subscribeCrosshairMove((param) => {
-                // Update hover tooltip for this chart
                 const mainS = mainSeriesRef.current[i];
-                const avgS = avgSeriesRef.current[i];
+                const avg50S = avg50SeriesRef.current[i];
+                const avg200S = avg200SeriesRef.current[i];
 
                 if (!param.point || !param.time || !mainS) {
-                    setHoverValues((prev) => ({ ...prev, [i]: { main: null, avg: null, time: null } }));
+                    setHoverValues((prev) => ({ ...prev, [i]: { main: null, avg50: null, avg200: null, time: null } }));
                 } else {
                     const mainVal = param.seriesData.get(mainS);
-                    const avgVal = avgS ? param.seriesData.get(avgS) : null;
+                    const avg50Val = avg50S ? param.seriesData.get(avg50S) : null;
+                    const avg200Val = avg200S ? param.seriesData.get(avg200S) : null;
                     const mainNum = mainVal && 'value' in mainVal ? (mainVal as any).value : null;
-                    const avgNum = avgVal && 'value' in avgVal ? (avgVal as any).value : null;
+                    const avg50Num = avg50Val && 'value' in avg50Val ? (avg50Val as any).value : null;
+                    const avg200Num = avg200Val && 'value' in avg200Val ? (avg200Val as any).value : null;
                     const timeStr = typeof param.time === 'string'
                         ? param.time
                         : typeof param.time === 'number'
                             ? String(param.time)
                             : `${(param.time as any).year}-${String((param.time as any).month).padStart(2, '0')}-${String((param.time as any).day).padStart(2, '0')}`;
-                    setHoverValues((prev) => ({ ...prev, [i]: { main: mainNum, avg: avgNum, time: timeStr } }));
+                    setHoverValues((prev) => ({ ...prev, [i]: { main: mainNum, avg50: avg50Num, avg200: avg200Num, time: timeStr } }));
                 }
 
                 // Sync crosshair to all other charts
@@ -385,12 +414,8 @@ export default function MarketBreadthPage() {
         });
         canvasRefs.forEach((r) => { if (r.current) ro.observe(r.current); });
 
-        /* 
-         * 🔹 CRITICAL FIX: Restore zoom after charts are fully created
-         * Use multiple requestAnimationFrame to ensure charts are ready
-         */
+        /* Restore zoom after charts are fully created */
         const rangeToRestore = savedRangeRef.current;
-        console.log('🔄 Attempting to restore range:', rangeToRestore);
 
         if (rangeToRestore) {
             isRestoringRef.current = true;
@@ -399,21 +424,16 @@ export default function MarketBreadthPage() {
                     chartsRef.current.forEach((chart) => {
                         try {
                             chart.timeScale().setVisibleLogicalRange(rangeToRestore);
-                            console.log('✅ Restored zoom successfully');
                         } catch (e) {
-                            console.warn('Failed to restore zoom:', e);
-                            // Fallback to fitContent if restore fails
                             chart.timeScale().fitContent();
                         }
                     });
-                    // Reset restore flag after a short delay
                     setTimeout(() => {
                         isRestoringRef.current = false;
                     }, 100);
                 });
             });
         } else {
-            // No saved range, fit all charts
             requestAnimationFrame(() => {
                 chartsRef.current.forEach((chart) => {
                     chart.timeScale().fitContent();
@@ -423,18 +443,15 @@ export default function MarketBreadthPage() {
 
         return () => {
             ro.disconnect();
-            // Don't clear savedRangeRef here! Keep it for next rebuild
             chartsRef.current.forEach((c) => c.remove());
             chartsRef.current = [];
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data, selectedAverages]);
 
-    /* ── reset saved range when period changes (data structure changes) ── */
+    /* ── reset saved range when period changes ── */
     useEffect(() => {
-        // Reset saved zoom when period changes because data range is completely different
         savedRangeRef.current = null;
-        console.log('🔄 Period changed, reset saved range');
     }, [period]);
 
     /* ── toggle main series visibility without rebuilding ── */
@@ -466,9 +483,21 @@ export default function MarketBreadthPage() {
 
     /* ── fit content (all charts) ── */
     const fitAll = () => {
-        // Reset saved range when manually fitting
         savedRangeRef.current = null;
         chartsRef.current.forEach((c) => c.timeScale().fitContent());
+    };
+
+    /* ─── Toggle avg key for a given chart index ──────────────────────────── */
+    const toggleAvgKey = (chartIdx: number, key: string) => {
+        setSelectedAverages((prev) => {
+            const current = new Set(prev[chartIdx] || []);
+            if (current.has(key)) {
+                current.delete(key);
+            } else {
+                current.add(key);
+            }
+            return { ...prev, [chartIdx]: current };
+        });
     };
 
     /* ─── Export helpers ──────────────────────────────────────────────────── */
@@ -817,9 +846,12 @@ export default function MarketBreadthPage() {
                     {CHART_CONFIGS.map((cfg, i) => {
                         const Icon = cfg.icon;
                         const hover = hoverValues[i];
-                        const displayVal = hover?.main != null
-                            ? hover.main.toFixed(1)
-                            : latest ? (latest[cfg.key] as number).toFixed(1) : '—';
+                        const isVisible = seriesVisible[i] !== false;
+                        const displayVal = !isVisible
+                            ? '—'
+                            : hover?.main != null
+                                ? hover.main.toFixed(1)
+                                : latest ? (latest[cfg.key] as number).toFixed(1) : '—';
                         const numVal = hover?.main != null
                             ? hover.main
                             : latest ? (latest[cfg.key] as number) : 50;
@@ -827,10 +859,17 @@ export default function MarketBreadthPage() {
                             data.length > 1 ? (data[data.length - 2][cfg.key] as number) : numVal;
                         const delta = Math.abs(numVal - prev).toFixed(1);
                         const isUp = numVal >= prev;
-                        const isVisible = seriesVisible[i] !== false;
                         const isFS = fullscreenIdx === i;
-                        const hasAvg = !!selectedAverages[i];
-                        const avgDisplayVal = hover?.avg != null ? hover.avg.toFixed(1) : null;
+
+                        const selectedSet = selectedAverages[i] || new Set<string>();
+                        const avg50Key = cfg.avgKeys[0];
+                        const avg200Key = cfg.avgKeys[1];
+                        const isAvg50Active = selectedSet.has(avg50Key);
+                        const isAvg200Active = selectedSet.has(avg200Key);
+
+                        // Hover display values
+                        const avg50DisplayVal = hover?.avg50 != null ? hover.avg50.toFixed(1) : null;
+                        const avg200DisplayVal = hover?.avg200 != null ? hover.avg200.toFixed(1) : null;
 
                         return (
                             <div
@@ -862,26 +901,38 @@ export default function MarketBreadthPage() {
                                     </div>
 
                                     <div className="flex flex-col items-end gap-0.5">
-                                        <div className="flex items-baseline gap-0.5">
-                                            <span className="text-[22px] font-bold text-slate-900 leading-none tracking-tight">
-                                                {displayVal}
-                                            </span>
-                                            <span className="text-[11px] text-slate-400 font-medium">%</span>
-                                            {avgDisplayVal && hasAvg && (
-                                                <span className="text-[11px] ml-1.5 font-medium" style={{ color: cfg.lineColor, opacity: 0.65 }}>
-                                                    / {avgDisplayVal}%
+                                        <div className="flex items-baseline gap-0.5 flex-wrap justify-end">
+                                            {/* Main value — hidden when series is toggled off */}
+                                            {isVisible && (
+                                                <>
+                                                    <span className="text-[22px] font-bold text-slate-900 leading-none tracking-tight">
+                                                        {displayVal}
+                                                    </span>
+                                                    <span className="text-[11px] text-slate-400 font-medium">%</span>
+                                                </>
+                                            )}
+                                            {/* Show AVG50 hover value in red */}
+                                            {avg50DisplayVal && isAvg50Active && (
+                                                <span className="text-[11px] ml-1.5 font-semibold" style={{ color: AVG50_COLOR }}>
+                                                    {isVisible ? '/ ' : ''}{avg50DisplayVal}%
+                                                </span>
+                                            )}
+                                            {/* Show AVG200 hover value in black */}
+                                            {avg200DisplayVal && isAvg200Active && (
+                                                <span className="text-[11px] ml-1.5 font-semibold" style={{ color: AVG200_COLOR }}>
+                                                    {isVisible || isAvg50Active ? '/ ' : ''}{avg200DisplayVal}%
                                                 </span>
                                             )}
                                         </div>
                                         {hover?.time ? (
                                             <span className="text-[10px] text-slate-400 font-medium">{hover.time}</span>
-                                        ) : (
+                                        ) : isVisible ? (
                                             <span
                                                 className={`text-[10px] font-semibold px-1.5 py-0.5 rounded tracking-wide ${isUp ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}
                                             >
                                                 {isUp ? '▲' : '▼'} {delta}%
                                             </span>
-                                        )}
+                                        ) : null}
                                     </div>
                                 </div>
 
@@ -920,25 +971,31 @@ export default function MarketBreadthPage() {
 
                                 {/* button row */}
                                 <div className="px-3 py-1 flex items-center gap-1 border-y border-slate-100 flex-shrink-0">
-                                    {cfg.avgKeys.map((key, idx) => (
-                                        <button
-                                            key={key}
-                                            onClick={() =>
-                                                setSelectedAverages((prev) => ({
-                                                    ...prev,
-                                                    [i]: prev[i] === key ? '' : key,
-                                                }))
-                                            }
-                                            className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border"
-                                            style={{
-                                                borderColor: selectedAverages[i] === key ? cfg.lineColor : '#E2E8F0',
-                                                background: selectedAverages[i] === key ? cfg.lineColor : 'transparent',
-                                                color: selectedAverages[i] === key ? '#FFFFFF' : '#64748B',
-                                            }}
-                                        >
-                                            {cfg.avgLabels[idx]}
-                                        </button>
-                                    ))}
+                                    {/* AVG 50 button — red when active */}
+                                    <button
+                                        onClick={() => toggleAvgKey(i, avg50Key)}
+                                        className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border"
+                                        style={{
+                                            borderColor: isAvg50Active ? AVG50_COLOR : '#E2E8F0',
+                                            background: isAvg50Active ? AVG50_COLOR : 'transparent',
+                                            color: isAvg50Active ? '#FFFFFF' : '#64748B',
+                                        }}
+                                    >
+                                        {cfg.avgLabels[0]}
+                                    </button>
+
+                                    {/* AVG 200 button — black when active */}
+                                    <button
+                                        onClick={() => toggleAvgKey(i, avg200Key)}
+                                        className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border"
+                                        style={{
+                                            borderColor: isAvg200Active ? AVG200_COLOR : '#E2E8F0',
+                                            background: isAvg200Active ? AVG200_COLOR : 'transparent',
+                                            color: isAvg200Active ? '#FFFFFF' : '#64748B',
+                                        }}
+                                    >
+                                        {cfg.avgLabels[1]}
+                                    </button>
 
                                     <div className="flex-1" />
 

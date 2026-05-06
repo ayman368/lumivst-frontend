@@ -32,7 +32,8 @@ type TabId =
     | 'rsi_weekly'
     | 'alrayan'
     | 'stamp_filters'
-    | 'industry';
+    | 'industry'
+    | 'rs_momentum_net_short';
 
 const TABS: { id: TabId; label: string; shortLabel: string }[] = [
     { id: 'smartselect', label: 'SmartSelect Ratings', shortLabel: 'SmartSelect' },
@@ -43,13 +44,14 @@ const TABS: { id: TabId; label: string; shortLabel: string }[] = [
     { id: 'alrayan', label: 'Alrayan', shortLabel: 'Alrayan' },
     { id: 'stamp_filters', label: 'STAMP', shortLabel: 'STAMP' },
     { id: 'industry', label: 'Industry / Sector', shortLabel: 'Industry' },
+    { id: 'rs_momentum_net_short', label: 'RS Momentum & Net Short', shortLabel: 'RS Momentum' },
 ];
 
 // ─── Stepper input ────────────────────────────────────────────────────────────
 function StepperInput({
-    value, onChange, placeholder,
+    value, onChange, placeholder, inputWidth = "w-[48px]"
 }: {
-    value: string; onChange: (v: string) => void; placeholder: string;
+    value: string; onChange: (v: string) => void; placeholder: string; inputWidth?: string;
 }) {
     const [localValue, setLocalValue] = useState(value);
 
@@ -107,7 +109,7 @@ function StepperInput({
                 onKeyDown={handleKeyDown}
                 placeholder={placeholder}
                 style={{ MozAppearance: 'textfield' } as any}
-                className={`w-[48px] h-full px-1 text-[11px] outline-none text-center tabular-nums border-x
+                className={`${inputWidth} h-full px-1 text-[11px] outline-none text-center tabular-nums border-x
                     [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
                     ${active
                         ? 'bg-blue-50 text-blue-800 font-semibold border-blue-300'
@@ -126,10 +128,11 @@ function StepperInput({
 
 // ─── Minimal range input row ──────────────────────────────────────────────────
 function RangeRow({
-    label, minVal, maxVal, onMin, onMax,
+    label, minVal, maxVal, onMin, onMax, inputWidth
 }: {
     label: string; minVal: string; maxVal: string;
     onMin: (v: string) => void; onMax: (v: string) => void;
+    inputWidth?: string;
 }) {
     const active = minVal !== '' || maxVal !== '';
     return (
@@ -141,9 +144,9 @@ function RangeRow({
             >
                 {label}
             </span>
-            <StepperInput value={minVal} onChange={onMin} placeholder="Min" />
+            <StepperInput value={minVal} onChange={onMin} placeholder="Min" inputWidth={inputWidth} />
             <span className="text-[10px] text-gray-400 select-none font-medium leading-none">to</span>
-            <StepperInput value={maxVal} onChange={onMax} placeholder="Max" />
+            <StepperInput value={maxVal} onChange={onMax} placeholder="Max" inputWidth={inputWidth} />
         </div>
     );
 }
@@ -710,6 +713,70 @@ export default function TopFilterPanel({
                     </div>
                     <RangeRow label="Purge Amount" minVal={f.purge_amount_min} maxVal={f.purge_amount_max} onMin={v => s({ purge_amount_min: v })} onMax={v => s({ purge_amount_max: v })} />
                     <RangeRow label="Marginable %" minVal={f.marginable_percent_min} maxVal={f.marginable_percent_max} onMin={v => s({ marginable_percent_min: v })} onMax={v => s({ marginable_percent_max: v })} />
+                </div>
+            </>
+        ),
+        rs_momentum_net_short: (
+            <>
+                {/* ── Section 1: RS Momentum Trend ────────────────────── */}
+                <div className="flex-shrink-0">
+                    <SectionHead>RS Momentum Trend</SectionHead>
+                    <BooleanRow
+                        label="RS > 1W > 4W > 3M > 6M > 1Y"
+                        value={f.rs_momentum_all}
+                        onChange={v => s({ rs_momentum_all: v })}
+                    />
+                    <BooleanRow
+                        label="RS Rating > 1W"
+                        value={f.rs_rating_gt_1w}
+                        onChange={v => s({ rs_rating_gt_1w: v })}
+                    />
+                    <BooleanRow
+                        label="RS 1W > 4W"
+                        value={f.rs_1w_gt_4w}
+                        onChange={v => s({ rs_1w_gt_4w: v })}
+                    />
+                    <BooleanRow
+                        label="RS 3M > 6M"
+                        value={f.rs_3m_gt_6m}
+                        onChange={v => s({ rs_3m_gt_6m: v })}
+                    />
+                    <BooleanRow
+                        label="RS 6M > 1Y"
+                        value={f.rs_6m_gt_1y}
+                        onChange={v => s({ rs_6m_gt_1y: v })}
+                    />
+                </div>
+
+                <ColDivider />
+
+                {/* ── Section 2: Net Short Positions ───────────────────── */}
+                <div className="flex-shrink-0">
+                    <SectionHead>Net Short Positions</SectionHead>
+                    <RangeRow
+                        label="Short % Outstanding"
+                        minVal={f.percent_over_outstanding_min}
+                        maxVal={f.percent_over_outstanding_max}
+                        onMin={v => s({ percent_over_outstanding_min: v })}
+                        onMax={v => s({ percent_over_outstanding_max: v })}
+                        inputWidth="w-[80px]"
+                    />
+                    <RangeRow
+                        label="Short % Free Float"
+                        minVal={f.percent_over_free_float_min}
+                        maxVal={f.percent_over_free_float_max}
+                        onMin={v => s({ percent_over_free_float_min: v })}
+                        onMax={v => s({ percent_over_free_float_max: v })}
+                        inputWidth="w-[80px]"
+                    />
+                    <RangeRow
+                        label="Short Ratio Avg Daily"
+                        minVal={f.ratio_over_avg_daily_min}
+                        maxVal={f.ratio_over_avg_daily_max}
+                        onMin={v => s({ ratio_over_avg_daily_min: v })}
+                        onMax={v => s({ ratio_over_avg_daily_max: v })}
+                        inputWidth="w-[80px]"
+                    />
                 </div>
             </>
         ),

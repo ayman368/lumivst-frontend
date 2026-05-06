@@ -137,12 +137,20 @@ export default function AdminDashboard() {
                                 <p className="text-xs text-slate-400 mt-0.5">Scraper management &amp; data pipeline</p>
                             </div>
                         </div>
-                        <Link
-                            href="/admin/users"
-                            className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-700 transition shadow-sm"
-                        >
-                            👤 Manage Users
-                        </Link>
+                        <div className="flex items-center gap-2">
+                            <Link
+                                href="/admin/reports"
+                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm"
+                            >
+                                📁 Manage Reports
+                            </Link>
+                            <Link
+                                href="/admin/users"
+                                className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-700 transition shadow-sm"
+                            >
+                                👤 Manage Users
+                            </Link>
+                        </div>
                     </div>
                 </div>
 

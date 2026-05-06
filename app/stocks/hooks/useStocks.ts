@@ -12,10 +12,12 @@ export default function useStocks() {
         try {
             setLoading(true);
 
-            const [pricesRes, rsRes, techRes] = await Promise.all([
+            const [pricesRes, rsRes, techRes, netShortRes, industryGroupsRes] = await Promise.all([
                 fetch(`${API_BASE_URL}/api/prices/latest`, { cache: 'no-store', credentials: 'include' }),
                 fetch(`${API_BASE_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', credentials: 'include' }),
-                fetch(`${API_BASE_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', credentials: 'include' })
+                fetch(`${API_BASE_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', credentials: 'include' }),
+                fetch(`${API_BASE_URL}/api/market-reports/net-short-positions`, { cache: 'no-store', credentials: 'include' }),
+                fetch(`${API_BASE_URL}/api/industry-groups/stocks`, { cache: 'no-store', credentials: 'include' }),
             ]);
 
             if (!pricesRes.ok) throw new Error(`Failed to fetch prices: ${pricesRes.status}`);
@@ -23,10 +25,17 @@ export default function useStocks() {
             const pricesData = await pricesRes.json();
             const rsData = rsRes.ok ? await rsRes.json() : { data: [] };
             const techData = techRes.ok ? await techRes.json() : { data: [] };
+            const netShortJson = netShortRes.ok ? await netShortRes.json() : [];
+            const industryGroupsJson = industryGroupsRes.ok ? await industryGroupsRes.json() : [];
+
+            const netShortItems = Array.isArray(netShortJson) ? netShortJson : netShortJson.data || [];
+            const industryGroupItems = Array.isArray(industryGroupsJson) ? industryGroupsJson : industryGroupsJson.data || [];
 
             console.log('📊 Prices Data:', pricesData.data?.length ?? 0, 'items');
             console.log('📊 RS Data:', rsData.data?.length ?? 0, 'items');
             console.log('📊 Tech Data:', techData.data?.length ?? 0, 'items');
+            console.log('📊 Net Short Data:', netShortItems.length ?? 0, 'items');
+            console.log('📊 Industry Groups Data:', industryGroupItems.length ?? 0, 'items');
 
             // Sample RS data to debug
             if (rsData.data && rsData.data.length > 0) {
@@ -35,11 +44,16 @@ export default function useStocks() {
 
             const rsMap = new Map((rsData.data || []).map((item: any) => [String(item.symbol), item]));
             const techMap = new Map((techData.data || []).map((item: any) => [String(item.symbol), item]));
+            const netShortMap = new Map(netShortItems.map((item: any) => [String(item.symbol), item]));
+            // Industry group stocks are now keyed by symbol
+            const industryGroupMap = new Map(industryGroupItems.map((item: any) => [String(item.symbol), item]));
 
             const mappedStocks = (pricesData.data || []).map((item: any) => {
                 const symbolStr = String(item.symbol);
                 const rsInfo: any = rsMap.get(symbolStr) || {};
                 const techInfo: any = techMap.get(symbolStr) || {};
+                const netShortInfo: any = netShortMap.get(symbolStr) || {};
+                const industryGroupInfo: any = industryGroupMap.get(symbolStr) || {};
 
                 return {
                     symbol: item.symbol,
@@ -218,6 +232,18 @@ export default function useStocks() {
                     cci_ema20_w: techInfo.cci_ema20_w ?? null,
                     aroon_up_w: techInfo.aroon_up_w ?? null,
                     aroon_down_w: techInfo.aroon_down_w ?? null,
+
+                    // Net Short Positions
+                    percent_over_outstanding: netShortInfo.percent_over_outstanding ?? netShortInfo.short_pct_outstanding ?? undefined,
+                    percent_over_free_float: netShortInfo.percent_over_free_float ?? netShortInfo.short_pct_free_float ?? undefined,
+                    ratio_over_avg_daily: netShortInfo.ratio_over_avg_daily ?? netShortInfo.short_ratio_avg_daily ?? undefined,
+
+                    // RS Rating History from Industry Groups (matched by industry_group name)
+                    rs_rating_1_week_ago: industryGroupInfo.rs_rating_1_week_ago ?? industryGroupInfo.rs_1w ?? undefined,
+                    rs_rating_4_weeks_ago: industryGroupInfo.rs_rating_4_weeks_ago ?? industryGroupInfo.rs_4w ?? undefined,
+                    rs_rating_3_months_ago: industryGroupInfo.rs_rating_3_months_ago ?? industryGroupInfo.rs_3m ?? undefined,
+                    rs_rating_6_months_ago: industryGroupInfo.rs_rating_6_months_ago ?? industryGroupInfo.rs_6m ?? undefined,
+                    rs_rating_1_year_ago: industryGroupInfo.rs_rating_1_year_ago ?? industryGroupInfo.rs_1y ?? undefined,
 
                     // Signals
                     stamp: techInfo.stamp ?? false,

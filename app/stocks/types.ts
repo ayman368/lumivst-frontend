@@ -94,7 +94,7 @@ export interface Stock {
     sma_200_5m_ago?: number;  // 200MA قبل 5 أشهر
     sma_30w?: number;         // 30-Week SMA
     sma_40w?: number;         // 40-Week SMA
-    
+
     // ✅ MA COMPARISON CONDITIONS (Boolean)
     ema10_gt_sma50?: boolean;
     ema10_gt_sma200?: boolean;
@@ -181,6 +181,18 @@ export interface Stock {
     cci_ema20_w?: number | null;
     aroon_up_w?: number | null;
     aroon_down_w?: number | null;
+
+    // === Net Short Positions ===
+    percent_over_outstanding?: string | number;
+    percent_over_free_float?: string | number;
+    ratio_over_avg_daily?: string | number;
+
+    // === RS Rating History (from Industry Groups) ===
+    rs_rating_1_week_ago?: number;
+    rs_rating_4_weeks_ago?: number;
+    rs_rating_3_months_ago?: number;
+    rs_rating_6_months_ago?: number;
+    rs_rating_1_year_ago?: number;
 
 }
 
@@ -408,7 +420,7 @@ export interface FilterState {
     stamp_ema45cfg_gt_50: string;
     stamp_ema20sma3_gt_50: string;
     stamp_ema45rsi_lt_stamp_lines: string;
-    
+
     // STAMP Tab Boolean filters (Weekly)
     stamp_sma9_gt_wma45_weekly: string;
     stamp_sma9rsi_gt_wma45_weekly: string;
@@ -476,4 +488,19 @@ export interface FilterState {
     sma_50?: number;
     sma_150?: number;
     sma_200?: number;
+
+    // === Net Short Position Filters ===
+    percent_over_outstanding_min: string;
+    percent_over_outstanding_max: string;
+    percent_over_free_float_min: string;
+    percent_over_free_float_max: string;
+    ratio_over_avg_daily_min: string;
+    ratio_over_avg_daily_max: string;
+
+    // === RS Momentum Trend Filters ===
+    rs_momentum_all: string;
+    rs_rating_gt_1w: string;
+    rs_1w_gt_4w: string;
+    rs_3m_gt_6m: string;
+    rs_6m_gt_1y: string;
 }

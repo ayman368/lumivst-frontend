@@ -119,6 +119,13 @@ export default function Navbar() {
           href: '#',
           items: [
             {
+              en: 'Rebh',
+              href: '#',
+              items: [
+                { en: 'Composite', href: '/screeners/Composite' },
+              ],
+            },
+            {
               en: 'Mark Minervini',
               href: '#',
               items: [

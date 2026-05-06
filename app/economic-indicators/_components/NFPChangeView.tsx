@@ -39,10 +39,23 @@ export default function NFPChangeView() {
   });
   const [chartHeight, setChartHeight] = useState(350);
   const [chartWidth, setChartWidth] = useState(1320);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // ── Transformation state ──
   const [selectedFrequency, setSelectedFrequency] = useState('Monthly');
   const [outputUnits, setOutputUnits] = useState('Select');
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    if (isFullscreen) {
+      window.addEventListener('keydown', handleEsc);
+      return () => window.removeEventListener('keydown', handleEsc);
+    }
+  }, [isFullscreen]);
 
   /* ── Close date picker on outside click ── */
   useEffect(() => {
@@ -426,6 +439,17 @@ export default function NFPChangeView() {
             </ResponsiveContainer>
           </div>
 
+          {/* Fullscreen button at bottom right */}
+          <div className="flex justify-end px-6 mt-4 mb-2">
+            <button
+              onClick={() => setIsFullscreen(true)}
+              className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded transition-colors"
+              title="View chart in fullscreen"
+            >
+              ⛶ Fullscreen
+            </button>
+          </div>
+
           {/* Footer */}
           <div className="flex justify-between items-center text-[11px] px-6 py-2 border-t border-gray-100 mb-1">
             <div className="text-gray-400">U.S. Bureau of Labor Statistics</div>
@@ -440,6 +464,28 @@ export default function NFPChangeView() {
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Modal */}
+      {isFullscreen && (
+        <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-2xl" style={{ maxWidth: '90vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ height: 'calc(85vh - 60px)', width: 'calc(90vw - 40px)', minWidth: '800px', overflow: 'auto' }} className="pt-6">
+              <ResponsiveContainer width="100%" height="100%">
+                {renderChart()}
+              </ResponsiveContainer>
+            </div>
+          </div>
+          <div className="mt-4">
+            <button
+              onClick={() => setIsFullscreen(false)}
+              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded transition-colors"
+              title="Close fullscreen (Press ESC)"
+            >
+              ← Back
+            </button>
           </div>
         </div>
       )}

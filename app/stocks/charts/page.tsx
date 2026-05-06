@@ -17,7 +17,7 @@ const initialFilterState: FilterState = {
     rank_9m_min: '', rank_9m_max: '',
     rank_12m_min: '', rank_12m_max: '',
     acc_dis_rating: [], industry_group_rs: [], sector_rs: [], industry_rs: [], sub_industry_rs: [],
-    approval_with_controls: [],
+    approval_with_controls: ['متوافقة مع الضوابط'],
     purge_amount_min: '', purge_amount_max: '',
     marginable_percent_min: '', marginable_percent_max: '',
     price_min: '', price_max: '',
@@ -201,7 +201,18 @@ const initialFilterState: FilterState = {
     price_vs_sma_10_min: '',
     price_vs_sma_10_max: '',
     price_vs_sma_21_min: '',
-    price_vs_sma_21_max: ''
+    price_vs_sma_21_max: '',
+    percent_over_outstanding_min: '',
+    percent_over_outstanding_max: '',
+    percent_over_free_float_min: '',
+    percent_over_free_float_max: '',
+    ratio_over_avg_daily_min: '',
+    ratio_over_avg_daily_max: '',
+    rs_momentum_all: '',
+    rs_rating_gt_1w: '',
+    rs_1w_gt_4w: '',
+    rs_3m_gt_6m: '',
+    rs_6m_gt_1y: ''
 };
 export default function StockScreenerPage() {
     const { stocks, metadata, loading, error, setStocks, setMetadata, setLoading, setError, refetch } = useStocks();

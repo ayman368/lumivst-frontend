@@ -6,8 +6,9 @@ import {
 } from '@/components/ui/table';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
-import { ChevronLeft, ChevronRight, Download, TrendingUp, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, ChevronDown, X, Loader } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { fetchBulkScreenerData } from '@/lib/utils/bulkExport';
 
 // ─── DESIGN TOKENS: Black & White ────────────────────────────────
 // Page bg: #FFFFFF  |  Card bg: #FFFFFF  |  Border: #E5E7EB  |  Border-light: #F3F4F6
@@ -71,6 +72,8 @@ export default function ScreenerTable({
   const [limit, setLimit] = useState(50);
   const [sortConfigs, setSortConfigs] = useState<SortConfig[]>([]);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [bulkExportLoading, setBulkExportLoading] = useState(false);
+  const [bulkExportResult, setBulkExportResult] = useState<Record<string, number> | null>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -86,6 +89,13 @@ export default function ScreenerTable({
   useEffect(() => {
     setPage(0);
   }, [data]);
+
+  // Auto-dismiss bulk export toast after 8 seconds
+  useEffect(() => {
+    if (!bulkExportResult) return;
+    const timer = setTimeout(() => setBulkExportResult(null), 8000);
+    return () => clearTimeout(timer);
+  }, [bulkExportResult]);
 
   const handleSort = (key: keyof StockResult) => {
     setPage(0);
@@ -140,10 +150,11 @@ export default function ScreenerTable({
     return `${parseFloat(val) > 0 ? '+' : ''}${val}%`;
   };
 
+  // ── Single screener export (current tab data only) ──────────────────────────
   const handleExport = useCallback((format: 'csv' | 'xls' | 'xlsx' | 'txt' | 'tv') => {
     const d = new Date();
     const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const plainFileName = `${exportFileNamePrefix === 'Alrayan' ? `${exportFileNamePrefix}_${dateStr}` : `${exportFileNamePrefix}_${dateStr}`}`;
+    const plainFileName = `${exportFileNamePrefix}_${dateStr}`;
     const tvFileName = exportFileNamePrefix === 'Alrayan'
       ? `REBH_${exportFileNamePrefix}_${dateStr}_TradingView`
       : `${plainFileName}_TradingView`;
@@ -160,7 +171,7 @@ export default function ScreenerTable({
 
     const headers = ['Symbol', 'Company Name', 'Price', 'SMA 50', 'SMA 150', 'SMA 200', 'RS Rating', '1M', '3M', '6M', '9M', '12M', 'Off 52W High', 'Off 52W Low'];
     const rows = sortedData.map(s => [s.symbol, s.company_name, s.close, s.sma_50, s.sma_150, s.sma_200, s.rs_rating, s.rank_1m, s.rank_3m, s.rank_6m, s.rank_9m, s.rank_12m, s.percent_off_52w_high, s.percent_off_52w_low]);
-    
+
     if (format === 'csv' || format === 'txt') {
       const sep = format === 'csv' ? ',' : '\t';
       const content = [headers.join(sep), ...rows.map(r => r.join(sep))].join('\n');
@@ -175,7 +186,54 @@ export default function ScreenerTable({
       XLSX.writeFile(wb, `${plainFileName}.${format}`, { bookType: format === 'xls' ? 'biff8' : 'xlsx' });
     }
     setShowExportMenu(false);
-  }, [sortedData]);
+  }, [sortedData, exportFileNamePrefix]);
+
+  // ── Bulk unified export (all screeners, deduplicated) ──────────────────────
+  const handleBulkExport = useCallback(async (format: 'csv' | 'xlsx' | 'tv') => {
+    setBulkExportLoading(true);
+    setBulkExportResult(null);
+    setShowExportMenu(false);
+
+    try {
+      const result = await fetchBulkScreenerData();
+      setBulkExportResult(result.screenerBreakdown);
+
+      const d = new Date();
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const plainFileName = `REBH_Bulk_Unified_Export_${dateStr}`;
+      const tvFileName = `REBH_Bulk_Unified_Export_${dateStr}_TradingView`;
+      const exportData = result.data;
+
+      if (format === 'tv') {
+        const tvContent = exportData.map(s => `TADAWUL:${s.symbol}`).join('\n');
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob([tvContent], { type: 'text/csv;charset=utf-8;' }));
+        link.download = `${tvFileName}.csv`;
+        link.click();
+        return;
+      }
+
+      const headers = ['Symbol', 'Company Name', 'Price', 'SMA 50', 'SMA 150', 'SMA 200', 'RS Rating', '1M', '3M', '6M', '9M', '12M', 'Off 52W High', 'Off 52W Low'];
+      const rows = exportData.map(s => [s.symbol, s.company_name, s.close, s.sma_50, s.sma_150, s.sma_200, s.rs_rating, s.rank_1m, s.rank_3m, s.rank_6m, s.rank_9m, s.rank_12m, s.percent_off_52w_high, s.percent_off_52w_low]);
+
+      if (format === 'csv') {
+        const content = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8;' }));
+        link.download = `${plainFileName}.csv`;
+        link.click();
+      } else {
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Bulk Export');
+        XLSX.writeFile(wb, `${plainFileName}.xlsx`, { bookType: 'xlsx' });
+      }
+    } catch (error) {
+      console.error('Error during bulk export:', error);
+    } finally {
+      setBulkExportLoading(false);
+    }
+  }, []);
 
   if (loading && data.length === 0) {
     return (
@@ -223,7 +281,7 @@ export default function ScreenerTable({
             MATCHED: <span style={{ color: '#111827', fontWeight: 700 }}>{total}</span>
           </div>
 
-          {/* Export button */}
+          {/* ── Export Dropdown ── */}
           <div style={{ position: 'relative' }} ref={exportMenuRef}>
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
@@ -233,8 +291,12 @@ export default function ScreenerTable({
                 fontWeight: 700, fontSize: '12px', transition: 'all 0.2s',
               }}
             >
-              <Download style={{ width: '14px', height: '14px' }} />
-              Export
+              {bulkExportLoading ? (
+                <Loader style={{ width: '14px', height: '14px', animation: 'spin 1s linear infinite' }} />
+              ) : (
+                <Download style={{ width: '14px', height: '14px' }} />
+              )}
+              {bulkExportLoading ? 'Exporting...' : 'Export'}
               <ChevronDown style={{ width: '12px', height: '12px', transform: showExportMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
             </button>
 
@@ -246,10 +308,15 @@ export default function ScreenerTable({
                   exit={{ opacity: 0, y: 8, scale: 0.96 }}
                   style={{
                     position: 'absolute', right: 0, top: 'calc(100% + 8px)',
-                    width: '220px', backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '16px',
+                    width: '240px', backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '16px',
                     boxShadow: '0 8px 28px rgba(0,0,0,0.12)', padding: '6px', zIndex: 200,
                   }}
                 >
+                  {/* ── Section label: This screener ── */}
+                  <div style={{ padding: '6px 14px 4px', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#9CA3AF' }}>
+                    This Screener
+                  </div>
+
                   {[
                     { label: 'comma delimited (.csv)', fmt: 'csv' as const, dot: '#111827' },
                     { label: 'excel 97-2003 (.xls)', fmt: 'xls' as const, dot: '#1A5276' },
@@ -258,13 +325,50 @@ export default function ScreenerTable({
                     { label: 'TradingView Symbols (.csv)', fmt: 'tv' as const, dot: '#2962FF' },
                   ].map(item => (
                     <button key={item.fmt} onClick={() => handleExport(item.fmt)} style={{
-                      width: '100%', textAlign: 'left', padding: '10px 14px', fontSize: '12px', color: '#4B5563', display: 'flex', alignItems: 'center', gap: '10px',
+                      width: '100%', textAlign: 'left', padding: '9px 14px', fontSize: '12px', color: '#4B5563', display: 'flex', alignItems: 'center', gap: '10px',
                       border: 'none', backgroundColor: 'transparent', cursor: 'pointer', borderRadius: '10px', transition: 'background-color 0.15s',
                     }}
                       onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#F9FAFB')}
                       onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
                     >
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: item.dot, flexShrink: 0 }} />
+                      <div style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: item.dot, flexShrink: 0 }} />
+                      {item.label}
+                    </button>
+                  ))}
+
+                  {/* ── Divider ── */}
+                  <div style={{ height: '1px', backgroundColor: '#E5E7EB', margin: '6px 0' }} />
+
+                  {/* ── Section label: Bulk export ── */}
+                  <div style={{ padding: '4px 14px 4px', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#059669' }}>
+                    Bulk Unified Export — All Screeners
+                  </div>
+
+                  {[
+                    { label: 'Bulk Export (.csv)', fmt: 'csv' as const },
+                    { label: 'Bulk Export (.xlsx)', fmt: 'xlsx' as const },
+                    { label: 'Bulk TradingView (.csv)', fmt: 'tv' as const },
+                  ].map(item => (
+                    <button
+                      key={`bulk-${item.fmt}`}
+                      onClick={() => handleBulkExport(item.fmt)}
+                      disabled={bulkExportLoading}
+                      style={{
+                        width: '100%', textAlign: 'left', padding: '9px 14px', fontSize: '12px',
+                        color: bulkExportLoading ? '#D1D5DB' : '#059669',
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        border: 'none', backgroundColor: 'transparent',
+                        cursor: bulkExportLoading ? 'not-allowed' : 'pointer',
+                        borderRadius: '10px', transition: 'background-color 0.15s', fontWeight: 600,
+                      }}
+                      onMouseEnter={e => !bulkExportLoading && (e.currentTarget.style.backgroundColor = '#F0FDF4')}
+                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    >
+                      {bulkExportLoading ? (
+                        <Loader style={{ width: '11px', height: '11px', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#059669', flexShrink: 0 }} />
+                      )}
                       {item.label}
                     </button>
                   ))}
@@ -281,34 +385,34 @@ export default function ScreenerTable({
           <Table>
             <TableHeader>
               <TableRow style={{ backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
-                {COLUMN_DEFS.map((col, i) => {
+                {COLUMN_DEFS.map((col) => {
                   const sortIndex = sortConfigs.findIndex(config => config.key === col.key);
                   const isSorted = sortIndex !== -1;
                   const sortPriority = sortIndex + 1;
                   const sortDir = isSorted ? sortConfigs[sortIndex].direction : null;
 
                   return (
-                    <TableHead 
-                      key={col.key} 
+                    <TableHead
+                      key={col.key}
                       onClick={() => col.sortable && handleSort(col.key as keyof StockResult)}
-                      style={{ 
-                        padding: '16px 20px', 
-                        textAlign: 'center', 
+                      style={{
+                        padding: '16px 20px',
+                        textAlign: 'center',
                         whiteSpace: 'nowrap',
                         cursor: col.sortable ? 'pointer' : 'default',
                         userSelect: 'none',
                         backgroundColor: isSorted ? '#F3F4F6' : 'transparent',
-                        borderBottom: isSorted ? '2px solid #111827' : 'none'
+                        borderBottom: isSorted ? '2px solid #111827' : 'none',
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                        <span style={{ 
-                          fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.18em', 
-                          color: isSorted ? '#111827' : '#9CA3AF' 
+                        <span style={{
+                          fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.18em',
+                          color: isSorted ? '#111827' : '#9CA3AF',
                         }}>
                           {col.label}
                         </span>
-                        
+
                         {col.sortable && (
                           <div style={{ display: 'flex', flexDirection: 'column', marginLeft: '2px', lineHeight: 1 }}>
                             {isSorted ? (
@@ -322,12 +426,12 @@ export default function ScreenerTable({
                             )}
                           </div>
                         )}
-                        
+
                         {isSorted && (
-                          <span style={{ 
-                            marginLeft: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', 
-                            width: '14px', height: '14px', backgroundColor: '#111827', color: '#FFFFFF', 
-                            fontSize: '9px', fontWeight: 900, borderRadius: '50%', flexShrink: 0 
+                          <span style={{
+                            marginLeft: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            width: '14px', height: '14px', backgroundColor: '#111827', color: '#FFFFFF',
+                            fontSize: '9px', fontWeight: 900, borderRadius: '50%', flexShrink: 0,
                           }}>
                             {sortPriority}
                           </span>
@@ -431,6 +535,49 @@ export default function ScreenerTable({
         </div>
       </div>
 
+      {/* ── Bulk Export Result Toast ── */}
+      <AnimatePresence>
+        {bulkExportResult && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            style={{
+              position: 'fixed', bottom: '24px', right: '24px',
+              backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '16px',
+              boxShadow: '0 12px 32px rgba(0,0,0,0.15)', padding: '20px', zIndex: 300,
+              maxWidth: '360px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>
+                  ✓ Bulk Export Complete
+                </div>
+                <div style={{ fontSize: '12px', color: '#4B5563', lineHeight: 1.7 }}>
+                  {Object.entries(bulkExportResult).map(([label, count]) => (
+                    <div key={label}>
+                      <strong>{label}:</strong> {count} symbols
+                    </div>
+                  ))}
+                  <div style={{ marginTop: '8px', fontWeight: 700, color: '#059669' }}>
+                    Total: {Object.values(bulkExportResult).reduce((a, b) => a + b, 0)} unique symbols
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setBulkExportResult(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: '#9CA3AF' }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#111827')}
+                onMouseLeave={e => (e.currentTarget.style.color = '#9CA3AF')}
+              >
+                <X style={{ width: '18px', height: '18px' }} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Pagination ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', padding: '4px 0' }}>
         {/* Page number pills */}
@@ -479,6 +626,8 @@ export default function ScreenerTable({
           </Button>
         </div>
       </div>
+
+      <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }

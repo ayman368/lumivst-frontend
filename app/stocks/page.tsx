@@ -3,12 +3,7 @@ import Link from 'next/link';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Filter, ChevronLeft, ChevronRight, PanelLeft, Search, CheckCircle2, XCircle, Shield, TrendingUp as TrendingUpIcon } from 'lucide-react';
 import RatingBadge from './components/RatingBadge';
-// import CustomMultiSelect from './components/CustomMultiSelect';
-// import RangeFilter from './components/RangeFilter';
-// import CustomDropdown from './components/CustomDropdown';
-// import CheckboxGroup from './components/CheckboxGroup';
 import ActiveFilterBadge from './components/ActiveFilterBadge';
-// import FilterAccordion from './components/FilterAccordion';
 import ExportMenu from './components/ExportMenu';
 import ColumnSelector from './components/ColumnSelector';
 import FilterSidebar from './components/FilterSidebar';
@@ -35,7 +30,7 @@ const initialFilterState: FilterState = {
     percent_off_52w_high_min: '', percent_off_52w_high_max: '',
     percent_off_52w_low_min: '', percent_off_52w_low_max: '',
     market_cap_min: '', market_cap_max: '',
-    approval_with_controls: [],
+    approval_with_controls: ['متوافقة مع الضوابط'],
     purge_amount_min: '', purge_amount_max: '',
     marginable_percent_min: '', marginable_percent_max: '',
     price_minus_sma_10_min: '', price_minus_sma_10_max: '',
@@ -209,6 +204,16 @@ const initialFilterState: FilterState = {
     sma_200_3m_min: '', sma_200_3m_max: '',
     sma_200_4m_min: '', sma_200_4m_max: '',
     sma_200_5m_min: '', sma_200_5m_max: '',
+    // === Net Short Position Filters ===
+    percent_over_outstanding_min: '', percent_over_outstanding_max: '',
+    percent_over_free_float_min: '', percent_over_free_float_max: '',
+    ratio_over_avg_daily_min: '', ratio_over_avg_daily_max: '',
+    // === RS Momentum Trend Filters ===
+    rs_momentum_all: 'any',
+    rs_rating_gt_1w: 'any',
+    rs_1w_gt_4w: 'any',
+    rs_3m_gt_6m: 'any',
+    rs_6m_gt_1y: 'any',
 };
 export default function StockScreenerPage() {
     const { stocks, metadata, loading, error, setStocks, setMetadata, setLoading, setError, refetch } = useStocks();
@@ -328,6 +333,16 @@ export default function StockScreenerPage() {
         { key: 'cci_ema20_w', label: 'CCI.EMA20(W)', visibleKey: 'cci_ema20_w' },
         { key: 'aroon_up_w', label: 'AROON.UP(W)', visibleKey: 'aroon_up_w' },
         { key: 'aroon_down_w', label: 'AROON.DOWN(W)', visibleKey: 'aroon_down_w' },
+        // Net Short Positions
+        { key: 'percent_over_outstanding', label: 'Short % Outstanding', visibleKey: 'percent_over_outstanding' },
+        { key: 'percent_over_free_float', label: 'Short % Free Float', visibleKey: 'percent_over_free_float' },
+        { key: 'ratio_over_avg_daily', label: 'Short Ratio Avg Daily', visibleKey: 'ratio_over_avg_daily' },
+        // RS Rating History
+        { key: 'rs_rating_1_week_ago', label: 'RS 1W Ago', visibleKey: 'rs_rating_1_week_ago' },
+        { key: 'rs_rating_4_weeks_ago', label: 'RS 4W Ago', visibleKey: 'rs_rating_4_weeks_ago' },
+        { key: 'rs_rating_3_months_ago', label: 'RS 3M Ago', visibleKey: 'rs_rating_3_months_ago' },
+        { key: 'rs_rating_6_months_ago', label: 'RS 6M Ago', visibleKey: 'rs_rating_6_months_ago' },
+        { key: 'rs_rating_1_year_ago', label: 'RS 1Y Ago', visibleKey: 'rs_rating_1_year_ago' },
     ];
     const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
         const defaultVisible: Record<string, boolean> = {};
@@ -584,6 +599,19 @@ export default function StockScreenerPage() {
         if (filters.sector.length > 0) active.push({ label: 'Sectors', value: filters.sector.join(', '), key: 'sector' });
         if (filters.industry.length > 0) active.push({ label: 'Industries', value: filters.industry.join(', '), key: 'industry' });
         if (filters.sub_industry.length > 0) active.push({ label: 'Sub Industries', value: filters.sub_industry.join(', '), key: 'sub_industry' });
+
+        // Net Short Position filters
+        addRangeFilter('Short % Outstanding', 'percent_over_outstanding_min', 'percent_over_outstanding_max');
+        addRangeFilter('Short % Free Float', 'percent_over_free_float_min', 'percent_over_free_float_max');
+        addRangeFilter('Short Ratio Avg Daily', 'ratio_over_avg_daily_min', 'ratio_over_avg_daily_max');
+
+        // RS Momentum Trend filters
+        addBoolFilter('RS > 1W > 4W > 3M > 6M > 1Y', 'rs_momentum_all');
+        addBoolFilter('RS Rating > 1W', 'rs_rating_gt_1w');
+        addBoolFilter('RS 1W > 4W', 'rs_1w_gt_4w');
+        addBoolFilter('RS 3M > 6M', 'rs_3m_gt_6m');
+        addBoolFilter('RS 6M > 1Y', 'rs_6m_gt_1y');
+
         return active;
     }, [filters]);
     const filteredAndSortedStocks = useMemo(() => {
@@ -848,6 +876,25 @@ export default function StockScreenerPage() {
             if (!c(filters.wma30_gt_wma40, parseFloat(String(stock.sma_30w ?? 0)) > parseFloat(String(stock.sma_40w ?? 0)))) return false;
             if (!c(filters.price_gt_ema10, p > _ema10)) return false;
             if (!c(filters.price_gt_ema21, p > _ema21)) return false;
+
+            // Net Short Position range filters
+            if (!checkRange(stock.percent_over_outstanding, 'percent_over_outstanding_min', 'percent_over_outstanding_max', true)) return false;
+            if (!checkRange(stock.percent_over_free_float, 'percent_over_free_float_min', 'percent_over_free_float_max', true)) return false;
+            if (!checkRange(stock.ratio_over_avg_daily, 'ratio_over_avg_daily_min', 'ratio_over_avg_daily_max', true)) return false;
+
+            // RS Momentum Trend boolean filters
+            const _rs = stock.rs_rating ?? 0;
+            const _rs1w = stock.rs_rating_1_week_ago ?? 0;
+            const _rs4w = stock.rs_rating_4_weeks_ago ?? 0;
+            const _rs3m = stock.rs_rating_3_months_ago ?? 0;
+            const _rs6m = stock.rs_rating_6_months_ago ?? 0;
+            const _rs1y = stock.rs_rating_1_year_ago ?? 0;
+            if (filters.rs_momentum_all !== 'any' && !c(filters.rs_momentum_all, _rs > _rs1w && _rs1w > _rs4w && _rs4w > _rs3m && _rs3m > _rs6m && _rs6m > _rs1y)) return false;
+            if (filters.rs_rating_gt_1w !== 'any' && !c(filters.rs_rating_gt_1w, _rs > _rs1w)) return false;
+            if (filters.rs_1w_gt_4w !== 'any' && !c(filters.rs_1w_gt_4w, _rs1w > _rs4w)) return false;
+            if (filters.rs_3m_gt_6m !== 'any' && !c(filters.rs_3m_gt_6m, _rs3m > _rs6m)) return false;
+            if (filters.rs_6m_gt_1y !== 'any' && !c(filters.rs_6m_gt_1y, _rs6m > _rs1y)) return false;
+
             return true;
         });
         if (sortConfigs.length > 0) {
@@ -1107,6 +1154,9 @@ export default function StockScreenerPage() {
                                                     case 'percent_off_52w_low': content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.percent_off_52w_low)}</span>; break;
                                                     case 'vol_diff_50_percent': content = <span className="text-gray-900">{formatChangePercentOneDecimal(stock.vol_diff_50_percent)}</span>; break;
                                                     case 'beta': content = <span className="text-gray-900 tooltip-trigger" title="Volatility vs TASI Benchmark">{formatNumber(stock.beta)}</span>; break;
+                                                    case 'percent_over_outstanding': content = <span className="text-gray-900">{stock.percent_over_outstanding ?? '-'}</span>; break;
+                                                    case 'percent_over_free_float': content = <span className="text-gray-900">{stock.percent_over_free_float ?? '-'}</span>; break;
+                                                    case 'ratio_over_avg_daily': content = <span className="text-gray-900">{stock.ratio_over_avg_daily ?? '-'}</span>; break;
                                                     default: {
                                                         const techVal = (stock as any)[col.key];
                                                         if (techVal === null || techVal === undefined || techVal === '') content = <span className="text-gray-400">-</span>;

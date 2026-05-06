@@ -23,13 +23,13 @@ import {
   formatXAxisLabel,
   calculateYAxisTicks,
 } from './dataTransforms';
-import { IndicatorMetadata } from '../_data/indicatorMetadata';
+import { SpreadMetadata } from '../_data/spreadMetadata';
 
 interface EconomicIndicatorProps {
   indicatorCode: string;
   title: string;
   yAxisLabel: string;
-  metadata?: IndicatorMetadata;
+  metadata?: SpreadMetadata;
   showHeader?: boolean;
 }
 
@@ -80,7 +80,7 @@ function getStrokeDasharrayForStyle(style: 'Solid' | 'Dashed' | 'Dotted'): strin
   return undefined;
 }
 
-export default function EconomicIndicatorView({ indicatorCode, title, yAxisLabel, metadata, showHeader = true }: EconomicIndicatorProps) {
+export default function SpreadIndicatorView({ indicatorCode, title, yAxisLabel, metadata, showHeader = true }: EconomicIndicatorProps) {
   const [data, setData] = useState<any[]>([]);
   const [rawData, setRawData] = useState<any[]>([]);  // Keep full response with created_at
   const [loading, setLoading] = useState(true);
@@ -111,24 +111,12 @@ export default function EconomicIndicatorView({ indicatorCode, title, yAxisLabel
   // ── User-defined lines (trend lines) ──
   const [userDefinedLines, setUserDefinedLines] = useState<UserDefinedLine[]>([]);
 
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isFullscreen) {
-        setIsFullscreen(false);
-      }
-    };
-    if (isFullscreen) {
-      window.addEventListener('keydown', handleEsc);
-      return () => window.removeEventListener('keydown', handleEsc);
-    }
-  }, [isFullscreen]);
-
   /* ── Fetch primary series ── */
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true);
-        const res = await fetch(`${API_BASE_URL}/api/economic-indicators/${indicatorCode}?limit=3000`);
+        const res = await fetch(`${API_BASE_URL}/api/economic-indicators/${indicatorCode}?limit=5000`);
         if (!res.ok) throw new Error('Data fetch failed');
         const json = await res.json();
 
@@ -152,6 +140,19 @@ export default function EconomicIndicatorView({ indicatorCode, title, yAxisLabel
     }
     fetchData();
   }, [indicatorCode]);
+
+  /* ── Handle ESC key for fullscreen exit ── */
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    if (isFullscreen) {
+      window.addEventListener('keydown', handleEsc);
+      return () => window.removeEventListener('keydown', handleEsc);
+    }
+  }, [isFullscreen]);
 
   /* ── Fetch an additional series ── */
   const fetchNewSeries = async (code: string) => {
@@ -188,7 +189,7 @@ export default function EconomicIndicatorView({ indicatorCode, title, yAxisLabel
   const computedMetadata = useMemo(() => {
     if (!metadata) return metadata;
 
-    const dynamicValues: Partial<IndicatorMetadata> = {};
+    const dynamicValues: Partial<SpreadMetadata> = {};
 
     // Latest observation value and date (first item in reversed rawData)
     if (rawData.length > 0) {
@@ -563,27 +564,41 @@ export default function EconomicIndicatorView({ indicatorCode, title, yAxisLabel
               </div>
             )}
 
-            {/* Edit Graph sidebar */}
-            <EditGraphSidebar
-              lineInfo={{
-                seriesId: indicatorCode,
-                label: title,
-                units: defaultUnits,
-                frequency: 'Monthly',
-                seasonalAdjustment: 'Seasonally Adjusted',
-              }}
-              formatSettings={formatSettings}
-              onFormatChange={setFormatSettings}
-              onSizeApply={(h, w) => { setChartHeight(h); setChartWidth(w); }}
-              onUnitsChange={(u) => setSelectedUnits(u)}
-              onFrequencyChange={(f) => setSelectedFrequency(f)}
-              onOutputUnitsChange={(u) => setOutputUnits(u)}
-              onAddSeries={handleAddSeries}
-              onFormulaApply={handleApplyFormula}
-              userDefinedLines={userDefinedLines}
-              onUserDefinedLinesChange={setUserDefinedLines}
-              additionalSeriesLabels={additionalSeriesLabels}
-            />
+            {/* Fullscreen and Edit Graph buttons in same row */}
+            <div className="flex items-center gap-2">
+              {/* Fullscreen button */}
+              {!loading && data.length > 0 && (
+                <button
+                  onClick={() => setIsFullscreen(true)}
+                  className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded transition-colors"
+                  title="View chart in fullscreen"
+                >
+                  ⛶ Fullscreen
+                </button>
+              )}
+
+              {/* Edit Graph sidebar */}
+              <EditGraphSidebar
+                lineInfo={{
+                  seriesId: indicatorCode,
+                  label: title,
+                  units: defaultUnits,
+                  frequency: 'Monthly',
+                  seasonalAdjustment: 'Seasonally Adjusted',
+                }}
+                formatSettings={formatSettings}
+                onFormatChange={setFormatSettings}
+                onSizeApply={(h, w) => { setChartHeight(h); setChartWidth(w); }}
+                onUnitsChange={(u) => setSelectedUnits(u)}
+                onFrequencyChange={(f) => setSelectedFrequency(f)}
+                onOutputUnitsChange={(u) => setOutputUnits(u)}
+                onAddSeries={handleAddSeries}
+                onFormulaApply={handleApplyFormula}
+                userDefinedLines={userDefinedLines}
+                onUserDefinedLinesChange={setUserDefinedLines}
+                additionalSeriesLabels={additionalSeriesLabels}
+              />
+            </div>
           </div>
         </div>
 
@@ -601,16 +616,6 @@ export default function EconomicIndicatorView({ indicatorCode, title, yAxisLabel
                 {renderChart()}
               </ResponsiveContainer>
             </div>
-            {/* Fullscreen button at bottom right */}
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={() => setIsFullscreen(true)}
-                className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded transition-colors"
-                title="View chart in fullscreen"
-              >
-                ⛶ Fullscreen
-              </button>
-            </div>
           </div>
         )}
       </div>
@@ -621,13 +626,31 @@ export default function EconomicIndicatorView({ indicatorCode, title, yAxisLabel
       {/* Fullscreen Modal */}
       {isFullscreen && (
         <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center p-4">
+          {/* Fullscreen Chart Container */}
           <div className="bg-white rounded-lg shadow-2xl" style={{ maxWidth: '90vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+            {/* Chart Content */}
             <div style={{ height: 'calc(85vh - 60px)', width: 'calc(90vw - 40px)', minWidth: '800px', overflow: 'auto' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                {renderChart()}
-              </ResponsiveContainer>
+              {loading ? (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  <span>Loading data...</span>
+                </div>
+              ) : error ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-red-600 bg-red-50 p-4 rounded-md max-w-md text-center">{error}</div>
+                </div>
+              ) : transformedData.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  <span>No data available</span>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  {renderChart()}
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
+
+          {/* Back Button outside chart */}
           <div className="mt-4">
             <button
               onClick={() => setIsFullscreen(false)}

@@ -724,12 +724,15 @@ export default function LightweightChart({
                                         borderColor: active ? cfg.color : undefined,
                                     }}
                                 >
-                                    {!active && (
-                                        <span
-                                            className="w-1.5 h-1.5 rounded-full shrink-0"
-                                            style={{ backgroundColor: cfg.color }}
-                                        />
-                                    )}
+                                    <span
+                                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                                        style={{
+                                            backgroundColor: cfg.color,
+                                            opacity: active ? 0 : 1,
+                                            width: active ? 0 : 6,
+                                            transition: 'opacity 0.15s, width 0.15s',
+                                        }}
+                                    />
                                     {cfg.label}
                                 </button>
                             );
