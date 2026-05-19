@@ -29,6 +29,7 @@ const menuItems: SidebarItem[] = [
       { en: 'Nonfarm Payroll (PAYEMS)', href: '/economic-indicators/payems' },
       { en: 'Initial Claims (IC4WSA)', href: '/economic-indicators/ic4wsa' },
       { en: 'NFP Change', href: '/economic-indicators/nfp-change' },
+      { en: 'NAAIM Exposure Index', href: '/economic-indicators/naaim' },
     ],
   },
   {

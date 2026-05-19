@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Layout from "@/components/Layout";
 import { AuthProvider } from "./providers/AuthProvider";
+import { ToastProvider } from "@/components/ui/Toast";
 
 export const metadata: Metadata = {
   title: "REBH",
@@ -23,9 +24,11 @@ export default function RootLayout({
       </head>
       <body className="font-sans">
         <AuthProvider>
-          <Layout>
-            {children}
-          </Layout>
+          <ToastProvider>
+            <Layout>
+              {children}
+            </Layout>
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>

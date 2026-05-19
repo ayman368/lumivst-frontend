@@ -204,6 +204,23 @@ const initialFilterState: FilterState = {
     sma_200_3m_min: '', sma_200_3m_max: '',
     sma_200_4m_min: '', sma_200_4m_max: '',
     sma_200_5m_min: '', sma_200_5m_max: '',
+    // === Industry Group Metrics Filters ===
+    ind_group_rank_min: '', ind_group_rank_max: '',
+    ind_group_rank_1_week_ago_min: '', ind_group_rank_1_week_ago_max: '',
+    ind_group_rank_3_months_ago_min: '', ind_group_rank_3_months_ago_max: '',
+    ind_group_rank_6_months_ago_min: '', ind_group_rank_6_months_ago_max: '',
+    ind_group_number_of_stocks_min: '', ind_group_number_of_stocks_max: '',
+    ind_group_market_value_min: '', ind_group_market_value_max: '',
+    ind_group_ytd_change_percent_min: '', ind_group_ytd_change_percent_max: '',
+    ind_group_change_vs_last_week_min: '', ind_group_change_vs_last_week_max: '',
+    ind_group_count_above_ma20_min: '', ind_group_count_above_ma20_max: '',
+    ind_group_percent_above_ma20_min: '', ind_group_percent_above_ma20_max: '',
+    ind_group_count_above_ma50_min: '', ind_group_count_above_ma50_max: '',
+    ind_group_percent_above_ma50_min: '', ind_group_percent_above_ma50_max: '',
+    ind_group_count_above_ma150_min: '', ind_group_count_above_ma150_max: '',
+    ind_group_percent_above_ma150_min: '', ind_group_percent_above_ma150_max: '',
+    ind_group_count_above_ma200_min: '', ind_group_count_above_ma200_max: '',
+    ind_group_percent_above_ma200_min: '', ind_group_percent_above_ma200_max: '',
     // === Net Short Position Filters ===
     percent_over_outstanding_min: '', percent_over_outstanding_max: '',
     percent_over_free_float_min: '', percent_over_free_float_max: '',
@@ -343,6 +360,23 @@ export default function StockScreenerPage() {
         { key: 'rs_rating_3_months_ago', label: 'RS 3M Ago', visibleKey: 'rs_rating_3_months_ago' },
         { key: 'rs_rating_6_months_ago', label: 'RS 6M Ago', visibleKey: 'rs_rating_6_months_ago' },
         { key: 'rs_rating_1_year_ago', label: 'RS 1Y Ago', visibleKey: 'rs_rating_1_year_ago' },
+        // Industry Group Metrics
+        { key: 'ind_group_rank', label: 'Ind Group Rank', visibleKey: 'ind_group_rank' },
+        { key: 'ind_group_rank_1_week_ago', label: 'Ind Group Last Week', visibleKey: 'ind_group_rank_1_week_ago' },
+        { key: 'ind_group_rank_3_months_ago', label: 'Ind Group 3 Mo Ago', visibleKey: 'ind_group_rank_3_months_ago' },
+        { key: 'ind_group_rank_6_months_ago', label: 'Ind Group 6 Mo Ago', visibleKey: 'ind_group_rank_6_months_ago' },
+        { key: 'ind_group_number_of_stocks', label: 'Ind Group Num Stocks', visibleKey: 'ind_group_number_of_stocks' },
+        { key: 'ind_group_market_value', label: 'Ind Group Mkt Val (Bil)', visibleKey: 'ind_group_market_value' },
+        { key: 'ind_group_ytd_change_percent', label: 'Ind Group % Chg YTD', visibleKey: 'ind_group_ytd_change_percent' },
+        { key: 'ind_group_change_vs_last_week', label: 'Ind Group Change v last week', visibleKey: 'ind_group_change_vs_last_week' },
+        { key: 'ind_group_count_above_ma20', label: 'Ind Group # of stocks > 20MA', visibleKey: 'ind_group_count_above_ma20' },
+        { key: 'ind_group_percent_above_ma20', label: 'Ind Group % of stocks > 20MA', visibleKey: 'ind_group_percent_above_ma20' },
+        { key: 'ind_group_count_above_ma50', label: 'Ind Group # of stocks > 50MA', visibleKey: 'ind_group_count_above_ma50' },
+        { key: 'ind_group_percent_above_ma50', label: 'Ind Group % of stocks > 50MA', visibleKey: 'ind_group_percent_above_ma50' },
+        { key: 'ind_group_count_above_ma150', label: 'Ind Group # of stocks > 150MA', visibleKey: 'ind_group_count_above_ma150' },
+        { key: 'ind_group_percent_above_ma150', label: 'Ind Group % of stocks > 150MA', visibleKey: 'ind_group_percent_above_ma150' },
+        { key: 'ind_group_count_above_ma200', label: 'Ind Group # of stocks > 200MA', visibleKey: 'ind_group_count_above_ma200' },
+        { key: 'ind_group_percent_above_ma200', label: 'Ind Group % of stocks > 200MA', visibleKey: 'ind_group_percent_above_ma200' },
     ];
     const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
         const defaultVisible: Record<string, boolean> = {};
@@ -612,6 +646,24 @@ export default function StockScreenerPage() {
         addBoolFilter('RS 3M > 6M', 'rs_3m_gt_6m');
         addBoolFilter('RS 6M > 1Y', 'rs_6m_gt_1y');
 
+        // Industry Group Metrics
+        addRangeFilter('Ind Group Rank', 'ind_group_rank_min', 'ind_group_rank_max');
+        addRangeFilter('Ind Group 1W Ago', 'ind_group_rank_1_week_ago_min', 'ind_group_rank_1_week_ago_max');
+        addRangeFilter('Ind Group 3M Ago', 'ind_group_rank_3_months_ago_min', 'ind_group_rank_3_months_ago_max');
+        addRangeFilter('Ind Group 6M Ago', 'ind_group_rank_6_months_ago_min', 'ind_group_rank_6_months_ago_max');
+        addRangeFilter('Ind Group Num Stocks', 'ind_group_number_of_stocks_min', 'ind_group_number_of_stocks_max');
+        addRangeFilter('Ind Group Mkt Val', 'ind_group_market_value_min', 'ind_group_market_value_max');
+        addRangeFilter('Ind Group % Chg YTD', 'ind_group_ytd_change_percent_min', 'ind_group_ytd_change_percent_max');
+        addRangeFilter('Ind Group Chg v Last Wk', 'ind_group_change_vs_last_week_min', 'ind_group_change_vs_last_week_max');
+        addRangeFilter('Ind Group # > 20MA', 'ind_group_count_above_ma20_min', 'ind_group_count_above_ma20_max');
+        addRangeFilter('Ind Group % > 20MA', 'ind_group_percent_above_ma20_min', 'ind_group_percent_above_ma20_max');
+        addRangeFilter('Ind Group # > 50MA', 'ind_group_count_above_ma50_min', 'ind_group_count_above_ma50_max');
+        addRangeFilter('Ind Group % > 50MA', 'ind_group_percent_above_ma50_min', 'ind_group_percent_above_ma50_max');
+        addRangeFilter('Ind Group # > 150MA', 'ind_group_count_above_ma150_min', 'ind_group_count_above_ma150_max');
+        addRangeFilter('Ind Group % > 150MA', 'ind_group_percent_above_ma150_min', 'ind_group_percent_above_ma150_max');
+        addRangeFilter('Ind Group # > 200MA', 'ind_group_count_above_ma200_min', 'ind_group_count_above_ma200_max');
+        addRangeFilter('Ind Group % > 200MA', 'ind_group_percent_above_ma200_min', 'ind_group_percent_above_ma200_max');
+
         return active;
     }, [filters]);
     const filteredAndSortedStocks = useMemo(() => {
@@ -733,6 +785,24 @@ export default function StockScreenerPage() {
             if (!checkRange(stock.the_number_hl_w, 'the_number_hl_w_min', 'the_number_hl_w_max', true)) return false;
             if (!checkRange(stock.the_number_ll_w, 'the_number_ll_w_min', 'the_number_ll_w_max', true)) return false;
             if (!checkRange(stock.cfg_w, 'cfg_w_min', 'cfg_w_max', true)) return false;
+
+            // Industry Group Metrics
+            if (!checkRange(stock.ind_group_rank, 'ind_group_rank_min', 'ind_group_rank_max')) return false;
+            if (!checkRange(stock.ind_group_rank_1_week_ago, 'ind_group_rank_1_week_ago_min', 'ind_group_rank_1_week_ago_max')) return false;
+            if (!checkRange(stock.ind_group_rank_3_months_ago, 'ind_group_rank_3_months_ago_min', 'ind_group_rank_3_months_ago_max')) return false;
+            if (!checkRange(stock.ind_group_rank_6_months_ago, 'ind_group_rank_6_months_ago_min', 'ind_group_rank_6_months_ago_max')) return false;
+            if (!checkRange(stock.ind_group_number_of_stocks, 'ind_group_number_of_stocks_min', 'ind_group_number_of_stocks_max')) return false;
+            if (!checkRange(stock.ind_group_market_value, 'ind_group_market_value_min', 'ind_group_market_value_max')) return false;
+            if (!checkRange(stock.ind_group_ytd_change_percent, 'ind_group_ytd_change_percent_min', 'ind_group_ytd_change_percent_max', true)) return false;
+            if (!checkRange(stock.ind_group_change_vs_last_week, 'ind_group_change_vs_last_week_min', 'ind_group_change_vs_last_week_max', true)) return false;
+            if (!checkRange(stock.ind_group_count_above_ma20, 'ind_group_count_above_ma20_min', 'ind_group_count_above_ma20_max')) return false;
+            if (!checkRange(stock.ind_group_percent_above_ma20, 'ind_group_percent_above_ma20_min', 'ind_group_percent_above_ma20_max', true)) return false;
+            if (!checkRange(stock.ind_group_count_above_ma50, 'ind_group_count_above_ma50_min', 'ind_group_count_above_ma50_max')) return false;
+            if (!checkRange(stock.ind_group_percent_above_ma50, 'ind_group_percent_above_ma50_min', 'ind_group_percent_above_ma50_max', true)) return false;
+            if (!checkRange(stock.ind_group_count_above_ma150, 'ind_group_count_above_ma150_min', 'ind_group_count_above_ma150_max')) return false;
+            if (!checkRange(stock.ind_group_percent_above_ma150, 'ind_group_percent_above_ma150_min', 'ind_group_percent_above_ma150_max', true)) return false;
+            if (!checkRange(stock.ind_group_count_above_ma200, 'ind_group_count_above_ma200_min', 'ind_group_count_above_ma200_max')) return false;
+            if (!checkRange(stock.ind_group_percent_above_ma200, 'ind_group_percent_above_ma200_min', 'ind_group_percent_above_ma200_max', true)) return false;
 
             const c = (state: string, isValid: boolean) => {
                 if (state === 'any') return true; // 'any' means no filter applied
@@ -1157,6 +1227,39 @@ export default function StockScreenerPage() {
                                                     case 'percent_over_outstanding': content = <span className="text-gray-900">{stock.percent_over_outstanding ?? '-'}</span>; break;
                                                     case 'percent_over_free_float': content = <span className="text-gray-900">{stock.percent_over_free_float ?? '-'}</span>; break;
                                                     case 'ratio_over_avg_daily': content = <span className="text-gray-900">{stock.ratio_over_avg_daily ?? '-'}</span>; break;
+                                                    case 'ind_group_rank':
+                                                    case 'ind_group_rank_1_week_ago':
+                                                    case 'ind_group_rank_3_months_ago':
+                                                    case 'ind_group_rank_6_months_ago':
+                                                    case 'ind_group_number_of_stocks':
+                                                    case 'ind_group_count_above_ma20':
+                                                    case 'ind_group_count_above_ma50':
+                                                    case 'ind_group_count_above_ma150':
+                                                    case 'ind_group_count_above_ma200':
+                                                        content = <span className="text-gray-900">{(stock as any)[col.key] != null ? Number((stock as any)[col.key]).toFixed(0) : '-'}</span>; break;
+                                                    case 'ind_group_ytd_change_percent':
+                                                    case 'ind_group_percent_above_ma20':
+                                                    case 'ind_group_percent_above_ma50':
+                                                    case 'ind_group_percent_above_ma150':
+                                                    case 'ind_group_percent_above_ma200':
+                                                        content = <span className="text-gray-900">{(stock as any)[col.key] != null ? formatChangePercent((stock as any)[col.key]) : '-'}</span>; break;
+                                                    case 'ind_group_change_vs_last_week': {
+                                                        const val = (stock as any)[col.key];
+                                                        if (val === undefined || val === null) {
+                                                            content = <span className="text-gray-400">-</span>;
+                                                        } else if (val === 0) {
+                                                            content = <span className="text-gray-500 font-medium">0</span>;
+                                                        } else {
+                                                            const isUp = val > 0;
+                                                            content = (
+                                                                <span className={`inline-flex items-center gap-0.5 font-semibold ${isUp ? 'text-green-600' : 'text-red-600'}`}>
+                                                                    <span className="text-xs">{isUp ? '▲' : '▼'}</span>
+                                                                    {isUp ? '+' : ''}{val}
+                                                                </span>
+                                                            );
+                                                        }
+                                                        break;
+                                                    }
                                                     default: {
                                                         const techVal = (stock as any)[col.key];
                                                         if (techVal === null || techVal === undefined || techVal === '') content = <span className="text-gray-400">-</span>;

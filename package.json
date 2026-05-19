@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.100.10",
     "autoprefixer": "^10.4.20",
     "axios": "^1.7.9",
     "date-fns": "^4.1.0",

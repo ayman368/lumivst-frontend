@@ -398,6 +398,7 @@ function ScreenersContent() {
                   data={filteredData}
                   loading={loading}
                   screenerColor={activeScreener?.color}
+                  screenerName={activeScreener?.label}
                 />
               </motion.div>
             </AnimatePresence>

@@ -383,6 +383,28 @@ export default function FilterSidebar({
                     </div>
                 </FilterAccordion>
 
+                {/* ── Industry Group Metrics ──────────────────────────────── */}
+                <FilterAccordion title="INDUSTRY GROUP METRICS" collapseSignal={collapseSignal}>
+                    <div className="space-y-4">
+                        <RangeFilter label="Industry Group Rank" minValue={filters.ind_group_rank_min} maxValue={filters.ind_group_rank_max} onMinChange={(v) => set({ ind_group_rank_min: v })} onMaxChange={(v) => set({ ind_group_rank_max: v })} />
+                        <RangeFilter label="Industry Group Last Week" minValue={filters.ind_group_rank_1_week_ago_min} maxValue={filters.ind_group_rank_1_week_ago_max} onMinChange={(v) => set({ ind_group_rank_1_week_ago_min: v })} onMaxChange={(v) => set({ ind_group_rank_1_week_ago_max: v })} />
+                        <RangeFilter label="Industry Group 3 Mo Ago" minValue={filters.ind_group_rank_3_months_ago_min} maxValue={filters.ind_group_rank_3_months_ago_max} onMinChange={(v) => set({ ind_group_rank_3_months_ago_min: v })} onMaxChange={(v) => set({ ind_group_rank_3_months_ago_max: v })} />
+                        <RangeFilter label="Industry Group 6 Mo Ago" minValue={filters.ind_group_rank_6_months_ago_min} maxValue={filters.ind_group_rank_6_months_ago_max} onMinChange={(v) => set({ ind_group_rank_6_months_ago_min: v })} onMaxChange={(v) => set({ ind_group_rank_6_months_ago_max: v })} />
+                        <RangeFilter label="Industry Group Num Stocks" minValue={filters.ind_group_number_of_stocks_min} maxValue={filters.ind_group_number_of_stocks_max} onMinChange={(v) => set({ ind_group_number_of_stocks_min: v })} onMaxChange={(v) => set({ ind_group_number_of_stocks_max: v })} />
+                        <RangeFilter label="Industry Group Mkt Val (Bil)" minValue={filters.ind_group_market_value_min} maxValue={filters.ind_group_market_value_max} onMinChange={(v) => set({ ind_group_market_value_min: v })} onMaxChange={(v) => set({ ind_group_market_value_max: v })} />
+                        <RangeFilter label="Industry Group % Chg YTD" minValue={filters.ind_group_ytd_change_percent_min} maxValue={filters.ind_group_ytd_change_percent_max} onMinChange={(v) => set({ ind_group_ytd_change_percent_min: v })} onMaxChange={(v) => set({ ind_group_ytd_change_percent_max: v })} />
+                        <RangeFilter label="Industry Group Change v last week" minValue={filters.ind_group_change_vs_last_week_min} maxValue={filters.ind_group_change_vs_last_week_max} onMinChange={(v) => set({ ind_group_change_vs_last_week_min: v })} onMaxChange={(v) => set({ ind_group_change_vs_last_week_max: v })} />
+                        <RangeFilter label="Industry Group # of stocks > 20MA" minValue={filters.ind_group_count_above_ma20_min} maxValue={filters.ind_group_count_above_ma20_max} onMinChange={(v) => set({ ind_group_count_above_ma20_min: v })} onMaxChange={(v) => set({ ind_group_count_above_ma20_max: v })} />
+                        <RangeFilter label="Industry Group % of stocks > 20MA" minValue={filters.ind_group_percent_above_ma20_min} maxValue={filters.ind_group_percent_above_ma20_max} onMinChange={(v) => set({ ind_group_percent_above_ma20_min: v })} onMaxChange={(v) => set({ ind_group_percent_above_ma20_max: v })} />
+                        <RangeFilter label="Industry Group # of stocks > 50MA" minValue={filters.ind_group_count_above_ma50_min} maxValue={filters.ind_group_count_above_ma50_max} onMinChange={(v) => set({ ind_group_count_above_ma50_min: v })} onMaxChange={(v) => set({ ind_group_count_above_ma50_max: v })} />
+                        <RangeFilter label="Industry Group % of stocks > 50MA" minValue={filters.ind_group_percent_above_ma50_min} maxValue={filters.ind_group_percent_above_ma50_max} onMinChange={(v) => set({ ind_group_percent_above_ma50_min: v })} onMaxChange={(v) => set({ ind_group_percent_above_ma50_max: v })} />
+                        <RangeFilter label="Industry Group # of stocks > 150MA" minValue={filters.ind_group_count_above_ma150_min} maxValue={filters.ind_group_count_above_ma150_max} onMinChange={(v) => set({ ind_group_count_above_ma150_min: v })} onMaxChange={(v) => set({ ind_group_count_above_ma150_max: v })} />
+                        <RangeFilter label="Industry Group % of stocks > 150MA" minValue={filters.ind_group_percent_above_ma150_min} maxValue={filters.ind_group_percent_above_ma150_max} onMinChange={(v) => set({ ind_group_percent_above_ma150_min: v })} onMaxChange={(v) => set({ ind_group_percent_above_ma150_max: v })} />
+                        <RangeFilter label="Industry Group # of stocks > 200MA" minValue={filters.ind_group_count_above_ma200_min} maxValue={filters.ind_group_count_above_ma200_max} onMinChange={(v) => set({ ind_group_count_above_ma200_min: v })} onMaxChange={(v) => set({ ind_group_count_above_ma200_max: v })} />
+                        <RangeFilter label="Industry Group % of stocks > 200MA" minValue={filters.ind_group_percent_above_ma200_min} maxValue={filters.ind_group_percent_above_ma200_max} onMinChange={(v) => set({ ind_group_percent_above_ma200_min: v })} onMaxChange={(v) => set({ ind_group_percent_above_ma200_max: v })} />
+                    </div>
+                </FilterAccordion>
+
                 {/* ── RS Momentum & Net Short ──────────────────────────────── */}
                 <FilterAccordion title="RS MOMENTUM & NET SHORT" collapseSignal={collapseSignal}>
                     <div className="mb-3">

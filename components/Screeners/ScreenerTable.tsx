@@ -8,6 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { ChevronLeft, ChevronRight, Download, ChevronDown, X, Loader } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { fetchBulkScreenerData } from '@/lib/utils/bulkExport';
 
 // ─── DESIGN TOKENS: Black & White ────────────────────────────────
@@ -39,6 +41,7 @@ interface ScreenerTableProps {
   loading: boolean;
   screenerColor?: string;
   exportFileNamePrefix?: string;
+  screenerName?: string;
 }
 
 type SortDirection = 'asc' | 'desc';
@@ -66,7 +69,7 @@ const COLUMN_DEFS: { key: keyof StockResult | '#'; label: string; sortable: bool
 ];
 
 export default function ScreenerTable({
-  data, loading, screenerColor = '#374151', exportFileNamePrefix = 'REBH_Screeners',
+  data, loading, screenerColor = '#374151', exportFileNamePrefix = 'REBH_Screeners', screenerName,
 }: ScreenerTableProps) {
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(50);
@@ -151,7 +154,7 @@ export default function ScreenerTable({
   };
 
   // ── Single screener export (current tab data only) ──────────────────────────
-  const handleExport = useCallback((format: 'csv' | 'xls' | 'xlsx' | 'txt' | 'tv') => {
+  const handleExport = useCallback((format: 'csv' | 'xls' | 'xlsx' | 'txt' | 'tv' | 'pdf') => {
     const d = new Date();
     const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const plainFileName = `${exportFileNamePrefix}_${dateStr}`;
@@ -172,6 +175,24 @@ export default function ScreenerTable({
     const headers = ['Symbol', 'Company Name', 'Price', 'SMA 50', 'SMA 150', 'SMA 200', 'RS Rating', '1M', '3M', '6M', '9M', '12M', 'Off 52W High', 'Off 52W Low'];
     const rows = sortedData.map(s => [s.symbol, s.company_name, s.close, s.sma_50, s.sma_150, s.sma_200, s.rs_rating, s.rank_1m, s.rank_3m, s.rank_6m, s.rank_9m, s.rank_12m, s.percent_off_52w_high, s.percent_off_52w_low]);
 
+    if (format === 'pdf') {
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'A4' });
+      doc.setFontSize(18);
+      const title = screenerName ? `${exportFileNamePrefix}: ${screenerName}` : `${exportFileNamePrefix}`;
+      doc.text(title, 40, 40);
+      autoTable(doc, {
+        head: [headers],
+        body: rows,
+        startY: 60,
+        theme: 'striped',
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [17, 24, 39] },
+      });
+      doc.save(`${plainFileName}.pdf`);
+      setShowExportMenu(false);
+      return;
+    }
+
     if (format === 'csv' || format === 'txt') {
       const sep = format === 'csv' ? ',' : '\t';
       const content = [headers.join(sep), ...rows.map(r => r.join(sep))].join('\n');
@@ -189,7 +210,7 @@ export default function ScreenerTable({
   }, [sortedData, exportFileNamePrefix]);
 
   // ── Bulk unified export (all screeners, deduplicated) ──────────────────────
-  const handleBulkExport = useCallback(async (format: 'csv' | 'xlsx' | 'tv') => {
+  const handleBulkExport = useCallback(async (format: 'csv' | 'xlsx' | 'tv' | 'pdf') => {
     setBulkExportLoading(true);
     setBulkExportResult(null);
     setShowExportMenu(false);
@@ -205,7 +226,13 @@ export default function ScreenerTable({
       const exportData = result.data;
 
       if (format === 'tv') {
-        const tvContent = exportData.map(s => `TADAWUL:${s.symbol}`).join('\n');
+        const tvContent = result.groupedData
+          .filter(group => group.items.length > 0)
+          .map(group => {
+            const header = `### ${group.label}: ${group.items.length} Company`;
+            const symbols = group.items.map(s => `TADAWUL:${s.symbol}`).join('\n');
+            return `${header}\n${symbols}`;
+          }).join('\n\n');
         const link = document.createElement('a');
         link.href = URL.createObjectURL(new Blob([tvContent], { type: 'text/csv;charset=utf-8;' }));
         link.download = `${tvFileName}.csv`;
@@ -214,16 +241,69 @@ export default function ScreenerTable({
       }
 
       const headers = ['Symbol', 'Company Name', 'Price', 'SMA 50', 'SMA 150', 'SMA 200', 'RS Rating', '1M', '3M', '6M', '9M', '12M', 'Off 52W High', 'Off 52W Low'];
-      const rows = exportData.map(s => [s.symbol, s.company_name, s.close, s.sma_50, s.sma_150, s.sma_200, s.rs_rating, s.rank_1m, s.rank_3m, s.rank_6m, s.rank_9m, s.rank_12m, s.percent_off_52w_high, s.percent_off_52w_low]);
+
+      if (format === 'pdf') {
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'A4' });
+        const validGroups = result.groupedData.filter(g => g.items.length > 0);
+        let startY = 30;
+
+        doc.setFontSize(18);
+        doc.text('All Screeners', 40, startY);
+        startY += 20;
+
+        for (const group of validGroups) {
+          doc.setFontSize(14);
+          doc.text(`${group.label}: ${group.items.length} Company`, 40, startY);
+          startY += 10;
+
+          const rows = group.items.map(s => [s.symbol, s.company_name, s.close, s.sma_50, s.sma_150, s.sma_200, s.rs_rating, s.rank_1m, s.rank_3m, s.rank_6m, s.rank_9m, s.rank_12m, s.percent_off_52w_high, s.percent_off_52w_low]);
+
+          autoTable(doc, {
+            head: [headers],
+            body: rows,
+            startY: startY,
+            theme: 'striped',
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [17, 24, 39] },
+          });
+
+          startY = (doc as any).lastAutoTable.finalY + 30;
+
+          if (startY > doc.internal.pageSize.getHeight() - 40) {
+            doc.addPage();
+            startY = 40;
+          }
+        }
+        
+        doc.save(`${plainFileName}.pdf`);
+        return;
+      }
 
       if (format === 'csv') {
-        const content = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+        let content = '';
+        const validGroups = result.groupedData.filter(g => g.items.length > 0);
+        for (const group of validGroups) {
+          content += `${group.label}: ${group.items.length} Company\n`;
+          content += headers.join(',') + '\n';
+          const rows = group.items.map(s => [s.symbol, s.company_name, s.close, s.sma_50, s.sma_150, s.sma_200, s.rs_rating, s.rank_1m, s.rank_3m, s.rank_6m, s.rank_9m, s.rank_12m, s.percent_off_52w_high, s.percent_off_52w_low]);
+          content += rows.map(r => r.join(',')).join('\n') + '\n\n';
+        }
+        content = content.trimEnd();
         const link = document.createElement('a');
         link.href = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8;' }));
         link.download = `${plainFileName}.csv`;
         link.click();
       } else {
-        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        let aoa: any[][] = [];
+        const validGroups = result.groupedData.filter(g => g.items.length > 0);
+        for (const group of validGroups) {
+          aoa.push([`${group.label}: ${group.items.length} Company`]);
+          aoa.push(headers);
+          const rows = group.items.map(s => [s.symbol, s.company_name, s.close, s.sma_50, s.sma_150, s.sma_200, s.rs_rating, s.rank_1m, s.rank_3m, s.rank_6m, s.rank_9m, s.rank_12m, s.percent_off_52w_high, s.percent_off_52w_low]);
+          aoa.push(...rows);
+          aoa.push([]); // empty row for spacing
+        }
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Bulk Export');
         XLSX.writeFile(wb, `${plainFileName}.xlsx`, { bookType: 'xlsx' });
@@ -292,11 +372,11 @@ export default function ScreenerTable({
               }}
             >
               {bulkExportLoading ? (
-                <Loader style={{ width: '14px', height: '14px', animation: 'spin 1s linear infinite' }} />
+                <Loader key="loader" style={{ width: '14px', height: '14px', animation: 'spin 1s linear infinite' }} />
               ) : (
-                <Download style={{ width: '14px', height: '14px' }} />
+                <Download key="download" style={{ width: '14px', height: '14px' }} />
               )}
-              {bulkExportLoading ? 'Exporting...' : 'Export'}
+              <span>{bulkExportLoading ? 'Exporting...' : 'Export'}</span>
               <ChevronDown style={{ width: '12px', height: '12px', transform: showExportMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
             </button>
 
@@ -323,6 +403,7 @@ export default function ScreenerTable({
                     { label: 'excel (.xlsx)', fmt: 'xlsx' as const, dot: '#15803D' },
                     { label: 'Text (.txt)', fmt: 'txt' as const, dot: '#6B7280' },
                     { label: 'TradingView Symbols (.csv)', fmt: 'tv' as const, dot: '#2962FF' },
+                    { label: 'PDF Document (.pdf)', fmt: 'pdf' as const, dot: '#DC2626' },
                   ].map(item => (
                     <button key={item.fmt} onClick={() => handleExport(item.fmt)} style={{
                       width: '100%', textAlign: 'left', padding: '9px 14px', fontSize: '12px', color: '#4B5563', display: 'flex', alignItems: 'center', gap: '10px',
@@ -348,6 +429,7 @@ export default function ScreenerTable({
                     { label: 'Bulk Export (.csv)', fmt: 'csv' as const },
                     { label: 'Bulk Export (.xlsx)', fmt: 'xlsx' as const },
                     { label: 'Bulk TradingView (.csv)', fmt: 'tv' as const },
+                    { label: 'Bulk Export (.pdf)', fmt: 'pdf' as const },
                   ].map(item => (
                     <button
                       key={`bulk-${item.fmt}`}
@@ -557,11 +639,11 @@ export default function ScreenerTable({
                 <div style={{ fontSize: '12px', color: '#4B5563', lineHeight: 1.7 }}>
                   {Object.entries(bulkExportResult).map(([label, count]) => (
                     <div key={label}>
-                      <strong>{label}:</strong> {count} symbols
+                      <strong>{label}:</strong> {count} Company
                     </div>
                   ))}
                   <div style={{ marginTop: '8px', fontWeight: 700, color: '#059669' }}>
-                    Total: {Object.values(bulkExportResult).reduce((a, b) => a + b, 0)} unique symbols
+                    Total: {Object.values(bulkExportResult).reduce((a, b) => a + b, 0)} unique Company
                   </div>
                 </div>
               </div>

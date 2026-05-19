@@ -135,6 +135,7 @@ export default function Navbar() {
                 { en: 'Trend - 5 Months', href: '/screeners?tab=trend-5-months' },
                 { en: 'Trend - 5 Month Wide', href: '/screeners?tab=trend-5-months-wide' },
                 { en: 'Power Play', href: '/screeners?tab=power-play' },
+                { en: 'Minervini Trend', href: '/minervini-trend' },
               ],
             },
             {
@@ -143,6 +144,8 @@ export default function Navbar() {
               items: [
                 { en: 'RSI', href: '/screeners/rsi' },
                 { en: 'Alrayan', href: '/screeners/alrayan' },
+                { en: 'Alhussain', href: '/screeners/alhussain' },
+                { en: 'A/D Rating', href: '/screeners/ad-rating' },
               ],
             },
           ],
@@ -156,6 +159,7 @@ export default function Navbar() {
         { en: 'My Watchlist', href: '/watchlist' },
         { en: 'RS Screener', href: '/rs-screener' },
         { en: 'RS Analysis', href: '/rs-analysis' },
+        { en: 'RS Line Indicators', href: '/rs-line' },
       ],
     },
     learn: {

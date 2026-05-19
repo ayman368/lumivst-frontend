@@ -20,6 +20,7 @@ interface StockResult {
 interface BulkExportResult {
   data: StockResult[];
   screenerBreakdown: Record<string, number>;
+  groupedData: { label: string; items: StockResult[] }[];
 }
 
 const SCREENER_ENDPOINTS = [
@@ -108,6 +109,7 @@ export async function fetchBulkScreenerData(): Promise<BulkExportResult> {
   return {
     data: allData,
     screenerBreakdown,
+    groupedData: dedupedPerScreener,
   };
 }
 

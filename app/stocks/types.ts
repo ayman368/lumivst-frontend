@@ -194,6 +194,23 @@ export interface Stock {
     rs_rating_6_months_ago?: number;
     rs_rating_1_year_ago?: number;
 
+    // === Industry Group Metrics ===
+    ind_group_rank?: number;
+    ind_group_rank_1_week_ago?: number;
+    ind_group_rank_3_months_ago?: number;
+    ind_group_rank_6_months_ago?: number;
+    ind_group_number_of_stocks?: number;
+    ind_group_market_value?: number;
+    ind_group_ytd_change_percent?: number;
+    ind_group_change_vs_last_week?: number;
+    ind_group_count_above_ma20?: number;
+    ind_group_percent_above_ma20?: number;
+    ind_group_count_above_ma50?: number;
+    ind_group_percent_above_ma50?: number;
+    ind_group_count_above_ma150?: number;
+    ind_group_percent_above_ma150?: number;
+    ind_group_count_above_ma200?: number;
+    ind_group_percent_above_ma200?: number;
 }
 
 export type QuickFilterType = '' | 'top_gainers' | 'top_losers' | 'most_active_volume' | 'most_active_value';
@@ -503,4 +520,22 @@ export interface FilterState {
     rs_1w_gt_4w: string;
     rs_3m_gt_6m: string;
     rs_6m_gt_1y: string;
+
+    // === Industry Group Filters ===
+    ind_group_rank_min: string; ind_group_rank_max: string;
+    ind_group_rank_1_week_ago_min: string; ind_group_rank_1_week_ago_max: string;
+    ind_group_rank_3_months_ago_min: string; ind_group_rank_3_months_ago_max: string;
+    ind_group_rank_6_months_ago_min: string; ind_group_rank_6_months_ago_max: string;
+    ind_group_number_of_stocks_min: string; ind_group_number_of_stocks_max: string;
+    ind_group_market_value_min: string; ind_group_market_value_max: string;
+    ind_group_ytd_change_percent_min: string; ind_group_ytd_change_percent_max: string;
+    ind_group_change_vs_last_week_min: string; ind_group_change_vs_last_week_max: string;
+    ind_group_count_above_ma20_min: string; ind_group_count_above_ma20_max: string;
+    ind_group_percent_above_ma20_min: string; ind_group_percent_above_ma20_max: string;
+    ind_group_count_above_ma50_min: string; ind_group_count_above_ma50_max: string;
+    ind_group_percent_above_ma50_min: string; ind_group_percent_above_ma50_max: string;
+    ind_group_count_above_ma150_min: string; ind_group_count_above_ma150_max: string;
+    ind_group_percent_above_ma150_min: string; ind_group_percent_above_ma150_max: string;
+    ind_group_count_above_ma200_min: string; ind_group_count_above_ma200_max: string;
+    ind_group_percent_above_ma200_min: string; ind_group_percent_above_ma200_max: string;
 }

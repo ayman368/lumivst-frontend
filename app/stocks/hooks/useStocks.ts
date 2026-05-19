@@ -12,12 +12,13 @@ export default function useStocks() {
         try {
             setLoading(true);
 
-            const [pricesRes, rsRes, techRes, netShortRes, industryGroupsRes] = await Promise.all([
+            const [pricesRes, rsRes, techRes, netShortRes, industryGroupsRes, indGroupLatestRes] = await Promise.all([
                 fetch(`${API_BASE_URL}/api/prices/latest`, { cache: 'no-store', credentials: 'include' }),
                 fetch(`${API_BASE_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', credentials: 'include' }),
                 fetch(`${API_BASE_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', credentials: 'include' }),
                 fetch(`${API_BASE_URL}/api/market-reports/net-short-positions`, { cache: 'no-store', credentials: 'include' }),
                 fetch(`${API_BASE_URL}/api/industry-groups/stocks`, { cache: 'no-store', credentials: 'include' }),
+                fetch(`${API_BASE_URL}/api/industry-groups/latest`, { cache: 'no-store', credentials: 'include' }),
             ]);
 
             if (!pricesRes.ok) throw new Error(`Failed to fetch prices: ${pricesRes.status}`);
@@ -27,9 +28,11 @@ export default function useStocks() {
             const techData = techRes.ok ? await techRes.json() : { data: [] };
             const netShortJson = netShortRes.ok ? await netShortRes.json() : [];
             const industryGroupsJson = industryGroupsRes.ok ? await industryGroupsRes.json() : [];
+            const indGroupLatestJson = indGroupLatestRes.ok ? await indGroupLatestRes.json() : [];
 
             const netShortItems = Array.isArray(netShortJson) ? netShortJson : netShortJson.data || [];
             const industryGroupItems = Array.isArray(industryGroupsJson) ? industryGroupsJson : industryGroupsJson.data || [];
+            const indGroupLatestItems = Array.isArray(indGroupLatestJson) ? indGroupLatestJson : indGroupLatestJson.data || [];
 
             console.log('📊 Prices Data:', pricesData.data?.length ?? 0, 'items');
             console.log('📊 RS Data:', rsData.data?.length ?? 0, 'items');
@@ -47,6 +50,7 @@ export default function useStocks() {
             const netShortMap = new Map(netShortItems.map((item: any) => [String(item.symbol), item]));
             // Industry group stocks are now keyed by symbol
             const industryGroupMap = new Map(industryGroupItems.map((item: any) => [String(item.symbol), item]));
+            const indGroupLatestMap = new Map(indGroupLatestItems.map((item: any) => [item.industry_group, item]));
 
             const mappedStocks = (pricesData.data || []).map((item: any) => {
                 const symbolStr = String(item.symbol);
@@ -54,6 +58,7 @@ export default function useStocks() {
                 const techInfo: any = techMap.get(symbolStr) || {};
                 const netShortInfo: any = netShortMap.get(symbolStr) || {};
                 const industryGroupInfo: any = industryGroupMap.get(symbolStr) || {};
+                const indGroupLatestInfo: any = indGroupLatestMap.get(item.industry_group) || {};
 
                 return {
                     symbol: item.symbol,
@@ -244,6 +249,24 @@ export default function useStocks() {
                     rs_rating_3_months_ago: industryGroupInfo.rs_rating_3_months_ago ?? industryGroupInfo.rs_3m ?? undefined,
                     rs_rating_6_months_ago: industryGroupInfo.rs_rating_6_months_ago ?? industryGroupInfo.rs_6m ?? undefined,
                     rs_rating_1_year_ago: industryGroupInfo.rs_rating_1_year_ago ?? industryGroupInfo.rs_1y ?? undefined,
+
+                    // Industry Group Metrics
+                    ind_group_rank: indGroupLatestInfo.rank ?? undefined,
+                    ind_group_rank_1_week_ago: indGroupLatestInfo.rank_1_week_ago ?? undefined,
+                    ind_group_rank_3_months_ago: indGroupLatestInfo.rank_3_months_ago ?? undefined,
+                    ind_group_rank_6_months_ago: indGroupLatestInfo.rank_6_months_ago ?? undefined,
+                    ind_group_number_of_stocks: indGroupLatestInfo.number_of_stocks ?? undefined,
+                    ind_group_market_value: indGroupLatestInfo.market_value ?? undefined,
+                    ind_group_ytd_change_percent: indGroupLatestInfo.ytd_change_percent ?? undefined,
+                    ind_group_change_vs_last_week: indGroupLatestInfo.change_vs_last_week ?? undefined,
+                    ind_group_count_above_ma20: indGroupLatestInfo.count_above_ma20 ?? undefined,
+                    ind_group_percent_above_ma20: indGroupLatestInfo.percent_above_ma20 ?? undefined,
+                    ind_group_count_above_ma50: indGroupLatestInfo.count_above_ma50 ?? undefined,
+                    ind_group_percent_above_ma50: indGroupLatestInfo.percent_above_ma50 ?? undefined,
+                    ind_group_count_above_ma150: indGroupLatestInfo.count_above_ma150 ?? undefined,
+                    ind_group_percent_above_ma150: indGroupLatestInfo.percent_above_ma150 ?? undefined,
+                    ind_group_count_above_ma200: indGroupLatestInfo.count_above_ma200 ?? undefined,
+                    ind_group_percent_above_ma200: indGroupLatestInfo.percent_above_ma200 ?? undefined,
 
                     // Signals
                     stamp: techInfo.stamp ?? false,

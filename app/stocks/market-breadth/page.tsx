@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     createChart,
     ColorType,
@@ -49,10 +49,17 @@ interface BreadthItem {
     ma200_200: number;
 }
 
+type HoverEntry = {
+    main: number | null;
+    avg50: number | null;
+    avg200: number | null;
+    time: string | null;
+};
+
 /* ─── Config ─────────────────────────────────────────────────────────────── */
 
-const AVG50_COLOR = '#E02020';   // Red for AVG 50
-const AVG200_COLOR = '#1A1A1A';  // Black for AVG 200
+const AVG50_COLOR = '#E02020';
+const AVG200_COLOR = '#1A1A1A';
 
 const CHART_CONFIGS = [
     {
@@ -109,6 +116,8 @@ const CHART_CONFIGS = [
     },
 ] as const;
 
+const CHART_COUNT = CHART_CONFIGS.length;
+
 /* ─── Component ─────────────────────────────────────────────────────────── */
 
 export default function MarketBreadthPage() {
@@ -117,41 +126,38 @@ export default function MarketBreadthPage() {
     const [error, setError] = useState<string | null>(null);
     const [tick, setTick] = useState(0);
     const [period, setPeriod] = useState('ALL');
-    // Changed: now supports a Set of selected keys per chart index
-    const [selectedAverages, setSelectedAverages] = useState<Record<number, Set<string>>>({});
-    const [seriesVisible, setSeriesVisible] = useState<Record<number, boolean>>({ 0: true, 1: true, 2: true, 3: true });
+    const [selectedAverages, setSelectedAverages] =
+        useState<Record<number, Set<string>>>({});
+    const [seriesVisible, setSeriesVisible] =
+        useState<Record<number, boolean>>({ 0: true, 1: true, 2: true, 3: true });
     const [fullscreenIdx, setFullscreenIdx] = useState<number | null>(null);
     const [exportOpen, setExportOpen] = useState(false);
     const [exportStatus, setExportStatus] = useState<string | null>(null);
+    const [hoverValues, setHoverValues] = useState<Record<number, HoverEntry>>({});
 
-    // Hover tooltip state per chart — now supports both avg values
-    const [hoverValues, setHoverValues] = useState<Record<number, { main: number | null; avg50: number | null; avg200: number | null; time: string | null }>>({});
-
-    /* refs */
+    /* ── refs ── */
     const pageRef = useRef<HTMLDivElement>(null);
     const isRestoringRef = useRef(false);
+    const exportDropRef = useRef<HTMLDivElement>(null);
 
-    const cardRefs = [
-        useRef<HTMLDivElement>(null),
-        useRef<HTMLDivElement>(null),
-        useRef<HTMLDivElement>(null),
-        useRef<HTMLDivElement>(null),
-    ];
-
-    const canvasRefs = [
-        useRef<HTMLDivElement>(null),
-        useRef<HTMLDivElement>(null),
-        useRef<HTMLDivElement>(null),
-        useRef<HTMLDivElement>(null),
-    ];
+    // ✅ Fix 2: useRef بـ array بدل array من useRef — Rules of Hooks
+    const cardRefs = useRef<(HTMLDivElement | null)[]>(Array(CHART_COUNT).fill(null));
+    const canvasRefs = useRef<(HTMLDivElement | null)[]>(Array(CHART_COUNT).fill(null));
 
     const chartsRef = useRef<IChartApi[]>([]);
-    const mainSeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>([null, null, null, null]);
-    // Changed: now two avg series per chart (index 0 = avg50, index 1 = avg200)
-    const avg50SeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>([null, null, null, null]);
-    const avg200SeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>([null, null, null, null]);
+    const mainSeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>(Array(CHART_COUNT).fill(null));
+    const avg50SeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>(Array(CHART_COUNT).fill(null));
+    const avg200SeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>(Array(CHART_COUNT).fill(null));
     const isSyncing = useRef(false);
     const savedRangeRef = useRef<any>(null);
+
+    // ✅ تحسين hover: استخدام useRef كـ buffer مع requestAnimationFrame
+    const hoverRafRef = useRef<number | null>(null);
+    const pendingHoverRef = useRef<Record<number, HoverEntry>>({});
+
+    // ✅ منع stale closure: ref يحمل أحدث قيمة seriesVisible
+    const seriesVisibleRef = useRef(seriesVisible);
+    seriesVisibleRef.current = seriesVisible;
 
     /* ── tick for live dot ── */
     useEffect(() => {
@@ -164,6 +170,7 @@ export default function MarketBreadthPage() {
         async function fetchData() {
             try {
                 setLoading(true);
+                setError(null); // ✅ Fix 3: reset error قبل كل fetch جديد
                 const res = await fetch(
                     `${API_BASE_URL}/api/market-breadth/percent-above-ma?period=${period}`
                 );
@@ -180,28 +187,36 @@ export default function MarketBreadthPage() {
         fetchData();
     }, [period]);
 
+    /* ── click-outside: يقفل Export dropdown ── */
+    useEffect(() => {
+        if (!exportOpen) return;
+        const handler = (e: MouseEvent) => {
+            if (exportDropRef.current && !exportDropRef.current.contains(e.target as Node)) {
+                setExportOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [exportOpen]);
+
     /* ── build / rebuild charts ── */
     useEffect(() => {
         if (data.length === 0) return;
 
-        /* Save current zoom range BEFORE destroying charts */
         if (chartsRef.current.length > 0 && !isRestoringRef.current) {
             try {
                 const range = chartsRef.current[0].timeScale().getVisibleLogicalRange();
-                if (range) {
-                    savedRangeRef.current = range;
-                }
+                if (range) savedRangeRef.current = range;
             } catch (e) {
                 console.warn('Could not save range:', e);
             }
         }
 
-        /* destroy previous */
         chartsRef.current.forEach((c) => c.remove());
         chartsRef.current = [];
-        mainSeriesRef.current = [null, null, null, null];
-        avg50SeriesRef.current = [null, null, null, null];
-        avg200SeriesRef.current = [null, null, null, null];
+        mainSeriesRef.current = Array(CHART_COUNT).fill(null);
+        avg50SeriesRef.current = Array(CHART_COUNT).fill(null);
+        avg200SeriesRef.current = Array(CHART_COUNT).fill(null);
 
         const baseOptions = {
             layout: {
@@ -243,7 +258,7 @@ export default function MarketBreadthPage() {
         };
 
         CHART_CONFIGS.forEach((cfg, i) => {
-            const container = canvasRefs[i].current;
+            const container = canvasRefs.current[i];
             if (!container) return;
             container.innerHTML = '';
 
@@ -254,7 +269,6 @@ export default function MarketBreadthPage() {
             });
             chartsRef.current.push(chart);
 
-            /* main series */
             const series = chart.addSeries(AreaSeries, {
                 lineColor: cfg.lineColor,
                 topColor: cfg.topColor,
@@ -266,8 +280,7 @@ export default function MarketBreadthPage() {
                 crosshairMarkerBackgroundColor: '#FFFFFF',
                 lastValueVisible: true,
                 priceLineVisible: false,
-                autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
-                visible: seriesVisible[i] !== false,
+                visible: seriesVisibleRef.current[i] !== false,
             });
             series.setData(
                 data.map((item) => ({ time: item.time, value: item[cfg.key] as number })) as any
@@ -276,8 +289,7 @@ export default function MarketBreadthPage() {
 
             const selectedSet = selectedAverages[i] || new Set<string>();
 
-            /* avg50 overlay series — shown if avg50 key is selected */
-            const avg50Key = cfg.avgKeys[0]; // e.g. 'ma50_20'
+            const avg50Key = cfg.avgKeys[0];
             if (selectedSet.has(avg50Key) && avg50Key in data[0]) {
                 const avg50Series = chart.addSeries(AreaSeries, {
                     lineColor: AVG50_COLOR,
@@ -291,7 +303,6 @@ export default function MarketBreadthPage() {
                     crosshairMarkerBackgroundColor: '#FFFFFF',
                     lastValueVisible: true,
                     priceLineVisible: false,
-                    autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
                 });
                 avg50Series.setData(
                     data.map((item) => ({
@@ -302,8 +313,7 @@ export default function MarketBreadthPage() {
                 avg50SeriesRef.current[i] = avg50Series;
             }
 
-            /* avg200 overlay series — shown if avg200 key is selected */
-            const avg200Key = cfg.avgKeys[1]; // e.g. 'ma200_20'
+            const avg200Key = cfg.avgKeys[1];
             if (selectedSet.has(avg200Key) && avg200Key in data[0]) {
                 const avg200Series = chart.addSeries(AreaSeries, {
                     lineColor: AVG200_COLOR,
@@ -317,7 +327,6 @@ export default function MarketBreadthPage() {
                     crosshairMarkerBackgroundColor: '#FFFFFF',
                     lastValueVisible: true,
                     priceLineVisible: false,
-                    autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
                 });
                 avg200Series.setData(
                     data.map((item) => ({
@@ -328,7 +337,6 @@ export default function MarketBreadthPage() {
                 avg200SeriesRef.current[i] = avg200Series;
             }
 
-            /* reference lines */
             [20, 50, 80].forEach((level) =>
                 series.createPriceLine({
                     price: level,
@@ -340,17 +348,15 @@ export default function MarketBreadthPage() {
             );
         });
 
-        /* ── sync time-scale scroll/zoom ── */
+        /* ── sync time-scale ── */
         chartsRef.current.forEach((chart, i) => {
             chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
                 if (!range || isSyncing.current || isRestoringRef.current) return;
-
                 isSyncing.current = true;
                 chartsRef.current.forEach((c, j) => {
                     if (j !== i) c.timeScale().setVisibleLogicalRange(range);
                 });
                 setTimeout(() => { isSyncing.current = false; }, 0);
-
                 if (!isRestoringRef.current && chartsRef.current[0]) {
                     try {
                         const newRange = chartsRef.current[0].timeScale().getVisibleLogicalRange();
@@ -360,31 +366,45 @@ export default function MarketBreadthPage() {
             });
         });
 
-        /* ── sync crosshair + update hover tooltip values ── */
+        /* ── crosshair sync + hover (مع تحسين الأداء باستخدام RAF) ── */
         chartsRef.current.forEach((chart, i) => {
             chart.subscribeCrosshairMove((param) => {
                 const mainS = mainSeriesRef.current[i];
                 const avg50S = avg50SeriesRef.current[i];
                 const avg200S = avg200SeriesRef.current[i];
 
-                if (!param.point || !param.time || !mainS) {
-                    setHoverValues((prev) => ({ ...prev, [i]: { main: null, avg50: null, avg200: null, time: null } }));
-                } else {
+                let entry: HoverEntry = { main: null, avg50: null, avg200: null, time: null };
+
+                if (param.point && param.time && mainS) {
                     const mainVal = param.seriesData.get(mainS);
                     const avg50Val = avg50S ? param.seriesData.get(avg50S) : null;
                     const avg200Val = avg200S ? param.seriesData.get(avg200S) : null;
-                    const mainNum = mainVal && 'value' in mainVal ? (mainVal as any).value : null;
-                    const avg50Num = avg50Val && 'value' in avg50Val ? (avg50Val as any).value : null;
-                    const avg200Num = avg200Val && 'value' in avg200Val ? (avg200Val as any).value : null;
-                    const timeStr = typeof param.time === 'string'
-                        ? param.time
-                        : typeof param.time === 'number'
-                            ? String(param.time)
-                            : `${(param.time as any).year}-${String((param.time as any).month).padStart(2, '0')}-${String((param.time as any).day).padStart(2, '0')}`;
-                    setHoverValues((prev) => ({ ...prev, [i]: { main: mainNum, avg50: avg50Num, avg200: avg200Num, time: timeStr } }));
+
+                    const timeStr =
+                        typeof param.time === 'string'
+                            ? param.time
+                            : typeof param.time === 'number'
+                                ? String(param.time)
+                                : `${(param.time as any).year}-${String((param.time as any).month).padStart(2, '0')}-${String((param.time as any).day).padStart(2, '0')}`;
+
+                    entry = {
+                        main: mainVal && 'value' in mainVal ? (mainVal as any).value : null,
+                        avg50: avg50Val && 'value' in avg50Val ? (avg50Val as any).value : null,
+                        avg200: avg200Val && 'value' in avg200Val ? (avg200Val as any).value : null,
+                        time: timeStr,
+                    };
                 }
 
-                // Sync crosshair to all other charts
+                // ✅ تحسين الأداء: استخدام pendingHoverRef كـ buffer مع RAF
+                pendingHoverRef.current = { ...pendingHoverRef.current, [i]: entry };
+                if (hoverRafRef.current === null) {
+                    hoverRafRef.current = requestAnimationFrame(() => {
+                        setHoverValues({ ...pendingHoverRef.current });
+                        hoverRafRef.current = null;
+                    });
+                }
+
+                // ✅ الحفاظ على مزامنة الـ crosshair بين جميع الشارتات
                 chartsRef.current.forEach((targetChart, j) => {
                     if (j === i) return;
                     const targetSeries = mainSeriesRef.current[j];
@@ -401,10 +421,10 @@ export default function MarketBreadthPage() {
             });
         });
 
-        /* ── ResizeObserver for dynamic sizing ── */
+        /* ── ResizeObserver ── */
         const ro = new ResizeObserver(() => {
             chartsRef.current.forEach((chart, i) => {
-                const el = canvasRefs[i].current;
+                const el = canvasRefs.current[i];
                 if (!el) return;
                 chart.applyOptions({
                     width: el.clientWidth,
@@ -412,36 +432,32 @@ export default function MarketBreadthPage() {
                 });
             });
         });
-        canvasRefs.forEach((r) => { if (r.current) ro.observe(r.current); });
+        canvasRefs.current.forEach((el) => { if (el) ro.observe(el); });
 
-        /* Restore zoom after charts are fully created */
+        /* Restore zoom */
         const rangeToRestore = savedRangeRef.current;
-
         if (rangeToRestore) {
             isRestoringRef.current = true;
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     chartsRef.current.forEach((chart) => {
-                        try {
-                            chart.timeScale().setVisibleLogicalRange(rangeToRestore);
-                        } catch (e) {
-                            chart.timeScale().fitContent();
-                        }
+                        try { chart.timeScale().setVisibleLogicalRange(rangeToRestore); }
+                        catch { chart.timeScale().fitContent(); }
                     });
-                    setTimeout(() => {
-                        isRestoringRef.current = false;
-                    }, 100);
+                    setTimeout(() => { isRestoringRef.current = false; }, 100);
                 });
             });
         } else {
             requestAnimationFrame(() => {
-                chartsRef.current.forEach((chart) => {
-                    chart.timeScale().fitContent();
-                });
+                chartsRef.current.forEach((chart) => chart.timeScale().fitContent());
             });
         }
 
         return () => {
+            if (hoverRafRef.current !== null) {
+                cancelAnimationFrame(hoverRafRef.current);
+                hoverRafRef.current = null;
+            }
             ro.disconnect();
             chartsRef.current.forEach((c) => c.remove());
             chartsRef.current = [];
@@ -449,12 +465,10 @@ export default function MarketBreadthPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data, selectedAverages]);
 
-    /* ── reset saved range when period changes ── */
-    useEffect(() => {
-        savedRangeRef.current = null;
-    }, [period]);
+    /* ── reset saved range on period change ── */
+    useEffect(() => { savedRangeRef.current = null; }, [period]);
 
-    /* ── toggle main series visibility without rebuilding ── */
+    /* ── toggle visibility بدون rebuild ── */
     useEffect(() => {
         Object.entries(seriesVisible).forEach(([idx, vis]) => {
             const s = mainSeriesRef.current[Number(idx)];
@@ -462,9 +476,9 @@ export default function MarketBreadthPage() {
         });
     }, [seriesVisible]);
 
-    /* ── fullscreen per card ── */
+    /* ── fullscreen ── */
     const handleFullscreen = (i: number) => {
-        const el = cardRefs[i].current;
+        const el = cardRefs.current[i];
         if (!el) return;
         if (!document.fullscreenElement) {
             el.requestFullscreen?.().then(() => setFullscreenIdx(i)).catch(() => { });
@@ -474,33 +488,28 @@ export default function MarketBreadthPage() {
     };
 
     useEffect(() => {
-        const onChange = () => {
-            if (!document.fullscreenElement) setFullscreenIdx(null);
-        };
+        const onChange = () => { if (!document.fullscreenElement) setFullscreenIdx(null); };
         document.addEventListener('fullscreenchange', onChange);
         return () => document.removeEventListener('fullscreenchange', onChange);
     }, []);
 
-    /* ── fit content (all charts) ── */
+    /* ── fit all ── */
     const fitAll = () => {
         savedRangeRef.current = null;
         chartsRef.current.forEach((c) => c.timeScale().fitContent());
     };
 
-    /* ─── Toggle avg key for a given chart index ──────────────────────────── */
+    /* ── toggle avg overlay ── */
     const toggleAvgKey = (chartIdx: number, key: string) => {
         setSelectedAverages((prev) => {
             const current = new Set(prev[chartIdx] || []);
-            if (current.has(key)) {
-                current.delete(key);
-            } else {
-                current.add(key);
-            }
+            if (current.has(key)) current.delete(key);
+            else current.add(key);
             return { ...prev, [chartIdx]: current };
         });
     };
 
-    /* ─── Export helpers ──────────────────────────────────────────────────── */
+    /* ── export ── */
     const today = () => new Date().toISOString().slice(0, 10);
     const notify = (msg: string) => {
         setExportStatus(msg);
@@ -512,9 +521,7 @@ export default function MarketBreadthPage() {
         if (!pageRef.current) return;
         notify('Generating PDF…');
         try {
-            const canvas = await html2canvas(pageRef.current, {
-                scale: 2, useCORS: true, backgroundColor: '#F8FAFC',
-            });
+            const canvas = await html2canvas(pageRef.current, { scale: 2, useCORS: true, backgroundColor: '#F8FAFC' });
             const pdf = new jsPDF({
                 orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
                 unit: 'px',
@@ -531,9 +538,7 @@ export default function MarketBreadthPage() {
         if (!pageRef.current) return;
         notify('Capturing screenshot…');
         try {
-            const canvas = await html2canvas(pageRef.current, {
-                scale: 2, useCORS: true, backgroundColor: '#F8FAFC',
-            });
+            const canvas = await html2canvas(pageRef.current, { scale: 2, useCORS: true, backgroundColor: '#F8FAFC' });
             const link = document.createElement('a');
             link.download = `TASI-Market-Breadth-${today()}.png`;
             link.href = canvas.toDataURL('image/png');
@@ -562,7 +567,7 @@ export default function MarketBreadthPage() {
         notify('Excel downloaded ✓');
     };
 
-    /* ─── Loading / Error states ──────────────────────────────────────────── */
+    /* ─── Loading / Error ──────────────────────────────────────────────── */
 
     if (loading && data.length === 0)
         return (
@@ -591,27 +596,32 @@ export default function MarketBreadthPage() {
                     </div>
                     <p className="text-sm font-semibold text-red-700">Connection Failed</p>
                     <p className="text-xs text-slate-400 mt-1">{error}</p>
+                    <button
+                        onClick={() => setPeriod((p) => p)}
+                        className="mt-4 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-lg cursor-pointer border-none"
+                    >
+                        Retry
+                    </button>
                 </div>
             </div>
         );
 
     const latest = data[data.length - 1];
 
-    /* ─── Render ──────────────────────────────────────────────────────────── */
-
+    /* ─── Render ───────────────────────────────────────────────────────── */
     return (
         <div
             className="w-screen h-screen flex flex-col bg-slate-50 overflow-hidden"
             style={{ fontFamily: '"DM Sans", sans-serif' }}
         >
-            {/* ── Header ──────────────────────────────────────────────────────── */}
+            {/* ── Header ─────────────────────────────────────────────────── */}
             <header
                 className="bg-white border-b border-slate-200 flex-shrink-0 z-50"
                 style={{ boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
             >
                 <div className="w-full px-5 h-[60px] flex items-center justify-between gap-6">
 
-                    {/* left brand */}
+                    {/* brand */}
                     <div className="flex items-center gap-3 flex-shrink-0">
                         <div className="w-[34px] h-[34px] bg-slate-50 border border-slate-200 rounded-[9px] flex items-center justify-center flex-shrink-0">
                             <svg width="16" height="16" viewBox="0 0 20 18" fill="none">
@@ -623,9 +633,7 @@ export default function MarketBreadthPage() {
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h1 className="text-[14px] font-bold text-slate-900 tracking-tight m-0">
-                                    Market Breadth
-                                </h1>
+                                <h1 className="text-[14px] font-bold text-slate-900 tracking-tight m-0">Market Breadth</h1>
                                 <span className="text-slate-300">/</span>
                                 <span className="text-[12px] text-slate-500">TASI Analysis</span>
                                 <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded ml-1">
@@ -642,7 +650,7 @@ export default function MarketBreadthPage() {
                         </div>
                     </div>
 
-                    {/* right controls */}
+                    {/* controls */}
                     <div className="flex items-center gap-2.5">
 
                         {/* period selector */}
@@ -654,9 +662,7 @@ export default function MarketBreadthPage() {
                                     disabled={loading}
                                     className={[
                                         'px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all border-none cursor-pointer',
-                                        period === p
-                                            ? 'bg-white text-slate-900 shadow-sm'
-                                            : 'bg-transparent text-slate-500 hover:text-slate-700',
+                                        period === p ? 'bg-white text-slate-900 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700',
                                         loading ? 'opacity-50' : '',
                                     ].join(' ')}
                                 >
@@ -672,32 +678,22 @@ export default function MarketBreadthPage() {
                                 return (
                                     <div key={cfg.key} className={i > 0 ? 'pl-4 border-l border-slate-100' : ''}>
                                         <div className="flex items-center gap-1 mb-0.5">
-                                            <span
-                                                className="w-[6px] h-[6px] rounded-[2px] inline-block flex-shrink-0"
-                                                style={{ background: cfg.lineColor }}
-                                            />
-                                            <span className="text-[9px] text-slate-400 font-medium tracking-wide">
-                                                {cfg.badge}
-                                            </span>
+                                            <span className="w-[6px] h-[6px] rounded-[2px] inline-block flex-shrink-0" style={{ background: cfg.lineColor }} />
+                                            <span className="text-[9px] text-slate-400 font-medium tracking-wide">{cfg.badge}</span>
                                         </div>
                                         <div className="flex items-baseline gap-0.5">
-                                            <span className="text-[18px] font-bold text-slate-900 leading-none tracking-tight">
-                                                {val}
-                                            </span>
+                                            <span className="text-[18px] font-bold text-slate-900 leading-none tracking-tight">{val}</span>
                                             <span className="text-[10px] text-slate-400">%</span>
                                         </div>
                                         <div className="mt-1 h-[3px] rounded-full bg-slate-100 overflow-hidden w-[60px]">
-                                            <div
-                                                className="h-full rounded-full transition-all duration-700"
-                                                style={{ width: `${val}%`, background: cfg.lineColor }}
-                                            />
+                                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${val}%`, background: cfg.lineColor }} />
                                         </div>
                                     </div>
                                 );
                             })}
                         </div>
 
-                        {/* fit-all button */}
+                        {/* fit all */}
                         <button
                             onClick={fitAll}
                             title="Fit all charts to data"
@@ -707,19 +703,17 @@ export default function MarketBreadthPage() {
                             Fit All
                         </button>
 
-                        {/* export button */}
-                        <div className="relative">
+                        {/* export — مع click-outside */}
+                        <div className="relative" ref={exportDropRef}>
                             <button
                                 onClick={() => setExportOpen((o) => !o)}
                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[12px] font-medium text-slate-800 hover:bg-slate-50 transition-colors cursor-pointer"
                             >
                                 <Download size={13} />
                                 Export
-                                <svg
-                                    width="10" height="10" viewBox="0 0 24 24" fill="none"
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
                                     stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                                    style={{ transform: exportOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}
-                                >
+                                    style={{ transform: exportOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>
                                     <polyline points="6 9 12 15 18 9" />
                                 </svg>
                             </button>
@@ -731,32 +725,17 @@ export default function MarketBreadthPage() {
                                         Export as
                                     </div>
                                     {[
-                                        {
-                                            icon: <FileText size={13} color="#B02040" />, bg: '#FEF2F2',
-                                            label: 'PDF Report', sub: 'Full page with all charts', action: exportPDF,
-                                        },
-                                        {
-                                            icon: <ImgIcon size={13} color="#4338CA" />, bg: '#EEF2FF',
-                                            label: 'PNG Image', sub: 'Screenshot of the dashboard', action: exportImage,
-                                        },
+                                        { icon: <FileText size={13} color="#B02040" />, bg: '#FEF2F2', label: 'PDF Report', sub: 'Full page with all charts', action: exportPDF },
+                                        { icon: <ImgIcon size={13} color="#4338CA" />, bg: '#EEF2FF', label: 'PNG Image', sub: 'Screenshot of the dashboard', action: exportImage },
                                         null,
-                                        {
-                                            icon: <Table2 size={13} color="#166534" />, bg: '#F0FFF4',
-                                            label: 'Excel / CSV', sub: 'Raw breadth data table', action: exportExcel,
-                                        },
+                                        { icon: <Table2 size={13} color="#166534" />, bg: '#F0FFF4', label: 'Excel / CSV', sub: 'Raw breadth data table', action: exportExcel },
                                     ].map((item, idx) =>
                                         item === null ? (
                                             <div key={idx} className="h-px bg-slate-100 mx-3.5 my-1" />
                                         ) : (
-                                            <button
-                                                key={idx}
-                                                onClick={item.action}
-                                                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 hover:bg-slate-50 transition-colors text-left cursor-pointer border-none bg-transparent"
-                                            >
-                                                <div
-                                                    className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                                                    style={{ background: item.bg }}
-                                                >
+                                            <button key={idx} onClick={item.action}
+                                                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 hover:bg-slate-50 transition-colors text-left cursor-pointer border-none bg-transparent">
+                                                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: item.bg }}>
                                                     {item.icon}
                                                 </div>
                                                 <div>
@@ -777,8 +756,7 @@ export default function MarketBreadthPage() {
                             {exportStatus && (
                                 <div className="absolute top-[calc(100%+6px)] right-0 flex items-center gap-2 px-3.5 py-2.5 bg-white border border-slate-200 rounded-lg z-[1000] text-xs text-slate-800 whitespace-nowrap"
                                     style={{ boxShadow: '0 4px 12px rgba(15,23,42,0.08)' }}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                                        stroke="#0F7A5A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0F7A5A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                         <polyline points="20 6 9 17 4 12" />
                                     </svg>
                                     {exportStatus}
@@ -789,48 +767,32 @@ export default function MarketBreadthPage() {
                 </div>
 
                 {/* rainbow rule */}
-                <div
-                    className="h-[2px]"
-                    style={{
-                        background: 'linear-gradient(90deg, #0F7A5A 0%, #1560A8 33%, #A0600A 66%, #B02040 100%)',
-                        opacity: 0.3,
-                    }}
-                />
+                <div className="h-[2px]" style={{
+                    background: 'linear-gradient(90deg, #0F7A5A 0%, #1560A8 33%, #A0600A 66%, #B02040 100%)',
+                    opacity: 0.3,
+                }} />
             </header>
 
-            {/* ── Main content ────────────────────────────────────────────────── */}
-            <main
-                ref={pageRef}
-                className="flex-1 min-h-0 flex flex-col w-full px-4 pt-2 pb-2"
-            >
+            {/* ── Main ───────────────────────────────────────────────────── */}
+            <main ref={pageRef} className="flex-1 min-h-0 flex flex-col w-full px-4 pt-2 pb-2">
+
                 {/* summary bar */}
-                <div
-                    className="bg-white border border-slate-200 rounded-[9px] px-4 py-2 flex justify-between items-center mb-2 flex-shrink-0"
-                    style={{ boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}
-                >
+                <div className="bg-white border border-slate-200 rounded-[9px] px-4 py-2 flex justify-between items-center mb-2 flex-shrink-0"
+                    style={{ boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
                     <div className="flex items-center gap-4 flex-wrap">
                         {CHART_CONFIGS.map((cfg, i) => {
                             const val = latest ? (latest[cfg.key] as number) : 50;
                             const rounded = Math.round(val);
-                            const s =
-                                val >= 70
-                                    ? { label: 'Bullish', color: '#0F7A5A', bg: '#E6F5F0' }
-                                    : val <= 30
-                                        ? { label: 'Bearish', color: '#B02040', bg: '#FAE8EC' }
-                                        : { label: 'Neutral', color: '#A0600A', bg: '#FBF3E6' };
+                            const s = val >= 70
+                                ? { label: 'Bullish', color: '#0F7A5A', bg: '#E6F5F0' }
+                                : val <= 30
+                                    ? { label: 'Bearish', color: '#B02040', bg: '#FAE8EC' }
+                                    : { label: 'Neutral', color: '#A0600A', bg: '#FBF3E6' };
                             return (
-                                <div
-                                    key={cfg.key}
-                                    className={`flex items-center gap-2 ${i > 0 ? 'pl-4 border-l border-slate-200' : ''}`}
-                                >
+                                <div key={cfg.key} className={`flex items-center gap-2 ${i > 0 ? 'pl-4 border-l border-slate-200' : ''}`}>
                                     <span className="text-[11px] font-semibold text-slate-500">{cfg.label} MA</span>
-                                    <span className="text-[11px] font-bold" style={{ color: cfg.lineColor }}>
-                                        {rounded}%
-                                    </span>
-                                    <span
-                                        className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                                        style={{ color: s.color, background: s.bg }}
-                                    >
+                                    <span className="text-[11px] font-bold" style={{ color: cfg.lineColor }}>{rounded}%</span>
+                                    <span className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ color: s.color, background: s.bg }}>
                                         <span className="w-1 h-1 rounded-full inline-block" style={{ background: s.color }} />
                                         {s.label}
                                     </span>
@@ -847,16 +809,18 @@ export default function MarketBreadthPage() {
                         const Icon = cfg.icon;
                         const hover = hoverValues[i];
                         const isVisible = seriesVisible[i] !== false;
+
                         const displayVal = !isVisible
                             ? '—'
                             : hover?.main != null
                                 ? hover.main.toFixed(1)
                                 : latest ? (latest[cfg.key] as number).toFixed(1) : '—';
+
                         const numVal = hover?.main != null
                             ? hover.main
                             : latest ? (latest[cfg.key] as number) : 50;
-                        const prev =
-                            data.length > 1 ? (data[data.length - 2][cfg.key] as number) : numVal;
+
+                        const prev = data.length > 1 ? (data[data.length - 2][cfg.key] as number) : numVal;
                         const delta = Math.abs(numVal - prev).toFixed(1);
                         const isUp = numVal >= prev;
                         const isFS = fullscreenIdx === i;
@@ -867,57 +831,41 @@ export default function MarketBreadthPage() {
                         const isAvg50Active = selectedSet.has(avg50Key);
                         const isAvg200Active = selectedSet.has(avg200Key);
 
-                        // Hover display values
                         const avg50DisplayVal = hover?.avg50 != null ? hover.avg50.toFixed(1) : null;
                         const avg200DisplayVal = hover?.avg200 != null ? hover.avg200.toFixed(1) : null;
 
                         return (
                             <div
                                 key={cfg.key}
-                                ref={cardRefs[i]}
+                                ref={(el) => { cardRefs.current[i] = el; }}
                                 className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col relative min-h-0 transition-all duration-200"
-                                style={{
-                                    borderLeft: `3px solid ${cfg.lineColor}`,
-                                    boxShadow: '0 1px 3px rgba(15,23,42,0.05)',
-                                }}
+                                style={{ borderLeft: `3px solid ${cfg.lineColor}`, boxShadow: '0 1px 3px rgba(15,23,42,0.05)' }}
                             >
                                 {/* card header */}
                                 <div className="px-4 pt-2.5 pb-1.5 flex justify-between items-start flex-shrink-0">
                                     <div className="flex items-center gap-2">
-                                        <div
-                                            className="w-[30px] h-[30px] rounded-[8px] flex items-center justify-center flex-shrink-0"
-                                            style={{ background: cfg.accentLight }}
-                                        >
+                                        <div className="w-[30px] h-[30px] rounded-[8px] flex items-center justify-center flex-shrink-0" style={{ background: cfg.accentLight }}>
                                             <Icon size={14} color={cfg.lineColor} strokeWidth={2} />
                                         </div>
                                         <div>
-                                            <div className="text-[12px] font-semibold text-slate-900 tracking-tight leading-none">
-                                                {cfg.label} Moving Average
-                                            </div>
-                                            <div className="text-[10px] text-slate-400 mt-0.5 tracking-wide leading-none">
-                                                {cfg.sublabel}
-                                            </div>
+                                            <div className="text-[12px] font-semibold text-slate-900 tracking-tight leading-none">{cfg.label} Moving Average</div>
+                                            <div className="text-[10px] text-slate-400 mt-0.5 tracking-wide leading-none">{cfg.sublabel}</div>
                                         </div>
                                     </div>
 
                                     <div className="flex flex-col items-end gap-0.5">
                                         <div className="flex items-baseline gap-0.5 flex-wrap justify-end">
-                                            {/* Main value — hidden when series is toggled off */}
                                             {isVisible && (
                                                 <>
-                                                    <span className="text-[22px] font-bold text-slate-900 leading-none tracking-tight">
-                                                        {displayVal}
-                                                    </span>
+                                                    <span className="text-[22px] font-bold text-slate-900 leading-none tracking-tight">{displayVal}</span>
                                                     <span className="text-[11px] text-slate-400 font-medium">%</span>
                                                 </>
                                             )}
-                                            {/* Show AVG50 hover value in red */}
                                             {avg50DisplayVal && isAvg50Active && (
                                                 <span className="text-[11px] ml-1.5 font-semibold" style={{ color: AVG50_COLOR }}>
                                                     {isVisible ? '/ ' : ''}{avg50DisplayVal}%
                                                 </span>
                                             )}
-                                            {/* Show AVG200 hover value in black */}
                                             {avg200DisplayVal && isAvg200Active && (
                                                 <span className="text-[11px] ml-1.5 font-semibold" style={{ color: AVG200_COLOR }}>
                                                     {isVisible || isAvg50Active ? '/ ' : ''}{avg200DisplayVal}%
@@ -927,9 +875,7 @@ export default function MarketBreadthPage() {
                                         {hover?.time ? (
                                             <span className="text-[10px] text-slate-400 font-medium">{hover.time}</span>
                                         ) : isVisible ? (
-                                            <span
-                                                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded tracking-wide ${isUp ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}
-                                            >
+                                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded tracking-wide ${isUp ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}>
                                                 {isUp ? '▲' : '▼'} {delta}%
                                             </span>
                                         ) : null}
@@ -939,112 +885,85 @@ export default function MarketBreadthPage() {
                                 {/* progress bar */}
                                 <div className="px-4 pb-1.5 flex-shrink-0">
                                     <div className="flex justify-between mb-0.5">
-                                        <span className="text-[9px] text-slate-300 uppercase tracking-widest font-medium">
-                                            OVERSOLD · 30
-                                        </span>
-                                        <span className="text-[9px] text-slate-300 uppercase tracking-widest font-medium">
-                                            70 · OVERBOUGHT
-                                        </span>
+                                        <span className="text-[9px] text-slate-300 uppercase tracking-widest font-medium">OVERSOLD · 30</span>
+                                        <span className="text-[9px] text-slate-300 uppercase tracking-widest font-medium">70 · OVERBOUGHT</span>
                                     </div>
                                     <div className="h-[4px] bg-slate-100 rounded-full relative overflow-hidden">
                                         <div
                                             className="absolute left-0 top-0 bottom-0 rounded-full transition-all duration-700"
                                             style={{
                                                 width: `${numVal}%`,
-                                                background:
-                                                    numVal >= 70
-                                                        ? `linear-gradient(90deg, #0F7A5A44, #0F7A5A)`
-                                                        : numVal <= 30
-                                                            ? `linear-gradient(90deg, #B0204044, #B02040)`
-                                                            : `linear-gradient(90deg, ${cfg.lineColor}44, ${cfg.lineColor})`,
+                                                background: numVal >= 70
+                                                    ? `linear-gradient(90deg, #0F7A5A44, #0F7A5A)`
+                                                    : numVal <= 30
+                                                        ? `linear-gradient(90deg, #B0204044, #B02040)`
+                                                        : `linear-gradient(90deg, ${cfg.lineColor}44, ${cfg.lineColor})`,
                                             }}
                                         />
                                         {[30, 50, 70].map((t) => (
-                                            <div
-                                                key={t}
-                                                className="absolute top-0 bottom-0 w-px bg-white/70 z-10"
-                                                style={{ left: `${t}%` }}
-                                            />
+                                            <div key={t} className="absolute top-0 bottom-0 w-px bg-white/70 z-10" style={{ left: `${t}%` }} />
                                         ))}
                                     </div>
                                 </div>
 
                                 {/* button row */}
                                 <div className="px-3 py-1 flex items-center gap-1 border-y border-slate-100 flex-shrink-0">
-                                    {/* AVG 50 button — red when active */}
-                                    <button
-                                        onClick={() => toggleAvgKey(i, avg50Key)}
+                                    <button onClick={() => toggleAvgKey(i, avg50Key)}
                                         className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border"
                                         style={{
                                             borderColor: isAvg50Active ? AVG50_COLOR : '#E2E8F0',
                                             background: isAvg50Active ? AVG50_COLOR : 'transparent',
                                             color: isAvg50Active ? '#FFFFFF' : '#64748B',
-                                        }}
-                                    >
+                                        }}>
                                         {cfg.avgLabels[0]}
                                     </button>
 
-                                    {/* AVG 200 button — black when active */}
-                                    <button
-                                        onClick={() => toggleAvgKey(i, avg200Key)}
+                                    <button onClick={() => toggleAvgKey(i, avg200Key)}
                                         className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border"
                                         style={{
                                             borderColor: isAvg200Active ? AVG200_COLOR : '#E2E8F0',
                                             background: isAvg200Active ? AVG200_COLOR : 'transparent',
                                             color: isAvg200Active ? '#FFFFFF' : '#64748B',
-                                        }}
-                                    >
+                                        }}>
                                         {cfg.avgLabels[1]}
                                     </button>
 
                                     <div className="flex-1" />
 
-                                    <button
-                                        onClick={() =>
-                                            setSeriesVisible((prev) => ({ ...prev, [i]: !prev[i] }))
-                                        }
+                                    <button onClick={() => setSeriesVisible((prev) => ({ ...prev, [i]: !prev[i] }))}
                                         title={isVisible ? 'Hide original data' : 'Show original data'}
                                         className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border flex items-center gap-1"
                                         style={{
                                             borderColor: !isVisible ? cfg.lineColor : '#E2E8F0',
                                             background: !isVisible ? cfg.lineColor : 'transparent',
                                             color: !isVisible ? '#FFFFFF' : '#64748B',
-                                        }}
-                                    >
+                                        }}>
                                         {isVisible ? <Eye size={9} /> : <EyeOff size={9} />}
                                         <span>Data</span>
                                     </button>
 
-                                    <button
-                                        onClick={() => chartsRef.current[i]?.timeScale().fitContent()}
+                                    <button onClick={() => chartsRef.current[i]?.timeScale().fitContent()}
                                         title="Fit data to screen"
-                                        className="w-[24px] h-[24px] flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer bg-transparent"
-                                    >
+                                        className="w-[24px] h-[24px] flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer bg-transparent">
                                         <Scan size={10} />
                                     </button>
 
-                                    <button
-                                        onClick={() => handleFullscreen(i)}
+                                    <button onClick={() => handleFullscreen(i)}
                                         title={isFS ? 'Exit fullscreen' : 'Fullscreen'}
-                                        className="w-[24px] h-[24px] flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer bg-transparent"
-                                    >
+                                        className="w-[24px] h-[24px] flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer bg-transparent">
                                         {isFS ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
                                     </button>
                                 </div>
 
                                 {/* chart canvas */}
                                 <div className="flex-1 min-h-0 p-1">
-                                    <div ref={canvasRefs[i]} className="w-full h-full" />
+                                    <div ref={(el) => { canvasRefs.current[i] = el; }} className="w-full h-full" />
                                 </div>
 
-                                {/* card footer */}
+                                {/* footer */}
                                 <div className="px-4 py-1 border-t border-slate-50 flex justify-between items-center flex-shrink-0">
-                                    <span className="text-[9px] text-slate-300 leading-relaxed line-clamp-1">
-                                        {cfg.desc}
-                                    </span>
-                                    <span className="text-[9px] text-slate-300 ml-3 flex-shrink-0 font-medium">
-                                        {data.length.toLocaleString()} obs
-                                    </span>
+                                    <span className="text-[9px] text-slate-300 leading-relaxed line-clamp-1">{cfg.desc}</span>
+                                    <span className="text-[9px] text-slate-300 ml-3 flex-shrink-0 font-medium">{data.length.toLocaleString()} obs</span>
                                 </div>
                             </div>
                         );
@@ -1055,9 +974,7 @@ export default function MarketBreadthPage() {
                 <div className="mt-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg flex justify-between items-center text-[9px] text-slate-300 tracking-wide flex-shrink-0">
                     <div className="flex items-center gap-1.5">
                         <Radio size={9} color="#CBD5E1" />
-                        <span>
-                            TASI Market Breadth Index · Constituent moving average analysis · All values in percentage terms
-                        </span>
+                        <span>TASI Market Breadth Index · Constituent moving average analysis · All values in percentage terms</span>
                     </div>
                     <span>SMA 20 · 50 · 150 · 200</span>
                 </div>

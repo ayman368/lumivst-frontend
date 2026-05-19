@@ -7,7 +7,7 @@ const tabs = [
   { ticker: 'PAYEMS', label: 'Nonfarm Payrolls', href: '/economic-indicators/payems' },
   { ticker: 'IC4WSA', label: 'Initial Claims', href: '/economic-indicators/ic4wsa' },
   { ticker: 'NFP ΔM', label: 'NFP Monthly Change', href: '/economic-indicators/nfp-change' },
-  // { ticker: 'NAAIM', label: 'Exposure Index', href: '/economic-indicators/naaim' },
+  { ticker: 'NAAIM', label: 'Exposure Index', href: '/economic-indicators/naaim' },
 ];
 
 export default function EconomicIndicatorsLayout({

@@ -33,7 +33,8 @@ type TabId =
     | 'alrayan'
     | 'stamp_filters'
     | 'industry'
-    | 'rs_momentum_net_short';
+    | 'rs_momentum_net_short'
+    | 'industry_group_metrics';
 
 const TABS: { id: TabId; label: string; shortLabel: string }[] = [
     { id: 'smartselect', label: 'SmartSelect Ratings', shortLabel: 'SmartSelect' },
@@ -45,6 +46,7 @@ const TABS: { id: TabId; label: string; shortLabel: string }[] = [
     { id: 'stamp_filters', label: 'STAMP', shortLabel: 'STAMP' },
     { id: 'industry', label: 'Industry / Sector', shortLabel: 'Industry' },
     { id: 'rs_momentum_net_short', label: 'RS Momentum & Net Short', shortLabel: 'RS Momentum' },
+    { id: 'industry_group_metrics', label: 'Ind Group Metrics', shortLabel: 'Ind Group Metrics' },
 ];
 
 // ─── Stepper input ────────────────────────────────────────────────────────────
@@ -53,11 +55,11 @@ function StepperInput({
 }: {
     value: string; onChange: (v: string) => void; placeholder: string; inputWidth?: string;
 }) {
-    const [localValue, setLocalValue] = useState(value);
+    const [localValue, setLocalValue] = useState(value ?? '');
 
     // Sync local state with prop value when prop changes (e.g., parent clears filters)
     useEffect(() => {
-        setLocalValue(value);
+        setLocalValue(value ?? '');
     }, [value]);
 
     const active = value !== ''; // Use prop value for active state to reflect parent's state
@@ -103,7 +105,7 @@ function StepperInput({
             >−</button>
             <input
                 type="number"
-                value={localValue} // Use local state for input value
+                value={localValue ?? ''} // Use local state for input value
                 onChange={handleInputChange}
                 onBlur={handleInputBlur}
                 onKeyDown={handleKeyDown}
@@ -128,18 +130,18 @@ function StepperInput({
 
 // ─── Minimal range input row ──────────────────────────────────────────────────
 function RangeRow({
-    label, minVal, maxVal, onMin, onMax, inputWidth
+    label, minVal, maxVal, onMin, onMax, inputWidth, labelWidth = "w-[120px]"
 }: {
     label: string; minVal: string; maxVal: string;
     onMin: (v: string) => void; onMax: (v: string) => void;
-    inputWidth?: string;
+    inputWidth?: string; labelWidth?: string;
 }) {
     const active = minVal !== '' || maxVal !== '';
     return (
         <div className="flex items-center gap-2 py-[3px] group">
             <span
                 title={label}
-                className={`text-[11px] w-[120px] flex-shrink-0 truncate leading-tight transition-colors
+                className={`text-[11px] ${labelWidth} flex-shrink-0 truncate leading-tight transition-colors
                     ${active ? 'text-blue-700 font-semibold' : 'text-gray-500 group-hover:text-gray-700'}`}
             >
                 {label}
@@ -777,6 +779,33 @@ export default function TopFilterPanel({
                         onMax={v => s({ ratio_over_avg_daily_max: v })}
                         inputWidth="w-[80px]"
                     />
+                </div>
+            </>
+        ),
+        industry_group_metrics: (
+            <>
+                <div className="flex-shrink-0">
+                    <SectionHead>Ind Group Rank & Metrics</SectionHead>
+                    <RangeRow labelWidth="w-[190px]" label="Ind Group Rank" minVal={f.ind_group_rank_min} maxVal={f.ind_group_rank_max} onMin={v => s({ ind_group_rank_min: v })} onMax={v => s({ ind_group_rank_max: v })} />
+                    <RangeRow labelWidth="w-[190px]" label="Ind Group Last Week" minVal={f.ind_group_rank_1_week_ago_min} maxVal={f.ind_group_rank_1_week_ago_max} onMin={v => s({ ind_group_rank_1_week_ago_min: v })} onMax={v => s({ ind_group_rank_1_week_ago_max: v })} />
+                    <RangeRow labelWidth="w-[190px]" label="Ind Group 3 Mo Ago" minVal={f.ind_group_rank_3_months_ago_min} maxVal={f.ind_group_rank_3_months_ago_max} onMin={v => s({ ind_group_rank_3_months_ago_min: v })} onMax={v => s({ ind_group_rank_3_months_ago_max: v })} />
+                    <RangeRow labelWidth="w-[190px]" label="Ind Group 6 Mo Ago" minVal={f.ind_group_rank_6_months_ago_min} maxVal={f.ind_group_rank_6_months_ago_max} onMin={v => s({ ind_group_rank_6_months_ago_min: v })} onMax={v => s({ ind_group_rank_6_months_ago_max: v })} />
+                    <RangeRow labelWidth="w-[190px]" label="Ind Group Num Stocks" minVal={f.ind_group_number_of_stocks_min} maxVal={f.ind_group_number_of_stocks_max} onMin={v => s({ ind_group_number_of_stocks_min: v })} onMax={v => s({ ind_group_number_of_stocks_max: v })} />
+                    <RangeRow labelWidth="w-[190px]" label="Ind Group Mkt Val (Bil)" minVal={f.ind_group_market_value_min} maxVal={f.ind_group_market_value_max} onMin={v => s({ ind_group_market_value_min: v })} onMax={v => s({ ind_group_market_value_max: v })} />
+                    <RangeRow labelWidth="w-[190px]" label="Ind Group % Chg YTD" minVal={f.ind_group_ytd_change_percent_min} maxVal={f.ind_group_ytd_change_percent_max} onMin={v => s({ ind_group_ytd_change_percent_min: v })} onMax={v => s({ ind_group_ytd_change_percent_max: v })} />
+                    <RangeRow labelWidth="w-[190px]" label="Ind Group Change v last week" minVal={f.ind_group_change_vs_last_week_min} maxVal={f.ind_group_change_vs_last_week_max} onMin={v => s({ ind_group_change_vs_last_week_min: v })} onMax={v => s({ ind_group_change_vs_last_week_max: v })} />
+                </div>
+                <ColDivider />
+                <div className="flex-shrink-0">
+                    <SectionHead>Moving Averages Counts</SectionHead>
+                    <RangeRow labelWidth="w-[190px]" label="Ind Group # of stocks > 20MA" minVal={f.ind_group_count_above_ma20_min} maxVal={f.ind_group_count_above_ma20_max} onMin={v => s({ ind_group_count_above_ma20_min: v })} onMax={v => s({ ind_group_count_above_ma20_max: v })} />
+                    <RangeRow labelWidth="w-[190px]" label="Ind Group % of stocks > 20MA" minVal={f.ind_group_percent_above_ma20_min} maxVal={f.ind_group_percent_above_ma20_max} onMin={v => s({ ind_group_percent_above_ma20_min: v })} onMax={v => s({ ind_group_percent_above_ma20_max: v })} />
+                    <RangeRow labelWidth="w-[190px]" label="Ind Group # of stocks > 50MA" minVal={f.ind_group_count_above_ma50_min} maxVal={f.ind_group_count_above_ma50_max} onMin={v => s({ ind_group_count_above_ma50_min: v })} onMax={v => s({ ind_group_count_above_ma50_max: v })} />
+                    <RangeRow labelWidth="w-[190px]" label="Ind Group % of stocks > 50MA" minVal={f.ind_group_percent_above_ma50_min} maxVal={f.ind_group_percent_above_ma50_max} onMin={v => s({ ind_group_percent_above_ma50_min: v })} onMax={v => s({ ind_group_percent_above_ma50_max: v })} />
+                    <RangeRow labelWidth="w-[190px]" label="Ind Group # of stocks > 150MA" minVal={f.ind_group_count_above_ma150_min} maxVal={f.ind_group_count_above_ma150_max} onMin={v => s({ ind_group_count_above_ma150_min: v })} onMax={v => s({ ind_group_count_above_ma150_max: v })} />
+                    <RangeRow labelWidth="w-[190px]" label="Ind Group % of stocks > 150MA" minVal={f.ind_group_percent_above_ma150_min} maxVal={f.ind_group_percent_above_ma150_max} onMin={v => s({ ind_group_percent_above_ma150_min: v })} onMax={v => s({ ind_group_percent_above_ma150_max: v })} />
+                    <RangeRow labelWidth="w-[190px]" label="Ind Group # of stocks > 200MA" minVal={f.ind_group_count_above_ma200_min} maxVal={f.ind_group_count_above_ma200_max} onMin={v => s({ ind_group_count_above_ma200_min: v })} onMax={v => s({ ind_group_count_above_ma200_max: v })} />
+                    <RangeRow labelWidth="w-[190px]" label="Ind Group % of stocks > 200MA" minVal={f.ind_group_percent_above_ma200_min} maxVal={f.ind_group_percent_above_ma200_max} onMin={v => s({ ind_group_percent_above_ma200_min: v })} onMax={v => s({ ind_group_percent_above_ma200_max: v })} />
                 </div>
             </>
         ),

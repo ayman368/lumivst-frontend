@@ -157,10 +157,14 @@ const COLUMN_DEFINITIONS = [
     { key: 'ytd_change_percent', label: '% Chg YTD', sortable: true },
     { key: 'market_value', label: 'Ind Mkt Val (Bil)', sortable: true },
     { key: 'change_vs_last_week', label: 'Change v last week', sortable: true },
-    { key: 'percent_above_ma20', label: 'Stocks > 20MA', sortable: true },
-    { key: 'percent_above_ma50', label: 'Stocks > 50MA', sortable: true },
-    { key: 'percent_above_ma150', label: 'Stocks > 150MA', sortable: true },
-    { key: 'percent_above_ma200', label: 'Stocks > 200MA', sortable: true },
+    { key: 'count_above_ma20', label: '# of stocks > 20MA', sortable: true },
+    { key: 'percent_above_ma20', label: '% of stocks > 20MA', sortable: true },
+    { key: 'count_above_ma50', label: '# of stocks > 50MA', sortable: true },
+    { key: 'percent_above_ma50', label: '% of stocks > 50MA', sortable: true },
+    { key: 'count_above_ma150', label: '# of stocks > 150MA', sortable: true },
+    { key: 'percent_above_ma150', label: '% of stocks > 150MA', sortable: true },
+    { key: 'count_above_ma200', label: '# of stocks > 200MA', sortable: true },
+    { key: 'percent_above_ma200', label: '% of stocks > 200MA', sortable: true },
 ];
 
 const STOCK_COLUMN_DEFINITIONS = [
@@ -841,16 +845,20 @@ function buildExport(
     stocksCache: Record<string, StockSummary[]>,
     getFilteredStocks: (g: string) => StockSummary[],
 ) {
-    const groupHeaders = ['Order', 'Letter Grade', 'Industry Group', 'Sector', 'Num Stocks', 'Ind Group Rank', 'Last Week', '3 Mo Ago', '6 Mo Ago', '% Chg YTD', 'Ind Mkt Val (Bil)', 'Change v Last Week', 'Stocks > 20MA', 'Stocks > 50MA', 'Stocks > 150MA', 'Stocks > 200MA'];
+    const groupHeaders = ['Order', 'Letter Grade', 'Industry Group', 'Sector', 'Num Stocks', 'Ind Group Rank', 'Last Week', '3 Mo Ago', '6 Mo Ago', '% Chg YTD', 'Ind Mkt Val (Bil)', 'Change v Last Week', '# of stocks > 20MA', '% of stocks > 20MA', '# of stocks > 50MA', '% of stocks > 50MA', '# of stocks > 150MA', '% of stocks > 150MA', '# of stocks > 200MA', '% of stocks > 200MA'];
     const groupRows = filteredData.map((item, i) => [
         i + 1, item.letter_grade || '', item.industry_group, item.sector, item.number_of_stocks,
         item.rank ?? '', item.rank_1_week_ago ?? '-', item.rank_3_months_ago ?? '-', item.rank_6_months_ago ?? '-',
         item.ytd_change_percent != null ? item.ytd_change_percent.toFixed(2) : '-',
         item.market_value ? item.market_value.toFixed(2) : '-', item.change_vs_last_week ?? '-',
-        item.count_above_ma20 != null && item.percent_above_ma20 != null ? `${item.count_above_ma20} (${item.percent_above_ma20}%)` : '-',
-        item.count_above_ma50 != null && item.percent_above_ma50 != null ? `${item.count_above_ma50} (${item.percent_above_ma50}%)` : '-',
-        item.count_above_ma150 != null && item.percent_above_ma150 != null ? `${item.count_above_ma150} (${item.percent_above_ma150}%)` : '-',
-        item.count_above_ma200 != null && item.percent_above_ma200 != null ? `${item.count_above_ma200} (${item.percent_above_ma200}%)` : '-',
+        item.count_above_ma20 != null ? item.count_above_ma20 : '-',
+        item.percent_above_ma20 != null ? `${item.percent_above_ma20}%` : '-',
+        item.count_above_ma50 != null ? item.count_above_ma50 : '-',
+        item.percent_above_ma50 != null ? `${item.percent_above_ma50}%` : '-',
+        item.count_above_ma150 != null ? item.count_above_ma150 : '-',
+        item.percent_above_ma150 != null ? `${item.percent_above_ma150}%` : '-',
+        item.count_above_ma200 != null ? item.count_above_ma200 : '-',
+        item.percent_above_ma200 != null ? `${item.percent_above_ma200}%` : '-',
     ]);
     const stockHeaders = ['Symbol', 'Name', 'RS Rating', '1W Ago', '4W Ago', '3M Ago', '6M Ago', '1Y Ago', 'Industry', 'Sub Industry', 'Shariah Status', 'Purge Amount', 'Marginable %'];
     const RS_KEYS: (keyof StockSummary)[] = ['rs_rating', 'rs_rating_1_week_ago', 'rs_rating_4_weeks_ago', 'rs_rating_3_months_ago', 'rs_rating_6_months_ago', 'rs_rating_1_year_ago'];
@@ -1281,16 +1289,20 @@ function IndustryGroupsContent() {
                                                 <td className="px-4 py-3 text-center">
                                                     <RankChangeIndicator value={item.change_vs_last_week} />
                                                 </td>
-                                                <td className="px-4 py-3 text-right font-medium text-gray-700 whitespace-nowrap">{item.count_above_ma20 != null && item.percent_above_ma20 != null ? `${item.count_above_ma20} (${item.percent_above_ma20}%)` : '-'}</td>
-                                                <td className="px-4 py-3 text-right font-medium text-gray-700 whitespace-nowrap">{item.count_above_ma50 != null && item.percent_above_ma50 != null ? `${item.count_above_ma50} (${item.percent_above_ma50}%)` : '-'}</td>
-                                                <td className="px-4 py-3 text-right font-medium text-gray-700 whitespace-nowrap">{item.count_above_ma150 != null && item.percent_above_ma150 != null ? `${item.count_above_ma150} (${item.percent_above_ma150}%)` : '-'}</td>
-                                                <td className="px-4 py-3 text-right font-medium text-gray-700 whitespace-nowrap">{item.count_above_ma200 != null && item.percent_above_ma200 != null ? `${item.count_above_ma200} (${item.percent_above_ma200}%)` : '-'}</td>
+                                                <td className="px-4 py-3 text-right font-medium text-gray-700 whitespace-nowrap">{item.count_above_ma20 != null ? item.count_above_ma20 : '-'}</td>
+                                                <td className="px-4 py-3 text-right font-medium text-gray-700 whitespace-nowrap">{item.percent_above_ma20 != null ? `${item.percent_above_ma20}%` : '-'}</td>
+                                                <td className="px-4 py-3 text-right font-medium text-gray-700 whitespace-nowrap">{item.count_above_ma50 != null ? item.count_above_ma50 : '-'}</td>
+                                                <td className="px-4 py-3 text-right font-medium text-gray-700 whitespace-nowrap">{item.percent_above_ma50 != null ? `${item.percent_above_ma50}%` : '-'}</td>
+                                                <td className="px-4 py-3 text-right font-medium text-gray-700 whitespace-nowrap">{item.count_above_ma150 != null ? item.count_above_ma150 : '-'}</td>
+                                                <td className="px-4 py-3 text-right font-medium text-gray-700 whitespace-nowrap">{item.percent_above_ma150 != null ? `${item.percent_above_ma150}%` : '-'}</td>
+                                                <td className="px-4 py-3 text-right font-medium text-gray-700 whitespace-nowrap">{item.count_above_ma200 != null ? item.count_above_ma200 : '-'}</td>
+                                                <td className="px-4 py-3 text-right font-medium text-gray-700 whitespace-nowrap">{item.percent_above_ma200 != null ? `${item.percent_above_ma200}%` : '-'}</td>
                                             </tr>
 
                                             {/* Expanded stocks panel */}
                                             {isExpanded && (
                                                 <tr className="bg-gray-50/70">
-                                                    <td colSpan={11} className="px-4 pb-4 pt-2">
+                                                    <td colSpan={15} className="px-4 pb-4 pt-2">
                                                         <div className="bg-white rounded-lg border border-gray-200 p-4 ml-8 shadow-sm">
                                                             <div className="flex justify-between items-center mb-3">
                                                                 <h3 className="text-sm font-bold text-gray-700">Stocks in {item.industry_group}</h3>
