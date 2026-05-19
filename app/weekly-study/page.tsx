@@ -212,7 +212,7 @@ export default function WeeklyStudyPage() {
                 {data.market_components?.map((comp, i) => (
                   <tr key={i}>
                     <td style={{ padding: "4px 0" }}>{comp.name}</td>
-                    <td style={{ padding: "4px 0", textAlign: "right", color: comp.status === "Positive" || comp.status === "GREEN" ? "#00b050" : comp.status === "Negative" || comp.status === "RED" ? "red" : "black" }}>{comp.status}</td>
+                    <td style={{ padding: "4px 0", textAlign: "right", color: (comp.status as string) === "Positive" || (comp.status as string) === "GREEN" ? "#00b050" : (comp.status as string) === "Negative" || (comp.status as string) === "RED" ? "red" : "black" }}>{comp.status}</td>
                   </tr>
                 ))}
               </tbody>

@@ -73,6 +73,10 @@ export interface PortfolioPositionIn {
   month_sold?: number;
 }
 
+export interface PortfolioRequest {
+  positions: PortfolioPositionIn[];
+}
+
 export interface PortfolioPositionCreate {
   symbol: string;
   name: string;
@@ -193,6 +197,14 @@ export interface WeeklyStudyResponse {
   stem_reading: string | null;
   stem_date: string | null;
   market_components: MarketComponent[];
+}
+
+export interface WeeklyStudyRequest {
+  spy_model_25?: string | null;
+  spy_model_33?: string | null;
+  stem_reading?: string | null;
+  stem_date?: string | null;
+  market_components?: MarketComponent[];
 }
 
 // ─────────────────────────────────────────────────────────────

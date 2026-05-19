@@ -8,7 +8,7 @@ import { cleanSymbol, cleanName, parseFormattedNumber, formatNumber, formatChang
 import LightweightChart from '../components/LightweightChart';
 import SymbolSearchModal from '../components/SymbolSearchModal';
 import ActiveFilterBadge from '../components/ActiveFilterBadge';
-const initialFilterState: FilterState = {
+const initialFilterState = {
     quickFilter: '',
     rs_rating_min: '', rs_rating_max: '',
     rank_1m_min: '', rank_1m_max: '',
@@ -213,7 +213,7 @@ const initialFilterState: FilterState = {
     rs_1w_gt_4w: '',
     rs_3m_gt_6m: '',
     rs_6m_gt_1y: ''
-};
+} as unknown as FilterState;
 export default function StockScreenerPage() {
     const { stocks, metadata, loading, error, setStocks, setMetadata, setLoading, setError, refetch } = useStocks();
     const [sortConfigs, setSortConfigs] = useState<Array<{ key: string; direction: 'asc' | 'desc' }>>([]);

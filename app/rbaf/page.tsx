@@ -26,8 +26,8 @@ const INITIAL_FORM: FormState = {
   optimal_f: "25%",
 };
 
-const fmt = (n: number, decimals = 2) => n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-const pct = (n: number) => `${(n * 100).toFixed(2)}%`;
+const fmt = (n?: number, decimals = 2) => n === undefined ? "0" : n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+const pct = (n?: number) => n === undefined ? "0.00%" : `${(n * 100).toFixed(2)}%`;
 
 const parseInput = (val: string): number => {
   const clean = val.replace(/,/g, "").trim();
