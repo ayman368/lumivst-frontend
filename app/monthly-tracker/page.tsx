@@ -153,7 +153,7 @@ export default function MonthlyTrackerPage() {
                     <YAxis tick={{ fill: "#94a3b8", fontSize: 10 }} tickFormatter={v => `${v}%`} />
                     <Tooltip
                       contentStyle={{ background: "#111827", border: "1px solid #374151", borderRadius: "8px", color: "#f1f5f9", fontSize: "12px" }}
-                      formatter={(value: number) => [`${value}%`, "Return"]}
+                      formatter={(value: any) => [`${value}%`, "Return"]}
                     />
                     <ReferenceLine y={0} stroke="#f59e0b" strokeDasharray="6 3" />
                     <Line type="monotone" dataKey="returnPct" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4, fill: "#3b82f6" }} activeDot={{ r: 6 }} />
