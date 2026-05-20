@@ -5,6 +5,7 @@ import { Target, ShieldCheck } from 'lucide-react';
 import ScreenerTable from '@/components/Screeners/ScreenerTable';
 import ScreenerFilterPanel from '@/components/Screeners/ScreenerFilterPanel';
 import { initialScreenerFilters, ScreenerFilters } from '@/components/Screeners/ScreenerFilterPanel';
+import { API_BASE_URL } from '@/lib/api/config';
 
 interface StockResult {
   symbol: string;
@@ -41,12 +42,10 @@ function RSIScreenerContent() {
     async function fetchData() {
       setLoading(true);
       try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
         const [pricesRes, rsRes, techRes] = await Promise.all([
-          fetch(`${API_URL}/api/prices/latest`, { cache: 'no-store', credentials: 'include' }),
-          fetch(`${API_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', credentials: 'include' }),
-          fetch(`${API_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', credentials: 'include' })
+          fetch(`${API_BASE_URL}/api/prices/latest`, { cache: 'no-store', credentials: 'include' }),
+          fetch(`${API_BASE_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', credentials: 'include' }),
+          fetch(`${API_BASE_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', credentials: 'include' })
         ]);
 
         if (!pricesRes.ok) throw new Error('Failed to fetch prices');
