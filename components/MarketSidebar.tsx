@@ -43,6 +43,19 @@ const menuItems: SidebarItem[] = [
     ],
   },
   {
+    en: 'Market Reports',
+    href: '/market-reports',
+    items: [
+      { en: 'Substantial Shareholders', href: '/market-reports/substantial-shareholders' },
+      { en: 'Net Short Positions', href: '/market-reports/net-short-positions' },
+      { en: 'Foreign Headroom', href: '/market-reports/foreign-headroom' },
+      { en: 'Share Buybacks', href: '/market-reports/share-buybacks' },
+      { en: 'SBL Positions', href: '/market-reports/sbl-positions' },
+      { en: 'Historical Reports', href: '/market-reports/historical-reports' },
+      { en: 'Market Pulse', href: '/market-reports/market-pulse' },
+    ],
+  },
+  {
     en: 'Interest Rate',
     href: '/interest-rate',
     items: [
@@ -64,6 +77,7 @@ export const SIDEBAR_PATHS = [
   '/bonds',
   '/economic-indicators',
   '/market',
+  '/market-reports',
   '/interest-rate',
   '/spread',
   '/saudi',

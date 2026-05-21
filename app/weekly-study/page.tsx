@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition, useCallback } from "react";
+import { useState, useEffect, useTransition } from "react";
 import type { WeeklyStudyResponse, MarketComponent } from "@/types/wallet";
 import { getWeeklyStudy, updateWeeklyStudy } from "@/lib/api/wallet";
 
@@ -10,6 +10,11 @@ const DEFAULT_COMPONENTS: MarketComponent[] = [
   { name: "New Highs/New Lows", status: "Neutral" },
   { name: "Individual Stock Participation", status: "Neutral" },
 ];
+
+const inputClass =
+  "w-full px-3 py-2.5 text-sm text-slate-900 border border-slate-300 rounded-lg bg-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20";
+
+const labelClass = "block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2";
 
 export default function WeeklyStudyPage() {
   const [data, setData] = useState<WeeklyStudyResponse | null>(null);
@@ -21,7 +26,7 @@ export default function WeeklyStudyPage() {
     stem_date: new Date().toISOString().split("T")[0],
     market_components: DEFAULT_COMPONENTS,
   });
-  
+
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -43,8 +48,8 @@ export default function WeeklyStudyPage() {
             market_components: res.market_components?.length ? res.market_components : DEFAULT_COMPONENTS,
           });
         }
-      } catch (e: any) {
-        setError(e.message);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : "Failed to load weekly study");
       }
     });
   };
@@ -56,116 +61,110 @@ export default function WeeklyStudyPage() {
         const res = await updateWeeklyStudy(form);
         setData(res);
         setIsEditing(false);
-      } catch (e: any) {
-        setError(e.message);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : "Failed to save");
       }
     });
   };
 
   const updateComponent = (index: number, status: string) => {
     const newComps = [...form.market_components];
-    newComps[index].status = status as any;
+    newComps[index].status = status as MarketComponent["status"];
     setForm({ ...form, market_components: newComps });
   };
 
-  const getStemColor = (stem: string | null) => {
-    if (stem === "GREEN") return "var(--green)";
-    if (stem === "RED") return "var(--red)";
-    return "var(--amber)";
+  const statusColorClass = (status: string) => {
+    if (status === "Positive" || status === "GREEN") return "text-green-600";
+    if (status === "Negative" || status === "RED") return "text-red-600";
+    return "text-slate-900";
   };
 
-  const getStatusColor = (status: string) => {
-    if (status === "Positive") return "var(--green)";
-    if (status === "Negative") return "var(--red)";
-    return "var(--muted)";
+  const stemColorClass = (stem: string | null) => {
+    if (stem === "GREEN") return "text-green-600";
+    if (stem === "RED") return "text-red-600";
+    return "text-amber-600";
   };
 
   return (
-    <>
-      <style>{`
-        :root {
-          --bg: #0a0d14; --surface: #111827; --border: #1f2937;
-          --accent: #3b82f6; --accent-dim: #1d4ed8; --text: #f1f5f9;
-          --muted: #64748b; --green: #22c55e; --red: #ef4444; --amber: #f59e0b;
-          --radius: 12px;
-          --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
-          --font-ui: 'DM Sans', 'Inter', system-ui, sans-serif;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: var(--bg); color: var(--text); font-family: var(--font-ui); min-height: 100vh; }
-        .page { max-width: 900px; margin: 0 auto; padding: 48px 24px; }
-        .header { margin-bottom: 40px; display: flex; justify-content: space-between; align-items: center; }
-        .header h1 { font-size: 28px; font-weight: 700; background: linear-gradient(135deg, #60a5fa, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .header p { color: var(--muted); margin-top: 6px; font-size: 14px; }
-        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; margin-bottom: 24px; }
-        .card-title { font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
-        
-        .field { margin-bottom: 20px; }
-        .field label { display: block; font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; }
-        input, select { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-size: 14px; padding: 11px 14px; border-radius: 8px; outline: none; }
-        input:focus, select:focus { border-color: var(--accent); }
-        
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        
-        button.btn { padding: 10px 20px; background: var(--border); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.15s; }
-        button.btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent-dim)); }
-        button.btn:hover { opacity: 0.9; transform: translateY(-1px); }
-
-        .stem-display { text-align: center; padding: 32px; background: var(--bg); border-radius: 12px; border: 1px solid var(--border); margin-bottom: 24px; }
-        .stem-display h2 { font-size: 48px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; margin: 0; text-shadow: 0 0 20px currentColor; }
-        .stem-date { font-size: 12px; color: var(--muted); margin-top: 8px; font-family: var(--font-mono); }
-
-        table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        td { padding: 16px 14px; border-bottom: 1px solid var(--border); }
-        tr:last-child td { border-bottom: none; }
-        .status-pill { display: inline-block; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
-      `}</style>
-
-      <div className="page">
-        <div className="header">
+    <div className="min-h-full bg-slate-50 text-slate-900">
+      <div className="max-w-3xl mx-auto px-6 py-8 pb-12">
+        <div className="flex flex-wrap justify-between items-start gap-4 mb-8">
           <div>
-            <h1>Weekly Market Study</h1>
-            <p>Log and track STEM readings and broad market health indicators.</p>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Weekly Market Study</h1>
+            <p className="mt-2 text-sm text-slate-500">Log and track STEM readings and broad market health indicators.</p>
           </div>
           {!isEditing && (
-            <button className="btn" onClick={() => setIsEditing(true)}>Edit Reading</button>
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm transition-colors"
+            >
+              Edit Reading
+            </button>
           )}
         </div>
 
-        {error && <div style={{ color: "var(--red)", marginBottom: "20px" }}>⚠ {error}</div>}
+        {error && (
+          <div className="mb-5 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+            ⚠ {error}
+          </div>
+        )}
 
         {isEditing ? (
-          <div className="card">
-            <div className="card-title">Update Weekly Data</div>
-            
-            <div className="grid-2">
-              <div className="field">
-                <label>STEM Reading</label>
-                <select value={form.stem_reading || ""} onChange={e => setForm({...form, stem_reading: e.target.value})}>
+          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-5 pb-3 border-b border-slate-200">
+              Update Weekly Data
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div>
+                <label className={labelClass}>STEM Reading</label>
+                <select
+                  className={inputClass}
+                  value={form.stem_reading || ""}
+                  onChange={(e) => setForm({ ...form, stem_reading: e.target.value })}
+                >
                   <option value="GREEN">GREEN</option>
                   <option value="YELLOW">YELLOW</option>
                   <option value="RED">RED</option>
                 </select>
               </div>
-              <div className="field">
-                <label>Date</label>
-                <input type="date" value={form.stem_date || ""} onChange={e => setForm({...form, stem_date: e.target.value})} />
+              <div>
+                <label className={labelClass}>Date</label>
+                <input
+                  type="date"
+                  className={inputClass}
+                  value={form.stem_date || ""}
+                  onChange={(e) => setForm({ ...form, stem_date: e.target.value })}
+                />
               </div>
-              <div className="field">
-                <label>SPY Model 25 Signal</label>
-                <input type="text" value={form.spy_model_25 || ""} onChange={e => setForm({...form, spy_model_25: e.target.value})} placeholder="e.g. +2.5" />
+              <div>
+                <label className={labelClass}>SPY Model 25 Signal</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  value={form.spy_model_25 || ""}
+                  onChange={(e) => setForm({ ...form, spy_model_25: e.target.value })}
+                  placeholder="e.g. +2.5"
+                />
               </div>
-              <div className="field">
-                <label>SPY Model 33 Signal</label>
-                <input type="text" value={form.spy_model_33 || ""} onChange={e => setForm({...form, spy_model_33: e.target.value})} placeholder="e.g. -1.2" />
+              <div>
+                <label className={labelClass}>SPY Model 33 Signal</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  value={form.spy_model_33 || ""}
+                  onChange={(e) => setForm({ ...form, spy_model_33: e.target.value })}
+                  placeholder="e.g. -1.2"
+                />
               </div>
             </div>
 
-            <div className="card-title" style={{ marginTop: "24px" }}>Market Components</div>
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mt-6 mb-4">Market Components</div>
             {form.market_components.map((comp, idx) => (
-              <div className="field grid-2" key={idx} style={{ alignItems: "center", marginBottom: "12px" }}>
-                <div style={{ fontWeight: 500 }}>{comp.name}</div>
-                <select value={comp.status} onChange={e => updateComponent(idx, e.target.value)}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center mb-3" key={idx}>
+                <div className="font-medium text-slate-800">{comp.name}</div>
+                <select className={inputClass} value={comp.status} onChange={(e) => updateComponent(idx, e.target.value)}>
                   <option value="Positive">Positive</option>
                   <option value="Neutral">Neutral</option>
                   <option value="Negative">Negative</option>
@@ -173,59 +172,69 @@ export default function WeeklyStudyPage() {
               </div>
             ))}
 
-            <div style={{ display: "flex", gap: "12px", marginTop: "32px", justifyContent: "flex-end" }}>
-              <button className="btn" onClick={() => { setIsEditing(false); loadData(); }}>Cancel</button>
-              <button className="btn primary" onClick={handleSave} disabled={isPending}>
+            <div className="flex gap-3 mt-8 justify-end">
+              <button
+                type="button"
+                className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50"
+                onClick={() => {
+                  setIsEditing(false);
+                  loadData();
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold disabled:opacity-50"
+                onClick={handleSave}
+                disabled={isPending}
+              >
                 {isPending ? "Saving..." : "Save Reading"}
               </button>
             </div>
           </div>
         ) : data ? (
-          <div style={{ background: "white", padding: "40px", color: "black", fontFamily: "Arial, sans-serif", borderRadius: "4px", minHeight: "400px" }}>
-            <div style={{ color: "#002060", fontWeight: "bold", borderBottom: "2px solid black", marginBottom: "16px", paddingBottom: "4px", fontSize: "16px" }}>
-              SPY ADVISOR MODEL
-            </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-8 md:p-10 shadow-sm text-[#111] font-[Arial,sans-serif]">
+            <div className="text-[#002060] font-bold border-b-2 border-slate-900 mb-4 pb-1 text-base">SPY ADVISOR MODEL</div>
 
-            <div style={{ marginBottom: "24px" }}>
-              <div style={{ color: "#00b050", fontWeight: "bold", fontSize: "15px", marginBottom: "4px" }}>
+            <div className="mb-6">
+              <div className="text-[#00b050] font-bold text-[15px] mb-1">
                 25 Model - {data.spy_model_25 || "Buy signal November 17,2023"}
               </div>
-              <div style={{ color: "#002060", fontSize: "15px" }}>
-                Model Reading: 100% - Allocation:100%
-              </div>
+              <div className="text-[#002060] text-[15px]">Model Reading: 100% - Allocation:100%</div>
             </div>
 
-            <div style={{ marginBottom: "40px" }}>
-              <div style={{ color: "#00b050", fontWeight: "bold", fontSize: "15px", marginBottom: "4px" }}>
+            <div className="mb-10">
+              <div className="text-[#00b050] font-bold text-[15px] mb-1">
                 33 Model - {data.spy_model_33 || "Buy signal January 13"}
               </div>
-              <div style={{ color: "#002060", fontSize: "15px" }}>
-                Model Reading: 100% - Allocation:100%
-              </div>
+              <div className="text-[#002060] text-[15px]">Model Reading: 100% - Allocation:100%</div>
             </div>
 
-            <div style={{ color: "#002060", fontWeight: "bold", borderBottom: "2px solid black", marginBottom: "12px", paddingBottom: "4px", fontSize: "16px", width: "450px" }}>
+            <div className="text-[#002060] font-bold border-b-2 border-slate-900 mb-3 pb-1 text-base max-w-md">
               KEY COMPONENTS OF THE MARKET HEALTH
             </div>
-            <table style={{ width: "450px", marginBottom: "40px", fontSize: "15px" }}>
+            <table className="w-full max-w-md mb-10 text-[15px]">
               <tbody>
                 {data.market_components?.map((comp, i) => (
                   <tr key={i}>
-                    <td style={{ padding: "4px 0" }}>{comp.name}</td>
-                    <td style={{ padding: "4px 0", textAlign: "right", color: (comp.status as string) === "Positive" || (comp.status as string) === "GREEN" ? "#00b050" : (comp.status as string) === "Negative" || (comp.status as string) === "RED" ? "red" : "black" }}>{comp.status}</td>
+                    <td className="py-1">{comp.name}</td>
+                    <td className={`py-1 text-right font-semibold ${statusColorClass(comp.status as string)}`}>
+                      {comp.status}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
 
-            <div style={{ color: "#002060", fontWeight: "bold", borderBottom: "2px solid black", marginBottom: "12px", paddingBottom: "4px", fontSize: "16px", width: "450px" }}>
+            <div className="text-[#002060] font-bold border-b-2 border-slate-900 mb-3 pb-1 text-base max-w-md">
               Stock Trading Environment Model - STEM
             </div>
-            <table style={{ width: "450px", fontSize: "15px" }}>
+            <table className="w-full max-w-md text-[15px]">
               <tbody>
                 <tr>
                   <td>Current Reading:</td>
-                  <td style={{ textAlign: "right", fontWeight: "bold", color: data.stem_reading === "GREEN" ? "#00b050" : data.stem_reading === "RED" ? "red" : "inherit" }}>
+                  <td className={`text-right font-bold ${stemColorClass(data.stem_reading)}`}>
                     {data.stem_reading} on {data.stem_date}
                   </td>
                 </tr>
@@ -233,9 +242,12 @@ export default function WeeklyStudyPage() {
             </table>
           </div>
         ) : (
-          <div className="card" style={{ textAlign: "center", padding: "40px" }}>Loading data...</div>
+          <div className="bg-white border border-slate-200 rounded-xl p-12 shadow-sm flex flex-col items-center justify-center text-slate-500 gap-3">
+            <div className="w-9 h-9 border-[3px] border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+            <p className="text-sm">Loading data...</p>
+          </div>
         )}
       </div>
-    </>
+    </div>
   );
 }

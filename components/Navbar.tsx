@@ -198,6 +198,17 @@ export default function Navbar() {
         { en: 'Analyst Reports', href: '/news/analyst' },
       ],
     },
+    wallet: {
+      en: 'Wallet',
+      href: '/portfolio',
+      items: [
+        { en: 'Portfolio', href: '/portfolio' },
+        { en: 'Risk Calculator', href: '/risk-calculator' },
+        { en: 'RBAF', href: '/rbaf' },
+        { en: 'Monthly Tracker', href: '/monthly-tracker' },
+        { en: 'Weekly Study', href: '/weekly-study' },
+      ],
+    },
   }
 
   const toggleMobile = () => {
@@ -346,6 +357,7 @@ export default function Navbar() {
           <div className="flex items-center gap-1">
             {[
               { href: '/stocks', label: 'Stocks' },
+              { href: '/Positionsizecalculator', label: 'Position Size' },
               { href: '/market-reports', label: 'Market Reports' },
               { href: '/stocks/market-breadth', label: 'Market Breadth' },
               { href: '/stocks/charts', label: 'Charts' },

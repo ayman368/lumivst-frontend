@@ -96,6 +96,7 @@ export interface WalletPositionDB {
   stop_price?: number;
   current_price?: number;
   portfolio_name: string;
+  transactions?: any[];
   entry_date: string;
   created_at: string;
   updated_at: string;

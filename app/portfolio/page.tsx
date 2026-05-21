@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { fetchPortfolioPositions, createPortfolioPosition, closePortfolioPosition } from "@/lib/api/wallet";
+import { 
+  fetchPortfolioPositions, 
+  createPortfolioPosition, 
+  closePortfolioPosition,
+  updatePortfolioPosition,
+  addSharesToPosition,
+  partialSellPosition
+} from "@/lib/api/wallet";
 import type { WalletPositionDB } from "@/types/wallet";
 import { useToast } from "@/components/ui/Toast";
 
@@ -121,7 +128,7 @@ const fmt = (v: number | null | undefined, decimals = 2) =>
 const pct = (v: number | null | undefined) =>
   v == null || Number.isNaN(v) || v === 0 ? "—" : `${(v * 100).toFixed(2)}%`;
 const color = (v: number | null | undefined) =>
-  v != null && v > 0 ? "text-emerald-400" : v != null && v < 0 ? "text-red-400" : "text-zinc-500";
+  v != null && v > 0 ? "text-emerald-600" : v != null && v < 0 ? "text-red-600" : "text-slate-500";
 
 const mapWalletPosition = (pos: any, totalCost: number): Position => {
   const cost = Number(pos.buy_price) || 0;
@@ -141,6 +148,7 @@ const mapWalletPosition = (pos: any, totalCost: number): Position => {
   const pflPct = totalCost > 0 ? tCost / totalCost : 0;
   const pctChg = pos.change_percent ?? (cost > 0 ? (last - cost) / cost : 0);
   const growth = last - cost;
+  const mgnPct = pos.marginable_percent != null ? Number(pos.marginable_percent) / 100 : 0;
 
   // RS from percent_change fields (approximate relative strength)
   const rs6m = pos.percent_change_126d ? pos.percent_change_126d / 100 : 0;
@@ -181,8 +189,31 @@ const mapWalletPosition = (pos: any, totalCost: number): Position => {
     return (cost - newStopValue) / cost;
   };
 
-  // Marginable percent
-  const mgnPct = pos.marginable_percent ? pos.marginable_percent / 100 : 0;
+  // Parse Transactions
+  let addDate1 = "";
+  let addDate2 = "";
+  let addDate3 = "";
+  let sellValue = 0; // Last sell price
+  let sellQty = 0; // Total quantity sold
+  let tSold = 0; // Total cash from sold shares
+  let exitDate = "";
+
+  if (pos.transactions && Array.isArray(pos.transactions)) {
+    const adds = pos.transactions.filter((t: any) => t.type === 'add');
+    const sells = pos.transactions.filter((t: any) => t.type === 'sell');
+
+    if (adds[0]) addDate1 = adds[0].date;
+    if (adds[1]) addDate2 = adds[1].date;
+    if (adds[2]) addDate3 = adds[2].date;
+
+    if (sells.length > 0) {
+      const lastSell = sells[sells.length - 1];
+      exitDate = lastSell.date;
+      sellValue = Number(lastSell.price) || 0; 
+      sellQty = sells.reduce((acc: number, t: any) => acc + Number(t.qty || 0), 0);
+      tSold = sells.reduce((acc: number, t: any) => acc + (Number(t.qty || 0) * Number(t.price || 0)), 0);
+    }
+  }
 
   return {
     id: pos.id,
@@ -208,15 +239,15 @@ const mapWalletPosition = (pos: any, totalCost: number): Position => {
     sRs1m: score,
     s150ma,
     entryDate: pos.entry_date || "",
-    addDate1: "",
-    addDate2: "",
-    addDate3: "",
+    addDate1,
+    addDate2,
+    addDate3,
     qty,
     tCost,
-    sellValue: 0,
-    sell: 0,
-    exitDate: "",
-    tSold: 0,
+    sellValue,
+    sell: sellQty,
+    exitDate,
+    tSold,
     return_,
     returnPct,
     days,
@@ -262,11 +293,11 @@ function getCellValue(pos: Position, col: string): { display: string; className?
     case "Pfl.": return { display: pos.pfl };
     case "Sym": return { display: String(pos.sym) };
     case "Name": return { display: pos.name };
-    case "Pfl.%": return { display: pct(pos.pflPct), className: "text-sky-400" };
-    case "Mgn%": return { display: fmt(pos.mgnPct), className: "text-zinc-400" };
+    case "Pfl.%": return { display: pct(pos.pflPct), className: "text-sky-700" };
+    case "Mgn%": return { display: fmt(pos.mgnPct), className: "text-slate-600" };
     case "Short%": return { display: fmt(pos.shortPct) };
     case "%Chg": return { display: pct(pos.pctChg), className: color(pos.pctChg) };
-    case "Last": return { display: fmt(pos.last), className: "font-semibold text-white" };
+    case "Last": return { display: fmt(pos.last), className: "font-semibold text-slate-900" };
     case "Cost": return { display: fmt(pos.cost) };
     case "Growth": return { display: fmt(pos.growth) };
     case "RS-Grade": return { display: pos.rsGrade || "—" };
@@ -284,7 +315,7 @@ function getCellValue(pos: Position, col: string): { display: string; className?
     case "Add date 1": return { display: pos.addDate1 || "—" };
     case "Add date 2": return { display: pos.addDate2 || "—" };
     case "Add date 3": return { display: pos.addDate3 || "—" };
-    case "Qty": return { display: fmt(pos.qty, 0), className: "text-sky-300" };
+    case "Qty": return { display: fmt(pos.qty, 0), className: "text-sky-700" };
     case "T.Cost": return { display: fmt(pos.tCost, 0) };
     case "Sell Value": return { display: fmt(pos.sellValue, 0) };
     case "Sell": return { display: fmt(pos.sell, 0) };
@@ -292,15 +323,15 @@ function getCellValue(pos: Position, col: string): { display: string; className?
     case "T.Sold": return { display: fmt(pos.tSold, 0) };
     case "Return": return { display: fmt(pos.return_, 0), className: color(pos.return_) };
     case "Return%": return { display: pct(pos.returnPct), className: color(pos.returnPct) };
-    case "Days": return { display: String(pos.days), className: "text-zinc-300" };
-    case "Stop Price": return { display: fmt(pos.stopPrice), className: "text-amber-400" };
+    case "Days": return { display: String(pos.days), className: "text-slate-600" };
+    case "Stop Price": return { display: fmt(pos.stopPrice), className: "text-amber-700" };
     case "C.RRR": return { display: fmt(pos.cRRR) };
-    case "C.Loss%": return { display: pct(pos.cLossPct), className: "text-red-400" };
-    case "% of Ptf.": return { display: pct(pos.pctOfPtf), className: "text-violet-400" };
-    case "RF-100%": return { display: fmt(pos.rf100, 0), className: "text-emerald-500" };
-    case "RF-75%": return { display: fmt(pos.rf75, 0), className: "text-emerald-400" };
-    case "RF-50%": return { display: fmt(pos.rf50, 0), className: "text-emerald-300" };
-    case "RF-25%": return { display: fmt(pos.rf25, 0), className: "text-emerald-200" };
+    case "C.Loss%": return { display: pct(pos.cLossPct), className: "text-red-600" };
+    case "% of Ptf.": return { display: pct(pos.pctOfPtf), className: "text-violet-700" };
+    case "RF-100%": return { display: fmt(pos.rf100, 0), className: "text-emerald-700" };
+    case "RF-75%": return { display: fmt(pos.rf75, 0), className: "text-emerald-600" };
+    case "RF-50%": return { display: fmt(pos.rf50, 0), className: "text-emerald-600" };
+    case "RF-25%": return { display: fmt(pos.rf25, 0), className: "text-emerald-500" };
     case "ES-100%": return { display: pct(pos.es100), className: color(pos.es100) };
     case "ES-75%": return { display: pct(pos.es75), className: color(-pos.es75) };
     case "ES-50%": return { display: pct(pos.es50), className: color(-pos.es50) };
@@ -310,8 +341,8 @@ function getCellValue(pos: Position, col: string): { display: string; className?
     case "P.Price": return { display: fmt(pos.pPrice) };
     case "Amount": return { display: fmt(pos.amount, 0) };
     case "Qty(plan)": return { display: fmt(pos.qtyPlan, 0) };
-    case "Gain": return { display: pct(pos.gain), className: "text-emerald-400" };
-    case "Loss": return { display: pct(pos.loss), className: "text-red-400" };
+    case "Gain": return { display: pct(pos.gain), className: "text-emerald-600" };
+    case "Loss": return { display: pct(pos.loss), className: "text-red-600" };
     case "RRR": return { display: fmt(pos.rrr) };
     case "P&L": return { display: fmt(pos.pandl, 0), className: color(pos.pandl) };
     case "P&L%": return { display: pct(pos.pandlPct), className: color(pos.pandlPct) };
@@ -333,35 +364,35 @@ function getCellValue(pos: Position, col: string): { display: string; className?
 
 // ── Column group colors ───────────────────────────────────────────────────────
 const GROUP_COLORS: Record<string, string> = {
-  "Identity": "bg-zinc-900  text-zinc-300",
-  "Allocation": "bg-sky-950   text-sky-300",
-  "Price": "bg-zinc-900  text-zinc-300",
-  "RS": "bg-violet-950 text-violet-300",
-  "Signal": "bg-indigo-950 text-indigo-300",
-  "Dates": "bg-zinc-950  text-zinc-400",
-  "Position": "bg-zinc-900  text-zinc-300",
-  "Performance": "bg-zinc-950  text-zinc-300",
-  "Risk Financed": "bg-emerald-950 text-emerald-300",
-  "Effective Stop": "bg-amber-950 text-amber-300",
-  "Plan": "bg-zinc-950  text-zinc-400",
-  "P&L": "bg-zinc-900  text-zinc-300",
-  "Summary": "bg-zinc-950  text-zinc-400",
+  "Identity": "bg-slate-100 text-slate-700",
+  "Allocation": "bg-sky-50 text-sky-800",
+  "Price": "bg-slate-100 text-slate-700",
+  "RS": "bg-violet-50 text-violet-800",
+  "Signal": "bg-indigo-50 text-indigo-800",
+  "Dates": "bg-slate-50 text-slate-600",
+  "Position": "bg-slate-100 text-slate-700",
+  "Performance": "bg-slate-50 text-slate-700",
+  "Risk Financed": "bg-emerald-50 text-emerald-800",
+  "Effective Stop": "bg-amber-50 text-amber-800",
+  "Plan": "bg-slate-50 text-slate-600",
+  "P&L": "bg-slate-100 text-slate-700",
+  "Summary": "bg-slate-50 text-slate-600",
 };
 
 const GROUP_HEADER_COLORS: Record<string, string> = {
-  "Identity": "bg-zinc-800",
-  "Allocation": "bg-sky-900",
-  "Price": "bg-zinc-800",
-  "RS": "bg-violet-900",
-  "Signal": "bg-indigo-900",
-  "Dates": "bg-zinc-900",
-  "Position": "bg-zinc-800",
-  "Performance": "bg-zinc-900",
-  "Risk Financed": "bg-emerald-900",
-  "Effective Stop": "bg-amber-900",
-  "Plan": "bg-zinc-900",
-  "P&L": "bg-zinc-800",
-  "Summary": "bg-zinc-900",
+  "Identity": "bg-slate-200 text-slate-800",
+  "Allocation": "bg-sky-200 text-sky-900",
+  "Price": "bg-slate-200 text-slate-800",
+  "RS": "bg-violet-200 text-violet-900",
+  "Signal": "bg-indigo-200 text-indigo-900",
+  "Dates": "bg-slate-200 text-slate-700",
+  "Position": "bg-slate-200 text-slate-800",
+  "Performance": "bg-slate-200 text-slate-800",
+  "Risk Financed": "bg-emerald-200 text-emerald-900",
+  "Effective Stop": "bg-amber-200 text-amber-900",
+  "Plan": "bg-slate-200 text-slate-700",
+  "P&L": "bg-slate-200 text-slate-800",
+  "Summary": "bg-slate-200 text-slate-700",
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -430,6 +461,51 @@ export default function PortfolioPage() {
     }
   };
 
+  // ── Action Handlers ──
+  const [editingPos, setEditingPos] = useState<any>(null);
+  const [addingPos, setAddingPos] = useState<any>(null);
+  const [sellingPos, setSellingPos] = useState<any>(null);
+
+  const handleUpdateSubmit = async () => {
+    try {
+      await updatePortfolioPosition(editingPos.id, {
+        name: editingPos.name,
+        qty: Number(editingPos.qty),
+        buy_price: Number(editingPos.buy_price),
+        stop_price: editingPos.stop_price ? Number(editingPos.stop_price) : null,
+      });
+      setEditingPos(null);
+      await loadPositions();
+      toast("Position updated", "success");
+    } catch (e) { toast("Update failed", "error"); }
+  };
+
+  const handleAddSubmit = async () => {
+    try {
+      await addSharesToPosition(addingPos.id, {
+        qty: Number(addingPos.add_qty),
+        buy_price: Number(addingPos.add_price),
+        trade_date: addingPos.add_date,
+      });
+      setAddingPos(null);
+      await loadPositions();
+      toast("Shares added successfully", "success");
+    } catch (e) { toast("Failed to add shares", "error"); }
+  };
+
+  const handleSellSubmit = async () => {
+    try {
+      await partialSellPosition(sellingPos.id, {
+        qty: Number(sellingPos.sell_qty),
+        sell_price: Number(sellingPos.sell_price),
+        trade_date: sellingPos.sell_date,
+      });
+      setSellingPos(null);
+      await loadPositions();
+      toast("Shares sold successfully", "success");
+    } catch (e) { toast("Failed to sell shares", "error"); }
+  };
+
   const toggleGroup = (g: string) => {
     setActiveGroups(prev => {
       const next = new Set(prev);
@@ -455,28 +531,28 @@ export default function PortfolioPage() {
   const totalCost = filtered.reduce((s, p) => s + p.tCost, 0);
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-300 font-mono">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
 
       {/* ── Header ── */}
-      <div className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
+      <div className="border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between gap-4 flex-wrap shadow-sm">
         <div>
-          <h1 className="text-white text-lg font-semibold tracking-tight">Portfolio</h1>
-          <p className="text-zinc-500 text-xs mt-0.5">
+          <h1 className="text-slate-900 text-xl font-semibold tracking-tight">Portfolio</h1>
+          <p className="text-slate-500 text-sm mt-1">
             {filtered.length} position{filtered.length !== 1 ? "s" : ""} &nbsp;·&nbsp;
-            Total cost: <span className="text-zinc-300">{fmt(totalCost, 0)} SAR</span> &nbsp;·&nbsp;
-            Total return: <span className={color(totalReturn)}>{fmt(totalReturn, 0)} SAR</span>
+            Total cost: <span className="text-slate-700 font-medium">{fmt(totalCost, 0)} SAR</span> &nbsp;·&nbsp;
+            Total return: <span className={`font-medium ${color(totalReturn)}`}>{fmt(totalReturn, 0)} SAR</span>
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <input
-            className="bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-sm text-zinc-300 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 w-48"
+            className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 w-52"
             placeholder="Search symbol / name…"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
           <button
-            className="bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 text-sm px-3 py-1.5 rounded transition-colors"
+            className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg font-medium transition-colors shadow-sm"
             onClick={() => setIsAdding(prev => !prev)}
           >
             {isAdding ? "Cancel" : "+ Add Position"}
@@ -485,51 +561,69 @@ export default function PortfolioPage() {
       </div>
 
       {isAdding && (
-        <div className="border-b border-zinc-800 px-6 py-4 bg-zinc-950/50">
-          <div className="grid gap-3 md:grid-cols-3">
-            <input
-              className="bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-200"
-              placeholder="Symbol"
-              value={newPosition.symbol}
-              onChange={e => setNewPosition({ ...newPosition, symbol: e.target.value.toUpperCase() })}
-            />
-            <input
-              className="bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-200"
-              placeholder="Name"
-              value={newPosition.name}
-              onChange={e => setNewPosition({ ...newPosition, name: e.target.value })}
-            />
-            <input
-              type="date"
-              className="bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-200"
-              value={newPosition.entry_date}
-              onChange={e => setNewPosition({ ...newPosition, entry_date: e.target.value })}
-            />
-            <input
-              type="number"
-              className="bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-200"
-              placeholder="Quantity"
-              value={newPosition.qty}
-              onChange={e => setNewPosition({ ...newPosition, qty: Number(e.target.value) })}
-            />
-            <input
-              type="number"
-              className="bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-200"
-              placeholder="Buy Price"
-              value={newPosition.buy_price}
-              onChange={e => setNewPosition({ ...newPosition, buy_price: Number(e.target.value) })}
-            />
-            <input
-              type="number"
-              className="bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-200"
-              placeholder="Stop Price"
-              value={newPosition.stop_price}
-              onChange={e => setNewPosition({ ...newPosition, stop_price: Number(e.target.value) })}
-            />
+        <div className="border-b border-slate-200 px-6 py-4 bg-slate-50">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Symbol</label>
+              <input
+                className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                placeholder="e.g. 2222"
+                value={newPosition.symbol}
+                onChange={e => setNewPosition({ ...newPosition, symbol: e.target.value.toUpperCase() })}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</label>
+              <input
+                className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                placeholder="e.g. ARAMCO"
+                value={newPosition.name}
+                onChange={e => setNewPosition({ ...newPosition, name: e.target.value })}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Entry Date</label>
+              <input
+                type="date"
+                className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                value={newPosition.entry_date}
+                onChange={e => setNewPosition({ ...newPosition, entry_date: e.target.value })}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Quantity</label>
+              <input
+                type="number"
+                className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                placeholder="e.g. 100"
+                value={newPosition.qty}
+                onChange={e => setNewPosition({ ...newPosition, qty: Number(e.target.value) })}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Buy Price (SAR)</label>
+              <input
+                type="number"
+                className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                placeholder="e.g. 35.50"
+                value={newPosition.buy_price}
+                onChange={e => setNewPosition({ ...newPosition, buy_price: Number(e.target.value) })}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Stop Price (SAR)</label>
+              <input
+                type="number"
+                className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                placeholder="e.g. 32.00"
+                value={newPosition.stop_price}
+                onChange={e => setNewPosition({ ...newPosition, stop_price: Number(e.target.value) })}
+              />
+            </div>
           </div>
           <div className="mt-3 flex items-center gap-3">
             <button
-              className="bg-sky-600 hover:bg-sky-500 text-white text-sm px-4 py-2 rounded"
+              className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg font-medium shadow-sm"
               onClick={handleAddPosition}
             >
               Save Position
@@ -539,15 +633,15 @@ export default function PortfolioPage() {
       )}
 
       {/* ── Column group toggles ── */}
-      <div className="px-6 py-3 border-b border-zinc-800 flex flex-wrap gap-2">
-        <span className="text-zinc-600 text-xs self-center">Columns:</span>
+      <div className="px-6 py-3 border-b border-slate-200 bg-white flex flex-wrap gap-2">
+        <span className="text-slate-500 text-xs self-center font-medium">Columns:</span>
         {COL_GROUPS.map(g => (
           <button
             key={g.label}
             onClick={() => toggleGroup(g.label)}
-            className={`text-xs px-2.5 py-1 rounded border transition-all ${activeGroups.has(g.label)
-              ? `${GROUP_HEADER_COLORS[g.label]} border-transparent text-white`
-              : "bg-transparent border-zinc-700 text-zinc-500 hover:border-zinc-500"
+            className={`text-xs px-2.5 py-1 rounded-md border transition-all ${activeGroups.has(g.label)
+              ? `${GROUP_HEADER_COLORS[g.label]} border-transparent shadow-sm`
+              : "bg-white border-slate-300 text-slate-600 hover:border-slate-400 hover:bg-slate-50"
               }`}
           >
             {g.label}
@@ -556,27 +650,27 @@ export default function PortfolioPage() {
       </div>
 
       {/* ── Table ── */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto bg-white">
         <table className="w-full text-xs border-collapse min-w-max">
           <thead>
             {/* Group header row */}
-            <tr className="border-b border-zinc-800">
+            <tr className="border-b border-slate-200">
               {COL_GROUPS.filter(g => activeGroups.has(g.label)).map(g => (
                 <th
                   key={g.label}
                   colSpan={g.cols.length}
-                  className={`px-2 py-1.5 text-center text-[10px] font-semibold tracking-widest uppercase border-r border-zinc-800 ${GROUP_HEADER_COLORS[g.label]} text-zinc-300`}
+                  className={`px-2 py-1.5 text-center text-[10px] font-semibold tracking-widest uppercase border-r border-slate-200 ${GROUP_HEADER_COLORS[g.label]}`}
                 >
                   {g.label}
                 </th>
               ))}
             </tr>
             {/* Column header row */}
-            <tr className="border-b border-zinc-700 sticky top-0 z-10">
+            <tr className="border-b border-slate-300 sticky top-0 z-10 shadow-sm">
               {visibleCols.map(({ col, group }) => (
                 <th
                   key={`${group}-${col}`}
-                  className={`px-2 py-2 text-center whitespace-nowrap font-medium tracking-tight border-r border-zinc-800/60 ${GROUP_COLORS[group]}`}
+                  className={`px-2 py-2 text-center whitespace-nowrap font-medium tracking-tight border-r border-slate-200 ${GROUP_COLORS[group]}`}
                 >
                   {col}
                 </th>
@@ -587,7 +681,7 @@ export default function PortfolioPage() {
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={visibleCols.length} className="text-center py-16 text-zinc-600">
+                <td colSpan={visibleCols.length} className="text-center py-16 text-slate-500">
                   No positions found
                 </td>
               </tr>
@@ -595,25 +689,48 @@ export default function PortfolioPage() {
             {filtered.map((pos, i) => (
               <tr
                 key={i}
-                className="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors"
+                className="border-b border-slate-100 hover:bg-slate-50 transition-colors even:bg-slate-50/40"
               >
                 {visibleCols.map(({ col, group }) => {
                   const { display, className } = getCellValue(pos, col);
                   return (
                     <td
                       key={`${group}-${col}`}
-                      className={`px-2 py-2.5 text-center whitespace-nowrap border-r border-zinc-800/40 tabular-nums relative group ${className ?? "text-zinc-400"}`}
+                      className={`px-2 py-2.5 text-center whitespace-nowrap border-r border-slate-100 tabular-nums relative group ${className ?? "text-slate-600"}`}
                     >
                       {col === "Sym" ? (
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between relative group/sym">
                           <span>{display}</span>
-                          <button
-                            onClick={() => handleClosePosition(pos.id)}
-                            title="Close Position"
-                            className="opacity-0 group-hover:opacity-100 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded px-1.5 py-0.5 text-[10px] ml-2 transition-all absolute right-1"
-                          >
-                            Close
-                          </button>
+                          <div className="opacity-0 group-hover/sym:opacity-100 flex items-center gap-1 absolute -right-1 bg-white/90 backdrop-blur-sm px-1 py-0.5 rounded shadow-sm border border-slate-200 transition-all z-20">
+                            <button
+                              onClick={() => setEditingPos({ id: pos.id, name: pos.name, qty: pos.qty, buy_price: pos.cost, stop_price: pos.stopPrice })}
+                              title="Edit Position"
+                              className="bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded px-1.5 py-0.5 text-[10px] transition-colors"
+                            >
+                              E
+                            </button>
+                            <button
+                              onClick={() => setAddingPos({ id: pos.id, symbol: pos.sym, add_qty: "", add_price: pos.last, add_date: new Date().toISOString().slice(0, 10) })}
+                              title="Add Shares"
+                              className="bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded px-1.5 py-0.5 text-[10px] transition-colors"
+                            >
+                              +
+                            </button>
+                            <button
+                              onClick={() => setSellingPos({ id: pos.id, symbol: pos.sym, max_qty: pos.qty, sell_qty: "", sell_price: pos.last, sell_date: new Date().toISOString().slice(0, 10) })}
+                              title="Partial Sell"
+                              className="bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white rounded px-1.5 py-0.5 text-[10px] transition-colors"
+                            >
+                              -
+                            </button>
+                            <button
+                              onClick={() => handleClosePosition(pos.id)}
+                              title="Close Fully"
+                              className="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded px-1.5 py-0.5 text-[10px] transition-colors"
+                            >
+                              x
+                            </button>
+                          </div>
                         </div>
                       ) : display}
                     </td>
@@ -625,15 +742,15 @@ export default function PortfolioPage() {
 
           {/* ── Totals footer ── */}
           <tfoot>
-            <tr className="border-t border-zinc-700 bg-zinc-900/60">
+            <tr className="border-t-2 border-slate-300 bg-slate-100 font-semibold">
               {visibleCols.map(({ col, group }, i) => {
                 let val = "—";
-                let cls = "text-zinc-500";
-                if (col === "T.Cost") { val = fmt(totalCost, 0); cls = "text-zinc-300 font-semibold"; }
+                let cls = "text-slate-500";
+                if (col === "T.Cost") { val = fmt(totalCost, 0); cls = "text-slate-800 font-semibold"; }
                 if (col === "Return") { val = fmt(totalReturn, 0); cls = `font-semibold ${color(totalReturn)}`; }
-                if (col === "Name" || col === "Pfl.") { val = "TOTAL"; cls = "text-zinc-400 font-semibold text-left"; }
+                if (col === "Name" || col === "Pfl.") { val = "TOTAL"; cls = "text-slate-700 font-semibold text-left"; }
                 return (
-                  <td key={`${group}-${col}`} className={`px-2 py-2.5 text-center border-r border-zinc-800/40 tabular-nums ${cls}`}>
+                  <td key={`${group}-${col}`} className={`px-2 py-2.5 text-center border-r border-slate-200 tabular-nums ${cls}`}>
                     {val}
                   </td>
                 );
@@ -645,10 +762,100 @@ export default function PortfolioPage() {
 
       {/* ── Empty state prompt ── */}
       {data.length <= 1 && (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-14 h-14 rounded-full bg-zinc-800 flex items-center justify-center mb-4 text-2xl">📊</div>
-          <p className="text-zinc-400 text-sm mb-1">Connect the backend to load your full portfolio</p>
-          <p className="text-zinc-600 text-xs">POST /api/portfolio/positions</p>
+        <div className="flex flex-col items-center justify-center py-20 text-center bg-slate-50">
+          <div className="w-14 h-14 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center mb-4 text-2xl">📊</div>
+          <p className="text-slate-600 text-sm mb-1">Connect the backend to load your full portfolio</p>
+          <p className="text-slate-400 text-xs font-mono">POST /api/wallet/portfolio/positions</p>
+        </div>
+      )}
+
+      {/* ── Modals ── */}
+      {editingPos && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 className="font-semibold text-slate-800">Edit Position</h3>
+              <button onClick={() => setEditingPos(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Name</label>
+                <input value={editingPos.name} onChange={e => setEditingPos({...editingPos, name: e.target.value})} className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Quantity</label>
+                  <input type="number" value={editingPos.qty} onChange={e => setEditingPos({...editingPos, qty: e.target.value})} className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Buy Price</label>
+                  <input type="number" value={editingPos.buy_price} onChange={e => setEditingPos({...editingPos, buy_price: e.target.value})} className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Stop Price</label>
+                <input type="number" value={editingPos.stop_price} onChange={e => setEditingPos({...editingPos, stop_price: e.target.value})} className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+              </div>
+              <button onClick={handleUpdateSubmit} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded transition-colors mt-2">Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {addingPos && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-emerald-100 flex justify-between items-center bg-emerald-50 text-emerald-800">
+              <h3 className="font-semibold">Add Shares (Scale In) - {addingPos.symbol}</h3>
+              <button onClick={() => setAddingPos(null)} className="opacity-70 hover:opacity-100">✕</button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Add Qty</label>
+                  <input type="number" value={addingPos.add_qty} onChange={e => setAddingPos({...addingPos, add_qty: e.target.value})} className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-emerald-500 outline-none" placeholder="0" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Buy Price</label>
+                  <input type="number" value={addingPos.add_price} onChange={e => setAddingPos({...addingPos, add_price: e.target.value})} className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-emerald-500 outline-none" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Date</label>
+                <input type="date" value={addingPos.add_date} onChange={e => setAddingPos({...addingPos, add_date: e.target.value})} className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-emerald-500 outline-none" />
+              </div>
+              <button onClick={handleAddSubmit} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded transition-colors mt-2">Confirm Add</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {sellingPos && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-amber-100 flex justify-between items-center bg-amber-50 text-amber-800">
+              <h3 className="font-semibold">Partial Sell - {sellingPos.symbol}</h3>
+              <button onClick={() => setSellingPos(null)} className="opacity-70 hover:opacity-100">✕</button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded border border-slate-100">Available to sell: <span className="font-bold">{sellingPos.max_qty}</span> shares</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Sell Qty</label>
+                  <input type="number" value={sellingPos.sell_qty} onChange={e => setSellingPos({...sellingPos, sell_qty: e.target.value})} className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-amber-500 outline-none" placeholder="0" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Sell Price</label>
+                  <input type="number" value={sellingPos.sell_price} onChange={e => setSellingPos({...sellingPos, sell_price: e.target.value})} className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-amber-500 outline-none" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Date</label>
+                <input type="date" value={sellingPos.sell_date} onChange={e => setSellingPos({...sellingPos, sell_date: e.target.value})} className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:border-amber-500 outline-none" />
+              </div>
+              <button onClick={handleSellSubmit} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium py-2 rounded transition-colors mt-2">Confirm Sell</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
