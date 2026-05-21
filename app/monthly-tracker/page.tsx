@@ -158,7 +158,7 @@ export default function MonthlyTrackerPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
                     <XAxis dataKey="name" tick={{ fill: chartTickFill, fontSize: 10 }} />
                     <YAxis tick={{ fill: chartTickFill, fontSize: 10 }} tickFormatter={(v) => `${v}%`} />
-                    <Tooltip contentStyle={chartTooltipStyle} formatter={(value: number) => [`${value}%`, "Return"]} />
+                    <Tooltip contentStyle={chartTooltipStyle} formatter={(value) => [`${value}%`, "Return"]} />
                     <ReferenceLine y={0} stroke="#d97706" strokeDasharray="6 3" />
                     <Line type="monotone" dataKey="returnPct" stroke="#2563eb" strokeWidth={2} dot={{ r: 4, fill: "#2563eb" }} activeDot={{ r: 6 }} />
                   </LineChart>

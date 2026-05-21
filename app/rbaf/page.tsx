@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useCallback, useEffect } from "react";
-import type { RBAFResponse } from "@/types/wallet";
+import type { RBAFResponse, RBAFRequest } from "@/types/wallet";
 import { calcRBAF, getRbafSettings } from "@/lib/api/wallet";
 
 interface FormState {
@@ -106,7 +106,7 @@ export default function RBAFPage() {
     []
   );
 
-  const handleSubmitWithData = (data: Record<string, number>) => {
+  const handleSubmitWithData = (data: RBAFRequest) => {
     setError(null);
     startTransition(async () => {
       try {
