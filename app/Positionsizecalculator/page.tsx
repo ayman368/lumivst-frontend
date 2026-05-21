@@ -22,17 +22,10 @@ function calculateIdealPositionSize(
     throw new Error("بيانات غير صحيحة");
   }
 
-  // Win rate (p) and loss rate (q)
   const p = winningTrades / totalTrades;
   const q = 1 - p;
-
-  // Reward/Risk ratio (b) = avg win / avg loss
   const b = avgWinPercent / avgLossPercent;
-
-  // Kelly Criterion: f* = (p * b - q) / b
   const kelly = (p * b - q) / b;
-
-  // Expectancy per trade
   const expectancy = p * avgWinPercent - q * avgLossPercent;
 
   return {
@@ -46,6 +39,26 @@ function calculateIdealPositionSize(
   };
 }
 
+function getKellyRating(kelly: number) {
+  if (kelly <= 0)
+    return { label: "غير مناسب للتداول", bg: "#fce8e8", color: "#a32d2d" };
+  if (kelly < 10)
+    return { label: "محافظ جداً", bg: "#faeeda", color: "#633806" };
+  if (kelly < 25)
+    return { label: "معتدل ومناسب", bg: "#eaf3de", color: "#3b6d11" };
+  if (kelly < 50)
+    return {
+      label: "عدواني — استخدم نصف كيلي",
+      bg: "#faeeda",
+      color: "#854f0b",
+    };
+  return {
+    label: "خطر عالٍ — استخدم ربع كيلي",
+    bg: "#fce8e8",
+    color: "#a32d2d",
+  };
+}
+
 export default function PositionSizeCalculator() {
   const [totalTrades, setTotalTrades] = useState<string>("100");
   const [winningTrades, setWinningTrades] = useState<string>("50");
@@ -54,6 +67,7 @@ export default function PositionSizeCalculator() {
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [error, setError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+  const [focusedField, setFocusedField] = useState<string>("");
 
   const handleCalculate = () => {
     setError("");
@@ -87,388 +101,499 @@ export default function PositionSizeCalculator() {
     }, 400);
   };
 
-  const getKellyRating = (kelly: number) => {
-    if (kelly <= 0) return { label: "غير مناسب للتداول", color: "#ef4444", emoji: "🔴" };
-    if (kelly < 10) return { label: "محافظ جداً", color: "#f59e0b", emoji: "🟡" };
-    if (kelly < 25) return { label: "معتدل ومناسب", color: "#22c55e", emoji: "🟢" };
-    if (kelly < 50) return { label: "عدواني - استخدم نصف كيلي", color: "#f97316", emoji: "🟠" };
-    return { label: "خطر عالٍ - استخدم ربع كيلي", color: "#ef4444", emoji: "🔴" };
-  };
+  const fields = [
+    {
+      id: "total",
+      label: "عدد الصفقات الكلية",
+      value: totalTrades,
+      setter: setTotalTrades,
+      placeholder: "مثال: 100",
+      min: "1",
+      step: "1",
+    },
+    {
+      id: "winning",
+      label: "عدد الصفقات الرابحة",
+      value: winningTrades,
+      setter: setWinningTrades,
+      placeholder: "مثال: 50",
+      min: "0",
+      step: "1",
+    },
+    {
+      id: "win",
+      label: "متوسط الربح (%)",
+      value: avgWin,
+      setter: setAvgWin,
+      placeholder: "مثال: 20",
+      min: "0.01",
+      step: "0.1",
+    },
+    {
+      id: "loss",
+      label: "متوسط الخسارة (%)",
+      value: avgLoss,
+      setter: setAvgLoss,
+      placeholder: "مثال: 7",
+      min: "0.01",
+      step: "0.1",
+    },
+  ];
 
   return (
     <div
       dir="rtl"
       style={{
         minHeight: "100vh",
-        background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)",
+        background: "#f8f6f1",
         fontFamily: "'Cairo', 'Tajawal', sans-serif",
         padding: "2rem 1rem",
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
       }}
     >
-      {/* Google Fonts */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
-
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
         * { box-sizing: border-box; }
 
-        .card {
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 16px;
-          backdrop-filter: blur(12px);
-        }
-
-        .input-field {
+        .kc-input {
           width: 100%;
-          padding: 12px 16px;
-          background: rgba(255,255,255,0.06);
-          border: 1.5px solid rgba(255,255,255,0.12);
-          border-radius: 10px;
-          color: #f1f5f9;
-          font-size: 1rem;
+          padding: 10px 14px;
+          background: #ffffff;
+          border: 1px solid #e2ddd5;
+          border-radius: 8px;
+          color: #1a1a2e;
+          font-size: 14px;
           font-family: 'Cairo', sans-serif;
           text-align: right;
-          transition: border-color 0.2s, background 0.2s;
           outline: none;
+          transition: border-color 0.2s, box-shadow 0.2s;
         }
-        .input-field:focus {
-          border-color: #3b82f6;
-          background: rgba(59,130,246,0.08);
+        .kc-input:focus {
+          border-color: #b8a060;
+          box-shadow: 0 0 0 3px rgba(184,160,96,0.12);
         }
-        .input-field::placeholder { color: rgba(255,255,255,0.3); }
+        .kc-input::placeholder { color: #b0a89a; }
+        .kc-input::-webkit-outer-spin-button,
+        .kc-input::-webkit-inner-spin-button { -webkit-appearance: none; }
 
-        .calc-btn {
+        .kc-btn {
           width: 100%;
-          padding: 14px;
-          background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+          padding: 12px;
+          background: #1a1a2e;
           border: none;
-          border-radius: 12px;
-          color: white;
-          font-size: 1.1rem;
+          border-radius: 8px;
+          color: #d4a843;
+          font-size: 14px;
           font-weight: 700;
           font-family: 'Cairo', sans-serif;
           cursor: pointer;
-          transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
-          box-shadow: 0 4px 20px rgba(59,130,246,0.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+          letter-spacing: 0.02em;
         }
-        .calc-btn:hover:not(:disabled) {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 30px rgba(59,130,246,0.5);
+        .kc-btn:hover:not(:disabled) {
+          background: #12122a;
+          box-shadow: 0 4px 16px rgba(26,26,46,0.25);
         }
-        .calc-btn:active:not(:disabled) { transform: translateY(0); }
-        .calc-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+        .kc-btn:active:not(:disabled) { transform: scale(0.98); }
+        .kc-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-        .result-card {
-          animation: slideUp 0.4s ease forwards;
+        .result-animate {
+          animation: fadeSlide 0.35s ease forwards;
         }
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        .stat-box {
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 12px;
-          padding: 14px;
-          text-align: center;
+        @keyframes fadeSlide {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
 
-        .kelly-bar-bg {
-          width: 100%;
-          height: 10px;
-          background: rgba(255,255,255,0.1);
-          border-radius: 99px;
-          overflow: hidden;
-        }
-        .kelly-bar-fill {
-          height: 100%;
-          border-radius: 99px;
-          transition: width 0.8s ease;
+        .stat-card {
+          background: #ffffff;
+          border: 1px solid #e8e3da;
+          border-radius: 10px;
+          padding: 12px 14px;
         }
 
-        label {
-          display: block;
-          color: rgba(255,255,255,0.7);
-          font-size: 0.9rem;
-          font-weight: 600;
-          margin-bottom: 6px;
+        .divider {
+          border: none;
+          border-top: 1px solid #e8e3da;
+          margin: 0;
         }
       `}</style>
 
-      <div style={{ width: "100%", maxWidth: 480 }}>
-        {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+      <div style={{ maxWidth: 960, margin: "0 auto" }}>
+
+        {/* ── Header ── */}
+        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 52,
+              height: 52,
+              background: "#1a1a2e",
+              borderRadius: "50%",
+              marginBottom: "0.75rem",
+            }}
+          >
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#d4a843" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+              <polyline points="16 7 22 7 22 13" />
+            </svg>
+          </div>
           <h1
             style={{
-              color: "#f1f5f9",
-              fontSize: "1.6rem",
+              color: "#1a1a2e",
+              fontSize: "1.5rem",
               fontWeight: 800,
-              margin: 0,
-              letterSpacing: "-0.5px",
+              margin: "0 0 4px",
+              letterSpacing: "-0.3px",
             }}
           >
             حاسبة حجم المركز المثالي
           </h1>
-          <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.85rem", marginTop: 6 }}>
-            بناءً على معيار كيلي (Kelly Criterion)
+          <p style={{ color: "#8a8070", fontSize: "0.85rem", margin: 0 }}>
+            بناءً على معيار كيلي — Kelly Criterion
           </p>
         </div>
 
-        {/* Form Card */}
-        <div className="card" style={{ padding: "1.5rem", marginBottom: "1rem" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
-            {/* Total Trades */}
-            <div>
-              <label>
-                <span style={{ marginLeft: 6 }}>🔢</span>
-                عدد الصفقات الكلية:
-              </label>
-              <input
-                className="input-field"
-                type="number"
-                min="1"
-                value={totalTrades}
-                onChange={(e) => setTotalTrades(e.target.value)}
-                placeholder="مثال: 100"
-              />
-            </div>
-
-            {/* Winning Trades */}
-            <div>
-              <label>
-                <span style={{ marginLeft: 6 }}>✅</span>
-                عدد الصفقات الرابحة:
-              </label>
-              <input
-                className="input-field"
-                type="number"
-                min="0"
-                value={winningTrades}
-                onChange={(e) => setWinningTrades(e.target.value)}
-                placeholder="مثال: 50"
-              />
-            </div>
-
-            {/* Avg Win */}
-            <div>
-              <label>
-                <span style={{ marginLeft: 6 }}>📈</span>
-                متوسط الربح (%):
-              </label>
-              <input
-                className="input-field"
-                type="number"
-                min="0.01"
-                step="0.1"
-                value={avgWin}
-                onChange={(e) => setAvgWin(e.target.value)}
-                placeholder="مثال: 20"
-              />
-            </div>
-
-            {/* Avg Loss */}
-            <div>
-              <label>
-                <span style={{ marginLeft: 6 }}>📉</span>
-                متوسط الخسارة (%):
-              </label>
-              <input
-                className="input-field"
-                type="number"
-                min="0.01"
-                step="0.1"
-                value={avgLoss}
-                onChange={(e) => setAvgLoss(e.target.value)}
-                placeholder="مثال: 7"
-              />
-            </div>
-
-            {/* Error */}
-            {error && (
-              <div
-                style={{
-                  background: "rgba(239,68,68,0.1)",
-                  border: "1px solid rgba(239,68,68,0.3)",
-                  borderRadius: 10,
-                  padding: "10px 14px",
-                  color: "#fca5a5",
-                  fontSize: "0.88rem",
-                  textAlign: "center",
-                }}
-              >
-                ⚠️ {error}
-              </div>
-            )}
-
-            {/* Button */}
-            <button
-              className="calc-btn"
-              onClick={handleCalculate}
-              disabled={isLoading}
-            >
-              {isLoading ? "⏳ جاري الحساب..." : "⚡ احسب حجم المركز المثالي"}
-            </button>
-          </div>
-        </div>
-
-        {/* Results */}
-        {result && (
-          <div className="result-card card" style={{ padding: "1.5rem", marginBottom: "1rem" }}>
-            {/* Main Kelly Result */}
+        {/* ── Side-by-side layout ── */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "1.25rem",
+            alignItems: "start",
+          }}
+        >
+          {/* ── LEFT: Form ── */}
+          <div
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e8e3da",
+              borderRadius: 14,
+              overflow: "hidden",
+            }}
+          >
+            {/* Panel header */}
             <div
               style={{
-                background: result.kellyPercent > 0
-                  ? "linear-gradient(135deg, rgba(34,197,94,0.12), rgba(59,130,246,0.12))"
-                  : "rgba(239,68,68,0.1)",
-                border: `1.5px solid ${result.kellyPercent > 0 ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
-                borderRadius: 14,
-                padding: "1.2rem",
-                textAlign: "center",
-                marginBottom: "1.2rem",
+                background: "#1a1a2e",
+                padding: "14px 20px",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
               }}
             >
-              <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.9rem", marginBottom: 6 }}>
-                حجم المركز المثالي (كيلي الكامل)
-              </div>
-              <div
-                style={{
-                  fontSize: "2.8rem",
-                  fontWeight: 800,
-                  color: result.kellyPercent > 0 ? "#4ade80" : "#f87171",
-                  lineHeight: 1,
-                  marginBottom: 8,
-                }}
-              >
-                {result.kellyPercent.toFixed(2)}%
-              </div>
-
-              {/* Kelly bar */}
-              <div className="kelly-bar-bg" style={{ marginBottom: 10 }}>
-                <div
-                  className="kelly-bar-fill"
-                  style={{
-                    width: `${Math.min(result.kellyPercent, 100)}%`,
-                    background: result.kellyPercent > 0
-                      ? "linear-gradient(90deg, #22c55e, #3b82f6)"
-                      : "#ef4444",
-                  }}
-                />
-              </div>
-
-              <div style={{ fontSize: "0.85rem" }}>
-                {(() => {
-                  const r = getKellyRating(result.kellyPercent);
-                  return (
-                    <span style={{ color: r.color, fontWeight: 700 }}>
-                      {r.emoji} {r.label}
-                    </span>
-                  );
-                })()}
-              </div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d4a843" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="11" y2="18"/>
+              </svg>
+              <span style={{ color: "#d4a843", fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em" }}>
+                بيانات التداول
+              </span>
             </div>
 
-            {/* Conservative variants */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.8rem", marginBottom: "1.2rem" }}>
-              <div className="stat-box">
-                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.78rem", marginBottom: 4 }}>
-                  نصف كيلي (موصى به)
-                </div>
-                <div style={{ color: "#60a5fa", fontSize: "1.5rem", fontWeight: 700 }}>
-                  {result.halfKelly.toFixed(2)}%
-                </div>
+            <div style={{ padding: "1.25rem" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
+                {fields.map((f) => (
+                  <div key={f.id}>
+                    <label
+                      htmlFor={f.id}
+                      style={{
+                        display: "block",
+                        color: "#5a5248",
+                        fontSize: "13px",
+                        fontWeight: 600,
+                        marginBottom: 5,
+                      }}
+                    >
+                      {f.label}
+                    </label>
+                    <input
+                      id={f.id}
+                      className="kc-input"
+                      type="number"
+                      min={f.min}
+                      step={f.step}
+                      value={f.value}
+                      placeholder={f.placeholder}
+                      onChange={(e) => f.setter(e.target.value)}
+                    />
+                  </div>
+                ))}
               </div>
-              <div className="stat-box">
-                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.78rem", marginBottom: 4 }}>
-                  ربع كيلي (محافظ)
-                </div>
-                <div style={{ color: "#a78bfa", fontSize: "1.5rem", fontWeight: 700 }}>
-                  {result.quarterKelly.toFixed(2)}%
-                </div>
-              </div>
-            </div>
 
-            {/* Stats grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.8rem", marginBottom: "1.2rem" }}>
-              <div className="stat-box">
-                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.78rem", marginBottom: 4 }}>نسبة الربح</div>
-                <div style={{ color: "#4ade80", fontSize: "1.3rem", fontWeight: 700 }}>
-                  {result.winRate.toFixed(1)}%
-                </div>
-              </div>
-              <div className="stat-box">
-                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.78rem", marginBottom: 4 }}>نسبة الخسارة</div>
-                <div style={{ color: "#f87171", fontSize: "1.3rem", fontWeight: 700 }}>
-                  {result.lossRate.toFixed(1)}%
-                </div>
-              </div>
-              <div className="stat-box">
-                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.78rem", marginBottom: 4 }}>نسبة R:R</div>
-                <div style={{ color: "#fbbf24", fontSize: "1.3rem", fontWeight: 700 }}>
-                  1 : {result.rewardRiskRatio.toFixed(2)}
-                </div>
-              </div>
-              <div className="stat-box">
-                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.78rem", marginBottom: 4 }}>التوقع لكل صفقة</div>
+              {error && (
                 <div
                   style={{
-                    color: result.expectancy >= 0 ? "#4ade80" : "#f87171",
-                    fontSize: "1.3rem",
-                    fontWeight: 700,
+                    marginTop: "0.9rem",
+                    background: "#fce8e8",
+                    border: "1px solid #f7c1c1",
+                    borderRadius: 8,
+                    padding: "10px 14px",
+                    color: "#a32d2d",
+                    fontSize: "13px",
                   }}
                 >
-                  {result.expectancy >= 0 ? "+" : ""}{result.expectancy.toFixed(2)}%
+                  ⚠ {error}
                 </div>
+              )}
+
+              <div style={{ marginTop: "1.1rem" }}>
+                <button
+                  className="kc-btn"
+                  onClick={handleCalculate}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    "⏳ جاري الحساب..."
+                  ) : (
+                    <>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/>
+                      </svg>
+                      احسب حجم المركز المثالي
+                    </>
+                  )}
+                </button>
               </div>
             </div>
 
-            {/* Formula explanation */}
+            {/* Note */}
             <div
               style={{
-                background: "rgba(59,130,246,0.08)",
-                border: "1px solid rgba(59,130,246,0.2)",
-                borderRadius: 12,
-                padding: "12px 14px",
-                fontSize: "0.8rem",
-                color: "rgba(255,255,255,0.55)",
+                borderTop: "1px solid #e8e3da",
+                padding: "12px 20px",
+                background: "#faf8f4",
+                fontSize: "12px",
+                color: "#8a8070",
                 lineHeight: 1.7,
               }}
             >
-              <div style={{ color: "#93c5fd", fontWeight: 700, marginBottom: 6 }}>
-                ℹ️ كيف تم الحساب؟
-              </div>
-              <div>
-                <strong style={{ color: "rgba(255,255,255,0.7)" }}>معادلة كيلي:</strong>{" "}
-                f* = (p × b − q) / b
-              </div>
-              <div>
-                حيث p = نسبة الربح، q = نسبة الخسارة، b = معدل الربح/الخسارة
-              </div>
-              <div style={{ marginTop: 6 }}>
-                <strong style={{ color: "rgba(255,255,255,0.7)" }}>التطبيق:</strong>{" "}
-                f* = ({result.winRate.toFixed(1)}% × {result.rewardRiskRatio.toFixed(2)} − {result.lossRate.toFixed(1)}%) / {result.rewardRiskRatio.toFixed(2)}{" "}
-                ={" "}
-                <strong style={{ color: "#4ade80" }}>{result.kellyPercent.toFixed(2)}%</strong>
-              </div>
+              <span style={{ color: "#b8a060", fontWeight: 700 }}>ملاحظة: </span>
+              حجم المركز هو نسبة رأس المال المخاطر بها في كل صفقة. يعتمد على استراتيجيتك وحالة السوق.
             </div>
           </div>
-        )}
 
-        {/* Note */}
-        <div
-          className="card"
-          style={{
-            padding: "1rem 1.2rem",
-            fontSize: "0.82rem",
-            color: "rgba(255,255,255,0.45)",
-            lineHeight: 1.7,
-          }}
-        >
-          <span style={{ color: "#60a5fa", fontWeight: 700 }}>📌 ملاحظة: </span>
-          حجم المركز المثالي هو النسبة المئوية من رأس المال التي يُنصح بها للمخاطرة في كل صفقة لتقليل المخاطر وتعظيم النمو. يعتمد على طريقة اختيارك للأسهم وحالة السوق وعادة التداول.
+          {/* ── RIGHT: Results ── */}
+          <div>
+            {!result ? (
+              <div
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #e8e3da",
+                  borderRadius: 14,
+                  minHeight: 380,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 12,
+                  color: "#b0a89a",
+                  fontSize: "13px",
+                }}
+              >
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#d4d0c8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <span>أدخل بياناتك واضغط احسب</span>
+              </div>
+            ) : (
+              <div
+                className="result-animate"
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #e8e3da",
+                  borderRadius: 14,
+                  overflow: "hidden",
+                }}
+              >
+                {/* Result panel header */}
+                <div
+                  style={{
+                    background: "#1a1a2e",
+                    padding: "14px 20px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d4a843" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
+                  </svg>
+                  <span style={{ color: "#d4a843", fontSize: "13px", fontWeight: 700, letterSpacing: "0.08em" }}>
+                    نتائج التحليل
+                  </span>
+                </div>
+
+                <div style={{ padding: "1.25rem" }}>
+                  {/* Main Kelly */}
+                  <div
+                    style={{
+                      background: "#1a1a2e",
+                      borderRadius: 12,
+                      padding: "1.25rem",
+                      textAlign: "center",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    <div style={{ color: "rgba(255,255,255,0.45)", fontSize: "12px", marginBottom: 6 }}>
+                      حجم المركز المثالي — كيلي الكامل
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "2.6rem",
+                        fontWeight: 800,
+                        color: result.kellyPercent > 0 ? "#d4a843" : "#f87171",
+                        lineHeight: 1,
+                        marginBottom: 10,
+                      }}
+                    >
+                      {result.kellyPercent.toFixed(2)}%
+                    </div>
+
+                    {/* Progress bar */}
+                    <div
+                      style={{
+                        height: 6,
+                        background: "rgba(255,255,255,0.08)",
+                        borderRadius: 99,
+                        overflow: "hidden",
+                        marginBottom: 10,
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: "100%",
+                          width: `${Math.min(result.kellyPercent, 100)}%`,
+                          background: "linear-gradient(90deg, #b8860b, #d4a843)",
+                          borderRadius: 99,
+                          transition: "width 0.7s ease",
+                        }}
+                      />
+                    </div>
+
+                    {(() => {
+                      const r = getKellyRating(result.kellyPercent);
+                      return (
+                        <span
+                          style={{
+                            display: "inline-block",
+                            padding: "3px 12px",
+                            borderRadius: 99,
+                            background: r.bg,
+                            color: r.color,
+                            fontSize: "12px",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {r.label}
+                        </span>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Half & Quarter Kelly */}
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 8,
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    <div className="stat-card" style={{ textAlign: "center" }}>
+                      <div style={{ color: "#8a8070", fontSize: "11px", marginBottom: 3 }}>
+                        نصف كيلي (موصى به)
+                      </div>
+                      <div style={{ color: "#185fa5", fontSize: "1.4rem", fontWeight: 700 }}>
+                        {result.halfKelly.toFixed(2)}%
+                      </div>
+                    </div>
+                    <div className="stat-card" style={{ textAlign: "center" }}>
+                      <div style={{ color: "#8a8070", fontSize: "11px", marginBottom: 3 }}>
+                        ربع كيلي (محافظ)
+                      </div>
+                      <div style={{ color: "#534ab7", fontSize: "1.4rem", fontWeight: 700 }}>
+                        {result.quarterKelly.toFixed(2)}%
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Stats grid */}
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 8,
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    <div className="stat-card">
+                      <div style={{ color: "#8a8070", fontSize: "11px", marginBottom: 2 }}>نسبة الربح</div>
+                      <div style={{ color: "#3b6d11", fontSize: "1.2rem", fontWeight: 700 }}>
+                        {result.winRate.toFixed(1)}%
+                      </div>
+                    </div>
+                    <div className="stat-card">
+                      <div style={{ color: "#8a8070", fontSize: "11px", marginBottom: 2 }}>نسبة الخسارة</div>
+                      <div style={{ color: "#a32d2d", fontSize: "1.2rem", fontWeight: 700 }}>
+                        {result.lossRate.toFixed(1)}%
+                      </div>
+                    </div>
+                    <div className="stat-card">
+                      <div style={{ color: "#8a8070", fontSize: "11px", marginBottom: 2 }}>نسبة R:R</div>
+                      <div style={{ color: "#854f0b", fontSize: "1.2rem", fontWeight: 700 }}>
+                        1 : {result.rewardRiskRatio.toFixed(2)}
+                      </div>
+                    </div>
+                    <div className="stat-card">
+                      <div style={{ color: "#8a8070", fontSize: "11px", marginBottom: 2 }}>التوقع لكل صفقة</div>
+                      <div
+                        style={{
+                          color: result.expectancy >= 0 ? "#3b6d11" : "#a32d2d",
+                          fontSize: "1.2rem",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {result.expectancy >= 0 ? "+" : ""}
+                        {result.expectancy.toFixed(2)}%
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Formula box */}
+                  <div
+                    style={{
+                      background: "#faf8f4",
+                      border: "1px solid #e8e3da",
+                      borderRadius: 10,
+                      padding: "12px 14px",
+                      fontSize: "12px",
+                      color: "#8a8070",
+                      lineHeight: 1.8,
+                    }}
+                  >
+                    <div style={{ color: "#5a5248", fontWeight: 700, marginBottom: 4, fontSize: "12px" }}>
+                      ℹ كيف تم الحساب؟
+                    </div>
+                    <div>
+                      <strong style={{ color: "#3a3228" }}>معادلة كيلي:</strong> f* = (p × b − q) / b
+                    </div>
+                    <div>حيث p = نسبة الربح، q = نسبة الخسارة، b = معدل الربح/الخسارة</div>
+                    <div style={{ marginTop: 6 }}>
+                      <strong style={{ color: "#3a3228" }}>التطبيق:</strong>{" "}
+                      f* = ({result.winRate.toFixed(1)}% × {result.rewardRiskRatio.toFixed(2)} − {result.lossRate.toFixed(1)}%) / {result.rewardRiskRatio.toFixed(2)}{" "}
+                      ={" "}
+                      <strong style={{ color: "#b8860b" }}>{result.kellyPercent.toFixed(2)}%</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
