@@ -1,5 +1,4 @@
-import axios from 'axios';
-import { API_BASE_URL } from '@/lib/api/config';
+import { apiClient } from '@/lib/api/axiosClient';
 
 export interface User {
   id: number;
@@ -12,16 +11,13 @@ export interface User {
 
 export const AdminService = {
     async getPendingUsers(): Promise<User[]> {
-        const response = await axios.get<User[]>(`${API_BASE_URL}/api/admin/pending-users`, {
-            withCredentials: true
-        });
+        const response = await apiClient.get<User[]>('/api/admin/pending-users');
         return response.data;
     },
 
     async approveUser(userId: number): Promise<void> {
-        await axios.post(`${API_BASE_URL}/api/admin/approve-user/${userId}`, {}, {
+        await apiClient.post(`/api/admin/approve-user/${userId}`, {}, {
             headers: { 'x-csrf-token': '1' },
-            withCredentials: true
         });
     }
 }

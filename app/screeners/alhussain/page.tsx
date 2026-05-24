@@ -6,6 +6,7 @@ import { Target, ShieldCheck } from 'lucide-react';
 import ScreenerTable from '@/components/Screeners/ScreenerTable';
 import ScreenerFilterPanel, { initialScreenerFilters, ScreenerFilters } from '@/components/Screeners/ScreenerFilterPanel';
 import { API_BASE_URL } from '@/lib/api/config';
+import { authFetch } from '@/lib/api/authFetch';
 
 interface StockResult {
   symbol: string;
@@ -44,9 +45,9 @@ function AlhussainScreenerContent() {
       setLoading(true);
       try {
         const [pricesRes, rsRes, techRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/prices/latest`, { cache: 'no-store', credentials: 'include' }),
-          fetch(`${API_BASE_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', credentials: 'include' }),
-          fetch(`${API_BASE_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', credentials: 'include' }),
+          authFetch(`${API_BASE_URL}/api/prices/latest`, { cache: 'no-store', credentials: 'include' }),
+          authFetch(`${API_BASE_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', credentials: 'include' }),
+          authFetch(`${API_BASE_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', credentials: 'include' }),
         ]);
 
         if (!pricesRes.ok) throw new Error('Failed to fetch prices');

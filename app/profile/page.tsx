@@ -4,6 +4,7 @@ import { useAuth } from '../providers/AuthProvider';
 import { User, Mail, Lock, AlertCircle, Check, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { API_BASE_URL } from '@/lib/api/config';
+import { authFetch } from '@/lib/api/authFetch';
 
 export default function ProfilePage() {
     const { user, loading } = useAuth();
@@ -37,7 +38,7 @@ export default function ProfilePage() {
 
         try {
             const API_URL = API_BASE_URL;
-            const res = await fetch(`${API_URL}/api/auth/profile`, {
+            const res = await authFetch(`${API_URL}/api/auth/profile`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

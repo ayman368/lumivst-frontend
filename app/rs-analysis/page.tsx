@@ -8,6 +8,8 @@ import { Calendar, X } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { createChart, ColorType, CrosshairMode, AreaSeries } from 'lightweight-charts';
 import { API_BASE_URL } from '@/lib/api/config';
+import { authFetch } from '@/lib/api/authFetch';
+import { ShariahFilterPage, useWatchlistShariah } from '@/components/Watchlist/WatchlistShariahContext';
 
 // ─── DESIGN TOKENS: Black & White ────────────────────────────────
 // Page bg: #FFFFFF  |  Card bg: #FFFFFF  |  Border: #E5E7EB
@@ -87,7 +89,8 @@ const calcStart = (opt: { label: string; type: string; value: number }): Date =>
 };
 const toDateStr = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-export default function RSAnalysisPage() {
+function RSAnalysisContent() {
+    const { filterStocks } = useWatchlistShariah();
     const [stocks, setStocks] = useState<StockRS[]>([]);
     const [filtered, setFiltered] = useState<StockRS[]>([]);
     const [selected, setSelected] = useState<StockRS | null>(null);
@@ -114,16 +117,16 @@ export default function RSAnalysisPage() {
 
     useEffect(() => { fetchData(); }, []);
     useEffect(() => {
-        let r = stocks.filter(s => s.rs_rating >= minRS && s.rs_rating <= maxRS);
+        let r = filterStocks(stocks).filter(s => s.rs_rating >= minRS && s.rs_rating <= maxRS);
         if (selIndustry) r = r.filter(s => s.industry_group === selIndustry);
         if (search) { const q = search.toUpperCase(); r = r.filter(s => s.symbol.includes(q) || (s.company_name && s.company_name.toUpperCase().includes(q))); }
         setFiltered(r);
-    }, [stocks, search, minRS, maxRS, selIndustry]);
+    }, [stocks, search, minRS, maxRS, selIndustry, filterStocks]);
     useEffect(() => { if (selected) fetchHistory(selected.symbol); }, [selected, period, startDate, endDate]);
 
     const fetchData = async () => {
         try {
-            const res = await fetch(`${API_URL}/api/rs/latest?limit=500`, { cache: 'no-store', credentials: 'include' });
+            const res = await authFetch(`${API_URL}/api/rs/latest?limit=500`, { cache: 'no-store', credentials: 'include' });
             if (!res.ok) return;
             const d = await res.json();
             let data: StockRS[] = (d.data || []).map((s: any) => ({ ...s, rs_rating: s.rs_rating ?? s.RS ?? 0, company_name: s.company_name ?? s.Company ?? s.symbol, return_3m: s.return_3m ?? null, rank_3m: s.rank_3m ?? null }));
@@ -150,7 +153,7 @@ export default function RSAnalysisPage() {
             if (from) params.append('from_date', from);
             if (to) params.append('to_date', to);
             const url = `${API_URL}/api/rs/${symbol}${params.toString() ? '?' + params : ''}`;
-            const res = await fetch(url, { cache: 'no-store', credentials: 'include' });
+            const res = await authFetch(url, { cache: 'no-store', credentials: 'include' });
             if (res.ok) { const d = await res.json(); setHistory(Array.isArray(d) ? d : (d.data || [])); }
         } catch (e) { console.error(e); }
         finally { setHistLoading(false); }
@@ -168,11 +171,12 @@ export default function RSAnalysisPage() {
     const rsBg = (v: number) => v >= 90 ? { bg: '#DCFCE7', text: '#15803D', border: '#BBF7D0' } : v >= 80 ? { bg: '#F3F4F6', text: '#374151', border: '#E5E7EB' } : v >= 70 ? { bg: '#FEF3C7', text: '#B45309', border: '#FDE68A' } : { bg: '#FEE2E2', text: '#B91C1C', border: '#FECACA' };
     const retColor = (v: number | null) => !v ? '#9CA3AF' : v >= 0 ? '#15803D' : '#B91C1C';
 
+    const shariahFiltered = filterStocks(stocks);
     const distribution = [
-        { name: 'Strong (90-99)', value: stocks.filter(s => s.rs_rating >= 90).length, color: '#15803D' },
-        { name: 'Good (80-89)', value: stocks.filter(s => s.rs_rating >= 80 && s.rs_rating < 90).length, color: '#374151' },
-        { name: 'Neutral (70-79)', value: stocks.filter(s => s.rs_rating >= 70 && s.rs_rating < 80).length, color: '#B45309' },
-        { name: 'Weak (<70)', value: stocks.filter(s => s.rs_rating < 70).length, color: '#B91C1C' },
+        { name: 'Strong (90-99)', value: shariahFiltered.filter(s => s.rs_rating >= 90).length, color: '#15803D' },
+        { name: 'Good (80-89)', value: shariahFiltered.filter(s => s.rs_rating >= 80 && s.rs_rating < 90).length, color: '#374151' },
+        { name: 'Neutral (70-79)', value: shariahFiltered.filter(s => s.rs_rating >= 70 && s.rs_rating < 80).length, color: '#B45309' },
+        { name: 'Weak (<70)', value: shariahFiltered.filter(s => s.rs_rating < 70).length, color: '#B91C1C' },
     ];
 
     // Shared card style
@@ -441,5 +445,13 @@ export default function RSAnalysisPage() {
 
             <style>{`@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
         </div>
+    );
+}
+
+export default function RSAnalysisPage() {
+    return (
+        <ShariahFilterPage variant="light" className="min-h-screen">
+            <RSAnalysisContent />
+        </ShariahFilterPage>
     );
 }

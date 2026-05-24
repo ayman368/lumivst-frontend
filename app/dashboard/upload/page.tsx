@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { Upload, FileSpreadsheet, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/api/config';
+import { authFetch } from '@/lib/api/authFetch';
 
 export default function DashboardUploadPage() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -77,7 +78,7 @@ export default function DashboardUploadPage() {
                 formData.append('description', description.trim());
             }
 
-            const res = await fetch(`${API_BASE}/api/scraper/upload-excel`, {
+            const res = await authFetch(`${API_BASE}/api/scraper/upload-excel`, {
                 method: 'POST',
                 credentials: 'include',
                 body: formData

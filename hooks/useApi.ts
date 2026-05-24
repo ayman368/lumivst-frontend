@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { API_BASE_URL } from '@/lib/api/config';
+import { authFetch } from '@/lib/api/authFetch';
 
 interface ApiResponse<T = any> {
   data: T;
@@ -25,7 +26,7 @@ export const useApi = () => {
         ...((options.headers as Record<string, string>) || {}),
       };
 
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const response = await authFetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
         headers,
         credentials: 'include',

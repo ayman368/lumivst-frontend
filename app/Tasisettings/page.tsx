@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { API_BASE_URL } from "@/lib/api/config";
+import { authFetch } from "@/lib/api/authFetch";
 
 interface TasiSettings {
     buySwitch: boolean;
@@ -116,7 +117,7 @@ export default function TasiSettings() {
     // Fetch current settings from API on mount
     useEffect(() => {
         setLoading(true);
-        fetch(`${API_BASE_URL}/api/tasi-settings/`, {
+        authFetch(`${API_BASE_URL}/api/tasi-settings/`, {
             headers: { "X-API-Key": process.env.NEXT_PUBLIC_API_KEY ?? "" },
             credentials: "include",
         })
@@ -150,7 +151,7 @@ export default function TasiSettings() {
         setSaving(true);
         setError(null);
         try {
-            const res = await fetch(`${API_BASE_URL}/api/tasi-settings/`, {
+            const res = await authFetch(`${API_BASE_URL}/api/tasi-settings/`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { authFetch } from "@/lib/api/authFetch";
 import RSLineChart from "@/components/RSLineChart";
 import RSMACrossoverChart from "@/components/RSMACrossoverChart";
 import MansfieldRSChart from "@/components/MansfieldRSChart";
@@ -83,7 +84,7 @@ function StockSearch({ value, onChange }: { value: string; onChange: (sym: strin
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/prices/latest", { credentials: "include" });
+        const res = await authFetch("/api/prices/latest", { credentials: "include" });
         if (!res.ok) return;
         const json = await res.json();
         const list: StockOption[] = (json.data || []).map((p: any) => ({

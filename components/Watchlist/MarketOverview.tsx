@@ -2,6 +2,9 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { API_BASE_URL } from '@/lib/api/config';
+import { authFetch } from '@/lib/api/authFetch';
+import { useWatchlistShariah } from '@/components/Watchlist/WatchlistShariahContext';
+
 
 interface StockRS {
     symbol: string;
@@ -24,6 +27,7 @@ interface SortConfig {
 }
 
 export default function MarketOverview() {
+    const { filterStocks } = useWatchlistShariah();
     const [stocks, setStocks] = useState<StockRS[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -42,7 +46,7 @@ export default function MarketOverview() {
     const fetchData = async () => {
         try {
             const API_URL = API_BASE_URL;
-            const res = await fetch(`${API_URL}/api/rs/latest?limit=500`, { credentials: 'include' });
+            const res = await authFetch(`${API_URL}/api/rs/latest?limit=500`, { credentials: 'include' });
 
             if (!res.ok) {
                 console.error(`Fetch error: ${res.status}`);
@@ -62,7 +66,7 @@ export default function MarketOverview() {
 
     // Filter and multi-sort - نفس منطق الترتيب من الكود التاني
     const filteredAndSortedStocks = useMemo(() => {
-        let result = stocks.filter(stock => {
+        let result = filterStocks(stocks).filter(stock => {
             if (!search) return true;
             const searchLower = search.toLowerCase();
             return (
@@ -99,7 +103,7 @@ export default function MarketOverview() {
         }
 
         return result;
-    }, [stocks, search, sortConfigs]);
+    }, [stocks, search, sortConfigs, filterStocks]);
 
     // Pagination Logic
     const totalPages = Math.ceil(filteredAndSortedStocks.length / itemsPerPage);
@@ -202,36 +206,40 @@ export default function MarketOverview() {
     };
 
     if (loading) return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#667eea] to-[#764ba2]">
-            <div className="text-white text-xl font-medium">Loading Data Table...</div>
+        <div className="min-h-screen flex items-center justify-center bg-[#f0f2f5]">
+            <div className="text-[#1e222d] text-xl font-medium">Loading Data Table...</div>
         </div>
     );
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-[#667eea] to-[#764ba2] py-5 px-4 font-sans text-[#333]">
-            <div className="max-w-[1320px] mx-auto bg-white rounded-[20px] shadow-[0_10px_40px_rgba(0,0,0,0.2)] p-[30px] mt-[20px] mb-[40px]">
+        <div className="h-screen flex flex-col bg-[#f0f2f5] font-sans text-[#333] overflow-hidden">
 
-                <h1 className="text-[#2c3e50] mb-[10px] text-center font-bold text-[2.5rem] leading-tight">
-                    📊 Saudi Market RS Analysis
+            {/* ── Header ── */}
+            <header className="h-[56px] bg-[#1e222d] border-b border-[#2a2e39] flex items-center justify-between px-5 shrink-0 z-50">
+                {/* Left: Title */}
+                <h1 className="text-white text-[1.1rem] font-bold tracking-wide">
+                     Saudi Market RS Analysis
                 </h1>
-                <p className="text-center text-[#7f8c8d] mb-[30px] text-[1.1rem]">
-                    Relative Strength Rating · Table View
-                </p>
 
-                <div className="flex flex-wrap justify-center gap-[8px] bg-white/10 p-[6px] rounded-[12px] mb-[30px]">
-                    <button
-                        onClick={exportToCSV}
-                        className="flex items-center gap-2 px-5 py-[10px] rounded-[8px] text-[0.95rem] font-medium transition-all duration-200 border border-black/10 bg-[#27ae60] text-white opacity-90 hover:bg-[#219150] hover:opacity-100 hover:-translate-y-[2px] hover:shadow-[0_4px_15px_rgba(39,174,96,0.4)] cursor-pointer"
-                    >
-                        📥 Export CSV
-                    </button>
-                </div>
+                <div className="flex-1"></div>
 
-                <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
+                {/* Right: Export CSV */}
+                <button
+                    onClick={exportToCSV}
+                    className="flex items-center gap-2 px-4 py-[7px] rounded-md text-[0.85rem] font-medium bg-[#27ae60] text-white hover:bg-[#219150] transition-all shadow-sm"
+                >
+                     Export CSV
+                </button>
+            </header>
+
+            {/* ── Content ── */}
+            <div className="flex-1 flex flex-col overflow-hidden p-4">
+
+                <div className="flex flex-col sm:flex-row justify-between items-center mb-3 gap-3">
                     <div className="text-gray-600 text-sm">
                         Show
                         <select
-                            className="mx-2 border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-[#2c3e50]"
+                            className="mx-2 border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-[#2c3e50] bg-white"
                             value={itemsPerPage}
                             onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                         >
@@ -247,13 +255,13 @@ export default function MarketOverview() {
                             type="text"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="border border-gray-300 rounded px-3 py-1.5 focus:outline-none focus:border-[#2c3e50] text-sm"
+                            className="border border-gray-300 rounded px-3 py-1.5 focus:outline-none focus:border-[#2c3e50] text-sm bg-white"
                         />
                     </div>
                 </div>
 
-                {/* Sticky header container */}
-                <div className="overflow-x-auto w-full relative" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                {/* Scrollable table container */}
+                <div className="flex-1 overflow-auto w-full bg-white rounded-xl shadow-sm border border-gray-200">
                     <table className="w-full text-sm text-left border-collapse">
                         <thead className="sticky top-0 z-10 bg-white shadow-sm">
                             <tr className="border-b border-gray-300">
@@ -332,7 +340,7 @@ export default function MarketOverview() {
                     </table>
                 </div>
 
-                <div className="flex flex-col sm:flex-row justify-between items-center mt-4 text-sm text-gray-600">
+                <div className="flex flex-col sm:flex-row justify-between items-center mt-3 text-sm text-gray-600">
                     <div>
                         Showing {filteredAndSortedStocks.length === 0 ? 0 : Math.min((currentPage - 1) * itemsPerPage + 1, filteredAndSortedStocks.length)} to {Math.min(currentPage * itemsPerPage, filteredAndSortedStocks.length)} of {filteredAndSortedStocks.length} entries
                     </div>
@@ -362,7 +370,7 @@ export default function MarketOverview() {
                     </div>
                 </div>
 
-            </div>
+            </div>{/* end content flex-col */}
         </div>
     );
 }

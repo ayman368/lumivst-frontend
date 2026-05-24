@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Stock, StockMetadata } from '../types';
 import { API_BASE_URL } from '@/lib/api/config';
+import { authFetch } from '@/lib/api/authFetch';
 
 export default function useStocks() {
     const [stocks, setStocks] = useState<Stock[]>([]);
@@ -13,12 +14,12 @@ export default function useStocks() {
             setLoading(true);
 
             const [pricesRes, rsRes, techRes, netShortRes, industryGroupsRes, indGroupLatestRes] = await Promise.all([
-                fetch(`${API_BASE_URL}/api/prices/latest`, { cache: 'no-store', credentials: 'include' }),
-                fetch(`${API_BASE_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', credentials: 'include' }),
-                fetch(`${API_BASE_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', credentials: 'include' }),
-                fetch(`${API_BASE_URL}/api/market-reports/net-short-positions`, { cache: 'no-store', credentials: 'include' }),
-                fetch(`${API_BASE_URL}/api/industry-groups/stocks`, { cache: 'no-store', credentials: 'include' }),
-                fetch(`${API_BASE_URL}/api/industry-groups/latest`, { cache: 'no-store', credentials: 'include' }),
+                authFetch(`${API_BASE_URL}/api/prices/latest`, { cache: 'no-store', credentials: 'include' }),
+                authFetch(`${API_BASE_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', credentials: 'include' }),
+                authFetch(`${API_BASE_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', credentials: 'include' }),
+                authFetch(`${API_BASE_URL}/api/market-reports/net-short-positions`, { cache: 'no-store', credentials: 'include' }),
+                authFetch(`${API_BASE_URL}/api/industry-groups/stocks`, { cache: 'no-store', credentials: 'include' }),
+                authFetch(`${API_BASE_URL}/api/industry-groups/latest`, { cache: 'no-store', credentials: 'include' }),
             ]);
 
             if (!pricesRes.ok) throw new Error(`Failed to fetch prices: ${pricesRes.status}`);

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { authFetch } from '@/lib/api/authFetch';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, ReferenceLine,
@@ -161,7 +162,7 @@ export default function SATAChart({ symbol, benchmark = "^TASI.SR", startDate = 
       setLoading(true); setError(null);
       try {
         const params = new URLSearchParams({ symbol, benchmark, start_date: startDate });
-        const res = await fetch(`/api/indicators/sata?${params}`, { credentials: "include" });
+        const res = await authFetch(`/api/indicators/sata?${params}`, { credentials: "include" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json: SATAResponse = await res.json();
         setData(json.data); setSummary(json.summary);

@@ -6,13 +6,15 @@ export default function CustomMultiSelect({
     selected,
     onChange,
     placeholder,
-    icon: Icon
+    icon: Icon,
+    size = 'md'
 }: {
     options: string[];
     selected: string[];
     onChange: (values: string[]) => void;
     placeholder: string;
     icon?: any;
+    size?: 'sm' | 'md';
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState('');
@@ -50,14 +52,14 @@ export default function CustomMultiSelect({
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
                 className={`
-                    w-full pl-10 pr-8 py-2.5 text-xs bg-gray-50 border border-gray-200 rounded-lg 
+                    w-full ${size === 'sm' ? 'pl-2 pr-6 py-1 min-h-[26px]' : 'pl-10 pr-8 py-2.5 min-h-[42px]'} text-xs bg-gray-50 border border-gray-200 rounded-lg 
                     focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white
                     outline-none transition-all hover:border-gray-300 text-left
-                    flex items-center justify-between min-h-[42px]
+                    flex items-center justify-between
                 `}
             >
                 <div className="flex items-center w-full">
-                    {Icon && <Icon className="absolute left-3 w-4 h-4 text-gray-400" />}
+                    {Icon && <Icon className={`absolute ${size === 'sm' ? 'left-2 w-3 h-3' : 'left-3 w-4 h-4'} text-gray-400`} />}
                     <div className="flex flex-col items-start truncate w-full">
                         <span className="font-medium text-gray-700 text-xs">
                             {placeholder}

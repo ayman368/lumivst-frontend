@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import html2canvas from 'html2canvas';
 import { API_BASE_URL } from '@/lib/api/config';
+import { authFetch } from '@/lib/api/authFetch';
+import { useWatchlistShariah } from '@/components/Watchlist/WatchlistShariahContext';
 
 interface StockRS {
     symbol: string;
@@ -21,6 +23,7 @@ const getCategory = (rs: number) => {
 };
 
 export default function RSMatrix() {
+    const { filterStocks } = useWatchlistShariah();
     const [stocks, setStocks] = useState<StockRS[]>([]);
     const [loading, setLoading] = useState(true);
     const [capturing, setCapturing] = useState(false);
@@ -35,7 +38,7 @@ export default function RSMatrix() {
     const fetchData = async () => {
         try {
             const API_URL = API_BASE_URL;
-            const res = await fetch(`${API_URL}/api/rs/latest?limit=500`, { credentials: 'include' });
+            const res = await authFetch(`${API_URL}/api/rs/latest?limit=500`, { credentials: 'include' });
 
             if (!res.ok) {
                 console.error(`Fetch error: ${res.status}`);
@@ -95,13 +98,15 @@ export default function RSMatrix() {
         }, 500);
     };
 
-    // تقسيم الأسهم بناءً على التقييم
-    const strong = stocks.filter(s => s.rs_rating >= 90).sort((a, b) => b.rs_rating - a.rs_rating);
-    const improve = stocks.filter(s => s.rs_rating >= 80 && s.rs_rating < 90).sort((a, b) => b.rs_rating - a.rs_rating);
-    const neutral = stocks.filter(s => s.rs_rating >= 70 && s.rs_rating < 80).sort((a, b) => b.rs_rating - a.rs_rating);
-    const weak = stocks.filter(s => s.rs_rating < 70).sort((a, b) => b.rs_rating - a.rs_rating);
+    const filteredStocks = useMemo(() => filterStocks(stocks), [stocks, filterStocks]);
 
-    const total = stocks.length;
+    // تقسيم الأسهم بناءً على التقييم
+    const strong = filteredStocks.filter(s => s.rs_rating >= 90).sort((a, b) => b.rs_rating - a.rs_rating);
+    const improve = filteredStocks.filter(s => s.rs_rating >= 80 && s.rs_rating < 90).sort((a, b) => b.rs_rating - a.rs_rating);
+    const neutral = filteredStocks.filter(s => s.rs_rating >= 70 && s.rs_rating < 80).sort((a, b) => b.rs_rating - a.rs_rating);
+    const weak = filteredStocks.filter(s => s.rs_rating < 70).sort((a, b) => b.rs_rating - a.rs_rating);
+
+    const total = filteredStocks.length;
 
     if (loading) return (
         <div className="flex items-center justify-center min-h-screen bg-[#f5f5f5]">

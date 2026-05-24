@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { FileSpreadsheet, Download, Calendar, Search, Loader2, FolderOpen, Building2 } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/api/config';
+import { authFetch } from '@/lib/api/authFetch';
 
 interface ExcelReport {
     id: number;
@@ -40,7 +41,7 @@ export default function DashboardReportsPage() {
     const fetchCompanies = async () => {
         setCompaniesLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/api/scraper/companies`, {
+            const res = await authFetch(`${API_BASE}/api/scraper/companies`, {
                 credentials: 'include'
             });
             if (!res.ok) throw new Error('Failed to fetch companies');
@@ -66,7 +67,7 @@ export default function DashboardReportsPage() {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`${API_BASE}/api/scraper/excel-reports/${symbol}`, {
+            const res = await authFetch(`${API_BASE}/api/scraper/excel-reports/${symbol}`, {
                 credentials: 'include'
             });
             if (!res.ok) throw new Error('Failed to fetch reports');
@@ -82,7 +83,7 @@ export default function DashboardReportsPage() {
 
     const handleDownload = async (report: ExcelReport) => {
         try {
-            const res = await fetch(`${API_BASE}${report.download_url}`, {
+            const res = await authFetch(`${API_BASE}${report.download_url}`, {
                 credentials: 'include'
             });
             if (!res.ok) throw new Error('Download failed');

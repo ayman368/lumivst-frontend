@@ -1,14 +1,12 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { apiClient } from '@/lib/api/axiosClient';
 import { useTableSort } from '../_components/useTableSort';
 import { SortableHeader } from '../_components/SortableHeader';
 import { ExportDropdown } from '../_components/ExportDropdown';
 import FilterBar from '../_components/FilterBar';
 import { useFilters } from '../_components/useFilters';
-import { API_BASE_URL } from '@/lib/api/config';
-
 type Shareholder = {
   id: number;
   report_date: string;
@@ -46,8 +44,7 @@ export default function SubstantialShareholdersPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const API_URL = API_BASE_URL;
-        const response = await axios.get(`${API_URL}/api/market-reports/substantial-shareholders`);
+        const response = await apiClient.get('/api/market-reports/substantial-shareholders');
         setData(response.data);
       } catch (err: any) {
         setError(err.message || 'Failed to fetch data');

@@ -113,7 +113,14 @@ export default function Navbar() {
       items: [
         { en: 'Fundamental', href: '/screeners/fundamental' },
         { en: 'Technical Screener', href: '/technical-screener' },
-        { en: 'My Screeners', href: '/screeners/my-screens' },
+        {
+          en: 'My Screeners',
+          href: '#',
+          items: [
+            { en: 'Stocks', href: '/stocks' },
+            { en: 'Charts', href: '/stocks/charts' },
+          ],
+        },
         {
           en: 'Top Trader',
           href: '#',
@@ -157,9 +164,14 @@ export default function Navbar() {
       href: '/watchlist',
       items: [
         { en: 'My Watchlist', href: '/watchlist' },
-        { en: 'RS Screener', href: '/rs-screener' },
-        { en: 'RS Analysis', href: '/rs-analysis' },
-        { en: 'RS Line Indicators', href: '/rs-line' },
+        {
+          en: 'RS',
+          href: '#',
+          items: [
+            { en: 'RS Analysis', href: '/rs-analysis' },
+            { en: 'RS Line Indicators', href: '/rs-line' },
+          ],
+        },
       ],
     },
     learn: {
@@ -184,8 +196,21 @@ export default function Navbar() {
       items: [
         { en: 'Economy', href: '/market/economy' },
         { en: 'US Market', href: '/market/us' },
-        { en: 'Saudi Market', href: '/saudi' },
-        { en: 'Sectors', href: '/market/sectors' },
+        { 
+          en: 'Saudi Market', 
+          href: '#',
+          items: [
+            { en: 'Market Reports', href: '/market-reports' },
+            { en: 'Market Breadth', href: '/stocks/market-breadth' },
+          ]
+        },
+        {
+          en: 'Sectors',
+          href: '#',
+          items: [
+            { en: 'Industry Groups', href: '/industry-groups' },
+          ],
+        },
       ],
     },
     news: {
@@ -203,6 +228,7 @@ export default function Navbar() {
       href: '/portfolio',
       items: [
         { en: 'Portfolio', href: '/portfolio' },
+        { en: 'Position Size', href: '/Positionsizecalculator' },
         { en: 'Risk Calculator', href: '/risk-calculator' },
         { en: 'RBAF', href: '/rbaf' },
         { en: 'Monthly Tracker', href: '/monthly-tracker' },
@@ -356,12 +382,7 @@ export default function Navbar() {
         <div className="flex items-center gap-3 ml-auto">
           <div className="flex items-center gap-1">
             {[
-              { href: '/stocks', label: 'Stocks' },
-              { href: '/Positionsizecalculator', label: 'Position Size' },
-              { href: '/market-reports', label: 'Market Reports' },
-              { href: '/stocks/market-breadth', label: 'Market Breadth' },
-              { href: '/stocks/charts', label: 'Charts' },
-              { href: '/industry-groups', label: 'Industry Groups' },
+              // { href: '/stocks', label: 'Stocks' },
               { href: '/pricing', label: 'Pricing' },
               { href: '/contact', label: 'Contact Us' },
             ].map(({ href, label }) => (

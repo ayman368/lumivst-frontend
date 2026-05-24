@@ -7,6 +7,8 @@ import { TrendingUp, TrendingDown, Filter, Download, ChevronLeft, ChevronRight }
 import { formatShariahApproval, formatPurgeAmount, formatMarginable } from '../stocks/utils/formatters';
 import * as XLSX from 'xlsx';
 import { API_BASE_URL } from '@/lib/api/config';
+import { authFetch } from '@/lib/api/authFetch';
+import { buildShariahMap } from '@/lib/watchlist/shariah';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -251,6 +253,26 @@ function useIndustryGroups() {
     const [sortConfigs, setSortConfigs] = useState<SortConfig[]>([]);
     const [stockSortConfigs, setStockSortConfigs] = useState<Record<string, SortConfig[]>>({});
     const [stats, setStats] = useState({ topPerformer: { group: '', change: 0 }, worstPerformer: { group: '', change: 0 } });
+    const [shariahOptions, setShariahOptions] = useState<string[]>([]);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await authFetch(`${API_BASE_URL}/api/prices/latest?limit=1000`, {
+                    credentials: 'include',
+                    cache: 'no-store',
+                });
+                if (!res.ok) return;
+                const json = await res.json();
+                if (cancelled) return;
+                setShariahOptions(buildShariahMap(json.data || []).options);
+            } catch (err) {
+                console.error('Failed to load Shariah options', err);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     // Sync filters → URL via useEffect (never call router inside setState)
     useEffect(() => {
@@ -275,7 +297,7 @@ function useIndustryGroups() {
     useEffect(() => {
         async function fetchData() {
             try {
-                const res = await fetch(`${API_BASE_URL}/api/industry-groups/latest`, { cache: 'no-store', credentials: 'include' });
+                const res = await authFetch(`${API_BASE_URL}/api/industry-groups/latest`, { cache: 'no-store', credentials: 'include' });
                 if (!res.ok) throw new Error('Failed to fetch data');
                 const jsonData = await res.json();
                 setData(jsonData);
@@ -301,7 +323,7 @@ function useIndustryGroups() {
         if (loadingStocks.has(groupName)) return;
         setLoadingStocks(prev => new Set(prev).add(groupName));
         try {
-            const res = await fetch(`${API_BASE_URL}/api/industry-groups/stocks?industry_group=${encodeURIComponent(groupName)}`, { cache: 'no-store', credentials: 'include' });
+            const res = await authFetch(`${API_BASE_URL}/api/industry-groups/stocks?industry_group=${encodeURIComponent(groupName)}`, { cache: 'no-store', credentials: 'include' });
             if (res.ok) {
                 const stocks = await res.json();
                 setStocksCache(prev => ({ ...prev, [groupName]: stocks }));
@@ -402,8 +424,8 @@ function useIndustryGroups() {
                 if (option && !option.check(stock)) return false;
             }
             if (stockFilters.approval_with_controls.length > 0) {
-                const s = formatShariahApproval(stock.approval_with_controls) || '';
-                if (!stockFilters.approval_with_controls.includes(s)) return false;
+                const status = stock.approval_with_controls || '';
+                if (!stockFilters.approval_with_controls.includes(status)) return false;
             }
             if (!checkStockRange(stock.purge_amount, 'purge_amount_min', 'purge_amount_max')) return false;
             if (!checkStockRange(stock.marginable_percent, 'marginable_percent_min', 'marginable_percent_max')) return false;
@@ -555,6 +577,7 @@ function useIndustryGroups() {
         filteredData, getFilteredStocks,
         filterOptions, activeFilters,
         clearFilter, clearAllFilters,
+        shariahOptions,
     };
 }
 
@@ -887,6 +910,7 @@ function IndustryGroupsContent() {
         filteredData, getFilteredStocks,
         filterOptions, activeFilters,
         clearFilter, clearAllFilters,
+        shariahOptions,
     } = useIndustryGroups();
 
     // Keyboard navigation for rows
@@ -1120,7 +1144,7 @@ function IndustryGroupsContent() {
                                 <div className="pt-2 border-t border-gray-100">
                                     <h4 className="text-[10px] font-bold text-gray-400 mb-3 tracking-wider uppercase">Shariah & Margin</h4>
                                     <div className="space-y-4">
-                                        <CustomMultiSelect options={['Compliant', 'Non-compliant', 'Brokerage Compliant']} selected={stockFilters.approval_with_controls} onChange={v => setStockFilters(p => ({ ...p, approval_with_controls: v }))} placeholder="Shariah Status" icon={Filter} />
+                                        <CustomMultiSelect options={shariahOptions} selected={stockFilters.approval_with_controls} onChange={v => setStockFilters(p => ({ ...p, approval_with_controls: v }))} placeholder="Shariah Status" icon={Filter} />
                                         <RangeFilter label="Purge Amount" minValue={stockFilters.purge_amount_min} maxValue={stockFilters.purge_amount_max} onMinChange={v => setStockFilters(p => ({ ...p, purge_amount_min: v }))} onMaxChange={v => setStockFilters(p => ({ ...p, purge_amount_max: v }))} />
                                         <RangeFilter label="Marginable %" minValue={stockFilters.marginable_percent_min} maxValue={stockFilters.marginable_percent_max} onMinChange={v => setStockFilters(p => ({ ...p, marginable_percent_min: v }))} onMaxChange={v => setStockFilters(p => ({ ...p, marginable_percent_max: v }))} />
                                     </div>

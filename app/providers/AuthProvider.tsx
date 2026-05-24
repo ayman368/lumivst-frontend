@@ -23,18 +23,20 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 import { API_ENDPOINTS } from '@/lib/api/config';
+import { authFetch, safeCallbackUrl } from '@/lib/api/authFetch';
 
-// Read env variable to enable/disable auth (default enabled)
 const AUTH_ENABLED = process.env.NEXT_PUBLIC_AUTH_ENABLED !== 'false';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+
   const isPublicPath = (path: string) => {
     const publicPaths = [
       '/login',
       '/register',
+      '/admin/login',
       '/auth',
       '/pending-approval',
       '/terms',
@@ -48,89 +50,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return publicPaths.some((p) => path === p || path.startsWith(`${p}/`));
   };
 
-  // When auth is disabled we treat the user as not logged in (null)
   useEffect(() => {
     if (!AUTH_ENABLED) {
       setUser(null);
       setLoading(false);
       return;
     }
-    // Auth enabled – try to verify existing token
     checkAuth();
   }, []);
 
+  const applyUserFromMe = async (res: Response): Promise<boolean> => {
+    if (!res.ok) return false;
+    const userData = await res.json();
+    if (userData && userData.is_approved === false) {
+      setUser(null);
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/pending-approval')) {
+        router.push('/pending-approval');
+      }
+      return true;
+    }
+    setUser(userData);
+    return true;
+  };
+
   const checkAuth = async () => {
     try {
-      const res = await fetch(API_ENDPOINTS.AUTH.ME, {
-        credentials: 'include',
-      });
+      const res = await authFetch(API_ENDPOINTS.AUTH.ME);
 
-      if (res.ok) {
-        const userData = await res.json();
-        if (userData && userData.is_approved === false) {
-          setUser(null);
-          if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/pending-approval')) {
-            router.push('/pending-approval');
-          }
-          return;
-        }
-        setUser(userData);
-      } else if (res.status === 401) {
-        // Access token expired or invalid, try to refresh
-        try {
-          const refreshRes = await fetch(API_ENDPOINTS.AUTH.REFRESH_TOKEN, { 
-            method: 'POST', 
-            headers: { 'x-csrf-token': '1' },
-            credentials: 'include' 
-          });
-          
-          if (refreshRes.ok) {
-            // Successfully refreshed, check auth again
-            const retryRes = await fetch(API_ENDPOINTS.AUTH.ME, { credentials: 'include' });
-            if (retryRes.ok) {
-              const userData = await retryRes.json();
-              if (userData && userData.is_approved === false) {
-                setUser(null);
-                if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/pending-approval')) {
-                  router.push('/pending-approval');
-                }
-                return;
-              }
-              setUser(userData);
-              return; // Success after retry
-            }
-          }
-        } catch (refreshErr) {
-          console.warn("Failed to contact auth refresh endpoint", refreshErr);
-        }
-        
-        // If we reach here, refresh failed or retry failed
-        setUser(null);
-        if (typeof window !== 'undefined' && !isPublicPath(window.location.pathname)) {
-          window.location.href = '/login';
-        }
-      } else if (res.status === 403) {
+      if (await applyUserFromMe(res)) {
+        return;
+      }
+
+      if (res.status === 403) {
         setUser(null);
         if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/pending-approval')) {
           router.push('/pending-approval');
         }
+        return;
+      }
+
+      setUser(null);
+      if (typeof window !== 'undefined' && !isPublicPath(window.location.pathname)) {
+        const callbackUrl = encodeURIComponent(
+          `${window.location.pathname}${window.location.search}`
+        );
+        window.location.href = `/login?callbackUrl=${callbackUrl}`;
       }
     } catch (error) {
-      // Network/transient issue (CSP block, CORS, offline, backend hot-reloading in dev)
-      // Do NOT clear auth marker on network errors. If the backend is just restarting,
-      // destroying the session forces the developer to constantly log back in.
-      console.warn("Auth check encountered a network error or fetch was aborted:", error);
-      // We do not set user to null or clear auth marker here to preserve the session
-      // across hot reloads.
+      console.warn('Auth check encountered a network error or fetch was aborted:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const login = async (email: string, password: string) => {
-    if (!AUTH_ENABLED) {
-      return;
-    }
+    if (!AUTH_ENABLED) return;
 
     const res = await fetch(API_ENDPOINTS.AUTH.LOGIN, {
       method: 'POST',
@@ -141,16 +115,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!res.ok) {
       let errorMessage = 'فشل تسجيل الدخول';
-      let userData: any = null;
       try {
         const errorData = await res.json();
         errorMessage = errorData.detail || errorMessage;
-        userData = errorData.user;
-      } catch (e) {
-        // If json parsing fails, use default message
+      } catch {
+        // use default message
       }
 
-      // If 403 - account pending approval, redirect to pending page
       if (res.status === 403) {
         window.location.href = '/pending-approval';
         return;
@@ -166,7 +137,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await checkAuth();
     }
 
-    window.location.href = '/';
+    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const destination = safeCallbackUrl(params?.get('callbackUrl'));
+    window.location.href = destination;
   };
 
   const register = async (email: string, password: string, fullName?: string) => {
@@ -187,8 +160,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const errorData = await res.json();
         errorMessage = errorData.detail || errorMessage;
-      } catch (e) {
-        // If json parsing fails, use default message
+      } catch {
+        // use default message
       }
       throw new Error(errorMessage);
     }
@@ -197,9 +170,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    if (!AUTH_ENABLED) {
-      return;
-    }
+    if (!AUTH_ENABLED) return;
 
     try {
       await fetch(API_ENDPOINTS.AUTH.LOGOUT, {

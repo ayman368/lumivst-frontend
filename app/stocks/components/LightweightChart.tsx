@@ -11,6 +11,7 @@ import {
     CrosshairMode,
 } from 'lightweight-charts';
 import { API_BASE_URL } from '@/lib/api/config';
+import { authFetch } from '@/lib/api/authFetch';
 
 // ─── Data type ─────────────────────────────────────────────────────────────────
 interface CandleData {
@@ -239,7 +240,7 @@ export default function LightweightChart({
         setData([]);
 
         const API_URL = API_BASE_URL;
-        fetch(`${API_URL}/api/prices/history/${symbol}?limit=10000`, { signal: ctrl.signal, credentials: 'include' })
+        authFetch(`${API_URL}/api/prices/history/${symbol}?limit=10000`, { signal: ctrl.signal, credentials: 'include' })
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
             .then(json => setData(json.data || []))
             .catch(err => { if (err.name !== 'AbortError') setError(err.message); })

@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from 'react';
 import { createChart, ColorType, CrosshairMode, AreaSeries } from 'lightweight-charts';
 import { Calendar, TrendingUp, TrendingDown, Search, Filter, X, ChevronRight, ChevronLeft, BarChart3, Sparkles, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/api/config';
+import { authFetch } from '@/lib/api/authFetch';
+import { useWatchlistShariah } from '@/components/Watchlist/WatchlistShariahContext';
 
 // ─── DESIGN TOKENS: Black & White ────────────────────────────────
 // Page bg:         #FFFFFF   Sidebar/Card bg: #FFFFFF
@@ -127,6 +129,7 @@ const calculateStartDate = (opt: { label: string; type: string; value: number })
 };
 
 export default function RSScreener() {
+    const { filterStocks } = useWatchlistShariah();
     const [stocks, setStocks] = useState<StockRS[]>([]);
     const [filteredStocks, setFilteredStocks] = useState<StockRS[]>([]);
     const [selectedStock, setSelectedStock] = useState<StockRS | null>(null);
@@ -154,13 +157,13 @@ export default function RSScreener() {
     useEffect(() => { fetchLatestRS(); }, []);
 
     useEffect(() => {
-        let r = stocks.filter(s => s.rs_rating >= filterRange[0] && s.rs_rating <= filterRange[1]);
+        let r = filterStocks(stocks).filter(s => s.rs_rating >= filterRange[0] && s.rs_rating <= filterRange[1]);
         if (searchQuery) {
             const q = searchQuery.toUpperCase();
             r = r.filter(s => s.symbol.includes(q) || s.company_name?.toUpperCase().includes(q));
         }
         setFilteredStocks(r);
-    }, [stocks, searchQuery, filterRange]);
+    }, [stocks, searchQuery, filterRange, filterStocks]);
 
     useEffect(() => {
         if (selectedStock) fetchHistoryWithPeriod(selectedStock.symbol);
@@ -170,7 +173,7 @@ export default function RSScreener() {
 
     const fetchLatestRS = async () => {
         try {
-            const res = await fetch(`${API_URL}/api/rs/latest?limit=500`, { credentials: 'include' });
+            const res = await authFetch(`${API_URL}/api/rs/latest?limit=500`, { credentials: 'include' });
             if (res.status === 401 || res.status === 403) return;
             const data = await res.json();
             if (data.data) { setStocks(data.data); if (data.data.length > 0) setSelectedStock(data.data[0]); }
@@ -194,7 +197,7 @@ export default function RSScreener() {
             if (fromDate) params.append('from_date', fromDate);
             if (finalToDate) params.append('to_date', finalToDate);
             let url = `${API_URL}/api/rs/${symbol}${params.toString() ? '?' + params.toString() : ''}`;
-            const res = await fetch(url, { credentials: 'include' });
+            const res = await authFetch(url, { credentials: 'include' });
             if (!res.ok) throw new Error('Failed');
             const data = await res.json();
             setHistoryData(Array.isArray(data) ? data : []);

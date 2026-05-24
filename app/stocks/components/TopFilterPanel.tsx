@@ -25,6 +25,7 @@ interface TopFilterPanelProps {
 }
 
 type TabId =
+    | 'quick_view'
     | 'smartselect'
     | 'price_volume'
     | 'moving_averages'
@@ -37,6 +38,7 @@ type TabId =
     | 'industry_group_metrics';
 
 const TABS: { id: TabId; label: string; shortLabel: string }[] = [
+    { id: 'quick_view', label: 'Quick View', shortLabel: 'Quick View' },
     { id: 'smartselect', label: 'SmartSelect Ratings', shortLabel: 'SmartSelect' },
     { id: 'price_volume', label: 'Price & Volume', shortLabel: 'Price & Vol' },
     { id: 'moving_averages', label: 'Moving Averages', shortLabel: 'MAs' },
@@ -366,7 +368,7 @@ export default function TopFilterPanel({
     filters, setFilters, filterOptions, activeFiltersCount, clearAllFilters,
     quickFilter, setQuickFilter,
 }: TopFilterPanelProps) {
-    const [activeTab, setActiveTab] = useState<TabId>('smartselect');
+    const [activeTab, setActiveTab] = useState<TabId>('quick_view');
     const [collapsed, setCollapsed] = useState(true);
 
     const f = filters;
@@ -680,7 +682,36 @@ export default function TopFilterPanel({
         );
     }
 
+    function ColQuickView() {
+        return (
+            <div className="flex-shrink-0">
+                <SectionHead>Quick View</SectionHead>
+                <div className="flex gap-2 mt-2">
+                    {([
+                        { id: 'top_gainers' as QuickFilterType, label: 'Top Gainers', activeClass: 'bg-emerald-600 border-emerald-600 text-white shadow-sm', inactiveClass: 'bg-white border-gray-200 text-gray-600 hover:border-emerald-400 hover:text-emerald-600' },
+                        { id: 'top_losers' as QuickFilterType, label: 'Top Losers', activeClass: 'bg-emerald-600 border-emerald-600 text-white shadow-sm', inactiveClass: 'bg-white border-gray-200 text-gray-600 hover:border-emerald-400 hover:text-emerald-600' },
+                        { id: 'most_active_volume' as QuickFilterType, label: 'Most Active By Volume', activeClass: 'bg-emerald-600 border-emerald-600 text-white shadow-sm', inactiveClass: 'bg-white border-gray-200 text-gray-600 hover:border-emerald-400 hover:text-emerald-600' },
+                        { id: 'most_active_value' as QuickFilterType, label: 'Most Active By Value', activeClass: 'bg-emerald-600 border-emerald-600 text-white shadow-sm', inactiveClass: 'bg-white border-gray-200 text-gray-600 hover:border-emerald-400 hover:text-emerald-600' },
+                    ]).map(btn => {
+                        const isActive = quickFilter === btn.id;
+                        return (
+                            <button
+                                key={btn.id}
+                                onClick={() => setQuickFilter(isActive ? '' : btn.id)}
+                                className={`inline-flex items-center gap-1.5 h-[26px] px-3 text-[11px] font-semibold rounded-sm border transition-all whitespace-nowrap w-fit ${isActive ? btn.activeClass : btn.inactiveClass}`}
+                            >
+                                <span>{btn.label}</span>
+                                {isActive && <span className="text-[9px] opacity-70">✕</span>}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    }
+
     const tabContent: Record<TabId, React.ReactNode> = {
+        quick_view: <><ColQuickView /></>,
         smartselect: <><ColSmartSelect /></>,
         price_volume: <><ColPriceLeft /><ColDivider /><ColPriceRight /></>,
         moving_averages: <><ColMAsVsSma /><ColDivider /><ColMAsComparison /><ColDivider /><ColMAsMinusSma /></>,
@@ -813,33 +844,6 @@ export default function TopFilterPanel({
 
     return (
         <div className="bg-white border-b-2 border-gray-200 flex-shrink-0 select-none shadow-sm">
-
-            {/* ══════════════════════════════════════════════════
-          QUICK FILTER BAR — Tadawul-style
-      ══════════════════════════════════════════════════ */}
-            <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 bg-gray-50/60">
-                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.12em] whitespace-nowrap">Quick View</span>
-                <div className="flex items-center gap-1.5">
-                    {([
-                        { id: 'top_gainers' as QuickFilterType, label: 'Top Gainers', activeClass: 'bg-emerald-600 border-emerald-600 text-white shadow-sm', inactiveClass: 'bg-white border-gray-200 text-gray-600 hover:border-emerald-400 hover:text-emerald-600' },
-                        { id: 'top_losers' as QuickFilterType, label: 'Top Losers', activeClass: 'bg-emerald-600 border-emerald-600 text-white shadow-sm', inactiveClass: 'bg-white border-gray-200 text-gray-600 hover:border-emerald-400 hover:text-emerald-600' },
-                        { id: 'most_active_volume' as QuickFilterType, label: 'Most Active By Volume', activeClass: 'bg-emerald-600 border-emerald-600 text-white shadow-sm', inactiveClass: 'bg-white border-gray-200 text-gray-600 hover:border-emerald-400 hover:text-emerald-600' },
-                        { id: 'most_active_value' as QuickFilterType, label: 'Most Active By Value', activeClass: 'bg-emerald-600 border-emerald-600 text-white shadow-sm', inactiveClass: 'bg-white border-gray-200 text-gray-600 hover:border-emerald-400 hover:text-emerald-600' },
-                    ]).map(btn => {
-                        const isActive = quickFilter === btn.id;
-                        return (
-                            <button
-                                key={btn.id}
-                                onClick={() => setQuickFilter(isActive ? '' : btn.id)}
-                                className={`inline-flex items-center gap-1.5 h-[26px] px-3 text-[11px] font-semibold rounded-sm border transition-all whitespace-nowrap ${isActive ? btn.activeClass : btn.inactiveClass}`}
-                            >
-                                <span>{btn.label}</span>
-                                {isActive && <span className="text-[9px] opacity-70">✕</span>}
-                            </button>
-                        );
-                    })}
-                </div>
-            </div>
 
             {/* ══════════════════════════════════════════════════
           HEADER BAR  —  icon · tabs · controls

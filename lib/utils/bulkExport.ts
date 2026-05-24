@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '@/lib/api/config';
+import { authFetch } from '@/lib/api/authFetch';
 
 interface StockResult {
   symbol: string;
@@ -57,7 +58,7 @@ export async function fetchBulkScreenerData(): Promise<BulkExportResult> {
       if (screener.id === 'alrayan') {
         items = await fetchAlrayanData();
       } else {
-        const response = await fetch(
+        const response = await authFetch(
           `${API_BASE_URL}/api/screeners/${screener.id}?limit=5000&offset=0`,
           { cache: 'no-store', credentials: 'include' }
         );
@@ -84,32 +85,27 @@ export async function fetchBulkScreenerData(): Promise<BulkExportResult> {
     }
   }
 
-  // ── Pass 2: deduplicate — iterate LAST → FIRST, later screeners take priority ─
-  // claimedSymbols grows as we move backwards through the list.
-  // Any symbol already claimed by a later screener is dropped from earlier ones.
-  const claimedSymbols = new Set<string>();
-  const dedupedPerScreener: { label: string; items: StockResult[] }[] = [];
-
-  for (let i = rawPerScreener.length - 1; i >= 0; i--) {
-    const { label, items } = rawPerScreener[i];
-    const uniqueItems = items.filter(s => !claimedSymbols.has(s.symbol));
-    uniqueItems.forEach(s => claimedSymbols.add(s.symbol));
-    dedupedPerScreener[i] = { label, items: uniqueItems };
-  }
-
   // ── Build final flat list (original order) + breakdown ───────────────────
+  // No deduplication: each screener keeps its full results, matching
+  // the counts shown on the individual screener pages.
+  const uniqueSymbols = new Set<string>();
   const allData: StockResult[] = [];
   const screenerBreakdown: Record<string, number> = {};
 
-  for (const { label, items } of dedupedPerScreener) {
-    allData.push(...items);
+  for (const { label, items } of rawPerScreener) {
     screenerBreakdown[label] = items.length;
+    for (const item of items) {
+      if (!uniqueSymbols.has(item.symbol)) {
+        uniqueSymbols.add(item.symbol);
+        allData.push(item);
+      }
+    }
   }
 
   return {
     data: allData,
     screenerBreakdown,
-    groupedData: dedupedPerScreener,
+    groupedData: rawPerScreener,
   };
 }
 
@@ -119,9 +115,9 @@ export async function fetchBulkScreenerData(): Promise<BulkExportResult> {
 async function fetchAlrayanData(): Promise<StockResult[]> {
   try {
     const [pricesRes, rsRes, techRes] = await Promise.all([
-      fetch(`${API_BASE_URL}/api/prices/latest`, { cache: 'no-store', credentials: 'include' }),
-      fetch(`${API_BASE_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', credentials: 'include' }),
-      fetch(`${API_BASE_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', credentials: 'include' }),
+      authFetch(`${API_BASE_URL}/api/prices/latest`, { cache: 'no-store', credentials: 'include' }),
+      authFetch(`${API_BASE_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', credentials: 'include' }),
+      authFetch(`${API_BASE_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', credentials: 'include' }),
     ]);
 
     if (!pricesRes.ok) throw new Error('Failed to fetch prices');

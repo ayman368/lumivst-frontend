@@ -1,11 +1,12 @@
 'use client';
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../providers/AuthProvider';
 import Link from 'next/link';
 import { GoogleIcon, FacebookIcon } from '../_components/ui/SocialIcons';
 import { API_ENDPOINTS } from '@/lib/api/config';
+import { safeCallbackUrl } from '@/lib/api/authFetch';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -13,15 +14,16 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, user } = useAuth();
+  const { login, user, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  // Redirect if already logged in
   useEffect(() => {
-    if (user) {
-      window.location.href = '/';
+    if (!authLoading && user) {
+      const params = new URLSearchParams(window.location.search);
+      const destination = safeCallbackUrl(params.get('callbackUrl'));
+      window.location.href = destination;
     }
-  }, [user, router]);
+  }, [user, authLoading]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -30,8 +32,9 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-    } catch (err: any) {
-      setError(err.message || 'فشل تسجيل الدخول');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'فشل تسجيل الدخول';
+      setError(message);
       setLoading(false);
     }
   };
@@ -66,15 +69,21 @@ export default function LoginPage() {
     }
   };
 
+  if (authLoading || user) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-[400px] space-y-6">
-        {/* Header */}
         <div className="text-center relative">
           <h1 className="text-2xl font-bold text-gray-900 mb-8">Member Sign In</h1>
         </div>
 
-        {/* Social Login Buttons */}
         <div className="space-y-3">
           <button
             onClick={() => handleSocialLogin('Google')}
@@ -93,14 +102,12 @@ export default function LoginPage() {
           </button>
         </div>
 
-        {/* Divider */}
         <div className="relative flex items-center py-2">
           <div className="flex-grow border-t border-gray-200"></div>
           <span className="flex-shrink-0 mx-4 text-gray-400 text-sm">or</span>
           <div className="flex-grow border-t border-gray-200"></div>
         </div>
 
-        {/* Email Login Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg">
@@ -155,10 +162,9 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Footer Links */}
         <div className="space-y-4 text-center text-sm">
           <p className="text-gray-600">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Link href="/register" className="text-blue-600 font-semibold hover:underline">
               Create free account
             </Link>

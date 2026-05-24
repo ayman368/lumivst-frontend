@@ -8,6 +8,7 @@ import { StockHeader } from '../../stocks/_components/StockHeader';
 import { StockTabs } from '../../stocks/_components/StockTabs';
 import { MOCK_STOCK_DATA } from '../../stocks/data/mockData';
 import { API_BASE_URL } from '@/lib/api/config';
+import { authFetch } from '@/lib/api/authFetch';
 
 interface FinancialPeriod {
     period_end_date: string;
@@ -67,7 +68,7 @@ function DashboardFinancialsContent() {
     const fetchCompanies = async () => {
         setCompaniesLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/api/scraper/companies`, {
+            const res = await authFetch(`${API_BASE}/api/scraper/companies`, {
                 credentials: 'include'
             });
             if (!res.ok) throw new Error('Failed to fetch companies');
@@ -98,7 +99,7 @@ function DashboardFinancialsContent() {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`${API_BASE}/api/scraper/financials/${symbol}`, {
+            const res = await authFetch(`${API_BASE}/api/scraper/financials/${symbol}`, {
                 credentials: 'include'
             });
             if (!res.ok) throw new Error('Failed to fetch financial data');

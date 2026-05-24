@@ -80,7 +80,6 @@ export const SIDEBAR_PATHS = [
   '/market-reports',
   '/interest-rate',
   '/spread',
-  '/saudi',
 ]
 
 export function shouldShowSidebar(pathname: string): boolean {

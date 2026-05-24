@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { authFetch } from '@/lib/api/authFetch';
 import { ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import type { RSPoint, RSLineSummary, RSLineResponse } from "@/types/rs-line";
 
@@ -141,7 +142,7 @@ export default function RSMACrossoverChart({
     const fetchData = async () => {
       setLoading(true); setError(null);
       try {
-        const res = await fetch("/api/indicators/rs-line/", {
+        const res = await authFetch("/api/indicators/rs-line/", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
           credentials: "include",

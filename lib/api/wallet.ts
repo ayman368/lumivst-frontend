@@ -1,4 +1,5 @@
-import { API_BASE_URL, API_ENDPOINTS } from "./config";
+import { API_BASE_URL } from "./config";
+import { authFetch } from "./authFetch";
 import type {
   RiskFinanceRequest, RiskFinanceResponse,
   RBAFRequest, RBAFResponse,
@@ -7,29 +8,6 @@ import type {
   MonthlyTrackerResponse, WalletTradeCreate, WalletTradeResponse,
   WeeklyStudyRequest, WeeklyStudyResponse
 } from "@/types/wallet";
-
-async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  let response = await fetch(url, options);
-
-  if (response.status === 401) {
-    // Attempt token refresh
-    try {
-      const refreshRes = await fetch(API_ENDPOINTS.AUTH.REFRESH_TOKEN, {
-        method: 'POST',
-        headers: { 'x-csrf-token': '1' },
-        credentials: 'include'
-      });
-      if (refreshRes.ok) {
-        // Retry original request
-        response = await fetch(url, options);
-      }
-    } catch (e) {
-      console.warn("Auto token refresh failed", e);
-    }
-  }
-
-  return response;
-}
 
 async function handleRes(response: Response) {
   if (!response.ok) {
@@ -42,7 +20,7 @@ async function handleRes(response: Response) {
 }
 
 export async function calcRiskFinance(data: RiskFinanceRequest): Promise<RiskFinanceResponse> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/wallet/calculator/calculate`, {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/calculator/calculate`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
     credentials: "include",
@@ -52,7 +30,7 @@ export async function calcRiskFinance(data: RiskFinanceRequest): Promise<RiskFin
 }
 
 export async function calcRBAF(data: RBAFRequest): Promise<RBAFResponse> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/wallet/rbaf/calculate`, {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/rbaf/calculate`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
     credentials: "include",
@@ -62,14 +40,14 @@ export async function calcRBAF(data: RBAFRequest): Promise<RBAFResponse> {
 }
 
 export async function getRbafSettings(): Promise<RBAFRequest> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/wallet/rbaf/settings`, {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/rbaf/settings`, {
     credentials: "include",
   });
   return handleRes(response);
 }
 
 export async function analyzePortfolio(data: PortfolioRequest): Promise<PortfolioSummary> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/wallet/portfolio/analyze`, {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/analyze`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
     credentials: "include",
@@ -79,14 +57,14 @@ export async function analyzePortfolio(data: PortfolioRequest): Promise<Portfoli
 }
 
 export async function fetchPortfolioPositions(): Promise<WalletPositionDB[]> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/wallet/portfolio/positions`, {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/positions`, {
     credentials: "include",
   });
   return handleRes(response);
 }
 
 export async function createPortfolioPosition(data: PortfolioPositionCreate): Promise<WalletPositionDB> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/wallet/portfolio/positions`, {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/positions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
     credentials: "include",
@@ -96,7 +74,7 @@ export async function createPortfolioPosition(data: PortfolioPositionCreate): Pr
 }
 
 export async function closePortfolioPosition(id: number): Promise<any> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/wallet/portfolio/positions/${id}/close`, {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/positions/${id}/close`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
     credentials: "include",
@@ -105,14 +83,14 @@ export async function closePortfolioPosition(id: number): Promise<any> {
 }
 
 export async function getMonthlyTracker(year: number): Promise<MonthlyTrackerResponse> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/wallet/tracker/${year}`, {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/tracker/${year}`, {
     credentials: "include",
   });
   return handleRes(response);
 }
 
 export async function createMonthlyTrade(data: WalletTradeCreate): Promise<WalletTradeResponse> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/wallet/tracker/trades`, {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/tracker/trades`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
     credentials: "include",
@@ -122,7 +100,7 @@ export async function createMonthlyTrade(data: WalletTradeCreate): Promise<Walle
 }
 
 export async function calcMonthlyTracker(year: number, trades: any[]): Promise<MonthlyTrackerResponse> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/wallet/tracker/calculate`, {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/tracker/calculate`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
     credentials: "include",
@@ -132,21 +110,21 @@ export async function calcMonthlyTracker(year: number, trades: any[]): Promise<M
 }
 
 export async function getEmptyTracker(year: number): Promise<MonthlyTrackerResponse> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/wallet/tracker/${year}`, {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/tracker/${year}`, {
     credentials: "include",
   });
   return handleRes(response);
 }
 
 export async function getWeeklyStudy(): Promise<WeeklyStudyResponse> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/wallet/weekly/latest`, {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/weekly/latest`, {
     credentials: "include",
   });
   return handleRes(response);
 }
 
 export async function updateWeeklyStudy(data: WeeklyStudyRequest): Promise<WeeklyStudyResponse> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/wallet/weekly/update`, {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/weekly/update`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
     credentials: "include",
@@ -156,14 +134,14 @@ export async function updateWeeklyStudy(data: WeeklyStudyRequest): Promise<Weekl
 }
 
 export async function getLatestPrice(symbol: string): Promise<{ symbol: string; close: number; date: string }> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/wallet/calculator/price/${symbol}`, {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/calculator/price/${symbol}`, {
     credentials: "include",
   });
   return handleRes(response);
 }
 
 export async function updatePortfolioPosition(id: number, data: any): Promise<WalletPositionDB> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/wallet/portfolio/positions/${id}`, {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/positions/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
     credentials: "include",
@@ -173,7 +151,7 @@ export async function updatePortfolioPosition(id: number, data: any): Promise<Wa
 }
 
 export async function addSharesToPosition(id: number, data: { qty: number; buy_price: number; trade_date: string }): Promise<WalletPositionDB> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/wallet/portfolio/positions/${id}/add`, {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/positions/${id}/add`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
     credentials: "include",
@@ -183,7 +161,7 @@ export async function addSharesToPosition(id: number, data: { qty: number; buy_p
 }
 
 export async function partialSellPosition(id: number, data: { qty: number; sell_price: number; trade_date: string }): Promise<any> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/wallet/portfolio/positions/${id}/sell`, {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/positions/${id}/sell`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
     credentials: "include",

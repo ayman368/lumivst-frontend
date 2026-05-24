@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
+import { authFetch } from "@/lib/api/authFetch";
 import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 interface StagePoint {
@@ -102,7 +103,7 @@ export default function StageAnalysisChart({ symbol, benchmark = "^TASI.SR", sta
       setLoading(true); setError(null);
       try {
         const params = new URLSearchParams({ symbol, benchmark, start_date: startDate });
-        const res = await fetch(`/api/indicators/sata?${params}`, { credentials: "include" });
+        const res = await authFetch(`/api/indicators/sata?${params}`, { credentials: "include" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json: StageResponse = await res.json();
         setData(json.data); setSummary(json.summary);

@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 
 import { API_ENDPOINTS } from '@/lib/api/config';
+import { authFetch } from '@/lib/api/authFetch';
 
 export default function PendingApproval() {
     const [message, setMessage] = useState('');
@@ -12,7 +13,7 @@ export default function PendingApproval() {
     const checkApprovalStatus = useCallback(async () => {
         try {
             // Try the SSE/pending endpoint first (for OAuth flow with pending_token)
-            const res = await fetch(API_ENDPOINTS.AUTH.PENDING_STATUS_CHECK, {
+            const res = await authFetch(API_ENDPOINTS.AUTH.PENDING_STATUS_CHECK, {
                 credentials: 'include',
             });
 
@@ -30,7 +31,7 @@ export default function PendingApproval() {
         // Fallback: try to login again to check if approved (for both flows)
         // If the user has a session_token, try /api/auth/me
         try {
-            const meRes = await fetch(API_ENDPOINTS.AUTH.ME, {
+            const meRes = await authFetch(API_ENDPOINTS.AUTH.ME, {
                 credentials: 'include',
             });
             if (meRes.ok) {
@@ -71,7 +72,7 @@ export default function PendingApproval() {
 
 
             // Try activate-session to get proper session from pending token, then go home
-            fetch(API_ENDPOINTS.AUTH.ACTIVATE_SESSION, {
+            authFetch(API_ENDPOINTS.AUTH.ACTIVATE_SESSION, {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'x-csrf-token': '1' },
@@ -80,7 +81,7 @@ export default function PendingApproval() {
                     window.location.href = '/';
                 } else {
                     // Try me endpoint as fallback if activate-session fails
-                    fetch(API_ENDPOINTS.AUTH.ME, {
+                    authFetch(API_ENDPOINTS.AUTH.ME, {
                        credentials: 'include',
                     }).then(res => {
                        if(res.ok) {

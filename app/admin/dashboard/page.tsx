@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
+import { apiClient } from '@/lib/api/axiosClient';
 import {
     LayoutDashboard,
     MessageSquare,
@@ -39,10 +39,7 @@ export default function AdminDashboard() {
         setLoading(true);
         try {
             const params = search ? { search } : {};
-            const response = await axios.get(`${API_URL}/api/contact/`, {
-                withCredentials: true,
-                params
-            });
+            const response = await apiClient.get('/api/contact/', { params });
             setMessages(response.data);
         } catch (error: any) {
             console.error('Error fetching messages:', error);
@@ -64,9 +61,8 @@ export default function AdminDashboard() {
 
         setDeletingId(id);
         try {
-            await axios.delete(`${API_URL}/api/contact/${id}`, {
+            await apiClient.delete(`/api/contact/${id}`, {
                 headers: { 'x-csrf-token': '1' },
-                withCredentials: true
             });
             setMessages(messages.filter(msg => msg.id !== id));
         } catch (error) {

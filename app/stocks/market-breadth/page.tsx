@@ -29,6 +29,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 import { API_BASE_URL } from '@/lib/api/config';
+import { ShariahFilterPage, useWatchlistShariah } from '@/components/Watchlist/WatchlistShariahContext';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -120,7 +121,8 @@ const CHART_COUNT = CHART_CONFIGS.length;
 
 /* ─── Component ─────────────────────────────────────────────────────────── */
 
-export default function MarketBreadthPage() {
+function MarketBreadthContent() {
+    const { selected: shariahSelected } = useWatchlistShariah();
     const [data, setData] = useState<BreadthItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -171,8 +173,12 @@ export default function MarketBreadthPage() {
             try {
                 setLoading(true);
                 setError(null); // ✅ Fix 3: reset error قبل كل fetch جديد
+                const params = new URLSearchParams({ period });
+                if (shariahSelected.length > 0) {
+                    params.set('approval_with_controls', shariahSelected.join(','));
+                }
                 const res = await fetch(
-                    `${API_BASE_URL}/api/market-breadth/percent-above-ma?period=${period}`
+                    `${API_BASE_URL}/api/market-breadth/percent-above-ma?${params.toString()}`
                 );
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const json = await res.json();
@@ -185,7 +191,7 @@ export default function MarketBreadthPage() {
             }
         }
         fetchData();
-    }, [period]);
+    }, [period, shariahSelected]);
 
     /* ── click-outside: يقفل Export dropdown ── */
     useEffect(() => {
@@ -611,7 +617,7 @@ export default function MarketBreadthPage() {
     /* ─── Render ───────────────────────────────────────────────────────── */
     return (
         <div
-            className="w-screen h-screen flex flex-col bg-slate-50 overflow-hidden"
+            className="w-full flex-1 flex flex-col bg-slate-50 overflow-hidden min-h-0"
             style={{ fontFamily: '"DM Sans", sans-serif' }}
         >
             {/* ── Header ─────────────────────────────────────────────────── */}
@@ -980,5 +986,13 @@ export default function MarketBreadthPage() {
                 </div>
             </main>
         </div>
+    );
+}
+
+export default function MarketBreadthPage() {
+    return (
+        <ShariahFilterPage variant="light" className="w-screen h-screen flex flex-col overflow-hidden">
+            <MarketBreadthContent />
+        </ShariahFilterPage>
     );
 }

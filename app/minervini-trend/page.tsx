@@ -29,7 +29,7 @@ import {
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
-import { useApi } from '@/hooks/useApi';
+import { authFetch } from '@/lib/api/authFetch';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -97,6 +97,46 @@ const PERIOD_DAYS: Record<string, number | null> = {
   'ALL': null,
 };
 
+/** Browser cache — instant paint on revisit while API revalidates */
+const SESSION_CACHE_KEY = 'lumivst:minervini-trend:v1';
+const SESSION_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const API_FULL_LIMIT = 2600;
+
+function mapSeries(items: { date?: string; time?: string; trend_1m?: number; trend_4m?: number; trend_5m_wide?: number; alrayan?: number }[]): TrendDataPoint[] {
+  return items.map((item) => ({
+    time: item.date || item.time || '',
+    trend_1m: item.trend_1m ?? 0,
+    trend_4m: item.trend_4m ?? 0,
+    trend_5m_wide: item.trend_5m_wide ?? 0,
+    alrayan: item.alrayan ?? 0,
+  }));
+}
+
+function readSessionCache(): TrendDataPoint[] | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(SESSION_CACHE_KEY);
+    if (!raw) return null;
+    const { ts, series } = JSON.parse(raw) as { ts: number; series: TrendDataPoint[] };
+    if (Date.now() - ts > SESSION_CACHE_TTL_MS) return null;
+    return series?.length ? series : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionCache(series: TrendDataPoint[]) {
+  if (typeof window === 'undefined' || !series.length) return;
+  try {
+    sessionStorage.setItem(
+      SESSION_CACHE_KEY,
+      JSON.stringify({ ts: Date.now(), series })
+    );
+  } catch {
+    // quota exceeded — ignore
+  }
+}
+
 /* ─── Custom Tooltip ─────────────────────────────────────────────────────── */
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -129,9 +169,8 @@ export default function MinerviniTrendPage() {
   const [exportOpen, setExportOpen] = useState(false);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
 
-  const { apiCall } = useApi();
-
   const pageRef = useRef<HTMLDivElement>(null);
+  const fetchStarted = useRef(false);
   const cardRefs = [
     useRef<HTMLDivElement>(null),
     useRef<HTMLDivElement>(null),
@@ -145,29 +184,44 @@ export default function MinerviniTrendPage() {
     return () => clearInterval(id);
   }, []);
 
-  /* ── fetch ALL data once on mount ── */
+  /* ── fetch once: session cache first, then API (Redis-backed) ── */
   useEffect(() => {
+    if (fetchStarted.current) return;
+    fetchStarted.current = true;
+
+    const cached = readSessionCache();
+    if (cached) {
+      setRawData(cached);
+      setLoading(false);
+    }
+
     (async () => {
-      setLoading(true);
+      if (!cached) setLoading(true);
+      setError(null);
       try {
-        const response = await apiCall('/api/screeners/historical-trend?limit=2000');
-        if (response?.data?.series) {
-          const mapped = response.data.series.map((item: any) => ({
-            time: item.date || item.time,
-            trend_1m: item.trend_1m ?? 0,
-            trend_4m: item.trend_4m ?? 0,
-            trend_5m_wide: item.trend_5m_wide ?? 0,
-            alrayan: item.alrayan ?? 0,
-          }));
-          setRawData(mapped);
-        } else throw new Error('Invalid data format');
-      } catch (err: any) {
-        setError(err.message || 'Failed to load trend data');
+        const res = await authFetch(
+          `/api/screeners/historical-trend?limit=${API_FULL_LIMIT}`,
+          { credentials: 'include' }
+        );
+        if (!res.ok) {
+          throw new Error(`API error: ${res.status}`);
+        }
+        const body = await res.json();
+        if (!body?.series?.length) {
+          throw new Error('Invalid data format');
+        }
+        const mapped = mapSeries(body.series);
+        setRawData(mapped);
+        writeSessionCache(mapped);
+      } catch (err: unknown) {
+        if (!cached) {
+          const message = err instanceof Error ? err.message : 'Failed to load trend data';
+          setError(message);
+        }
       } finally {
         setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ── filter data client-side by selected period ── */

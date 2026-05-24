@@ -13,6 +13,7 @@ import {
     TrendingUp as TrendingUpIcon,
 } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/api/config';
+import { authFetch } from '@/lib/api/authFetch';
 
 interface ScreenerStock {
     symbol: string;
@@ -161,7 +162,7 @@ export default function TechnicalScreenerPage() {
             params.append('limit', '2000');
             params.append('latest_only', 'false');
 
-            const res = await fetch(
+            const res = await authFetch(
                 `${API_URL}/api/technical-screener/screener?${params.toString()}`,
                 { credentials: 'include' }
             );

@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { ChevronDown, FileText, Loader2 } from 'lucide-react';
 import FinancialReportsTable from '../../_components/FinancialReportsTable';
 import { API_BASE_URL } from '@/lib/api/config';
+import { authFetch } from '@/lib/api/authFetch';
 
 interface Company {
     symbol: string;
@@ -27,7 +28,7 @@ export default function ReportsPage() {
 
     const fetchCompanies = async () => {
         try {
-            const res = await fetch(`${API_BASE}/api/scraper/companies`, {
+            const res = await authFetch(`${API_BASE}/api/scraper/companies`, {
                 credentials: 'include'
             });
             if (res.ok) {

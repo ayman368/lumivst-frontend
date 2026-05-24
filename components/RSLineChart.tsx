@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { authFetch } from '@/lib/api/authFetch';
 import {
   ComposedChart, Line, Area, Scatter, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
@@ -153,7 +154,7 @@ export default function RSLineChart({
     const fetchData = async () => {
       setLoading(true); setError(null);
       try {
-        const res = await fetch("/api/indicators/rs-line/", {
+        const res = await authFetch("/api/indicators/rs-line/", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
           credentials: "include",

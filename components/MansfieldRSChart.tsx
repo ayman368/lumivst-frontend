@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { authFetch } from '@/lib/api/authFetch';
 import {
   ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ResponsiveContainer, Cell,
@@ -185,7 +186,7 @@ export default function MansfieldRSChart({
       setLoading(true); setError(null);
       try {
         const params = new URLSearchParams({ symbol, benchmark, start_date: startDate, ma_length: maLength.toString() });
-        const res = await fetch(`/api/indicators/mansfield-rs?${params}`, { credentials: "include" });
+        const res = await authFetch(`/api/indicators/mansfield-rs?${params}`, { credentials: "include" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json: MansfieldRSResponse = await res.json();
         setData(json.data); setSummary(json.summary);

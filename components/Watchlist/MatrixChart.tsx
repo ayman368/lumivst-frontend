@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import html2canvas from 'html2canvas'; // 1. استيراد المكتبة
 import { API_BASE_URL } from '@/lib/api/config';
+import { authFetch } from '@/lib/api/authFetch';
+import { useWatchlistShariah } from '@/components/Watchlist/WatchlistShariahContext';
 
 interface StockRS {
     symbol: string;
@@ -23,6 +25,7 @@ const getCategory = (rs: number) => {
 };
 
 export default function MatrixChart() {
+    const { filterStocks } = useWatchlistShariah();
     const [stocks, setStocks] = useState<StockRS[]>([]);
     const [loading, setLoading] = useState(true);
     const [gridStyles, setGridStyles] = useState({ col1: '50%', col2: '50%', row1: '50%', row2: '50%' });
@@ -39,7 +42,7 @@ export default function MatrixChart() {
     const fetchData = async () => {
         try {
             const API_URL = API_BASE_URL;
-            const res = await fetch(`${API_URL}/api/rs/latest?limit=500`, { credentials: 'include' });
+            const res = await authFetch(`${API_URL}/api/rs/latest?limit=500`, { credentials: 'include' });
 
             if (!res.ok) return;
 
@@ -52,7 +55,6 @@ export default function MatrixChart() {
                     company_name: s.company_name ?? s.Company ?? s.symbol
                 }));
                 setStocks(normalized);
-                calculateGridDimensions(normalized);
             }
         } catch (err) {
             console.error(err);
@@ -85,11 +87,19 @@ export default function MatrixChart() {
         }
     };
 
+    const filteredStocks = useMemo(() => filterStocks(stocks), [stocks, filterStocks]);
+
+    useEffect(() => {
+        if (!loading) {
+            calculateGridDimensions(filteredStocks);
+        }
+    }, [filteredStocks, loading]);
+
     // تقسيم البيانات
-    const strong = stocks.filter(s => s.rs_rating >= 90).sort((a, b) => b.rs_rating - a.rs_rating);
-    const improve = stocks.filter(s => s.rs_rating >= 80 && s.rs_rating < 90).sort((a, b) => b.rs_rating - a.rs_rating);
-    const neutral = stocks.filter(s => s.rs_rating >= 70 && s.rs_rating < 80).sort((a, b) => b.rs_rating - a.rs_rating);
-    const weak = stocks.filter(s => s.rs_rating < 70).sort((a, b) => b.rs_rating - a.rs_rating);
+    const strong = filteredStocks.filter(s => s.rs_rating >= 90).sort((a, b) => b.rs_rating - a.rs_rating);
+    const improve = filteredStocks.filter(s => s.rs_rating >= 80 && s.rs_rating < 90).sort((a, b) => b.rs_rating - a.rs_rating);
+    const neutral = filteredStocks.filter(s => s.rs_rating >= 70 && s.rs_rating < 80).sort((a, b) => b.rs_rating - a.rs_rating);
+    const weak = filteredStocks.filter(s => s.rs_rating < 70).sort((a, b) => b.rs_rating - a.rs_rating);
 
     const calculateGridDimensions = (allStocks: StockRS[]) => {
         const nStrong = allStocks.filter(s => s.rs_rating >= 90).length;
