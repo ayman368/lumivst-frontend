@@ -97,10 +97,28 @@ const PERIOD_DAYS: Record<string, number | null> = {
   'ALL': null,
 };
 
+/** Recharts slows down with thousands of points — downsample for draw only */
+const MAX_CHART_POINTS = 900;
+const API_FULL_LIMIT = 6000;
+
 /** Browser cache — instant paint on revisit while API revalidates */
-const SESSION_CACHE_KEY = 'lumivst:minervini-trend:v1';
+const SESSION_CACHE_KEY = 'lumivst:minervini-trend:v2';
 const SESSION_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const API_FULL_LIMIT = 2600;
+
+/** Keep full data for stats/export; fewer points for SVG rendering */
+function downsampleForChart(data: TrendDataPoint[], maxPoints: number): TrendDataPoint[] {
+  if (data.length <= maxPoints) return data;
+  const step = Math.ceil(data.length / maxPoints);
+  const out: TrendDataPoint[] = [];
+  for (let i = 0; i < data.length; i += step) {
+    out.push(data[i]);
+  }
+  const last = data[data.length - 1];
+  if (out[out.length - 1]?.time !== last.time) {
+    out.push(last);
+  }
+  return out;
+}
 
 function mapSeries(items: { date?: string; time?: string; trend_1m?: number; trend_4m?: number; trend_5m_wide?: number; alrayan?: number }[]): TrendDataPoint[] {
   return items.map((item) => ({
@@ -168,6 +186,7 @@ export default function MinerviniTrendPage() {
   const [fullscreenIdx, setFullscreenIdx] = useState<number | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [loadingHint, setLoadingHint] = useState<string | null>(null);
 
   const pageRef = useRef<HTMLDivElement>(null);
   const fetchStarted = useRef(false);
@@ -198,15 +217,23 @@ export default function MinerviniTrendPage() {
     (async () => {
       if (!cached) setLoading(true);
       setError(null);
+      setLoadingHint(null);
       try {
         const res = await authFetch(
           `/api/screeners/historical-trend?limit=${API_FULL_LIMIT}`,
           { credentials: 'include' }
         );
+        const body = await res.json().catch(() => ({}));
+
+        if (res.status === 503 || body?.status === 'not_ready') {
+          throw new Error(
+            body?.message ||
+              'Chart history not loaded on server. Admin: run scripts/backfill_screener_daily_trend.py once.'
+          );
+        }
         if (!res.ok) {
           throw new Error(`API error: ${res.status}`);
         }
-        const body = await res.json();
         if (!body?.series?.length) {
           throw new Error('Invalid data format');
         }
@@ -220,6 +247,7 @@ export default function MinerviniTrendPage() {
         }
       } finally {
         setLoading(false);
+        setLoadingHint(null);
       }
     })();
   }, []);
@@ -230,6 +258,12 @@ export default function MinerviniTrendPage() {
     if (!maxDays || rawData.length <= maxDays) return rawData;
     return rawData.slice(-maxDays);
   }, [rawData, period]);
+
+  /** Chart uses downsampled series so 6000-day history does not freeze the browser */
+  const chartData = useMemo(
+    () => downsampleForChart(data, MAX_CHART_POINTS),
+    [data]
+  );
 
   /* ── fullscreen ── */
   const handleFullscreen = (i: number) => {
@@ -311,6 +345,9 @@ export default function MinerviniTrendPage() {
             <path d="M18 3 A15 15 0 0 1 33 18" fill="none" stroke="#4472C4" strokeWidth="2" strokeLinecap="round" />
           </svg>
           <p className="text-xs text-slate-400 uppercase tracking-widest font-medium">Loading Minervini Trend Data</p>
+          {loadingHint && (
+            <p className="text-[10px] text-slate-500 max-w-sm text-center leading-relaxed">{loadingHint}</p>
+          )}
         </div>
       </div>
     );
@@ -537,7 +574,7 @@ export default function MinerviniTrendPage() {
             const yMax = Math.ceil(maxVal + padding);
             const yMid = Math.round((yMin + yMax) / 2);
             const formatY = (v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}K` : v.toString();
-            const showDots = data.length < 80;
+            const showDots = chartData.length < 80;
             const pct = Math.round((numVal / Math.max(maxVal, 1)) * 100);
 
             return (
@@ -635,7 +672,7 @@ export default function MinerviniTrendPage() {
                     {cfg.label}
                   </div>
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={data} margin={{ top: 8, right: 20, left: 65, bottom: 55 }}>
+                    <LineChart data={chartData} margin={{ top: 8, right: 20, left: 65, bottom: 55 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
                       <XAxis
                         dataKey="time"
@@ -644,7 +681,7 @@ export default function MinerviniTrendPage() {
                         axisLine={{ stroke: '#E5E7EB' }}
                         angle={-45}
                         textAnchor="end"
-                        interval={Math.max(0, Math.floor(data.length / 15))}
+                        interval={Math.max(0, Math.floor(chartData.length / 15))}
                         height={60}
                       />
                       <YAxis
@@ -676,7 +713,10 @@ export default function MinerviniTrendPage() {
                 {/* card footer */}
                 <div className="px-4 py-1 border-t border-slate-50 flex justify-between items-center flex-shrink-0">
                   <span className="text-[9px] text-slate-300 leading-relaxed line-clamp-1">{cfg.desc}</span>
-                  <span className="text-[9px] text-slate-300 ml-3 flex-shrink-0 font-medium">{data.length.toLocaleString()} obs</span>
+                  <span className="text-[9px] text-slate-300 ml-3 flex-shrink-0 font-medium">
+                    {data.length.toLocaleString()} obs
+                    {chartData.length < data.length ? ` · chart ${chartData.length}` : ''}
+                  </span>
                 </div>
               </div>
             );

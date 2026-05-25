@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { API_BASE_URL } from "@/lib/api/config";
+import Link from "next/link";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface MarketRecord {
@@ -473,6 +474,14 @@ export default function MarketPulsePage() {
         <div style={{ height: 20, width: 1, background: "#ffffff20" }} />
         <span style={{ color: "#A8C0D6", fontSize: 11 }}>Egyptian Exchange — Index Data</span>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          <Link
+            href="/market-reports/market-pulse/settings"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "rgba(255,255,255,0.1)", borderRadius: 6, textDecoration: "none", transition: "background 0.2s" }}
+            title="TASI Settings"
+          >
+            <span style={{ fontSize: 14 }}>⚙️</span>
+          </Link>
+          <div style={{ height: 20, width: 1, background: "#ffffff20", margin: "0 4px" }} />
           <span style={{ color: "#A8C0D6", fontSize: 11 }}>
             {filteredRecords.length.toLocaleString()} records
           </span>
