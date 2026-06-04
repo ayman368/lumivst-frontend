@@ -110,6 +110,7 @@ interface StockFilterState {
     purge_amount_max: string;
     marginable_percent_min: string;
     marginable_percent_max: string;
+    sparkline_trend: 'all' | 'rising' | 'falling';
 }
 
 const DEFAULT_FILTERS: FilterState = {
@@ -136,6 +137,7 @@ const DEFAULT_STOCK_FILTERS: StockFilterState = {
     approval_with_controls: [],
     purge_amount_min: '', purge_amount_max: '',
     marginable_percent_min: '', marginable_percent_max: '',
+    sparkline_trend: 'all',
 };
 
 const RS_MOMENTUM_OPTIONS = [
@@ -186,6 +188,22 @@ const STOCK_COLUMN_DEFINITIONS = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SPARKLINE TREND HELPER
+// Returns the oldest available RS value to compare against the current one.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getSparklineFirstValue(stock: StockSummary): number {
+    return (
+        stock.rs_rating_1_year_ago ??
+        stock.rs_rating_6_months_ago ??
+        stock.rs_rating_3_months_ago ??
+        stock.rs_rating_4_weeks_ago ??
+        stock.rs_rating_1_week_ago ??
+        0
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // URL STATE HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -201,7 +219,7 @@ function filtersToParams(filters: FilterState, stockFilters: StockFilterState, r
     Object.keys(sf).forEach(k => {
         const v = sf[k];
         if (Array.isArray(v) && v.length > 0) params.set(`s_${k}`, v.join(','));
-        else if (!Array.isArray(v) && v !== '') params.set(`s_${k}`, v);
+        else if (!Array.isArray(v) && v !== '' && v !== 'all') params.set(`s_${k}`, v);
     });
     if (rsMomentum.length > 0) params.set('rs_momentum', rsMomentum.join(','));
     return params;
@@ -230,6 +248,28 @@ function paramsToFilters(params: URLSearchParams): { filters: FilterState; stock
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SHARED COLOR INTERPOLATION HELPER (Fixes bug #5)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function interpolateRSColor(value: number, rowMin: number, rowMax: number): [number, number, number] {
+    const range = rowMax - rowMin;
+    const pct = range === 0 ? 0.5 : (value - rowMin) / range;
+    let r: number, g: number, b: number;
+    if (pct <= 0.5) {
+        const t = pct / 0.5;
+        r = Math.round(220 + (251 - 220) * t);
+        g = Math.round(38 + (191 - 38) * t);
+        b = Math.round(38 + (36 - 38) * t);
+    } else {
+        const t = (pct - 0.5) / 0.5;
+        r = Math.round(251 + (22 - 251) * t);
+        g = Math.round(191 + (163 - 191) * t);
+        b = Math.round(36 + (74 - 36) * t);
+    }
+    return [r, g, b];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // CUSTOM HOOK — useIndustryGroups
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -238,7 +278,6 @@ function useIndustryGroups() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
 
-    // Initialize state from URL
     const initialState = useMemo(() => paramsToFilters(searchParams), []);
 
     const [data, setData] = useState<IndustryGroup[]>([]);
@@ -249,11 +288,23 @@ function useIndustryGroups() {
     const [rsMomentumFilters, setRsMomentumFilters] = useState<string[]>(initialState.rsMomentum);
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
     const [stocksCache, setStocksCache] = useState<Record<string, StockSummary[]>>({});
-    const [loadingStocks, setLoadingStocks] = useState<Set<string>>(new Set());
+    // FIX #1: Replace loadingStocks Set with useRef to avoid stale closures
+    const loadingStocksRef = useRef<Set<string>>(new Set());
+    // Expose derived state for UI (optional - can be used to show loading indicators)
+    const [loadingStocksUI, setLoadingStocksUI] = useState<Set<string>>(new Set());
     const [sortConfigs, setSortConfigs] = useState<SortConfig[]>([]);
     const [stockSortConfigs, setStockSortConfigs] = useState<Record<string, SortConfig[]>>({});
     const [stats, setStats] = useState({ topPerformer: { group: '', change: 0 }, worstPerformer: { group: '', change: 0 } });
     const [shariahOptions, setShariahOptions] = useState<string[]>([]);
+    // FIX #3: Add isMounted ref to prevent memory leaks
+    const isMountedRef = useRef(true);
+
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
 
     useEffect(() => {
         let cancelled = false;
@@ -265,7 +316,7 @@ function useIndustryGroups() {
                 });
                 if (!res.ok) return;
                 const json = await res.json();
-                if (cancelled) return;
+                if (cancelled && !isMountedRef.current) return;
                 setShariahOptions(buildShariahMap(json.data || []).options);
             } catch (err) {
                 console.error('Failed to load Shariah options', err);
@@ -274,7 +325,6 @@ function useIndustryGroups() {
         return () => { cancelled = true; };
     }, []);
 
-    // Sync filters → URL via useEffect (never call router inside setState)
     useEffect(() => {
         const params = filtersToParams(filters, stockFilters, rsMomentumFilters);
         const query = params.toString();
@@ -293,13 +343,13 @@ function useIndustryGroups() {
         setRsMomentumFilters(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
     }, []);
 
-    // Fetch main data
     useEffect(() => {
         async function fetchData() {
             try {
                 const res = await authFetch(`${API_BASE_URL}/api/industry-groups/latest`, { cache: 'no-store', credentials: 'include' });
                 if (!res.ok) throw new Error('Failed to fetch data');
                 const jsonData = await res.json();
+                if (!isMountedRef.current) return;
                 setData(jsonData);
                 if (jsonData.length > 0) {
                     let top = jsonData[0], worst = jsonData[0];
@@ -310,32 +360,46 @@ function useIndustryGroups() {
                     setStats({ topPerformer: { group: top.industry_group, change: top.ytd_change_percent }, worstPerformer: { group: worst.industry_group, change: worst.ytd_change_percent } });
                 }
             } catch (err) {
-                setError('Failed to load industry groups.');
+                if (isMountedRef.current) setError('Failed to load industry groups.');
             } finally {
-                setIsLoading(false);
+                if (isMountedRef.current) setIsLoading(false);
             }
         }
         fetchData();
     }, []);
 
-    // Fetch stocks for a group
+    // FIX #1 & #3: fetchGroupStocks now uses ref for loading state and checks mounted flag
     const fetchGroupStocks = useCallback(async (groupName: string) => {
-        if (loadingStocks.has(groupName)) return;
-        setLoadingStocks(prev => new Set(prev).add(groupName));
+        // Use ref to check loading state - always up to date
+        if (loadingStocksRef.current.has(groupName)) return;
+
+        loadingStocksRef.current.add(groupName);
+        // Update UI state if needed
+        setLoadingStocksUI(prev => new Set(prev).add(groupName));
+
         try {
             const res = await authFetch(`${API_BASE_URL}/api/industry-groups/stocks?industry_group=${encodeURIComponent(groupName)}`, { cache: 'no-store', credentials: 'include' });
+            if (!isMountedRef.current) return; // FIX #3: Check if component still mounted
+
             if (res.ok) {
                 const stocks = await res.json();
+                if (!isMountedRef.current) return; // Check again after async operation
                 setStocksCache(prev => ({ ...prev, [groupName]: stocks }));
             }
         } catch (err) {
-            console.error(`Failed to fetch stocks for ${groupName}`, err);
+            if (isMountedRef.current) console.error(`Failed to fetch stocks for ${groupName}`, err);
         } finally {
-            setLoadingStocks(prev => { const n = new Set(prev); n.delete(groupName); return n; });
+            if (isMountedRef.current) {
+                loadingStocksRef.current.delete(groupName);
+                setLoadingStocksUI(prev => {
+                    const n = new Set(prev);
+                    n.delete(groupName);
+                    return n;
+                });
+            }
         }
-    }, [loadingStocks]);
+    }, []);
 
-    // Range check helpers
     const checkRange = useCallback((value: any, minKey: keyof FilterState, maxKey: keyof FilterState) => {
         const minV = filters[minKey] as string, maxV = filters[maxKey] as string;
         const num = typeof value === 'number' ? value : parseFloat(value) || 0;
@@ -352,9 +416,9 @@ function useIndustryGroups() {
         return true;
     }, [stockFilters]);
 
-    // Filtered & sorted main data
-    const filteredData = useMemo(() => {
-        let filtered = data.filter(item => {
+    // FIX #6: Split filtering and sorting into separate useMemo hooks
+    const filteredDataOnly = useMemo(() => {
+        return data.filter(item => {
             if (filters.sector.length > 0 && !filters.sector.includes(item.sector)) return false;
             if (filters.industry_group.length > 0 && !filters.industry_group.includes(item.industry_group)) return false;
             if (filters.letter_grade.length > 0 && !filters.letter_grade.includes(item.letter_grade || '')) return false;
@@ -368,87 +432,25 @@ function useIndustryGroups() {
             if (!checkRange(item.change_vs_last_week, 'change_vs_last_week_min', 'change_vs_last_week_max')) return false;
             return true;
         });
+    }, [data, filters, checkRange]);
 
-        if (sortConfigs.length > 0) {
-            filtered = [...filtered].sort((a, b) => {
-                for (const config of sortConfigs) {
-                    const getVal = (item: IndustryGroup): any => {
-                        switch (config.key) {
-                            case 'rank': return item.rank;
-                            case 'industry_group': return item.industry_group.toLowerCase();
-                            case 'number_of_stocks': return item.number_of_stocks;
-                            case 'rank_1_week_ago': return item.rank_1_week_ago || 999;
-                            case 'rank_3_months_ago': return item.rank_3_months_ago || 999;
-                            case 'rank_6_months_ago': return item.rank_6_months_ago || 999;
-                            case 'ytd_change_percent': return item.ytd_change_percent;
-                            case 'market_value': return item.market_value || 0;
-                            case 'change_vs_last_week': return item.change_vs_last_week || 0;
-                            default: return 0;
-                        }
-                    };
-                    const aV = getVal(a), bV = getVal(b);
-                    if (aV === bV) continue;
-                    if (typeof aV === 'string') {
-                        const cmp = aV.localeCompare(bV);
-                        if (cmp !== 0) return config.direction === 'asc' ? cmp : -cmp;
-                    } else {
-                        const diff = Number(aV) - Number(bV);
-                        if (diff !== 0) return config.direction === 'asc' ? diff : -diff;
-                    }
-                }
-                return 0;
-            });
-        }
-        return filtered;
-    }, [data, filters, sortConfigs, checkRange]);
+    // FIX #6: Sorting depends only on filteredDataOnly
+    const filteredData = useMemo(() => {
+        if (sortConfigs.length === 0) return filteredDataOnly;
 
-    // Filtered & sorted stocks per group
-    const getFilteredStocks = useCallback((groupName: string): StockSummary[] => {
-        const stocks = stocksCache[groupName] || [];
-        const cur = stockSortConfigs[groupName] || [];
-        const effectiveSorts = cur.length > 0 ? cur : [{ key: 'rs_rating', direction: 'desc' as const }];
-
-        let filtered = stocks.filter(stock => {
-            if (filters.industry.length > 0 && !filters.industry.includes(stock.industry)) return false;
-            if (filters.sub_industry.length > 0 && !filters.sub_industry.includes(stock.sub_industry)) return false;
-            if (stockFilters.symbol && !stock.symbol.toLowerCase().includes(stockFilters.symbol.toLowerCase())) return false;
-            if (stockFilters.company_name && !stock.company_name.toLowerCase().includes(stockFilters.company_name.toLowerCase())) return false;
-            if (!checkStockRange(stock.rs_rating, 'rs_rating_min', 'rs_rating_max')) return false;
-            if (!checkStockRange(stock.rs_rating_1_week_ago, 'rs_rating_1_week_ago_min', 'rs_rating_1_week_ago_max')) return false;
-            if (!checkStockRange(stock.rs_rating_4_weeks_ago, 'rs_rating_4_weeks_ago_min', 'rs_rating_4_weeks_ago_max')) return false;
-            if (!checkStockRange(stock.rs_rating_3_months_ago, 'rs_rating_3_months_ago_min', 'rs_rating_3_months_ago_max')) return false;
-            if (!checkStockRange(stock.rs_rating_6_months_ago, 'rs_rating_6_months_ago_min', 'rs_rating_6_months_ago_max')) return false;
-            if (!checkStockRange(stock.rs_rating_1_year_ago, 'rs_rating_1_year_ago_min', 'rs_rating_1_year_ago_max')) return false;
-            for (const key of rsMomentumFilters) {
-                const option = RS_MOMENTUM_OPTIONS.find(o => o.key === key);
-                if (option && !option.check(stock)) return false;
-            }
-            if (stockFilters.approval_with_controls.length > 0) {
-                const status = stock.approval_with_controls || '';
-                if (!stockFilters.approval_with_controls.includes(status)) return false;
-            }
-            if (!checkStockRange(stock.purge_amount, 'purge_amount_min', 'purge_amount_max')) return false;
-            if (!checkStockRange(stock.marginable_percent, 'marginable_percent_min', 'marginable_percent_max')) return false;
-            return true;
-        });
-
-        return [...filtered].sort((a, b) => {
-            for (const config of effectiveSorts) {
-                const getVal = (item: StockSummary): any => {
+        return [...filteredDataOnly].sort((a, b) => {
+            for (const config of sortConfigs) {
+                const getVal = (item: IndustryGroup): any => {
                     switch (config.key) {
-                        case 'symbol': return item.symbol.toLowerCase();
-                        case 'company_name': return item.company_name.toLowerCase();
-                        case 'rs_rating': return item.rs_rating ?? 0;
-                        case 'rs_rating_1_week_ago': return item.rs_rating_1_week_ago ?? 0;
-                        case 'rs_rating_4_weeks_ago': return item.rs_rating_4_weeks_ago ?? 0;
-                        case 'rs_rating_3_months_ago': return item.rs_rating_3_months_ago ?? 0;
-                        case 'rs_rating_6_months_ago': return item.rs_rating_6_months_ago ?? 0;
-                        case 'rs_rating_1_year_ago': return item.rs_rating_1_year_ago ?? 0;
-                        case 'industry': return item.industry.toLowerCase();
-                        case 'sub_industry': return item.sub_industry.toLowerCase();
-                        case 'approval_with_controls': return (item.approval_with_controls || '').toLowerCase();
-                        case 'purge_amount': return item.purge_amount ?? 0;
-                        case 'marginable_percent': return item.marginable_percent ?? 0;
+                        case 'rank': return item.rank;
+                        case 'industry_group': return item.industry_group.toLowerCase();
+                        case 'number_of_stocks': return item.number_of_stocks;
+                        case 'rank_1_week_ago': return item.rank_1_week_ago || 999;
+                        case 'rank_3_months_ago': return item.rank_3_months_ago || 999;
+                        case 'rank_6_months_ago': return item.rank_6_months_ago || 999;
+                        case 'ytd_change_percent': return item.ytd_change_percent;
+                        case 'market_value': return item.market_value || 0;
+                        case 'change_vs_last_week': return item.change_vs_last_week || 0;
                         default: return 0;
                     }
                 };
@@ -464,9 +466,92 @@ function useIndustryGroups() {
             }
             return 0;
         });
+    }, [filteredDataOnly, sortConfigs]);
+
+    // FIX #7: Memoize filtered stocks per group
+    const filteredStocksCache = useMemo(() => {
+        const cache: Record<string, StockSummary[]> = {};
+
+        for (const groupName of Object.keys(stocksCache)) {
+            const stocks = stocksCache[groupName] || [];
+            const cur = stockSortConfigs[groupName] || [];
+            const effectiveSorts = cur.length > 0 ? cur : [{ key: 'rs_rating', direction: 'desc' as const }];
+
+            let filtered = stocks.filter(stock => {
+                if (filters.industry.length > 0 && !filters.industry.includes(stock.industry)) return false;
+                if (filters.sub_industry.length > 0 && !filters.sub_industry.includes(stock.sub_industry)) return false;
+                if (stockFilters.symbol && !stock.symbol.toLowerCase().includes(stockFilters.symbol.toLowerCase())) return false;
+                if (stockFilters.company_name && !stock.company_name.toLowerCase().includes(stockFilters.company_name.toLowerCase())) return false;
+                if (!checkStockRange(stock.rs_rating, 'rs_rating_min', 'rs_rating_max')) return false;
+                if (!checkStockRange(stock.rs_rating_1_week_ago, 'rs_rating_1_week_ago_min', 'rs_rating_1_week_ago_max')) return false;
+                if (!checkStockRange(stock.rs_rating_4_weeks_ago, 'rs_rating_4_weeks_ago_min', 'rs_rating_4_weeks_ago_max')) return false;
+                if (!checkStockRange(stock.rs_rating_3_months_ago, 'rs_rating_3_months_ago_min', 'rs_rating_3_months_ago_max')) return false;
+                if (!checkStockRange(stock.rs_rating_6_months_ago, 'rs_rating_6_months_ago_min', 'rs_rating_6_months_ago_max')) return false;
+                if (!checkStockRange(stock.rs_rating_1_year_ago, 'rs_rating_1_year_ago_min', 'rs_rating_1_year_ago_max')) return false;
+                for (const key of rsMomentumFilters) {
+                    const option = RS_MOMENTUM_OPTIONS.find(o => o.key === key);
+                    if (option && !option.check(stock)) return false;
+                }
+                if (stockFilters.approval_with_controls.length > 0) {
+                    const status = stock.approval_with_controls || '';
+                    if (!stockFilters.approval_with_controls.includes(status)) return false;
+                }
+                if (!checkStockRange(stock.purge_amount, 'purge_amount_min', 'purge_amount_max')) return false;
+                if (!checkStockRange(stock.marginable_percent, 'marginable_percent_min', 'marginable_percent_max')) return false;
+
+                if (stockFilters.sparkline_trend !== 'all') {
+                    const firstVal = getSparklineFirstValue(stock);
+                    const lastVal = stock.rs_rating ?? 0;
+                    if (stockFilters.sparkline_trend === 'rising' && lastVal <= firstVal) return false;
+                    if (stockFilters.sparkline_trend === 'falling' && lastVal >= firstVal) return false;
+                }
+
+                return true;
+            });
+
+            filtered = [...filtered].sort((a, b) => {
+                for (const config of effectiveSorts) {
+                    const getVal = (item: StockSummary): any => {
+                        switch (config.key) {
+                            case 'symbol': return item.symbol.toLowerCase();
+                            case 'company_name': return item.company_name.toLowerCase();
+                            case 'rs_rating': return item.rs_rating ?? 0;
+                            case 'rs_rating_1_week_ago': return item.rs_rating_1_week_ago ?? 0;
+                            case 'rs_rating_4_weeks_ago': return item.rs_rating_4_weeks_ago ?? 0;
+                            case 'rs_rating_3_months_ago': return item.rs_rating_3_months_ago ?? 0;
+                            case 'rs_rating_6_months_ago': return item.rs_rating_6_months_ago ?? 0;
+                            case 'rs_rating_1_year_ago': return item.rs_rating_1_year_ago ?? 0;
+                            case 'industry': return item.industry.toLowerCase();
+                            case 'sub_industry': return item.sub_industry.toLowerCase();
+                            case 'approval_with_controls': return (item.approval_with_controls || '').toLowerCase();
+                            case 'purge_amount': return item.purge_amount ?? 0;
+                            case 'marginable_percent': return item.marginable_percent ?? 0;
+                            default: return 0;
+                        }
+                    };
+                    const aV = getVal(a), bV = getVal(b);
+                    if (aV === bV) continue;
+                    if (typeof aV === 'string') {
+                        const cmp = aV.localeCompare(bV);
+                        if (cmp !== 0) return config.direction === 'asc' ? cmp : -cmp;
+                    } else {
+                        const diff = Number(aV) - Number(bV);
+                        if (diff !== 0) return config.direction === 'asc' ? diff : -diff;
+                    }
+                }
+                return 0;
+            });
+
+            cache[groupName] = filtered;
+        }
+
+        return cache;
     }, [stocksCache, stockFilters, stockSortConfigs, filters.industry, filters.sub_industry, rsMomentumFilters, checkStockRange]);
 
-    // Filter options from data
+    const getFilteredStocks = useCallback((groupName: string): StockSummary[] => {
+        return filteredStocksCache[groupName] || [];
+    }, [filteredStocksCache]);
+
     const filterOptions = useMemo(() => {
         const sectors = new Set<string>();
         const industryGroups = new Set<string>();
@@ -488,7 +573,6 @@ function useIndustryGroups() {
         };
     }, [data, stocksCache]);
 
-    // Active filters for badges
     const activeFilters = useMemo(() => {
         const active: Array<{ label: string; value: string; key: keyof FilterState }> = [];
         if (filters.sector.length > 0) active.push({ label: 'Sectors', value: filters.sector.join(', '), key: 'sector' });
@@ -507,7 +591,6 @@ function useIndustryGroups() {
         return active;
     }, [filters]);
 
-    // Sort handlers
     const handleSort = useCallback((key: string) => {
         setSortConfigs(prev => {
             const idx = prev.findIndex(c => c.key === key);
@@ -527,7 +610,6 @@ function useIndustryGroups() {
         });
     }, []);
 
-    // Group expand/collapse
     const toggleGroup = useCallback(async (groupName: string) => {
         setExpandedGroups(prev => {
             const next = new Set(prev);
@@ -538,12 +620,14 @@ function useIndustryGroups() {
         });
     }, [stocksCache, fetchGroupStocks]);
 
+    // FIX #2: Fixed race condition - now using ref which is always up to date
     const expandAllGroups = useCallback(async () => {
         const allGroups = filteredData.map(item => item.industry_group);
         setExpandedGroups(new Set(allGroups));
-        const toFetch = allGroups.filter(g => !stocksCache[g] && !loadingStocks.has(g));
+        // Now using loadingStocksRef.current which always has current state
+        const toFetch = allGroups.filter(g => !stocksCache[g] && !loadingStocksRef.current.has(g));
         await Promise.all(toFetch.map(g => fetchGroupStocks(g)));
-    }, [filteredData, stocksCache, loadingStocks, fetchGroupStocks]);
+    }, [filteredData, stocksCache, fetchGroupStocks]);
 
     const collapseAllGroups = useCallback(() => setExpandedGroups(new Set()), []);
 
@@ -571,7 +655,7 @@ function useIndustryGroups() {
         stockFilters, setStockFilters,
         rsMomentumFilters, toggleRsMomentumFilter,
         expandedGroups, toggleGroup, expandAllGroups, collapseAllGroups,
-        stocksCache, loadingStocks,
+        stocksCache, loadingStocks: loadingStocksUI, // Expose UI state
         sortConfigs, handleSort,
         stockSortConfigs, handleStockSort,
         filteredData, getFilteredStocks,
@@ -587,40 +671,15 @@ function useIndustryGroups() {
 
 function getRSHeatmapStyle(value: number | null | undefined, rowMin: number, rowMax: number): React.CSSProperties {
     if (value == null) return {};
+    const [r, g, b] = interpolateRSColor(value, rowMin, rowMax);
     const range = rowMax - rowMin;
     const pct = range === 0 ? 0.5 : (value - rowMin) / range;
-    let r: number, g: number, b: number;
-    if (pct <= 0.5) {
-        const t = pct / 0.5;
-        r = Math.round(220 + (251 - 220) * t);
-        g = Math.round(38 + (191 - 38) * t);
-        b = Math.round(38 + (36 - 38) * t);
-    } else {
-        const t = (pct - 0.5) / 0.5;
-        r = Math.round(251 + (22 - 251) * t);
-        g = Math.round(191 + (163 - 191) * t);
-        b = Math.round(36 + (74 - 36) * t);
-    }
     const textColor = pct < 0.25 || pct > 0.72 ? '#ffffff' : '#1a1a1a';
     return { backgroundColor: `rgb(${r},${g},${b})`, color: textColor };
 }
 
 function getRSRgb(value: number, rowMin: number, rowMax: number): [number, number, number] {
-    const range = rowMax - rowMin;
-    const pct = range === 0 ? 0.5 : (value - rowMin) / range;
-    let r: number, g: number, b: number;
-    if (pct <= 0.5) {
-        const t = pct / 0.5;
-        r = Math.round(220 + (251 - 220) * t);
-        g = Math.round(38 + (191 - 38) * t);
-        b = Math.round(38 + (36 - 38) * t);
-    } else {
-        const t = (pct - 0.5) / 0.5;
-        r = Math.round(251 + (22 - 251) * t);
-        g = Math.round(191 + (163 - 191) * t);
-        b = Math.round(36 + (74 - 36) * t);
-    }
-    return [r, g, b];
+    return interpolateRSColor(value, rowMin, rowMax);
 }
 
 function getRSRowExtremes(stock: StockSummary): { rowMin: number; rowMax: number } {
@@ -665,7 +724,6 @@ function RSSparkline({ stock }: { stock: StockSummary }) {
         y: PAD + innerH - ((v - min) / range) * innerH,
     }));
 
-    // Smooth cubic bezier path
     const linePath = pts.reduce((acc, pt, i) => {
         if (i === 0) return `M ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`;
         const prev = pts[i - 1];
@@ -694,11 +752,8 @@ function RSSparkline({ stock }: { stock: StockSummary }) {
                     <stop offset="100%" stopColor={gradFill} stopOpacity="0" />
                 </linearGradient>
             </defs>
-            {/* Gradient area */}
             <path d={areaPath} fill={`url(#${gradId})`} />
-            {/* Main line */}
             <path d={linePath} fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            {/* End dot with white border */}
             <circle cx={lastPt.x} cy={lastPt.y} r="2.8" fill="white" />
             <circle cx={lastPt.x} cy={lastPt.y} r="2" fill={stroke} />
         </svg>
@@ -846,7 +901,6 @@ function SortIndicator({ sortConfigs, colKey }: { sortConfigs: SortConfig[]; col
     );
 }
 
-// Letter grade style
 function getLetterGradeClass(grade?: string) {
     switch (grade) {
         case 'A+': return 'bg-green-100 text-green-800 ring-1 ring-green-300';
@@ -856,6 +910,56 @@ function getLetterGradeClass(grade?: string) {
         case 'D': return 'bg-orange-50 text-orange-700';
         default: return 'bg-red-50 text-red-700';
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SPARKLINE TREND FILTER COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+function SparklineTrendFilter({
+    value,
+    onChange,
+}: {
+    value: 'all' | 'rising' | 'falling';
+    onChange: (v: 'all' | 'rising' | 'falling') => void;
+}) {
+    const options: { val: 'all' | 'rising' | 'falling'; label: string }[] = [
+        { val: 'all', label: 'All' },
+        { val: 'rising', label: 'Rising' },
+        { val: 'falling', label: 'Falling' },
+    ];
+
+    return (
+        <div className="space-y-1.5">
+            <label className="block text-[10px] font-bold text-gray-400 tracking-wider uppercase">
+                Sparkline Trend
+            </label>
+            <div className="flex gap-1.5">
+                {options.map(opt => {
+                    const isActive = value === opt.val;
+                    const activeClass =
+                        opt.val === 'rising'
+                            ? 'bg-green-600 text-white border-green-600 shadow-sm'
+                            : opt.val === 'falling'
+                                ? 'bg-red-500 text-white border-red-500 shadow-sm'
+                                : 'bg-blue-600 text-white border-blue-600 shadow-sm';
+                    return (
+                        <button
+                            key={opt.val}
+                            type="button"
+                            onClick={() => onChange(opt.val)}
+                            className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[11px] font-semibold rounded-lg border transition-all duration-150 ${isActive
+                                ? activeClass
+                                : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+                                }`}
+                        >
+                            <span>{opt.label}</span>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -913,7 +1017,6 @@ function IndustryGroupsContent() {
         shariahOptions,
     } = useIndustryGroups();
 
-    // Keyboard navigation for rows
     const handleRowKeyDown = useCallback((e: React.KeyboardEvent, groupName: string) => {
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
@@ -921,6 +1024,7 @@ function IndustryGroupsContent() {
         }
     }, [toggleGroup]);
 
+    // FIX #8: PDF export now only exports expanded groups, no main summary table
     const exportData = useCallback((format: 'csv' | 'xls' | 'xlsx' | 'txt' | 'pdf') => {
         if (filteredData.length === 0) return;
         const { groupHeaders, groupRows, stockHeaders, RS_KEYS } = buildExport(filteredData, expandedGroups, stocksCache, getFilteredStocks);
@@ -929,15 +1033,39 @@ function IndustryGroupsContent() {
             import('jspdf').then(({ default: jsPDF }) => {
                 import('jspdf-autotable').then(({ default: autoTable }) => {
                     const doc = new jsPDF({ orientation: 'landscape' });
-                    doc.setFontSize(14);
-                    doc.text('Industry Groups Ranking', 14, 15);
-                    autoTable(doc, { startY: 20, head: [groupHeaders], body: groupRows, theme: 'striped', styles: { fontSize: 8 }, headStyles: { fillColor: [41, 128, 185] } });
+                    const pageWidth = doc.internal.pageSize.getWidth();
 
-                    filteredData.forEach(item => {
-                        if (!stocksCache[item.industry_group]) return;
-                        const stocks = getFilteredStocks(item.industry_group);
-                        if (stocks.length === 0) return;
-                        autoTable(doc, { margin: { top: 20 }, head: [[`Stocks in ${item.industry_group}`]], body: [], theme: 'plain', styles: { fontSize: 10, fontStyle: 'bold', fillColor: [240, 240, 240] } });
+                    let hasAnyExpandedGroup = false;
+                    let currentY = 20; // تتبع الـ Y الحالية يدوياً
+
+                    // FIX #8a & #8b: Iterate only over expanded groups that have stocks loaded
+                    for (const group of filteredData) {
+                        if (!expandedGroups.has(group.industry_group)) continue;
+                        if (!stocksCache[group.industry_group]) continue;
+
+                        const stocks = getFilteredStocks(group.industry_group);
+                        if (stocks.length === 0) continue;
+
+                        hasAnyExpandedGroup = true;
+
+                        // التحقق من وجود مساحة كافية في الصفحة الحالية
+                        if (currentY > 250) {
+                            doc.addPage();
+                            currentY = 20;
+                        }
+
+                        // FIX #8c: Add styled group header
+                        doc.setFillColor(52, 73, 94);
+                        doc.setDrawColor(52, 73, 94);
+                        doc.setFontSize(12);
+                        doc.setFont('helvetica', 'bold');
+                        doc.setTextColor(255, 255, 255);
+                        doc.rect(14, currentY, pageWidth - 28, 10, 'F');
+                        doc.text(`${group.industry_group} (Rank: ${group.rank})`, 18, currentY + 7);
+
+                        currentY += 12; // زيادة الـ Y بعد الهيدر
+
+                        // Stock sub-table
                         const sRows = stocks.map(stock => [
                             stock.symbol, stock.company_name, stock.rs_rating ?? '-', stock.rs_rating_1_week_ago ?? '-',
                             stock.rs_rating_4_weeks_ago ?? '-', stock.rs_rating_3_months_ago ?? '-',
@@ -945,8 +1073,14 @@ function IndustryGroupsContent() {
                             stock.industry, stock.sub_industry,
                             formatShariahApproval(stock.approval_with_controls), formatPurgeAmount(stock.purge_amount), formatMarginable(stock.marginable_percent),
                         ]);
+
                         autoTable(doc, {
-                            head: [stockHeaders], body: sRows, theme: 'striped', styles: { fontSize: 8 }, headStyles: { fillColor: [52, 73, 94] },
+                            startY: currentY,
+                            head: [stockHeaders],
+                            body: sRows,
+                            theme: 'striped',
+                            styles: { fontSize: 8 },
+                            headStyles: { fillColor: [41, 128, 185] },
                             didParseCell: (data) => {
                                 if (data.section !== 'body' || data.column.index < 2 || data.column.index > 7) return;
                                 const stock = stocks[data.row.index];
@@ -964,14 +1098,31 @@ function IndustryGroupsContent() {
                                 data.cell.styles.textColor = pct < 0.25 || pct > 0.72 ? [255, 255, 255] : [26, 26, 26];
                             },
                         });
-                    });
-                    doc.save(`industry_groups_${new Date().toISOString().split('T')[0]}.pdf`);
+
+                        // تحديث الـ Y الحالية بعد الجدول
+                        const lastAutoTable = (doc as any).lastAutoTable;
+                        if (lastAutoTable) {
+                            currentY = lastAutoTable.finalY + 10; // إضافة مسافة 10 وحدات بين المجموعات
+                        } else {
+                            currentY += 10;
+                        }
+                    }
+
+                    // FIX #8d: Show message if no groups are expanded
+                    if (!hasAnyExpandedGroup) {
+                        doc.setFontSize(12);
+                        doc.setFont('helvetica', 'normal');
+                        doc.setTextColor(0, 0, 0);
+                        doc.text('No expanded groups to export. Please expand at least one industry group before exporting.', 14, 20);
+                    }
+
+                    // FIX #8e: Updated filename
+                    doc.save(`industry_groups_stocks_${new Date().toISOString().split('T')[0]}.pdf`);
                 });
             });
             return;
         }
 
-        // Build flat sheet for CSV/XLS/XLSX/TXT
         const expandedStockTables: { title: string; rows: any[][] }[] = [];
         filteredData.forEach(item => {
             if (expandedGroups.has(item.industry_group) && stocksCache[item.industry_group]) {
@@ -991,6 +1142,7 @@ function IndustryGroupsContent() {
             }
         });
 
+        // For non-PDF exports, include group data plus expanded stock tables
         const allRows: any[][] = [groupHeaders, ...groupRows];
         expandedStockTables.forEach(t => { allRows.push([], [t.title], stockHeaders, ...t.rows); });
 
@@ -1011,7 +1163,6 @@ function IndustryGroupsContent() {
         XLSX.writeFile(wb, `industry_groups_${new Date().toISOString().split('T')[0]}.${format}`);
     }, [filteredData, expandedGroups, stocksCache, getFilteredStocks]);
 
-    // ── Render states ──────────────────────────────────────────────────────────
     if (isLoading) return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
             <div className="text-center">
@@ -1040,7 +1191,6 @@ function IndustryGroupsContent() {
         </div>
     );
 
-    // ── Main render ────────────────────────────────────────────────────────────
     return (
         <div className="min-h-screen bg-gray-50">
             <style jsx global>{`
@@ -1049,7 +1199,6 @@ function IndustryGroupsContent() {
                 .custom-scrollbar::-webkit-scrollbar-track { background: #f7fafc; border-radius: 3px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e0; border-radius: 3px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #a0aec0; }
-                /* Sticky first column */
                 .sticky-col { position: sticky; left: 0; z-index: 10; }
                 .sticky-col-2 { position: sticky; left: 32px; z-index: 10; }
             `}</style>
@@ -1058,7 +1207,6 @@ function IndustryGroupsContent() {
                 {/* ── Sidebar ───────────────────────────────────────────────── */}
                 <div className={`bg-white border-r border-gray-200 h-[calc(100vh-64px)] flex flex-col transition-all duration-300 ease-in-out flex-shrink-0 ${isSidebarOpen ? 'w-80 opacity-100' : 'w-0 overflow-hidden opacity-0 pointer-events-none'}`}>
 
-                    {/* Export button */}
                     <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 bg-white relative">
                         <button onClick={() => setShowExportMenu(!showExportMenu)}
                             className="w-full px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center justify-center space-x-2 transition-all">
@@ -1082,7 +1230,6 @@ function IndustryGroupsContent() {
                         )}
                     </div>
 
-                    {/* Filter panels */}
                     <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                         <FilterAccordion title="INDUSTRY FILTERS" defaultOpen={true} collapseSignal={collapseSignal}>
                             <div className="space-y-3">
@@ -1140,6 +1287,14 @@ function IndustryGroupsContent() {
                                     </div>
                                 </div>
 
+                                {/* ── Sparkline Trend Filter ─────────────────────────────── */}
+                                <div className="pt-2 border-t border-gray-100">
+                                    <SparklineTrendFilter
+                                        value={stockFilters.sparkline_trend}
+                                        onChange={v => setStockFilters(p => ({ ...p, sparkline_trend: v }))}
+                                    />
+                                </div>
+
                                 {/* Shariah & Margin */}
                                 <div className="pt-2 border-t border-gray-100">
                                     <h4 className="text-[10px] font-bold text-gray-400 mb-3 tracking-wider uppercase">Shariah & Margin</h4>
@@ -1153,7 +1308,6 @@ function IndustryGroupsContent() {
                         </FilterAccordion>
                     </div>
 
-                    {/* Sidebar footer */}
                     <div className="flex-shrink-0 px-4 py-4 border-t border-gray-200 bg-white">
                         <div className="flex flex-col space-y-2">
                             <button onClick={expandAllGroups} className="w-full px-4 py-2.5 text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-lg transition-all flex items-center justify-center space-x-2">
@@ -1194,7 +1348,7 @@ function IndustryGroupsContent() {
                                 <span className="text-sm text-gray-500">{data.length > 0 ? data[0].date : '-'}</span>
                             </div>
                         </div>
-                        {(activeFilters.length > 0 || rsMomentumFilters.length > 0) && (
+                        {(activeFilters.length > 0 || rsMomentumFilters.length > 0 || stockFilters.sparkline_trend !== 'all') && (
                             <div className="mt-2 flex flex-wrap gap-2">
                                 {activeFilters.map((filter, i) => (
                                     <ActiveFilterBadge key={i} label={filter.label} value={filter.value} onRemove={() => clearFilter(filter.key)} />
@@ -1209,6 +1363,13 @@ function IndustryGroupsContent() {
                                         </span>
                                     );
                                 })}
+                                {/* Sparkline trend active badge */}
+                                {stockFilters.sparkline_trend !== 'all' && (
+                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs border font-medium ${stockFilters.sparkline_trend === 'rising' ? 'bg-green-100 text-green-800 border-green-300' : 'bg-red-100 text-red-800 border-red-300'}`}>
+                                        {stockFilters.sparkline_trend === 'rising' ? '📈 Rising Trend' : '📉 Falling Trend'}
+                                        <button onClick={() => setStockFilters(p => ({ ...p, sparkline_trend: 'all' }))} className="ml-1 hover:opacity-70">×</button>
+                                    </span>
+                                )}
                             </div>
                         )}
                     </div>
@@ -1244,7 +1405,6 @@ function IndustryGroupsContent() {
                         <table className="min-w-full bg-white text-sm border-separate border-spacing-0">
                             <thead className="bg-gray-50 sticky top-0 z-40 shadow-sm">
                                 <tr>
-                                    {/* Expand icon col */}
                                     <th className="px-4 py-3 w-8 bg-gray-50 sticky-col" />
                                     {COLUMN_DEFINITIONS.map(col => {
                                         const isSorted = sortConfigs.some(c => c.key === col.key);
@@ -1278,15 +1438,12 @@ function IndustryGroupsContent() {
                                                 aria-expanded={isExpanded}
                                                 aria-label={`${item.industry_group} — click to ${isExpanded ? 'collapse' : 'expand'}`}
                                             >
-                                                {/* Expand icon */}
                                                 <td className="px-4 py-3 text-center text-gray-400 bg-white sticky-col">
                                                     <svg className={`w-4 h-4 transform transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                                     </svg>
                                                 </td>
-                                                {/* Order */}
                                                 <td className="px-4 py-3 font-semibold text-gray-700 text-center">{index + 1}</td>
-                                                {/* Industry group + letter grade */}
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center gap-3">
                                                         <span className={`px-2 py-1 rounded text-xs font-bold min-w-[30px] text-center ${getLetterGradeClass(item.letter_grade)}`}>
@@ -1309,7 +1466,6 @@ function IndustryGroupsContent() {
                                                 <td className="px-4 py-3 text-right text-gray-600">
                                                     {item.market_value > 0 ? formatNumber(item.market_value) : '-'}
                                                 </td>
-                                                {/* Change vs last week — with arrow indicator */}
                                                 <td className="px-4 py-3 text-center">
                                                     <RankChangeIndicator value={item.change_vs_last_week} />
                                                 </td>
@@ -1323,10 +1479,10 @@ function IndustryGroupsContent() {
                                                 <td className="px-4 py-3 text-right font-medium text-gray-700 whitespace-nowrap">{item.percent_above_ma200 != null ? `${item.percent_above_ma200}%` : '-'}</td>
                                             </tr>
 
-                                            {/* Expanded stocks panel */}
                                             {isExpanded && (
                                                 <tr className="bg-gray-50/70">
-                                                    <td colSpan={15} className="px-4 pb-4 pt-2">
+                                                    {/* FIX #4: Changed colSpan from 15 to 19 */}
+                                                    <td colSpan={19} className="px-4 pb-4 pt-2">
                                                         <div className="bg-white rounded-lg border border-gray-200 p-4 ml-8 shadow-sm">
                                                             <div className="flex justify-between items-center mb-3">
                                                                 <h3 className="text-sm font-bold text-gray-700">Stocks in {item.industry_group}</h3>
@@ -1367,14 +1523,12 @@ function IndustryGroupsContent() {
                                                                                         <td className="px-2 py-1.5 font-medium text-blue-600 whitespace-nowrap">
                                                                                             <Link href={`/stocks/${stock.symbol}`} className="hover:underline">{stock.symbol}</Link>
                                                                                         </td>
-                                                                                        {/* Name + sparkline */}
                                                                                         <td className="px-2 py-1.5 max-w-[160px]" title={stock.company_name}>
                                                                                             <div className="flex items-center">
                                                                                                 <span className="truncate">{stock.company_name}</span>
                                                                                                 <RSSparkline stock={stock} />
                                                                                             </div>
                                                                                         </td>
-                                                                                        {/* RS Heatmap cells */}
                                                                                         {([
                                                                                             stock.rs_rating,
                                                                                             stock.rs_rating_1_week_ago,

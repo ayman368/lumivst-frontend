@@ -29,8 +29,13 @@ const RSI_CONDITIONS = [
   { label: 'RSI(14) 40 to 80', value: 'Yes' },
   { label: 'SMA9(RSI) ≤ 75', value: 'Yes' },
   { label: 'WMA45(RSI) ≤ 70', value: 'Yes' },
-  { label: '9SMA > The Number High', value: 'Yes' },
-  { label: '9SMA > WMA45(D)', value: 'Yes' },
+  { label: '9SMA > The Number', value: 'Yes' },
+  { label: '9SMA > WMA45', value: 'Yes' },
+  { label: 'RSI(14)(W) 40 to 80', value: 'Yes' },
+  { label: 'SMA9(RSI)(W) ≤ 75', value: 'Yes' },
+  { label: 'WMA45(RSI)(W) ≤ 70', value: 'Yes' },
+  { label: '9SMA(W) > The Number(W)', value: 'Yes' },
+  { label: '9SMA(W) > WMA45(W)', value: 'Yes' },
 ];
 
 function RSIScreenerContent() {
@@ -72,27 +77,34 @@ function RSIScreenerContent() {
           const p = parseFloat(item.close || 0);
 
           // RSI Daily
-          const rsi14 = parseFloat(tech.rsi_14 || 0);
-          const sma9_rsi = parseFloat(tech.sma9_rsi || 0);
-          const wma45_rsi = parseFloat(tech.wma45_rsi || 0);
-          const sma9_price = parseFloat(tech.sma9 || 0);
-          const the_number_hl = parseFloat(tech.the_number_hl || 0);
-          const wma45_close = parseFloat(tech.wma45_close || 0);
+          const rsi14 = tech.rsi_14 != null ? parseFloat(tech.rsi_14) : null;
+          const sma9_rsi = tech.sma9_rsi != null ? parseFloat(tech.sma9_rsi) : null;
+          const wma45_rsi = tech.wma45_rsi != null ? parseFloat(tech.wma45_rsi) : null;
+          const sma9_price = tech.sma9 != null ? parseFloat(tech.sma9) : null;
+          const the_number = tech.the_number != null ? parseFloat(tech.the_number) : null;
+          const wma45_close = tech.wma45_close != null ? parseFloat(tech.wma45_close) : null;
 
-          // ─ 1. RSI(14) 40 to 80 ─
-          if (!(rsi14 >= 40 && rsi14 <= 80)) continue;
+          // RSI Weekly
+          const rsi_w = tech.rsi_w != null ? parseFloat(tech.rsi_w) : null;
+          const sma9_rsi_w = tech.sma9_rsi_w != null ? parseFloat(tech.sma9_rsi_w) : null;
+          const wma45_rsi_w = tech.wma45_rsi_w != null ? parseFloat(tech.wma45_rsi_w) : null;
+          const sma9_w = tech.sma9_w != null ? parseFloat(tech.sma9_w) : null;
+          const the_number_w = tech.the_number_w != null ? parseFloat(tech.the_number_w) : null;
+          const wma45_close_w = tech.wma45_close_w != null ? parseFloat(tech.wma45_close_w) : null;
 
-          // ─ 2. SMA9(RSI) ≤ 75 ─
-          if (!(sma9_rsi <= 75)) continue;
+          // ─ Daily Filters ─
+          if (rsi14 === null || !(rsi14 >= 40 && rsi14 <= 80)) continue;
+          if (sma9_rsi === null || !(sma9_rsi <= 75)) continue;
+          if (wma45_rsi === null || !(wma45_rsi <= 70)) continue;
+          if (sma9_price === null || the_number === null || !(sma9_price > the_number)) continue;
+          if (sma9_price === null || wma45_close === null || !(sma9_price > wma45_close)) continue;
 
-          // ─ 3. WMA45(RSI) ≤ 70 ─
-          if (!(wma45_rsi <= 70)) continue;
-
-          // ─ 4. 9SMA > The Number High ─
-          if (!(sma9_price > the_number_hl)) continue;
-
-          // ─ 5. 9SMA > WMA45(D) ─
-          if (!(sma9_price > wma45_close)) continue;
+          // ─ Weekly Filters ─
+          if (rsi_w === null || !(rsi_w >= 40 && rsi_w <= 80)) continue;
+          if (sma9_rsi_w === null || !(sma9_rsi_w <= 75)) continue;
+          if (wma45_rsi_w === null || !(wma45_rsi_w <= 70)) continue;
+          if (sma9_w === null || the_number_w === null || !(sma9_w > the_number_w)) continue;
+          if (sma9_w === null || wma45_close_w === null || !(sma9_w > wma45_close_w)) continue;
 
           filteredStocks.push({
             symbol: item.symbol,

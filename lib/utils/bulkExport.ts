@@ -22,6 +22,7 @@ interface BulkExportResult {
   data: StockResult[];
   screenerBreakdown: Record<string, number>;
   groupedData: { label: string; items: StockResult[] }[];
+  deduplicatedGroupedData?: { label: string; items: StockResult[] }[];
 }
 
 const SCREENER_ENDPOINTS = [
@@ -30,22 +31,31 @@ const SCREENER_ENDPOINTS = [
   { id: 'trend-4-months', label: 'Trend - 4 Months' },
   { id: 'trend-5-months', label: 'Trend - 5 Months' },
   { id: 'trend-5-months-wide', label: 'Trend - 5 Months Wide' },
-  { id: 'power-play', label: 'Power Play' },
+  { id: 'alhussain', label: 'Alhussain' },
   { id: 'alrayan', label: 'Alrayan' },
+  { id: 'rsi', label: 'RSI Momentum' },
+  { id: 'power-play', label: 'Power Play' },
 ];
 
 /**
  * Fetches data from all screener endpoints and applies deduplication logic.
  *
- * PRIORITY RULE: Later screeners win.
- * If a symbol exists in both "Trend - 1 Month" and "Trend - 2 Months",
- * it is REMOVED from "Trend - 1 Month" and kept only in "Trend - 2 Months".
+ * PRIORITY ORDER (highest → lowest):
+ *   Trend Group (symbol moves up to the highest tier it qualifies for):
+ *     5 Months Wide  ← highest priority, never removed
+ *     5 Month        ← removed if in 5 Months Wide
+ *     4 Month        ← removed if in 5 Month or above
+ *     2 Month        ← removed if in 4 Month or above
+ *     1 Month        ← removed if in 2 Month or above
+ *
+ *   Standalone screeners (each shows only NEW symbols not seen in any previous):
+ *     Alhussain, RSI Momentum, Alrayan, Power Play
  *
  * Strategy (two-pass):
  *   Pass 1 — fetch all screeners and collect raw data per screener.
- *   Pass 2 — iterate from LAST to FIRST, build a "claimed" set.
- *             Any symbol already claimed by a later screener is excluded
- *             from the earlier one.
+ *   Pass 2 — iterate from LAST to FIRST (highest priority to lowest),
+ *             build a "claimed" set. Any symbol already claimed by a
+ *             higher-priority screener is excluded from lower-priority ones.
  */
 export async function fetchBulkScreenerData(): Promise<BulkExportResult> {
   // ── Pass 1: fetch all screeners in order ──────────────────────────────────
@@ -57,6 +67,10 @@ export async function fetchBulkScreenerData(): Promise<BulkExportResult> {
 
       if (screener.id === 'alrayan') {
         items = await fetchAlrayanData();
+      } else if (screener.id === 'alhussain') {
+        items = await fetchAlhussainData();
+      } else if (screener.id === 'rsi') {
+        items = await fetchRsiData();
       } else {
         const response = await authFetch(
           `${API_BASE_URL}/api/screeners/${screener.id}?limit=5000&offset=0`,
@@ -85,18 +99,37 @@ export async function fetchBulkScreenerData(): Promise<BulkExportResult> {
     }
   }
 
+  // ── Pass 2: Deduplication (higher-priority screeners win) ────────────────
+  // Array is ordered lowest→highest priority, so iterating backwards
+  // means we claim symbols from highest priority first.
+  // Result: each symbol appears only in the highest-priority screener it belongs to.
+  const claimedSymbols = new Set<string>();
+  const finalGroupedData: { label: string; items: StockResult[] }[] = [];
+
+  // Iterate backwards from highest priority to lowest
+  for (let i = rawPerScreener.length - 1; i >= 0; i--) {
+    const group = rawPerScreener[i];
+    const filteredItems: StockResult[] = [];
+
+    for (const item of group.items) {
+      if (!claimedSymbols.has(item.symbol)) {
+        claimedSymbols.add(item.symbol);
+        filteredItems.push(item);
+      }
+    }
+
+    // Unshift to maintain original order in UI
+    finalGroupedData.unshift({ label: group.label, items: filteredItems });
+  }
+
   // ── Build final flat list (original order) + breakdown ───────────────────
-  // No deduplication: each screener keeps its full results, matching
-  // the counts shown on the individual screener pages.
-  const uniqueSymbols = new Set<string>();
   const allData: StockResult[] = [];
   const screenerBreakdown: Record<string, number> = {};
 
   for (const { label, items } of rawPerScreener) {
     screenerBreakdown[label] = items.length;
     for (const item of items) {
-      if (!uniqueSymbols.has(item.symbol)) {
-        uniqueSymbols.add(item.symbol);
+      if (!allData.some(d => d.symbol === item.symbol)) {
         allData.push(item);
       }
     }
@@ -105,7 +138,8 @@ export async function fetchBulkScreenerData(): Promise<BulkExportResult> {
   return {
     data: allData,
     screenerBreakdown,
-    groupedData: rawPerScreener,
+    groupedData: rawPerScreener,          // UI uses this (full data)
+    deduplicatedGroupedData: finalGroupedData, // Export uses this (deduplicated)
   };
 }
 
@@ -222,4 +256,155 @@ function normalizeStockData(item: any): StockResult {
     percent_off_52w_high: parseFloat(item.percent_off_52w_high || 0),
     percent_off_52w_low: parseFloat(item.percent_off_52w_low || 0),
   };
+}
+
+/**
+ * Fetches and filters Alhussain screener data.
+ */
+async function fetchAlhussainData(): Promise<StockResult[]> {
+  try {
+    const [pricesRes, rsRes, techRes] = await Promise.all([
+      authFetch(`${API_BASE_URL}/api/prices/latest`, { cache: 'no-store', credentials: 'include' }),
+      authFetch(`${API_BASE_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', credentials: 'include' }),
+      authFetch(`${API_BASE_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', credentials: 'include' }),
+    ]);
+
+    if (!pricesRes.ok) throw new Error('Failed to fetch prices');
+
+    const pricesData = await pricesRes.json();
+    const rsData = rsRes.ok ? await rsRes.json() : { data: [] };
+    const techData = techRes.ok ? await techRes.json() : { data: [] };
+
+    const rsMap = new Map((rsData.data || []).map((item: any) => [String(item.symbol), item]));
+    const techMap = new Map((techData.data || []).map((item: any) => [String(item.symbol), item]));
+
+    const filteredStocks: StockResult[] = [];
+
+    for (const item of (pricesData.data || [])) {
+      const sym = String(item.symbol);
+      const tech: any = techMap.get(sym) || {};
+      const rs: any = rsMap.get(sym) || {};
+
+      const p = parseFloat(item.close || 0);
+      const sma50 = parseFloat(tech.sma50 || tech.sma_50 || 0);
+      const sma150 = parseFloat(tech.sma150 || tech.sma_150 || 0);
+      const sma200 = parseFloat(tech.sma200 || tech.sma_200 || 0);
+      const priceVsSma50 = parseFloat(tech.price_vs_sma_50_percent || tech.price_vs_sma_50 || 0);
+      const avgVolume50 = parseFloat(tech.average_volume_50 || 0);
+
+      if (!(sma50 > sma150)) continue;
+      if (!(sma50 > sma200)) continue;
+      if (!(sma150 > sma200)) continue;
+      if (!(priceVsSma50 >= 0)) continue;
+      if (!(avgVolume50 >= 100000)) continue;
+
+      filteredStocks.push({
+        symbol: item.symbol,
+        company_name: item.company_name || '',
+        close: p,
+        sma_50: sma50,
+        sma_150: sma150,
+        sma_200: sma200,
+        rs_rating: parseFloat(rs.rs_rating || 0),
+        rank_1m: parseFloat(rs.rank_1m || 0),
+        rank_3m: parseFloat(rs.rank_3m || 0),
+        rank_6m: parseFloat(rs.rank_6m || 0),
+        rank_9m: parseFloat(rs.rank_9m || 0),
+        rank_12m: parseFloat(rs.rank_12m || 0),
+        percent_off_52w_high: parseFloat(tech.percent_off_52w_high || 0),
+        percent_off_52w_low: parseFloat(tech.percent_off_52w_low || 0),
+      });
+    }
+
+    filteredStocks.sort((a, b) => b.rs_rating - a.rs_rating);
+    return filteredStocks;
+  } catch (error) {
+    console.error('Error fetching Alhussain data:', error);
+    return [];
+  }
+}
+
+/**
+ * Fetches and filters RSI screener data.
+ */
+async function fetchRsiData(): Promise<StockResult[]> {
+  try {
+    const [pricesRes, rsRes, techRes] = await Promise.all([
+      authFetch(`${API_BASE_URL}/api/prices/latest`, { cache: 'no-store', credentials: 'include' }),
+      authFetch(`${API_BASE_URL}/api/rs-v2/latest?limit=1000`, { cache: 'no-store', credentials: 'include' }),
+      authFetch(`${API_BASE_URL}/api/technical-screener/screener?limit=1000`, { cache: 'no-store', credentials: 'include' }),
+    ]);
+
+    if (!pricesRes.ok) throw new Error('Failed to fetch prices');
+
+    const pricesData = await pricesRes.json();
+    const rsData = rsRes.ok ? await rsRes.json() : { data: [] };
+    const techData = techRes.ok ? await techRes.json() : { data: [] };
+
+    const rsMap = new Map((rsData.data || []).map((item: any) => [String(item.symbol), item]));
+    const techMap = new Map((techData.data || []).map((item: any) => [String(item.symbol), item]));
+
+    const filteredStocks: StockResult[] = [];
+
+    for (const item of (pricesData.data || [])) {
+      const sym = String(item.symbol);
+      const tech: any = techMap.get(sym) || {};
+      const rs: any = rsMap.get(sym) || {};
+
+      const p = parseFloat(item.close || 0);
+
+      // RSI Daily
+      const rsi14 = tech.rsi_14 != null ? parseFloat(tech.rsi_14) : null;
+      const sma9_rsi = tech.sma9_rsi != null ? parseFloat(tech.sma9_rsi) : null;
+      const wma45_rsi = tech.wma45_rsi != null ? parseFloat(tech.wma45_rsi) : null;
+      const sma9_price = tech.sma9 != null ? parseFloat(tech.sma9) : null;
+      const the_number = tech.the_number != null ? parseFloat(tech.the_number) : null;
+      const wma45_close = tech.wma45_close != null ? parseFloat(tech.wma45_close) : null;
+
+      // RSI Weekly
+      const rsi_w = tech.rsi_w != null ? parseFloat(tech.rsi_w) : null;
+      const sma9_rsi_w = tech.sma9_rsi_w != null ? parseFloat(tech.sma9_rsi_w) : null;
+      const wma45_rsi_w = tech.wma45_rsi_w != null ? parseFloat(tech.wma45_rsi_w) : null;
+      const sma9_w = tech.sma9_w != null ? parseFloat(tech.sma9_w) : null;
+      const the_number_w = tech.the_number_w != null ? parseFloat(tech.the_number_w) : null;
+      const wma45_close_w = tech.wma45_close_w != null ? parseFloat(tech.wma45_close_w) : null;
+
+      // ─ Daily Filters ─
+      if (rsi14 === null || !(rsi14 >= 40 && rsi14 <= 80)) continue;
+      if (sma9_rsi === null || !(sma9_rsi <= 75)) continue;
+      if (wma45_rsi === null || !(wma45_rsi <= 70)) continue;
+      if (sma9_price === null || the_number === null || !(sma9_price > the_number)) continue;
+      if (sma9_price === null || wma45_close === null || !(sma9_price > wma45_close)) continue;
+
+      // ─ Weekly Filters ─
+      if (rsi_w === null || !(rsi_w >= 40 && rsi_w <= 80)) continue;
+      if (sma9_rsi_w === null || !(sma9_rsi_w <= 75)) continue;
+      if (wma45_rsi_w === null || !(wma45_rsi_w <= 70)) continue;
+      if (sma9_w === null || the_number_w === null || !(sma9_w > the_number_w)) continue;
+      if (sma9_w === null || wma45_close_w === null || !(sma9_w > wma45_close_w)) continue;
+
+      filteredStocks.push({
+        symbol: item.symbol,
+        company_name: item.company_name || '',
+        close: p,
+        sma_50: parseFloat(tech.sma50 || tech.sma_50 || 0),
+        sma_150: parseFloat(tech.sma150 || tech.sma_150 || 0),
+        sma_200: parseFloat(tech.sma200 || tech.sma_200 || 0),
+        rs_rating: parseFloat(rs.rs_rating || 0),
+        rank_1m: parseFloat(rs.rank_1m || 0),
+        rank_3m: parseFloat(rs.rank_3m || 0),
+        rank_6m: parseFloat(rs.rank_6m || 0),
+        rank_9m: parseFloat(rs.rank_9m || 0),
+        rank_12m: parseFloat(rs.rank_12m || 0),
+        percent_off_52w_high: parseFloat(tech.percent_off_52w_high || 0),
+        percent_off_52w_low: parseFloat(tech.percent_off_52w_low || 0),
+      });
+    }
+
+    filteredStocks.sort((a, b) => b.rs_rating - a.rs_rating);
+    return filteredStocks;
+  } catch (error) {
+    console.error('Error fetching RSI data:', error);
+    return [];
+  }
 }

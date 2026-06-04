@@ -15,6 +15,17 @@ const nextConfig = {
   poweredByHeader: false,
   compress: true,
 
+  // Raise proxy timeout to 120s so cold-cache dashboard requests
+  // don't get ECONNRESET before the backend responds.
+  experimental: {
+    proxyTimeout: 120_000,
+  },
+
+  // Keep TCP connections alive — reduces ECONNRESET on re-used sockets.
+  httpAgentOptions: {
+    keepAlive: true,
+  },
+
   // Proxy all /api/* requests to the backend.
   // This makes cookies first-party (set on www.rebh.ai instead of onrender.com)
   // which allows the Next.js middleware to read them for auth gating.

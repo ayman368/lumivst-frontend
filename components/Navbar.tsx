@@ -1,102 +1,175 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useAuth } from '../app/providers/AuthProvider'
-import { User } from 'lucide-react'
+import { ChevronDown, ChevronRight, LogOut, UserCircle, Menu, X } from 'lucide-react'
 
-// Recursive Dropdown Component for nested menus
-function DropdownItem({
-  item,
-  index,
-  activeMobile,
-  setActiveMobile,
-  setActiveDropdown,
-  parentShowNested,
-}: any) {
-  const [showNested, setShowNested] = useState(false)
+// ─────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────
+interface MenuItem {
+  en: string
+  href: string
+  items?: MenuItem[]
+}
 
-  useEffect(() => {
-    if (parentShowNested === false) {
-      setShowNested(false)
-    }
-  }, [parentShowNested])
+interface MenuSection {
+  en: string
+  href: string
+  items: MenuItem[]
+}
 
-  if (item.items) {
-    return (
-      <div
-        key={index}
-        className="relative flex flex-col"
-        onMouseEnter={() => !activeMobile && setShowNested(true)}
-        onMouseLeave={() => !activeMobile && setShowNested(false)}
-      >
-        <button
-          className="w-full flex justify-between items-center px-4 py-3 text-[13px] border-b border-gray-100 transition-colors duration-200 hover:bg-black/[0.02] text-left bg-none border-l-0 border-r-0 border-t-0 cursor-pointer"
-          style={{ color: 'var(--dropdown-text, #374151)' }}
-        >
-          {item.en}
-          <svg
-            className="w-4 h-4 ml-2 transition-transform duration-300"
-            style={{ transform: showNested ? 'translateX(4px)' : 'translateX(0)' }}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
+interface MenuMap {
+  [key: string]: MenuSection
+}
 
-        {/* Nested Dropdown */}
-        <div
-          className="absolute top-0 left-full ml-2 rounded-md border z-[1002] min-w-[200px] transition-all duration-300"
-          style={{
-            background: 'var(--dropdown-bg, #ffffff)',
-            borderColor: 'var(--dropdown-border, #e5e7eb)',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-            opacity: showNested ? 1 : 0,
-            visibility: showNested ? 'visible' : 'hidden',
-            transform: showNested ? 'translateX(0)' : 'translateX(-10px)',
-          }}
-        >
-          {item.items.map((nestedItem: any, nestedIndex: number) => (
-            <DropdownItem
-              key={nestedIndex}
-              item={nestedItem}
-              index={nestedIndex}
-              activeMobile={activeMobile}
-              setActiveMobile={setActiveMobile}
-              setActiveDropdown={setActiveDropdown}
-              parentShowNested={showNested}
-            />
-          ))}
-        </div>
-      </div>
-    )
-  }
-
+// ─────────────────────────────────────────────
+// REBH Logo — text-based wordmark
+// ─────────────────────────────────────────────
+function REBHLogo() {
   return (
-    <Link
-      href={item.href}
-      className="block px-4 py-3 text-[13px] border-b border-gray-100 transition-colors duration-200 hover:bg-black/[0.02] last:border-b-0"
-      style={{ color: 'var(--dropdown-text, #374151)' }}
-      onClick={() => {
-        setActiveMobile(false)
-        setActiveDropdown(null)
-      }}
-    >
-      {item.en}
+    <Link href="/" className="flex items-center gap-0 select-none group no-underline" aria-label="REBH Home">
+      {/* Accent dot */}
+      <span
+        className="inline-flex items-center justify-center w-[7px] h-[7px] rounded-full bg-blue-600 mr-2 mt-0.5 group-hover:scale-125 transition-transform duration-300 flex-shrink-0"
+        aria-hidden="true"
+      />
+      <span
+        className="text-[22px] font-black text-gray-900"
+        style={{ fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif", letterSpacing: '-0.05em' }}
+      >
+        REBH
+      </span>
     </Link>
   )
 }
 
+// ─────────────────────────────────────────────
+// Desktop recursive dropdown item
+// ─────────────────────────────────────────────
+function DropdownItem({
+  item,
+  onClose,
+}: {
+  item: MenuItem
+  onClose: () => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  if (!item.items) {
+    return (
+      <Link
+        href={item.href}
+        onClick={onClose}
+        className="flex items-center px-4 py-2.5 text-[13px] text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors duration-150 whitespace-nowrap no-underline"
+      >
+        {item.en}
+      </Link>
+    )
+  }
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        className="flex w-full items-center justify-between gap-6 px-4 py-2.5 text-[13px] text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors duration-150 cursor-pointer border-none bg-transparent"
+        type="button"
+      >
+        <span>{item.en}</span>
+        <ChevronRight size={12} className="opacity-40 flex-shrink-0" />
+      </button>
+
+      {/* Nested flyout panel */}
+      <div
+        className="absolute top-0 left-full ml-1 rounded-lg border border-gray-100 bg-white min-w-[200px] py-1 z-[1010]"
+        style={{
+          boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+          opacity: open ? 1 : 0,
+          visibility: open ? 'visible' : 'hidden',
+          transform: open ? 'translateX(0)' : 'translateX(-6px)',
+          transition: 'opacity 0.15s ease, transform 0.15s ease',
+          pointerEvents: open ? 'auto' : 'none',
+        }}
+      >
+        {item.items.map((child, i) => (
+          <DropdownItem key={i} item={child} onClose={onClose} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// Mobile accordion item (recursive)
+// ─────────────────────────────────────────────
+function MobileItem({
+  item,
+  depth,
+  onClose,
+}: {
+  item: MenuItem
+  depth: number
+  onClose: () => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  if (!item.items) {
+    return (
+      <Link
+        href={item.href}
+        onClick={onClose}
+        className="block px-3 py-2 text-[13px] text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors no-underline"
+      >
+        {item.en}
+      </Link>
+    )
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        className="flex items-center justify-between w-full px-3 py-2 text-[13px] text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md cursor-pointer border-none bg-transparent transition-colors"
+        onClick={() => setOpen(!open)}
+      >
+        {item.en}
+        <ChevronDown
+          size={12}
+          className="text-gray-400 transition-transform duration-200 flex-shrink-0"
+          style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+        />
+      </button>
+      {open && (
+        <div
+          className="mt-0.5 space-y-0.5"
+          style={{ marginLeft: `${(depth + 1) * 12}px`, paddingLeft: '8px', borderLeft: '2px solid #EFF6FF' }}
+        >
+          {item.items.map((child, i) => (
+            <MobileItem key={i} item={child} depth={depth + 1} onClose={onClose} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// Main Navbar
+// ─────────────────────────────────────────────
 export default function Navbar() {
-  const [activeMobile, setActiveMobile] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
+  const [mobileExpanded, setMobileExpanded] = useState<string | null>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const navbarRef = useRef<HTMLDivElement>(null)
+  const navRef = useRef<HTMLDivElement>(null)
   const userMenuRef = useRef<HTMLDivElement>(null)
   const { user, logout } = useAuth()
 
-  const menuItems = {
+  // ── Menu data ────────────────────────────────
+  const menuItems: MenuMap = {
     home: {
       en: 'Home',
       href: '/',
@@ -114,27 +187,23 @@ export default function Navbar() {
         { en: 'Fundamental', href: '/screeners/fundamental' },
         { en: 'Technical Screener', href: '/technical-screener' },
         {
-          en: 'My Screeners',
-          href: '#',
+          en: 'My Screeners', href: '#',
           items: [
             { en: 'Stocks', href: '/stocks' },
             { en: 'Charts', href: '/stocks/charts' },
           ],
         },
         {
-          en: 'Top Trader',
-          href: '#',
+          en: 'Top Trader', href: '#',
           items: [
             {
-              en: 'Rebh',
-              href: '#',
+              en: 'Rebh', href: '#',
               items: [
                 { en: 'Composite', href: '/screeners/Composite' },
               ],
             },
             {
-              en: 'Mark Minervini',
-              href: '#',
+              en: 'Mark Minervini', href: '#',
               items: [
                 { en: 'Trend - 1 Month', href: '/screeners?tab=trend-1-month' },
                 { en: 'Trend - 2 Months', href: '/screeners?tab=trend-2-months' },
@@ -146,8 +215,7 @@ export default function Navbar() {
               ],
             },
             {
-              en: 'Meeshal',
-              href: '#',
+              en: 'Meeshal', href: '#',
               items: [
                 { en: 'RSI', href: '/screeners/rsi' },
                 { en: 'Alrayan', href: '/screeners/alrayan' },
@@ -165,11 +233,14 @@ export default function Navbar() {
       items: [
         { en: 'My Watchlist', href: '/watchlist' },
         {
-          en: 'RS',
-          href: '#',
+          en: 'RS', href: '#',
           items: [
             { en: 'RS Analysis', href: '/rs-analysis' },
             { en: 'RS Line Indicators', href: '/rs-line' },
+            { en: 'Market Overview', href: '/watchlist?tab=Overview' },
+            { en: 'RS Matrix', href: '/watchlist?tab=RS Matrix' },
+            { en: 'Matrix Chart', href: '/watchlist?tab=Matrix Chart' },
+            { en: 'RS Screener', href: '/watchlist?tab=RS Screener' },
           ],
         },
       ],
@@ -179,8 +250,7 @@ export default function Navbar() {
       href: '/learn',
       items: [
         {
-          en: 'Dan Zanger',
-          href: '#',
+          en: 'Dan Zanger', href: '#',
           items: [
             { en: "Dan's 10 Golden Rules", href: '/learn/golden-rules' },
             { en: 'Understanding Chart Patterns', href: '/learn/chart-patterns' },
@@ -196,17 +266,16 @@ export default function Navbar() {
       items: [
         { en: 'Economy', href: '/market/economy' },
         { en: 'US Market', href: '/market/us' },
-        { 
-          en: 'Saudi Market', 
-          href: '#',
+        {
+          en: 'Saudi Market', href: '#',
           items: [
             { en: 'Market Reports', href: '/market-reports' },
             { en: 'Market Breadth', href: '/stocks/market-breadth' },
-          ]
+            { en: 'Market Pulse', href: '/market-pulse' },
+          ],
         },
         {
-          en: 'Sectors',
-          href: '#',
+          en: 'Sectors', href: '#',
           items: [
             { en: 'Industry Groups', href: '/industry-groups' },
           ],
@@ -237,219 +306,272 @@ export default function Navbar() {
     },
   }
 
-  const toggleMobile = () => {
-    setActiveMobile(!activeMobile)
+  // ── Handlers ─────────────────────────────────
+  const closeAll = useCallback(() => {
     setActiveDropdown(null)
-  }
-
-  const toggleDropdown = (key: string) => {
-    setActiveDropdown(activeDropdown === key ? null : key)
-  }
+    setMobileOpen(false)
+    setShowUserMenu(false)
+  }, [])
 
   const handleLogout = async () => {
     try {
       await logout()
-      setShowUserMenu(false)
-    } catch (error) {
-      console.error('Logout failed:', error)
+      closeAll()
+    } catch (err) {
+      console.error('Logout failed:', err)
     }
   }
 
+  // Close on outside click
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (navbarRef.current && !navbarRef.current.contains(event.target as Node)) {
+    function handler(e: MouseEvent) {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
         setActiveDropdown(null)
-        setActiveMobile(false)
+        setMobileOpen(false)
       }
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setShowUserMenu(false)
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  // Close mobile menu on resize to desktop breakpoint
+  useEffect(() => {
+    const handler = () => { if (window.innerWidth >= 768) setMobileOpen(false) }
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+
+  // ── Render ───────────────────────────────────
   return (
     <nav
-      ref={navbarRef}
+      ref={navRef}
       dir="ltr"
-      className="w-full sticky top-0 z-[1000] font-[Inter,arial,helvetica,sans-serif] transition-all duration-500"
-      style={{
-        backgroundColor: 'var(--navbar-bg, #ffffff)',
-        boxShadow: 'var(--navbar-shadow, 0 1px 3px rgba(0,0,0,0.1))',
-        minHeight: '56px',
-        maxHeight: '56px',
-      }}
+      className="w-full sticky top-0 z-[1000] bg-white border-b border-gray-200"
+      style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
     >
-      <div
-        className="max-w-[1600px] mx-auto px-1 flex items-center justify-start gap-5 h-14"
-      >
-        {/* Logo */}
-        <Link
-          href="/"
-          className="flex items-center gap-2 no-underline p-1 pr-0 rounded-lg transition-all duration-300 hover:-translate-y-px"
-          style={{ ['--tw-bg-opacity' as any]: '0.05' }}
-        >
-          <div
-            className="flex items-center justify-center w-8 h-8 bg-white rounded-lg transition-all duration-300 border"
-            style={{
-              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-              borderColor: 'rgba(0,0,0,0.05)',
-            }}
-          >
-            <img src="/favicon.ico" alt="REBH Logo" className="w-[22px] h-[22px] object-contain" />
-          </div>
-          <span
-            className="text-[22px] font-extrabold tracking-[-0.04em] bg-gradient-to-br from-blue-800 to-blue-500 bg-clip-text text-transparent flex items-center"
-            style={{ fontFamily: "'Inter', sans-serif" }}
-          >
-            REBH
-          </span>
-        </Link>
+      {/* ── Top bar ── */}
+      <div className="max-w-[1600px] mx-auto px-4 h-14 flex items-center gap-0">
 
-        {/* Main Menu */}
-        <div
-          className={`flex items-center h-full md:flex-row md:static md:overflow-visible md:max-h-none
-            ${activeMobile
-              ? 'flex-col items-stretch absolute top-14 left-0 right-0 overflow-hidden max-h-[500px]'
-              : 'max-md:max-h-0 max-md:overflow-hidden max-md:flex-col max-md:items-stretch max-md:absolute max-md:top-14 max-md:left-0 max-md:right-0'
-            }
-          `}
-          style={{
-            backgroundColor: 'var(--navbar-bg, #ffffff)',
-            transition: 'max-height 0.5s ease-in-out',
-          }}
-        >
-          {Object.entries(menuItems).map(([key, item]) => (
+        {/* Logo */}
+        <div className="flex-shrink-0 pr-5 mr-1 border-r border-gray-100">
+          <REBHLogo />
+        </div>
+
+        {/* Desktop nav items */}
+        <div className="hidden md:flex items-center h-full flex-1 min-w-0">
+          {Object.entries(menuItems).map(([key, section]) => (
             <div
               key={key}
-              className={`relative h-full flex items-center max-md:h-auto max-md:border-b`}
-              style={{ borderColor: 'var(--navbar-border, #e5e7eb)' }}
-              onMouseEnter={() => !activeMobile && setActiveDropdown(key)}
-              onMouseLeave={() => !activeMobile && setActiveDropdown(null)}
+              className="relative h-full flex items-center"
+              onMouseEnter={() => setActiveDropdown(key)}
+              onMouseLeave={() => setActiveDropdown(null)}
             >
               <button
-                className="flex items-center gap-1.5 px-3 h-full text-[14px] font-medium whitespace-nowrap border-none bg-transparent cursor-pointer transition-all duration-300 max-md:px-4 max-md:py-4 max-md:justify-between max-md:w-full"
-                style={{ color: 'var(--navbar-text, #374151)' }}
-                onClick={() => activeMobile && toggleDropdown(key)}
-              >
-                {item.en}
-                <svg
-                  className="w-4 h-4 transition-transform duration-300"
-                  style={{ transform: activeDropdown === key ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {/* Dropdown */}
-              <div
-                className="absolute top-full left-0 rounded-md border min-w-[200px] z-[1001] transition-all duration-300
-                  max-md:static max-md:rounded-none max-md:border-none max-md:shadow-none max-md:overflow-hidden"
+                type="button"
+                className="flex items-center gap-1 px-3 h-full text-[13.5px] font-medium text-gray-600 hover:text-gray-900 transition-colors duration-150 cursor-pointer border-none bg-transparent whitespace-nowrap outline-none"
                 style={{
-                  background: 'var(--dropdown-bg, #ffffff)',
-                  borderColor: 'var(--dropdown-border, #e5e7eb)',
-                  boxShadow: activeMobile ? 'none' : '0 4px 20px rgba(0,0,0,0.15)',
-                  opacity: activeMobile ? 1 : (activeDropdown === key ? 1 : 0),
-                  visibility: activeMobile
-                    ? (activeDropdown === key ? 'visible' : 'hidden')
-                    : (activeDropdown === key ? 'visible' : 'hidden'),
-                  transform: activeMobile ? 'none' : (activeDropdown === key ? 'translateY(0)' : 'translateY(-10px)'),
-                  maxHeight: activeMobile ? (activeDropdown === key ? '300px' : '0') : undefined,
-                  backgroundColor: activeMobile ? 'var(--navbar-active-bg, #f9fafb)' : 'var(--dropdown-bg, #ffffff)',
+                  borderBottom: activeDropdown === key
+                    ? '2px solid #1D4ED8'
+                    : '2px solid transparent',
                 }}
               >
-                {item.items.map((subItem: any, index: number) => (
-                  <DropdownItem
-                    key={index}
-                    item={subItem}
-                    index={index}
-                    activeMobile={activeMobile}
-                    setActiveMobile={setActiveMobile}
-                    setActiveDropdown={setActiveDropdown}
-                    parentShowNested={activeDropdown === key}
-                  />
+                {section.en}
+                <ChevronDown
+                  size={12}
+                  className="mt-px opacity-40 transition-transform duration-200 flex-shrink-0"
+                  style={{ transform: activeDropdown === key ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                />
+              </button>
+
+              {/* Dropdown panel */}
+              <div
+                className="absolute top-full left-0 mt-0 rounded-lg border border-gray-100 bg-white min-w-[200px] py-1 z-[1001]"
+                style={{
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+                  opacity: activeDropdown === key ? 1 : 0,
+                  visibility: activeDropdown === key ? 'visible' : 'hidden',
+                  transform: activeDropdown === key ? 'translateY(0)' : 'translateY(-8px)',
+                  transition: 'opacity 0.18s ease, transform 0.18s ease',
+                  pointerEvents: activeDropdown === key ? 'auto' : 'none',
+                }}
+              >
+                {section.items.map((item, i) => (
+                  <DropdownItem key={i} item={item} onClose={closeAll} />
                 ))}
               </div>
             </div>
           ))}
         </div>
 
-        {/* Auth Actions */}
-        <div className="flex items-center gap-3 ml-auto">
-          <div className="flex items-center gap-1">
-            {[
-              // { href: '/stocks', label: 'Stocks' },
-              { href: '/pricing', label: 'Pricing' },
-              { href: '/contact', label: 'Contact Us' },
-            ].map(({ href, label }) => (
-              <Link
-                key={href}
-                href={href}
-                className="flex items-center px-3 h-14 text-[14px] font-medium whitespace-nowrap no-underline transition-all duration-300 hover:bg-black/5"
-                style={{ color: 'var(--navbar-text, #374151)' }}
+        {/* Right side */}
+        <div className="flex items-center gap-1 ml-auto flex-shrink-0">
+
+          {/* Pricing & Contact — desktop only */}
+          <div className="hidden md:flex items-center">
+            <Link
+              href="/pricing"
+              className="px-3 h-14 flex items-center text-[13.5px] font-medium text-gray-500 hover:text-gray-900 transition-colors duration-150 no-underline"
+            >
+              Pricing
+            </Link>
+            <Link
+              href="/contact"
+              className="px-3 h-14 flex items-center text-[13.5px] font-medium text-gray-500 hover:text-gray-900 transition-colors duration-150 no-underline"
+            >
+              Contact
+            </Link>
+          </div>
+
+          {/* Vertical divider */}
+          <div className="hidden md:block w-px h-5 bg-gray-200 mx-2 flex-shrink-0" />
+
+          {/* Auth section */}
+          {user ? (
+            <div className="relative" ref={userMenuRef}>
+              <button
+                type="button"
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-2 pl-1 pr-2.5 py-1.5 rounded-full border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all duration-200 cursor-pointer"
+                aria-label="Open user menu"
+                aria-expanded={showUserMenu}
               >
-                {label}
-              </Link>
-            ))}
+                {/* Avatar initial */}
+                <div className="flex items-center justify-center w-7 h-7 rounded-full bg-blue-700 text-white text-[11px] font-bold flex-shrink-0">
+                  {user.full_name?.charAt(0)?.toUpperCase() ?? 'U'}
+                </div>
+                <span className="hidden sm:block text-[13px] font-medium text-gray-700 max-w-[90px] truncate">
+                  {user.full_name?.split(' ')[0] ?? 'Account'}
+                </span>
+                <ChevronDown
+                  size={12}
+                  className="text-gray-400 transition-transform duration-200"
+                  style={{ transform: showUserMenu ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                />
+              </button>
 
-            {user ? (
-              <div className="relative" ref={userMenuRef}>
-                <button
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-50 hover:bg-blue-100 transition-colors border border-blue-200"
+              {/* User dropdown */}
+              {showUserMenu && (
+                <div
+                  className="absolute right-0 mt-2 w-52 bg-white rounded-xl py-1.5 z-[1050] border border-gray-100"
+                  style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
                 >
-                  <User size={20} className="text-blue-600" />
-                </button>
-
-                {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl py-2 z-50 border border-gray-100 origin-top-right">
-                    <div className="px-4 py-2 border-b border-gray-100">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{user.full_name}</p>
-                      <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                    </div>
-                    <Link
-                      href="/profile"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                      onClick={() => setShowUserMenu(false)}
-                    >
-                      Profile
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                    >
-                      Logout
-                    </button>
+                  <div className="px-4 py-2.5 border-b border-gray-100 mb-1">
+                    <p className="text-[13px] font-semibold text-gray-900 truncate">{user.full_name}</p>
+                    <p className="text-[11px] text-gray-400 truncate mt-0.5">{user.email}</p>
                   </div>
-                )}
-              </div>
-            ) : (
+                  <Link
+                    href="/profile"
+                    className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors no-underline"
+                    onClick={() => setShowUserMenu(false)}
+                  >
+                    <UserCircle size={15} className="text-gray-400 flex-shrink-0" />
+                    Profile
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-2.5 px-4 py-2 text-[13px] text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer border-none bg-transparent"
+                  >
+                    <LogOut size={15} className="flex-shrink-0" />
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="flex items-center px-3.5 py-1.5 text-[13px] font-medium text-gray-600 hover:text-gray-900 border border-gray-200 rounded-md hover:border-gray-300 hover:bg-gray-50 transition-all duration-200 no-underline"
+            >
+              Login
+            </Link>
+          )}
+
+          {/* Mobile hamburger */}
+          <button
+            type="button"
+            className="md:hidden flex items-center justify-center w-9 h-9 ml-1 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors border-none bg-transparent cursor-pointer"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileOpen}
+          >
+            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Mobile menu panel ── */}
+      <div
+        className="md:hidden border-t border-gray-100 bg-white"
+        style={{
+          maxHeight: mobileOpen ? '80vh' : '0',
+          overflowY: mobileOpen ? 'auto' : 'hidden',
+          overflowX: 'hidden',
+          transition: 'max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+      >
+        <div className="px-4 py-3 space-y-0.5">
+
+          {/* Nav sections */}
+          {Object.entries(menuItems).map(([key, section]) => (
+            <div key={key}>
+              <button
+                type="button"
+                className="flex items-center justify-between w-full px-3 py-2.5 text-[14px] font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors cursor-pointer border-none bg-transparent"
+                onClick={() => setMobileExpanded(mobileExpanded === key ? null : key)}
+              >
+                {section.en}
+                <ChevronDown
+                  size={14}
+                  className="text-gray-400 transition-transform duration-200 flex-shrink-0"
+                  style={{ transform: mobileExpanded === key ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                />
+              </button>
+
+              {mobileExpanded === key && (
+                <div className="ml-3 pl-3 mt-0.5 mb-1 space-y-0.5" style={{ borderLeft: '2px solid #DBEAFE' }}>
+                  {section.items.map((item, i) => (
+                    <MobileItem key={i} item={item} depth={0} onClose={closeAll} />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* Extra links */}
+          <div className="pt-3 mt-2 space-y-0.5" style={{ borderTop: '1px solid #F3F4F6' }}>
+            <Link
+              href="/pricing"
+              onClick={closeAll}
+              className="block px-3 py-2.5 text-[14px] font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors no-underline"
+            >
+              Pricing
+            </Link>
+            <Link
+              href="/contact"
+              onClick={closeAll}
+              className="block px-3 py-2.5 text-[14px] font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors no-underline"
+            >
+              Contact
+            </Link>
+          </div>
+
+          {/* Login button — only when logged out */}
+          {!user && (
+            <div className="pt-3 mt-2" style={{ borderTop: '1px solid #F3F4F6' }}>
               <Link
                 href="/login"
-                className="text-[13px] font-medium px-4 py-2 rounded transition-all duration-300 border no-underline"
-                style={{
-                  color: 'var(--navbar-text, #374151)',
-                  borderColor: 'var(--navbar-border, #e5e7eb)',
-                  background: 'transparent',
-                }}
+                onClick={closeAll}
+                className="block text-center py-2 text-[13px] font-medium text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50 no-underline"
               >
                 Login
               </Link>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Mobile Toggle */}
-          <button
-            className="md:hidden bg-transparent border-none cursor-pointer p-2 text-xl"
-            style={{ color: 'var(--navbar-text, #374151)' }}
-            onClick={toggleMobile}
-          >
-            ☰
-          </button>
         </div>
       </div>
     </nav>

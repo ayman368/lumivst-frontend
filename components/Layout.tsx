@@ -8,19 +8,20 @@ import MarketSidebar, { shouldShowSidebar } from './MarketSidebar'
 export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const showSidebar = shouldShowSidebar(pathname)
+  const isFullBleedDashboard = pathname?.startsWith('/stocks/market-breadth')
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className={`bg-white flex flex-col ${isFullBleedDashboard ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'}`}>
       <Navbar />
       {showSidebar ? (
-        <div className="flex flex-1">
+        <div className="flex flex-1 min-h-0">
           <MarketSidebar />
-          <main className="flex-1 min-w-0">{children}</main>
+          <main className="flex-1 min-w-0 min-h-0 flex flex-col">{children}</main>
         </div>
       ) : (
-        <main className="flex-1">{children}</main>
+        <main className={`flex-1 min-h-0 flex flex-col ${isFullBleedDashboard ? 'overflow-hidden' : ''}`}>{children}</main>
       )}
-      {!showSidebar && <Footer />}
+      {!showSidebar && !isFullBleedDashboard && <Footer />}
     </div>
   )
 }

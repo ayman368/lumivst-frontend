@@ -82,6 +82,16 @@ export async function closePortfolioPosition(id: number): Promise<any> {
   return handleRes(response);
 }
 
+export async function deletePortfolioPosition(id: number): Promise<any> {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/positions/${id}`, {
+    method: "DELETE",
+    headers: { "x-csrf-token": "1" },
+    credentials: "include",
+  });
+  if (response.status === 204) return null;
+  return handleRes(response);
+}
+
 export async function getMonthlyTracker(year: number): Promise<MonthlyTrackerResponse> {
   const response = await authFetch(`${API_BASE_URL}/api/wallet/tracker/${year}`, {
     credentials: "include",

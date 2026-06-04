@@ -52,7 +52,6 @@ const menuItems: SidebarItem[] = [
       { en: 'Share Buybacks', href: '/market-reports/share-buybacks' },
       { en: 'SBL Positions', href: '/market-reports/sbl-positions' },
       { en: 'Historical Reports', href: '/market-reports/historical-reports' },
-      { en: 'Market Pulse', href: '/market-reports/market-pulse' },
     ],
   },
   {
@@ -83,7 +82,7 @@ export const SIDEBAR_PATHS = [
 ]
 
 export function shouldShowSidebar(pathname: string): boolean {
-  return SIDEBAR_PATHS.some(p => pathname.startsWith(p))
+  return SIDEBAR_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))
 }
 
 export default function MarketSidebar() {

@@ -34,6 +34,9 @@ interface ADRatingDataPoint {
   time: string;
   a_rating: number;
   d_rating: number;
+  total_stocks: number;
+  a_rating_pct: number;
+  d_rating_pct: number;
 }
 
 /* ─── Config ─────────────────────────────────────────────────────────────── */
@@ -70,15 +73,20 @@ function CustomTooltip({ active, payload, label }: any) {
   return (
     <div style={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: '12px', padding: '14px 18px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', minWidth: '180px' }}>
       <div style={{ fontSize: '11px', fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.12em', marginBottom: '10px', borderBottom: '1px solid #F3F4F6', paddingBottom: '8px' }}>{label}</div>
-      {payload.map((entry: any, i: number) => (
-        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', padding: '3px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: entry.color }} />
-            <span style={{ fontSize: '12px', color: '#4B5563', fontWeight: 500 }}>{entry.name}</span>
+      {payload.map((entry: any, i: number) => {
+        const isPct = entry.name.includes('%');
+        return (
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', padding: '3px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: entry.color }} />
+              <span style={{ fontSize: '12px', color: '#4B5563', fontWeight: 500 }}>{entry.name}</span>
+            </div>
+            <span style={{ fontSize: '13px', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: '#111827' }}>
+              {isPct ? `${entry.value}%` : entry.value?.toLocaleString()}
+            </span>
           </div>
-          <span style={{ fontSize: '13px', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: '#111827' }}>{entry.value?.toLocaleString()}</span>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -118,6 +126,9 @@ export default function ADRatingHistoryPage() {
             time: item.date || item.time,
             a_rating: item.a_rating ?? 0,
             d_rating: item.d_rating ?? 0,
+            total_stocks: item.total_stocks ?? 1,
+            a_rating_pct: item.a_rating_pct ?? 0,
+            d_rating_pct: item.d_rating_pct ?? 0,
           }));
           setRawData(mapped);
         } else throw new Error('Invalid data format');
@@ -196,9 +207,12 @@ export default function ADRatingHistoryPage() {
       Date: d.time,
       'A Rating': d.a_rating,
       'D Rating': d.d_rating,
+      'A Rating (%)': d.a_rating_pct,
+      'D Rating (%)': d.d_rating_pct,
+      'Total Stocks': d.total_stocks,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 12 }, { wch: 15 }, { wch: 15 }];
+    ws['!cols'] = [{ wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'A-D Rating');
     XLSX.writeFile(wb, `AD-Rating-${today()}.xlsx`);
@@ -240,6 +254,7 @@ export default function ADRatingHistoryPage() {
   const maxVal = Math.max(...data.map(d => Math.max(d.a_rating, d.d_rating)), 1);
   const minVal = Math.min(...data.map(d => Math.min(d.a_rating, d.d_rating)), 0);
   const formatY = (v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}K` : v.toString();
+  const formatYPct = (v: number) => `${v}%`;
   const showDots = data.length < 80;
 
   /* ─── Render ──────────────────────────────────────────────────────────── */
@@ -392,14 +407,14 @@ export default function ADRatingHistoryPage() {
       {/* ── Main content ── */}
       <main ref={pageRef} className="flex-1 min-h-0 flex flex-col w-full px-4 pt-4 pb-4 overflow-hidden">
         
-        {/* CHART CONTAINER — single large chart */}
+        {/* CHART CONTAINER — dual charts wrapper */}
         <div
           ref={chartCardRef}
           className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col relative transition-all duration-200 flex-1 h-full"
           style={{ boxShadow: '0 4px 12px rgba(15,23,42,0.03)' }}
         >
           {/* button row */}
-          <div className="px-4 py-2 flex items-center gap-3 border-b border-slate-100 flex-shrink-0">
+          <div className="px-4 py-2 flex items-center gap-3 border-b border-slate-100 flex-shrink-0 bg-white z-10">
             <span className="text-[13px] font-bold text-slate-800">A/D Rating Distribution</span>
             <div className="flex-1" />
 
@@ -437,80 +452,148 @@ export default function ADRatingHistoryPage() {
             </button>
           </div>
 
-          {/* recharts */}
-          <div className="flex-1 min-h-0 relative p-4">
-            {/* Y-axis label */}
-            <div style={{
-              position: 'absolute', left: 15, top: '50%',
-              transform: 'translateY(-50%) rotate(-90deg)',
-              transformOrigin: 'center',
-              fontSize: '12px', fontWeight: 700, color: '#64748B',
-              letterSpacing: '0.05em', whiteSpace: 'nowrap', zIndex: 10,
-              pointerEvents: 'none',
-            }}>
-              A/D Rating
+          {/* scrollable charts container */}
+          <div className="flex-1 overflow-y-auto flex flex-col bg-slate-50">
+            {/* Absolute Count Chart */}
+            <div className="flex-shrink-0 h-[400px] sm:h-[450px] relative p-4 border-b border-slate-100 bg-white">
+              <div style={{
+                position: 'absolute', left: 15, top: '50%',
+                transform: 'translateY(-50%) rotate(-90deg)',
+                transformOrigin: 'center',
+                fontSize: '12px', fontWeight: 700, color: '#64748B',
+                letterSpacing: '0.05em', whiteSpace: 'nowrap', zIndex: 10,
+                pointerEvents: 'none',
+              }}>
+                A/D Rating (Absolute Count)
+              </div>
+              
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data} margin={{ top: 20, right: 20, left: 20, bottom: 30 }}>
+                  <CartesianGrid stroke="#E5E7EB" strokeWidth={1} vertical={true} horizontal={true} />
+                  <XAxis
+                    dataKey="time"
+                    tick={{ fontSize: 13, fill: '#6B7280', fontWeight: 500 }}
+                    tickLine={{ stroke: '#E5E7EB' }}
+                    axisLine={{ stroke: '#E5E7EB', strokeWidth: 2 }}
+                    interval={Math.max(0, Math.floor(data.length / 45))}
+                    height={40}
+                    dy={10}
+                  />
+                  <YAxis
+                    tickFormatter={formatY}
+                    tick={{ fontSize: 13, fill: '#6B7280', fontWeight: 500 }}
+                    tickLine={false}
+                    axisLine={{ stroke: '#E5E7EB', strokeWidth: 2 }}
+                    width={60}
+                    domain={['auto', 'auto']}
+                    dx={-5}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  
+                  {seriesVisible.a_rating && (
+                    <Line
+                      type="linear"
+                      dataKey="a_rating"
+                      name="A Rating"
+                      stroke="#4CAF50"
+                      strokeWidth={showDots ? 4 : 2}
+                      dot={showDots ? { r: 4.5, fill: '#4CAF50', strokeWidth: 0 } : false}
+                      activeDot={{ r: 7, fill: '#4CAF50', stroke: '#fff', strokeWidth: 2 }}
+                      animationDuration={1200}
+                      isAnimationActive={false}
+                    />
+                  )}
+                  
+                  {seriesVisible.d_rating && (
+                    <Line
+                      type="linear"
+                      dataKey="d_rating"
+                      name="D Rating"
+                      stroke="#F44336"
+                      strokeWidth={showDots ? 4 : 2}
+                      dot={showDots ? { r: 4.5, fill: '#F44336', strokeWidth: 0 } : false}
+                      activeDot={{ r: 7, fill: '#F44336', stroke: '#fff', strokeWidth: 2 }}
+                      animationDuration={1200}
+                      isAnimationActive={false}
+                    />
+                  )}
+                </LineChart>
+              </ResponsiveContainer>
             </div>
-            
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data} margin={{ top: 20, right: 20, left: 20, bottom: 65 }}>
-                <CartesianGrid stroke="#E5E7EB" strokeWidth={1} vertical={true} horizontal={true} />
-                <XAxis
-                  dataKey="time"
-                  tick={{ fontSize: 13, fill: '#6B7280', fontWeight: 500 }}
-                  tickLine={{ stroke: '#E5E7EB' }}
-                  axisLine={{ stroke: '#E5E7EB', strokeWidth: 2 }}
-                  angle={-90}
-                  textAnchor="end"
-                  interval={Math.max(0, Math.floor(data.length / 45))}
-                  height={100}
-                  dx={-5}
-                  dy={45}
-                />
-                <YAxis
-                  tickFormatter={formatY}
-                  tick={{ fontSize: 16, fill: '#6B7280', fontWeight: 500 }}
-                  tickLine={false}
-                  axisLine={{ stroke: '#E5E7EB', strokeWidth: 2 }}
-                  width={60}
-                  domain={['auto', 'auto']}
-                  dx={-5}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                
-                {seriesVisible.a_rating && (
-                  <Line
-                    type="linear"
-                    dataKey="a_rating"
-                    name="A Rating"
-                    stroke="#4CAF50"
-                    strokeWidth={showDots ? 4 : 2}
-                    dot={showDots ? { r: 4.5, fill: '#4CAF50', strokeWidth: 0 } : false}
-                    activeDot={{ r: 7, fill: '#4CAF50', stroke: '#fff', strokeWidth: 2 }}
-                    animationDuration={1200}
-                    isAnimationActive={false}
+
+            {/* Percentage Chart */}
+            <div className="flex-shrink-0 h-[400px] sm:h-[450px] relative p-4 bg-white">
+              <div style={{
+                position: 'absolute', left: 15, top: '50%',
+                transform: 'translateY(-50%) rotate(-90deg)',
+                transformOrigin: 'center',
+                fontSize: '12px', fontWeight: 700, color: '#64748B',
+                letterSpacing: '0.05em', whiteSpace: 'nowrap', zIndex: 10,
+                pointerEvents: 'none',
+              }}>
+                A/D Rating Percentage (%)
+              </div>
+              
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data} margin={{ top: 20, right: 20, left: 20, bottom: 65 }}>
+                  <CartesianGrid stroke="#E5E7EB" strokeWidth={1} vertical={true} horizontal={true} />
+                  <XAxis
+                    dataKey="time"
+                    tick={{ fontSize: 13, fill: '#6B7280', fontWeight: 500 }}
+                    tickLine={{ stroke: '#E5E7EB' }}
+                    axisLine={{ stroke: '#E5E7EB', strokeWidth: 2 }}
+                    angle={-90}
+                    textAnchor="end"
+                    interval={Math.max(0, Math.floor(data.length / 45))}
+                    height={100}
+                    dx={-5}
+                    dy={45}
                   />
-                )}
-                
-                {seriesVisible.d_rating && (
-                  <Line
-                    type="linear"
-                    dataKey="d_rating"
-                    name="D Rating"
-                    stroke="#F44336"
-                    strokeWidth={showDots ? 4 : 2}
-                    dot={showDots ? { r: 4.5, fill: '#F44336', strokeWidth: 0 } : false}
-                    activeDot={{ r: 7, fill: '#F44336', stroke: '#fff', strokeWidth: 2 }}
-                    animationDuration={1200}
-                    isAnimationActive={false}
+                  <YAxis
+                    tickFormatter={formatYPct}
+                    tick={{ fontSize: 13, fill: '#6B7280', fontWeight: 500 }}
+                    tickLine={false}
+                    axisLine={{ stroke: '#E5E7EB', strokeWidth: 2 }}
+                    width={60}
+                    domain={['auto', 'auto']}
+                    dx={-5}
                   />
-                )}
-                
-              </LineChart>
-            </ResponsiveContainer>
+                  <Tooltip content={<CustomTooltip />} />
+                  
+                  {seriesVisible.a_rating && (
+                    <Line
+                      type="linear"
+                      dataKey="a_rating_pct"
+                      name="A Rating (%)"
+                      stroke="#4CAF50"
+                      strokeWidth={showDots ? 4 : 2}
+                      dot={showDots ? { r: 4.5, fill: '#4CAF50', strokeWidth: 0 } : false}
+                      activeDot={{ r: 7, fill: '#4CAF50', stroke: '#fff', strokeWidth: 2 }}
+                      animationDuration={1200}
+                      isAnimationActive={false}
+                    />
+                  )}
+                  
+                  {seriesVisible.d_rating && (
+                    <Line
+                      type="linear"
+                      dataKey="d_rating_pct"
+                      name="D Rating (%)"
+                      stroke="#F44336"
+                      strokeWidth={showDots ? 4 : 2}
+                      dot={showDots ? { r: 4.5, fill: '#F44336', strokeWidth: 0 } : false}
+                      activeDot={{ r: 7, fill: '#F44336', stroke: '#fff', strokeWidth: 2 }}
+                      animationDuration={1200}
+                      isAnimationActive={false}
+                    />
+                  )}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           {/* card footer */}
-          <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 flex justify-between items-center flex-shrink-0">
+          <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 flex justify-between items-center flex-shrink-0 z-10">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
                 <span className="w-2 h-2 rounded-full" style={{ background: '#4CAF50' }} />

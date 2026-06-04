@@ -30,10 +30,11 @@ const fmt = (n?: number, decimals = 2) =>
   n === undefined ? "0" : n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 const pct = (n?: number) => (n === undefined ? "0.00%" : `${(n * 100).toFixed(2)}%`);
 
-const parseInput = (val: string): number => {
+const parseInput = (val: string, isPct: boolean = false): number => {
   const clean = val.replace(/,/g, "").trim();
   if (clean.endsWith("%")) return parseFloat(clean.slice(0, -1)) / 100;
-  return parseFloat(clean);
+  const num = parseFloat(clean);
+  return isPct ? num / 100 : num;
 };
 
 function Field({
@@ -121,13 +122,13 @@ export default function RBAFPage() {
   const handleSubmit = () => {
     handleSubmitWithData({
       portfolio_size: parseInput(form.portfolio_size),
-      portfolio_pct: parseInput(form.portfolio_pct),
-      desired_return: parseInput(form.desired_return),
-      avg_pct_gain: parseInput(form.avg_pct_gain),
-      avg_pct_loss: parseInput(form.avg_pct_loss),
-      win_rate: parseInput(form.win_rate),
-      risk_of_rote: parseInput(form.risk_of_rote),
-      optimal_f: parseInput(form.optimal_f),
+      portfolio_pct: parseInput(form.portfolio_pct, true),
+      desired_return: parseInput(form.desired_return, true),
+      avg_pct_gain: parseInput(form.avg_pct_gain, true),
+      avg_pct_loss: parseInput(form.avg_pct_loss, true),
+      win_rate: parseInput(form.win_rate, true),
+      risk_of_rote: parseInput(form.risk_of_rote, true),
+      optimal_f: parseInput(form.optimal_f, true),
     });
   };
 
@@ -188,19 +189,19 @@ export default function RBAFPage() {
               <div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-7">
                   <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col gap-2">
-                    <span className="text-[11px] uppercase tracking-wide text-slate-500">Goal (Target Return)</span>
-                    <span className="text-xl font-bold font-mono text-green-600">SAR {fmt(result.goal, 0)}</span>
+                    <span className="text-[11px] uppercase tracking-wide text-slate-500">Goal</span>
+                    <span className="text-xl font-bold font-mono text-green-600">{fmt(result.goal, 0)}</span>
                   </div>
                   <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col gap-2">
-                    <span className="text-[11px] uppercase tracking-wide text-slate-500">Trades to Reach Goal</span>
+                    <span className="text-[11px] uppercase tracking-wide text-slate-500"># of trades Needed to Reach Goal</span>
                     <span className="text-xl font-bold font-mono text-blue-600">{result.trades_to_reach_goal}</span>
                   </div>
                   <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col gap-2">
-                    <span className="text-[11px] uppercase tracking-wide text-slate-500">Optimal f (Kelly)</span>
+                    <span className="text-[11px] uppercase tracking-wide text-slate-500">Optimal f</span>
                     <span className="text-xl font-bold font-mono text-amber-600">{pct(result.optimal_f)}</span>
                   </div>
                   <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg flex flex-col gap-2">
-                    <span className="text-[11px] uppercase tracking-wide text-slate-500">Adj. Gain/Loss Ratio</span>
+                    <span className="text-[11px] uppercase tracking-wide text-slate-500">Adjusted Gain / Loss Ratio</span>
                     <span className="text-xl font-bold font-mono text-slate-900">{result.adjusted_gain_loss_ratio.toFixed(2)}</span>
                   </div>
                 </div>
@@ -210,21 +211,25 @@ export default function RBAFPage() {
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50">
                       <th className="text-left py-2.5 px-3.5 text-[11px] font-semibold uppercase text-slate-500">Size Type</th>
+                      <th className="text-left py-2.5 px-3.5 text-[11px] font-semibold uppercase text-slate-500">Allocation (%)</th>
                       <th className="text-left py-2.5 px-3.5 text-[11px] font-semibold uppercase text-slate-500">Amount (SAR)</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="py-3.5 px-3.5">Quarter Position (25%)</td>
-                      <td className="py-3.5 px-3.5 font-mono font-semibold text-blue-600">{fmt(result.quarter_position_sar, 2)}</td>
+                      <td className="py-3.5 px-3.5 text-slate-700">Quarter Position</td>
+                      <td className="py-3.5 px-3.5 font-mono text-slate-900">{pct(parseInput(form.portfolio_pct, true) / 4)}</td>
+                      <td className="py-3.5 px-3.5 font-mono font-semibold text-blue-600">{fmt(result.quarter_position_sar, 0)}</td>
                     </tr>
                     <tr className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="py-3.5 px-3.5">Half Position (50%)</td>
-                      <td className="py-3.5 px-3.5 font-mono font-semibold text-blue-600">{fmt(result.half_position_sar, 2)}</td>
+                      <td className="py-3.5 px-3.5 text-slate-700">Half Position</td>
+                      <td className="py-3.5 px-3.5 font-mono text-slate-900">{pct(parseInput(form.portfolio_pct, true) / 2)}</td>
+                      <td className="py-3.5 px-3.5 font-mono font-semibold text-blue-600">{fmt(result.half_position_sar, 0)}</td>
                     </tr>
                     <tr className="hover:bg-slate-50">
-                      <td className="py-3.5 px-3.5">Full Position (100%)</td>
-                      <td className="py-3.5 px-3.5 font-mono font-semibold text-blue-600">{fmt(result.full_position_sar, 2)}</td>
+                      <td className="py-3.5 px-3.5 text-slate-700">Full Position</td>
+                      <td className="py-3.5 px-3.5 font-mono text-slate-900">{pct(parseInput(form.portfolio_pct, true))}</td>
+                      <td className="py-3.5 px-3.5 font-mono font-semibold text-blue-600">{fmt(result.full_position_sar, 0)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -233,12 +238,16 @@ export default function RBAFPage() {
                 <table className="w-full text-sm border-collapse">
                   <tbody>
                     {[
-                      ["Avg Gain on Winning Trades", `SAR ${fmt(result.avg_gain_on_winners, 0)}`],
-                      ["Avg Loss on Losing Trades", `SAR ${fmt(result.avg_loss_on_losers, 0)}`],
-                      ["Win / Loss Ratio (Monetary)", fmt(result.gain_loss_ratio, 2)],
-                      ["Expected Net % Per Trade", pct(result.expected_net_pct_per_trade)],
-                      ["Expected Net Return Per Trade", `SAR ${fmt(result.expected_net_return_per_trade, 0)}`],
-                      ["Avg Winners / Losers (Count)", `${fmt(result.num_winning_trades, 0)} / ${fmt(result.num_losing_trades, 0)}`],
+                      ["Average Gain on Winning Trades", fmt(result.avg_gain_on_winners, 0)],
+                      ["# of Winning Trades", fmt(result.num_winning_trades, 0)],
+                      ["Average Loss on Losing Trades", fmt(result.avg_loss_on_losers, 0)],
+                      ["# of Losing Trades", fmt(result.num_losing_trades, 0)],
+                      ["Gain / Loss Ratio", fmt(result.gain_loss_ratio, 2)],
+                      ["Position Size", fmt(result.position_size, 0)],
+                      ["Expected Net % Return per Trade", pct(result.expected_net_pct_per_trade)],
+                      ["Expected Net Return per Trade", fmt(result.expected_net_return_per_trade, 0)],
+                      ["Stop Loss", pct(result.stop_loss)],
+                      ["# of monthly trades Needed to Reach Goal", fmt(result.monthly_trades_to_goal, 0)],
                     ].map(([label, val]) => (
                       <tr key={label} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                         <td className="py-3.5 px-3.5 text-slate-700">{label}</td>

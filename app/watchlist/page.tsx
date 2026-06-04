@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Filter } from 'lucide-react';
 import RSScreener from '@/components/Screener/RSScreener';
 import MarketOverview from '@/components/Watchlist/MarketOverview';
@@ -70,20 +71,38 @@ function ShariahInlineFilter() {
 
 // ── الصفحة الرئيسية ───────────────────────────────────────────────────────────
 function WatchlistContent() {
-    const [activeTab, setActiveTab] = useState('Overview');
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const pathname = usePathname();
+    const tabParam = searchParams.get('tab');
+
     const tabs = ['Overview', 'RS Matrix', 'Matrix Chart', 'RS Screener'];
+    const [activeTab, setActiveTab] = useState(tabParam && tabs.includes(tabParam) ? tabParam : 'Overview');
+
+    useEffect(() => {
+        if (tabParam && tabs.includes(tabParam)) {
+            setActiveTab(tabParam);
+        }
+    }, [tabParam]);
+
+    const handleTabClick = (tab: string) => {
+        setActiveTab(tab);
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('tab', tab);
+        router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    };
 
     return (
         <div className="flex flex-col min-h-[calc(100vh-64px)] bg-[#131722]">
 
             {/* ── Tabs + Shariah filter في نفس الشريط ── */}
-            <div className="border-b border-[#2a2e39] bg-[#1e222d] px-4 shrink-0 flex items-center relative z-40">
+            <div className="border-b border-[#2a2e39] bg-[#1e222d] px-4 shrink-0 flex items-center relative z-[60]">
                 {/* Tabs */}
                 <div className="flex space-x-1">
                     {tabs.map((tab) => (
                         <button
                             key={tab}
-                            onClick={() => setActiveTab(tab)}
+                            onClick={() => handleTabClick(tab)}
                             className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${
                                 activeTab === tab
                                     ? 'border-[#2962ff] text-[#2962ff]'
@@ -114,7 +133,9 @@ function WatchlistContent() {
 export default function WatchlistPage() {
     return (
         <WatchlistShariahProvider>
-            <WatchlistContent />
+            <Suspense fallback={<div className="p-4 text-white">Loading...</div>}>
+                <WatchlistContent />
+            </Suspense>
         </WatchlistShariahProvider>
     );
 }

@@ -5,6 +5,7 @@ import {
     createChart,
     ColorType,
     AreaSeries,
+    LineSeries,
     IChartApi,
     ISeriesApi,
     CrosshairMode,
@@ -14,22 +15,18 @@ import {
     Activity,
     BarChart2,
     BarChart3,
-    Radio,
     Maximize2,
     Minimize2,
     Eye,
     EyeOff,
-    Download,
-    FileText,
-    Image as ImgIcon,
-    Table2,
     Scan,
+    Target,
+    Percent,
+    Hash,
 } from 'lucide-react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
-import * as XLSX from 'xlsx';
 import { API_BASE_URL } from '@/lib/api/config';
-import { ShariahFilterPage, useWatchlistShariah } from '@/components/Watchlist/WatchlistShariahContext';
+import { WatchlistShariahProvider, ShariahFilterBar, useWatchlistShariah } from '@/components/Watchlist/WatchlistShariahContext';
+import ExportButton from './_components/ExportButton';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -50,8 +47,30 @@ interface BreadthItem {
     ma200_200: number;
 }
 
+interface ADRatingItem {
+    time: string;
+    a_rating: number;
+    d_rating: number;
+    a_rating_pct: number;
+    d_rating_pct: number;
+}
+
+interface AlhussainItem {
+    time: string;
+    count: number;
+}
+
+interface ScreenerTrendItem {
+    time: string;
+    trend_1m: number;
+    trend_4m: number;
+    trend_5m_wide: number;
+    alrayan: number;
+}
+
 type HoverEntry = {
     main: number | null;
+    secondary: number | null;
     avg50: number | null;
     avg200: number | null;
     time: string | null;
@@ -117,24 +136,128 @@ const CHART_CONFIGS = [
     },
 ] as const;
 
-const CHART_COUNT = CHART_CONFIGS.length;
+const MA_CHART_COUNT = CHART_CONFIGS.length;
+
+const MINERVINI_CONFIGS = [
+    {
+        key: 'trend_1m' as const,
+        label: '1 Month',
+        sublabel: 'Minervini · Short-Term',
+        badge: '1M',
+        lineColor: '#4472C4',
+        topColor: 'rgba(68,114,196,0.10)',
+        accentLight: '#EEF2FB',
+        icon: Activity,
+    },
+    {
+        key: 'trend_4m' as const,
+        label: '4 Months',
+        sublabel: 'Minervini · Intermediate',
+        badge: '4M',
+        lineColor: '#ED7D31',
+        topColor: 'rgba(237,125,49,0.10)',
+        accentLight: '#FEF3EB',
+        icon: TrendingUp,
+    },
+    {
+        key: 'trend_5m_wide' as const,
+        label: '5 Months Wide',
+        sublabel: 'Minervini · Broad Trend',
+        badge: '5MW',
+        lineColor: '#70AD47',
+        topColor: 'rgba(112,173,71,0.10)',
+        accentLight: '#EDF5E7',
+        icon: BarChart2,
+    },
+    {
+        key: 'alrayan' as const,
+        label: 'Alrayan',
+        sublabel: 'Technical Alignment',
+        badge: 'ALR',
+        lineColor: '#8B5CF6',
+        topColor: 'rgba(139,92,246,0.10)',
+        accentLight: '#F5F3FF',
+        icon: Target,
+    },
+] as const;
+
+const MAX_CHART_POINTS = 900;
+
+function downsampleSeries<T extends { time: string }>(data: T[], max: number): T[] {
+    if (data.length <= max) return data;
+    const step = Math.ceil(data.length / max);
+    const out: T[] = [];
+    for (let i = 0; i < data.length; i += step) out.push(data[i]);
+    const last = data[data.length - 1];
+    if (out[out.length - 1]?.time !== last.time) out.push(last);
+    return out;
+}
+
+const GRID_COL_NARROW = 'col-span-2';
+const GRID_COL_WIDE = 'col-span-3';
+const NARROW_CHART_COUNT = 6;
+
+function chartGridColClass(chartIndex: number): string {
+    return chartIndex < NARROW_CHART_COUNT ? GRID_COL_NARROW : GRID_COL_WIDE;
+}
+
+const EXTRA_PANELS = [
+    {
+        kind: 'ad-count' as const,
+        label: 'A/D Rating',
+        sublabel: 'A vs D · Count & %',
+        badge: 'A/D',
+        lineColor: '#4CAF50',
+        secondaryColor: '#F44336',
+        accentLight: '#E8F5E9',
+        icon: Activity,
+        desc: 'Green = A Rating · Red = D Rating',
+        unit: 'stk',
+    },
+    {
+        kind: 'alhussain' as const,
+        label: 'Alhussain',
+        sublabel: 'Screener Count',
+        badge: 'ALH',
+        lineColor: '#7C3AED',
+        topColor: 'rgba(124,58,237,0.09)',
+        accentLight: '#F5F3FF',
+        icon: Target,
+        desc: 'Stocks passing Alhussain SMA & volume criteria',
+        unit: 'stk',
+    },
+] as const;
+
+const MINERVINI_CHART_COUNT = MINERVINI_CONFIGS.length;
+const TOTAL_CHART_COUNT = MA_CHART_COUNT + EXTRA_PANELS.length + MINERVINI_CHART_COUNT;
 
 /* ─── Component ─────────────────────────────────────────────────────────── */
 
 function MarketBreadthContent() {
     const { selected: shariahSelected } = useWatchlistShariah();
     const [data, setData] = useState<BreadthItem[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [tick, setTick] = useState(0);
+    const [adData, setAdData] = useState<ADRatingItem[]>([]);
+    const [alhussainData, setAlhussainData] = useState<AlhussainItem[]>([]);
+    const [trendData, setTrendData] = useState<ScreenerTrendItem[]>([]);
+    /* ── per-section loading state for progressive rendering ── */
+    const [sectionLoading, setSectionLoading] = useState<Record<string, boolean>>({
+        ma: true, ad: true, alhussain: true, trend: true,
+    });
+    const [sectionError, setSectionError] = useState<Record<string, string | null>>({
+        ma: null, ad: null, alhussain: null, trend: null,
+    });
+    const loading = Object.values(sectionLoading).some(Boolean);
+    const error = Object.values(sectionError).every((e) => e !== null)
+        ? Object.values(sectionError).filter(Boolean).join(' | ')
+        : null;
+
     const [period, setPeriod] = useState('ALL');
-    const [selectedAverages, setSelectedAverages] =
-        useState<Record<number, Set<string>>>({});
-    const [seriesVisible, setSeriesVisible] =
-        useState<Record<number, boolean>>({ 0: true, 1: true, 2: true, 3: true });
+    const [selectedAverages, setSelectedAverages] = useState<Record<number, Set<string>>>({});
+    const [seriesVisible, setSeriesVisible] = useState<Record<number, boolean>>(
+        Object.fromEntries(Array.from({ length: TOTAL_CHART_COUNT }, (_, i) => [i, true]))
+    );
     const [fullscreenIdx, setFullscreenIdx] = useState<number | null>(null);
-    const [exportOpen, setExportOpen] = useState(false);
-    const [exportStatus, setExportStatus] = useState<string | null>(null);
+    const [adShowPercent, setAdShowPercent] = useState(false);
     const [hoverValues, setHoverValues] = useState<Record<number, HoverEntry>>({});
 
     /* ── refs ── */
@@ -142,14 +265,14 @@ function MarketBreadthContent() {
     const isRestoringRef = useRef(false);
     const exportDropRef = useRef<HTMLDivElement>(null);
 
-    // ✅ Fix 2: useRef بـ array بدل array من useRef — Rules of Hooks
-    const cardRefs = useRef<(HTMLDivElement | null)[]>(Array(CHART_COUNT).fill(null));
-    const canvasRefs = useRef<(HTMLDivElement | null)[]>(Array(CHART_COUNT).fill(null));
+    const cardRefs = useRef<(HTMLDivElement | null)[]>(Array(TOTAL_CHART_COUNT).fill(null));
+    const canvasRefs = useRef<(HTMLDivElement | null)[]>(Array(TOTAL_CHART_COUNT).fill(null));
 
     const chartsRef = useRef<IChartApi[]>([]);
-    const mainSeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>(Array(CHART_COUNT).fill(null));
-    const avg50SeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>(Array(CHART_COUNT).fill(null));
-    const avg200SeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>(Array(CHART_COUNT).fill(null));
+    const mainSeriesRef = useRef<(ISeriesApi<'Area'> | ISeriesApi<'Line'> | null)[]>(Array(TOTAL_CHART_COUNT).fill(null));
+    const secondarySeriesRef = useRef<(ISeriesApi<'Line'> | null)[]>(Array(TOTAL_CHART_COUNT).fill(null));
+    const avg50SeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>(Array(TOTAL_CHART_COUNT).fill(null));
+    const avg200SeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>(Array(TOTAL_CHART_COUNT).fill(null));
     const isSyncing = useRef(false);
     const savedRangeRef = useRef<any>(null);
 
@@ -161,53 +284,207 @@ function MarketBreadthContent() {
     const seriesVisibleRef = useRef(seriesVisible);
     seriesVisibleRef.current = seriesVisible;
 
-    /* ── tick for live dot ── */
-    useEffect(() => {
-        const id = setInterval(() => setTick((t) => t + 1), 1400);
-        return () => clearInterval(id);
-    }, []);
 
-    /* ── fetch data ── */
+    /* ── progressive parallel fetch: each section independent ── */
     useEffect(() => {
-        async function fetchData() {
-            try {
-                setLoading(true);
-                setError(null); // ✅ Fix 3: reset error قبل كل fetch جديد
-                const params = new URLSearchParams({ period });
-                if (shariahSelected.length > 0) {
-                    params.set('approval_with_controls', shariahSelected.join(','));
+        const controllers: AbortController[] = [];
+        let cancelled = false;
+
+        /**
+         * Strategy (like Bloomberg/TradingView):
+         *  Phase 1 — Try the bundled /dashboard endpoint with a SHORT timeout (15s).
+         *            On warm cache this returns instantly with all 4 datasets.
+         *  Phase 2 — If phase 1 fails (cold cache → timeout/ECONNRESET),
+         *            fire 4 individual lightweight requests in parallel.
+         *            Each chart renders as soon as its data arrives (progressive).
+         */
+
+        const transformAD = (items: any[]): ADRatingItem[] =>
+            items.map((item: any) => ({
+                time: item.time, a_rating: item.a_rating ?? 0,
+                d_rating: item.d_rating ?? 0, a_rating_pct: item.a_rating_pct ?? 0,
+                d_rating_pct: item.d_rating_pct ?? 0,
+            }));
+
+        const transformAlh = (items: any[]): AlhussainItem[] =>
+            items.map((item: any) => ({ time: item.time, count: item.count ?? 0 }));
+
+        const transformTrend = (items: any[]): ScreenerTrendItem[] =>
+            items.map((item: any) => ({
+                time: item.time, trend_1m: item.trend_1m ?? 0,
+                trend_4m: item.trend_4m ?? 0, trend_5m_wide: item.trend_5m_wide ?? 0,
+                alrayan: item.alrayan ?? 0,
+            }));
+
+        // ── helper: fetch with timeout, retry, and per-section state ──
+        const fetchWithRetry = async (
+            url: string, timeoutMs: number, retries: number,
+            signal?: AbortSignal,
+        ): Promise<any> => {
+            for (let attempt = 0; attempt <= retries; attempt++) {
+                const ctrl = new AbortController();
+                controllers.push(ctrl);
+                const tid = setTimeout(() => ctrl.abort(), timeoutMs);
+                // link parent signal
+                if (signal) signal.addEventListener('abort', () => ctrl.abort(), { once: true });
+                try {
+                    const res = await fetch(url, { signal: ctrl.signal });
+                    clearTimeout(tid);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    return await res.json();
+                } catch (e: any) {
+                    clearTimeout(tid);
+                    if (e.name === 'AbortError' && signal?.aborted) throw e; // parent cancelled
+                    if (attempt === retries) throw e;
+                    await new Promise((r) => setTimeout(r, 800)); // brief pause before retry
                 }
-                const res = await fetch(
-                    `${API_BASE_URL}/api/market-breadth/percent-above-ma?${params.toString()}`
-                );
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const json = await res.json();
-                if (json.data && Array.isArray(json.data)) setData(json.data);
-                else throw new Error('Invalid data format');
-            } catch (e: any) {
-                setError(e.message);
-            } finally {
-                setLoading(false);
-            }
-        }
-        fetchData();
-    }, [period, shariahSelected]);
-
-    /* ── click-outside: يقفل Export dropdown ── */
-    useEffect(() => {
-        if (!exportOpen) return;
-        const handler = (e: MouseEvent) => {
-            if (exportDropRef.current && !exportDropRef.current.contains(e.target as Node)) {
-                setExportOpen(false);
             }
         };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, [exportOpen]);
+
+        const params = new URLSearchParams({ period, ad_limit: '3000', alhussain_limit: '3000', screener_trend_limit: '3000' });
+        if (shariahSelected.length > 0) {
+            params.set('approval_with_controls', shariahSelected.join(','));
+        }
+        const dashUrl = `${API_BASE_URL}/api/market-breadth/dashboard?${params.toString()}`;
+
+        // Reset all sections to loading
+        setSectionLoading({ ma: true, ad: true, alhussain: true, trend: true });
+        setSectionError({ ma: null, ad: null, alhussain: null, trend: null });
+
+        const run = async () => {
+            // ═══════════════════════════════════════════════════════
+            // PHASE 1 — fast dashboard attempt (15s timeout, 0 retries)
+            // ═══════════════════════════════════════════════════════
+            try {
+                const json = await fetchWithRetry(dashUrl, 15_000, 0);
+                if (cancelled) return;
+
+                // Dashboard returned successfully (cache hit or fast cold)
+                const maData = json.ma_breadth?.data || [];
+                const adItems = transformAD(json.ad_rating?.data || []);
+                const alhItems = transformAlh(json.alhussain?.data || []);
+                const trendItems = transformTrend(json.screener_trend?.data || []);
+
+                setData(maData);
+                setAdData(adItems);
+                setAlhussainData(alhItems);
+                setTrendData(trendItems);
+                setSectionLoading({ ma: false, ad: false, alhussain: false, trend: false });
+                setSectionError({ ma: null, ad: null, alhussain: null, trend: null });
+                return; // all done
+            } catch {
+                // Dashboard failed (cold cache timeout) → fall through to phase 2
+                if (cancelled) return;
+            }
+
+            // ═══════════════════════════════════════════════════════
+            // PHASE 2 — parallel individual requests (60s each, 1 retry)
+            //           each section renders independently as it arrives
+            // ═══════════════════════════════════════════════════════
+            const indParams = new URLSearchParams({ period });
+            if (shariahSelected.length > 0) {
+                indParams.set('approval_with_controls', shariahSelected.join(','));
+            }
+
+            // MA Breadth (from pre-aggregated table — fast)
+            const fetchMA = async () => {
+                try {
+                    const json = await fetchWithRetry(
+                        `${API_BASE_URL}/api/market-breadth/percent-above-ma?${indParams.toString()}`,
+                        60_000, 1,
+                    );
+                    if (cancelled) return;
+                    setData(json?.data || []);
+                    setSectionError((p) => ({ ...p, ma: null }));
+                } catch (e: any) {
+                    if (!cancelled) setSectionError((p) => ({ ...p, ma: e.message || 'Failed' }));
+                } finally {
+                    if (!cancelled) setSectionLoading((p) => ({ ...p, ma: false }));
+                }
+            };
+
+            // A/D Rating
+            const fetchAD = async () => {
+                try {
+                    const json = await fetchWithRetry(
+                        `${API_BASE_URL}/api/market-breadth/ad-rating?${indParams.toString()}&limit=3000`,
+                        60_000, 1,
+                    );
+                    if (cancelled) return;
+                    setAdData(transformAD(json?.data || []));
+                    setSectionError((p) => ({ ...p, ad: null }));
+                } catch (e: any) {
+                    if (!cancelled) setSectionError((p) => ({ ...p, ad: e.message || 'Failed' }));
+                } finally {
+                    if (!cancelled) setSectionLoading((p) => ({ ...p, ad: false }));
+                }
+            };
+
+            // Alhussain
+            const fetchAlh = async () => {
+                try {
+                    const json = await fetchWithRetry(
+                        `${API_BASE_URL}/api/market-breadth/alhussain-count?${indParams.toString()}&limit=3000`,
+                        60_000, 1,
+                    );
+                    if (cancelled) return;
+                    setAlhussainData(transformAlh(json?.data || []));
+                    setSectionError((p) => ({ ...p, alhussain: null }));
+                } catch (e: any) {
+                    if (!cancelled) setSectionError((p) => ({ ...p, alhussain: e.message || 'Failed' }));
+                } finally {
+                    if (!cancelled) setSectionLoading((p) => ({ ...p, alhussain: false }));
+                }
+            };
+
+            // Screener Trend (from screener_daily_trend_counts — fast)
+            const fetchTrend = async () => {
+                try {
+                    // Use the dashboard endpoint one more time but with short data
+                    // Actually, use the individual alhussain-count which also reads the same table
+                    // The screener_daily_bundle is already fast, so let's try dashboard again
+                    // with a longer timeout — this time the other sections are already loading
+                    const json = await fetchWithRetry(
+                        `${API_BASE_URL}/api/market-breadth/dashboard?${params.toString()}`,
+                        60_000, 1,
+                    );
+                    if (cancelled) return;
+                    // Extract only trend from the dashboard response
+                    const trendItems = transformTrend(json.screener_trend?.data || []);
+                    if (trendItems.length) setTrendData(trendItems);
+                    // Also backfill any sections that were slower individually
+                    const maData = json.ma_breadth?.data || [];
+                    const adItems = transformAD(json.ad_rating?.data || []);
+                    const alhItems = transformAlh(json.alhussain?.data || []);
+                    if (maData.length) setData((prev) => prev.length ? prev : maData);
+                    if (adItems.length) setAdData((prev) => prev.length ? prev : adItems);
+                    if (alhItems.length) setAlhussainData((prev) => prev.length ? prev : alhItems);
+                    setSectionError((p) => ({ ...p, trend: null }));
+                } catch (e: any) {
+                    if (!cancelled) setSectionError((p) => ({ ...p, trend: e.message || 'Failed' }));
+                } finally {
+                    if (!cancelled) setSectionLoading((p) => ({ ...p, trend: false }));
+                }
+            };
+
+            // Fire all 4 in parallel — each updates its own section independently
+            await Promise.allSettled([fetchMA(), fetchAD(), fetchAlh(), fetchTrend()]);
+        };
+
+        run();
+
+        return () => {
+            cancelled = true;
+            controllers.forEach((c) => c.abort());
+        };
+    }, [period, shariahSelected]);
+
 
     /* ── build / rebuild charts ── */
     useEffect(() => {
-        if (data.length === 0) return;
+        const hasAnyData =
+            data.length > 0 || adData.length > 0 || alhussainData.length > 0 || trendData.length > 0;
+        if (!hasAnyData) return;
 
         if (chartsRef.current.length > 0 && !isRestoringRef.current) {
             try {
@@ -218,11 +495,12 @@ function MarketBreadthContent() {
             }
         }
 
-        chartsRef.current.forEach((c) => c.remove());
-        chartsRef.current = [];
-        mainSeriesRef.current = Array(CHART_COUNT).fill(null);
-        avg50SeriesRef.current = Array(CHART_COUNT).fill(null);
-        avg200SeriesRef.current = Array(CHART_COUNT).fill(null);
+        chartsRef.current.forEach((c) => c?.remove());
+        chartsRef.current = Array(TOTAL_CHART_COUNT).fill(null);
+        mainSeriesRef.current = Array(TOTAL_CHART_COUNT).fill(null);
+        secondarySeriesRef.current = Array(TOTAL_CHART_COUNT).fill(null);
+        avg50SeriesRef.current = Array(TOTAL_CHART_COUNT).fill(null);
+        avg200SeriesRef.current = Array(TOTAL_CHART_COUNT).fill(null);
 
         const baseOptions = {
             layout: {
@@ -265,15 +543,15 @@ function MarketBreadthContent() {
 
         CHART_CONFIGS.forEach((cfg, i) => {
             const container = canvasRefs.current[i];
-            if (!container) return;
+            if (!container || data.length === 0) return;
             container.innerHTML = '';
 
             const chart = createChart(container, {
                 ...baseOptions,
                 width: container.clientWidth,
-                height: container.clientHeight || 180,
+                height: Math.max(container.clientHeight, 1),
             });
-            chartsRef.current.push(chart);
+            chartsRef.current[i] = chart;
 
             const series = chart.addSeries(AreaSeries, {
                 lineColor: cfg.lineColor,
@@ -281,7 +559,7 @@ function MarketBreadthContent() {
                 bottomColor: 'rgba(0,0,0,0)',
                 lineWidth: 1.5 as any,
                 crosshairMarkerVisible: true,
-                crosshairMarkerRadius: 4,
+                crosshairMarkerRadius: 3,
                 crosshairMarkerBorderColor: cfg.lineColor,
                 crosshairMarkerBackgroundColor: '#FFFFFF',
                 lastValueVisible: true,
@@ -354,13 +632,110 @@ function MarketBreadthContent() {
             );
         });
 
+        /* ── A/D Rating + Alhussain charts ── */
+        EXTRA_PANELS.forEach((panel, extraIdx) => {
+            const i = MA_CHART_COUNT + extraIdx;
+            const container = canvasRefs.current[i];
+            if (!container) return;
+            container.innerHTML = '';
+
+            const chart = createChart(container, {
+                ...baseOptions,
+                width: container.clientWidth,
+                height: Math.max(container.clientHeight, 1),
+            });
+            chartsRef.current[i] = chart;
+
+            if (panel.kind === 'ad-count' && adData.length > 0) {
+                const aSeries = chart.addSeries(LineSeries, {
+                    color: panel.lineColor,
+                    lineWidth: 1.5 as any,
+                    crosshairMarkerVisible: true,
+                    lastValueVisible: true,
+                    priceLineVisible: false,
+                });
+                aSeries.setData(
+                    adData.map((d) => ({
+                        time: d.time,
+                        value: adShowPercent ? d.a_rating_pct : d.a_rating,
+                    })) as any
+                );
+                const dSeries = chart.addSeries(LineSeries, {
+                    color: panel.secondaryColor,
+                    lineWidth: 1.5 as any,
+                    crosshairMarkerVisible: true,
+                    lastValueVisible: true,
+                    priceLineVisible: false,
+                });
+                dSeries.setData(
+                    adData.map((d) => ({
+                        time: d.time,
+                        value: adShowPercent ? d.d_rating_pct : d.d_rating,
+                    })) as any
+                );
+                mainSeriesRef.current[i] = aSeries;
+                secondarySeriesRef.current[i] = dSeries;
+            } else if (panel.kind === 'alhussain' && alhussainData.length > 0) {
+                const series = chart.addSeries(AreaSeries, {
+                    lineColor: panel.lineColor,
+                    topColor: panel.topColor,
+                    bottomColor: 'rgba(0,0,0,0)',
+                    lineWidth: 1.5 as any,
+                    crosshairMarkerVisible: true,
+                    crosshairMarkerRadius: 3,
+                    crosshairMarkerBorderColor: panel.lineColor,
+                    crosshairMarkerBackgroundColor: '#FFFFFF',
+                    lastValueVisible: true,
+                    priceLineVisible: false,
+                    visible: seriesVisibleRef.current[i] !== false,
+                });
+                series.setData(alhussainData.map((d) => ({ time: d.time, value: d.count })) as any);
+                mainSeriesRef.current[i] = series;
+            }
+        });
+
+        /* ── Minervini / Alrayan trend charts ── */
+        const trendChartData = downsampleSeries(trendData, MAX_CHART_POINTS);
+        MINERVINI_CONFIGS.forEach((cfg, minIdx) => {
+            const i = MA_CHART_COUNT + EXTRA_PANELS.length + minIdx;
+            const container = canvasRefs.current[i];
+            if (!container || trendChartData.length === 0) return;
+            container.innerHTML = '';
+
+            const chart = createChart(container, {
+                ...baseOptions,
+                width: container.clientWidth,
+                height: Math.max(container.clientHeight, 1),
+            });
+            chartsRef.current[i] = chart;
+
+            const series = chart.addSeries(AreaSeries, {
+                lineColor: cfg.lineColor,
+                topColor: cfg.topColor,
+                bottomColor: 'rgba(0,0,0,0)',
+                lineWidth: 1.5 as any,
+                crosshairMarkerVisible: true,
+                crosshairMarkerRadius: 3,
+                crosshairMarkerBorderColor: cfg.lineColor,
+                crosshairMarkerBackgroundColor: '#FFFFFF',
+                lastValueVisible: true,
+                priceLineVisible: false,
+                visible: seriesVisibleRef.current[i] !== false,
+            });
+            series.setData(
+                trendChartData.map((d) => ({ time: d.time, value: d[cfg.key] })) as any
+            );
+            mainSeriesRef.current[i] = series;
+        });
+
         /* ── sync time-scale ── */
         chartsRef.current.forEach((chart, i) => {
+            if (!chart) return;
             chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
                 if (!range || isSyncing.current || isRestoringRef.current) return;
                 isSyncing.current = true;
                 chartsRef.current.forEach((c, j) => {
-                    if (j !== i) c.timeScale().setVisibleLogicalRange(range);
+                    if (j !== i && c) c.timeScale().setVisibleLogicalRange(range);
                 });
                 setTimeout(() => { isSyncing.current = false; }, 0);
                 if (!isRestoringRef.current && chartsRef.current[0]) {
@@ -374,15 +749,18 @@ function MarketBreadthContent() {
 
         /* ── crosshair sync + hover (مع تحسين الأداء باستخدام RAF) ── */
         chartsRef.current.forEach((chart, i) => {
+            if (!chart) return;
             chart.subscribeCrosshairMove((param) => {
                 const mainS = mainSeriesRef.current[i];
+                const secS = secondarySeriesRef.current[i];
                 const avg50S = avg50SeriesRef.current[i];
                 const avg200S = avg200SeriesRef.current[i];
 
-                let entry: HoverEntry = { main: null, avg50: null, avg200: null, time: null };
+                let entry: HoverEntry = { main: null, secondary: null, avg50: null, avg200: null, time: null };
 
                 if (param.point && param.time && mainS) {
                     const mainVal = param.seriesData.get(mainS);
+                    const secVal = secS ? param.seriesData.get(secS) : null;
                     const avg50Val = avg50S ? param.seriesData.get(avg50S) : null;
                     const avg200Val = avg200S ? param.seriesData.get(avg200S) : null;
 
@@ -395,6 +773,7 @@ function MarketBreadthContent() {
 
                     entry = {
                         main: mainVal && 'value' in mainVal ? (mainVal as any).value : null,
+                        secondary: secVal && 'value' in secVal ? (secVal as any).value : null,
                         avg50: avg50Val && 'value' in avg50Val ? (avg50Val as any).value : null,
                         avg200: avg200Val && 'value' in avg200Val ? (avg200Val as any).value : null,
                         time: timeStr,
@@ -412,7 +791,7 @@ function MarketBreadthContent() {
 
                 // ✅ الحفاظ على مزامنة الـ crosshair بين جميع الشارتات
                 chartsRef.current.forEach((targetChart, j) => {
-                    if (j === i) return;
+                    if (j === i || !targetChart) return;
                     const targetSeries = mainSeriesRef.current[j];
                     if (!param.point || !param.time || !targetSeries) {
                         try { targetChart.clearCrosshairPosition(); } catch { }
@@ -430,15 +809,31 @@ function MarketBreadthContent() {
         /* ── ResizeObserver ── */
         const ro = new ResizeObserver(() => {
             chartsRef.current.forEach((chart, i) => {
+                if (!chart) return;
                 const el = canvasRefs.current[i];
                 if (!el) return;
                 chart.applyOptions({
                     width: el.clientWidth,
-                    height: Math.max(el.clientHeight, 100),
+                    height: Math.max(el.clientHeight, 1),
                 });
             });
         });
         canvasRefs.current.forEach((el) => { if (el) ro.observe(el); });
+
+        /* Force charts to fill grid cells after layout */
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                chartsRef.current.forEach((chart, i) => {
+                    const el = canvasRefs.current[i];
+                    if (!el || !chart) return;
+                    chart.applyOptions({
+                        width: el.clientWidth,
+                        height: Math.max(el.clientHeight, 1),
+                    });
+                    chart.timeScale().fitContent();
+                });
+            });
+        });
 
         /* Restore zoom */
         const rangeToRestore = savedRangeRef.current;
@@ -447,6 +842,7 @@ function MarketBreadthContent() {
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     chartsRef.current.forEach((chart) => {
+                        if (!chart) return;
                         try { chart.timeScale().setVisibleLogicalRange(rangeToRestore); }
                         catch { chart.timeScale().fitContent(); }
                     });
@@ -455,7 +851,9 @@ function MarketBreadthContent() {
             });
         } else {
             requestAnimationFrame(() => {
-                chartsRef.current.forEach((chart) => chart.timeScale().fitContent());
+                chartsRef.current.forEach((chart) => {
+                    if (chart) chart.timeScale().fitContent();
+                });
             });
         }
 
@@ -465,11 +863,11 @@ function MarketBreadthContent() {
                 hoverRafRef.current = null;
             }
             ro.disconnect();
-            chartsRef.current.forEach((c) => c.remove());
+            chartsRef.current.forEach((c) => c?.remove());
             chartsRef.current = [];
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [data, selectedAverages]);
+    }, [data, adData, alhussainData, trendData, selectedAverages, adShowPercent]);
 
     /* ── reset saved range on period change ── */
     useEffect(() => { savedRangeRef.current = null; }, [period]);
@@ -515,474 +913,255 @@ function MarketBreadthContent() {
         });
     };
 
-    /* ── export ── */
-    const today = () => new Date().toISOString().slice(0, 10);
-    const notify = (msg: string) => {
-        setExportStatus(msg);
-        setTimeout(() => setExportStatus(null), 2500);
-    };
-
-    const exportPDF = async () => {
-        setExportOpen(false);
-        if (!pageRef.current) return;
-        notify('Generating PDF…');
-        try {
-            const canvas = await html2canvas(pageRef.current, { scale: 2, useCORS: true, backgroundColor: '#F8FAFC' });
-            const pdf = new jsPDF({
-                orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
-                unit: 'px',
-                format: [canvas.width / 2, canvas.height / 2],
-            });
-            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, canvas.width / 2, canvas.height / 2);
-            pdf.save(`TASI-Market-Breadth-${today()}.pdf`);
-            notify('PDF saved ✓');
-        } catch { notify('PDF export failed'); }
-    };
-
-    const exportImage = async () => {
-        setExportOpen(false);
-        if (!pageRef.current) return;
-        notify('Capturing screenshot…');
-        try {
-            const canvas = await html2canvas(pageRef.current, { scale: 2, useCORS: true, backgroundColor: '#F8FAFC' });
-            const link = document.createElement('a');
-            link.download = `TASI-Market-Breadth-${today()}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-            notify('Image saved ✓');
-        } catch { notify('Image export failed'); }
-    };
-
-    const exportExcel = () => {
-        setExportOpen(false);
-        if (!data.length) return;
-        notify('Preparing Excel file…');
-        const rows = data.map((d) => ({
-            Date: d.time,
-            'Total Constituents': d.total,
-            '% Above MA20': +d.pct_above_20.toFixed(2),
-            '% Above MA50': +d.pct_above_50.toFixed(2),
-            '% Above MA150': +d.pct_above_150.toFixed(2),
-            '% Above MA200': +d.pct_above_200.toFixed(2),
-        }));
-        const ws = XLSX.utils.json_to_sheet(rows);
-        ws['!cols'] = [{ wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 15 }, { wch: 15 }];
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Market Breadth');
-        XLSX.writeFile(wb, `TASI-Market-Breadth-${today()}.xlsx`);
-        notify('Excel downloaded ✓');
-    };
-
-    /* ─── Loading / Error ──────────────────────────────────────────────── */
-
-    if (loading && data.length === 0)
-        return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center"
-                style={{ fontFamily: '"DM Sans", sans-serif' }}>
-                <div className="flex flex-col items-center gap-5">
-                    <svg width="36" height="36" viewBox="0 0 36 36" className="animate-spin">
-                        <circle cx="18" cy="18" r="15" fill="none" stroke="#E2E8F0" strokeWidth="2" />
-                        <path d="M18 3 A15 15 0 0 1 33 18" fill="none" stroke="#0F7A5A"
-                            strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-                    <p className="text-xs text-slate-400 uppercase tracking-widest font-medium">
-                        Loading market data
-                    </p>
-                </div>
-            </div>
-        );
-
-    if (error)
-        return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center"
-                style={{ fontFamily: '"DM Sans", sans-serif' }}>
-                <div className="bg-white border border-red-100 rounded-xl p-10 text-center max-w-sm">
-                    <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
-                        <Activity size={18} color="#B02040" />
-                    </div>
-                    <p className="text-sm font-semibold text-red-700">Connection Failed</p>
-                    <p className="text-xs text-slate-400 mt-1">{error}</p>
+    /* ── extra controls for Shariah bar ── */
+    const extraControls = (
+        <div className="flex items-center gap-2.5 mr-2">
+            {/* period selector */}
+            <div className="flex bg-slate-100 border border-slate-200 p-0.5 rounded-[9px] gap-0.5">
+                {['5D', '1M', '6M', '1Y', '5Y', '10Y', 'ALL'].map((p) => (
                     <button
-                        onClick={() => setPeriod((p) => p)}
-                        className="mt-4 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-lg cursor-pointer border-none"
+                        key={p}
+                        onClick={() => setPeriod(p)}
+                        disabled={loading}
+                        className={[
+                            'px-2.5 py-1 rounded-md text-[10px] font-bold transition-all border-none cursor-pointer',
+                            period === p ? 'bg-white text-slate-900 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700',
+                            loading ? 'opacity-50' : '',
+                        ].join(' ')}
                     >
-                        Retry
+                        {p}
                     </button>
-                </div>
+                ))}
             </div>
-        );
+
+            {/* fit all */}
+            <button
+                onClick={fitAll}
+                title="Fit all charts to data"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+                <Scan size={12} strokeWidth={2.5} />
+                FIT ALL
+            </button>
+
+            {/* export */}
+            <ExportButton
+                data={data as any}
+                adData={adData}
+                alhussainData={alhussainData}
+                trendData={trendData}
+                period={period}
+                captureRef={pageRef as any}
+            />
+        </div>
+    );
+
+    /* ─── helpers: which section does each chart belong to? ──────────── */
+    const sectionForChart = (i: number): string => {
+        if (i < MA_CHART_COUNT) return 'ma';
+        if (i < MA_CHART_COUNT + EXTRA_PANELS.length) {
+            const panel = EXTRA_PANELS[i - MA_CHART_COUNT];
+            return panel.kind === 'ad-count' ? 'ad' : 'alhussain';
+        }
+        return 'trend';
+    };
 
     const latest = data[data.length - 1];
+    const latestAd = adData[adData.length - 1];
+    const latestAlh = alhussainData[alhussainData.length - 1];
+    const latestTrend = trendData[trendData.length - 1];
 
     /* ─── Render ───────────────────────────────────────────────────────── */
     return (
         <div
-            className="w-full flex-1 flex flex-col bg-slate-50 overflow-hidden min-h-0"
+            className="w-full h-full flex-1 flex flex-col bg-slate-50 overflow-hidden min-h-0"
             style={{ fontFamily: '"DM Sans", sans-serif' }}
         >
-            {/* ── Header ─────────────────────────────────────────────────── */}
-            <header
-                className="bg-white border-b border-slate-200 flex-shrink-0 z-50"
-                style={{ boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
-            >
-                <div className="w-full px-5 h-[60px] flex items-center justify-between gap-6">
-
-                    {/* brand */}
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                        <div className="w-[34px] h-[34px] bg-slate-50 border border-slate-200 rounded-[9px] flex items-center justify-center flex-shrink-0">
-                            <svg width="16" height="16" viewBox="0 0 20 18" fill="none">
-                                <rect x="0" y="10" width="3.5" height="8" rx="1" fill="#0F7A5A" />
-                                <rect x="5.5" y="6" width="3.5" height="12" rx="1" fill="#1560A8" />
-                                <rect x="11" y="2" width="3.5" height="16" rx="1" fill="#A0600A" />
-                                <rect x="16.5" y="8" width="3.5" height="10" rx="1" fill="#B02040" opacity="0.8" />
-                            </svg>
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h1 className="text-[14px] font-bold text-slate-900 tracking-tight m-0">Market Breadth</h1>
-                                <span className="text-slate-300">/</span>
-                                <span className="text-[12px] text-slate-500">TASI Analysis</span>
-                                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded ml-1">
-                                    <span
-                                        className="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block"
-                                        style={{ opacity: tick % 2 === 0 ? 1 : 0.25, transition: 'opacity 0.5s ease' }}
-                                    />
-                                    Live
-                                </span>
-                            </div>
-                            <p className="text-[10px] text-slate-400 mt-0.5 leading-none">
-                                Constituent breadth across moving average thresholds
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* controls */}
-                    <div className="flex items-center gap-2.5">
-
-                        {/* period selector */}
-                        <div className="flex bg-slate-50 border border-slate-200 p-0.5 rounded-[9px] gap-0.5">
-                            {['5D', '1M', '6M', '1Y', '5Y', '10Y', 'ALL'].map((p) => (
-                                <button
-                                    key={p}
-                                    onClick={() => setPeriod(p)}
-                                    disabled={loading}
-                                    className={[
-                                        'px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all border-none cursor-pointer',
-                                        period === p ? 'bg-white text-slate-900 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700',
-                                        loading ? 'opacity-50' : '',
-                                    ].join(' ')}
-                                >
-                                    {p}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* stat blocks */}
-                        <div className="flex items-center bg-slate-50 border border-slate-200 rounded-[9px] px-3.5 py-2 gap-4">
-                            {CHART_CONFIGS.map((cfg, i) => {
-                                const val = latest ? Math.round(latest[cfg.key] as number) : 0;
-                                return (
-                                    <div key={cfg.key} className={i > 0 ? 'pl-4 border-l border-slate-100' : ''}>
-                                        <div className="flex items-center gap-1 mb-0.5">
-                                            <span className="w-[6px] h-[6px] rounded-[2px] inline-block flex-shrink-0" style={{ background: cfg.lineColor }} />
-                                            <span className="text-[9px] text-slate-400 font-medium tracking-wide">{cfg.badge}</span>
-                                        </div>
-                                        <div className="flex items-baseline gap-0.5">
-                                            <span className="text-[18px] font-bold text-slate-900 leading-none tracking-tight">{val}</span>
-                                            <span className="text-[10px] text-slate-400">%</span>
-                                        </div>
-                                        <div className="mt-1 h-[3px] rounded-full bg-slate-100 overflow-hidden w-[60px]">
-                                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${val}%`, background: cfg.lineColor }} />
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {/* fit all */}
-                        <button
-                            onClick={fitAll}
-                            title="Fit all charts to data"
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-medium text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
-                        >
-                            <Scan size={13} />
-                            Fit All
-                        </button>
-
-                        {/* export — مع click-outside */}
-                        <div className="relative" ref={exportDropRef}>
-                            <button
-                                onClick={() => setExportOpen((o) => !o)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[12px] font-medium text-slate-800 hover:bg-slate-50 transition-colors cursor-pointer"
-                            >
-                                <Download size={13} />
-                                Export
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
-                                    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                                    style={{ transform: exportOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>
-                                    <polyline points="6 9 12 15 18 9" />
-                                </svg>
-                            </button>
-
-                            {exportOpen && (
-                                <div className="absolute top-[calc(100%+6px)] right-0 min-w-[210px] bg-white border border-slate-200 rounded-xl overflow-hidden z-[999]"
-                                    style={{ boxShadow: '0 8px 24px rgba(15,23,42,0.10)' }}>
-                                    <div className="px-3.5 py-2 text-[10px] text-slate-400 uppercase tracking-widest font-semibold border-b border-slate-100">
-                                        Export as
-                                    </div>
-                                    {[
-                                        { icon: <FileText size={13} color="#B02040" />, bg: '#FEF2F2', label: 'PDF Report', sub: 'Full page with all charts', action: exportPDF },
-                                        { icon: <ImgIcon size={13} color="#4338CA" />, bg: '#EEF2FF', label: 'PNG Image', sub: 'Screenshot of the dashboard', action: exportImage },
-                                        null,
-                                        { icon: <Table2 size={13} color="#166534" />, bg: '#F0FFF4', label: 'Excel / CSV', sub: 'Raw breadth data table', action: exportExcel },
-                                    ].map((item, idx) =>
-                                        item === null ? (
-                                            <div key={idx} className="h-px bg-slate-100 mx-3.5 my-1" />
-                                        ) : (
-                                            <button key={idx} onClick={item.action}
-                                                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 hover:bg-slate-50 transition-colors text-left cursor-pointer border-none bg-transparent">
-                                                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: item.bg }}>
-                                                    {item.icon}
-                                                </div>
-                                                <div>
-                                                    <div className="text-[13px] font-medium text-slate-800">{item.label}</div>
-                                                    <div className="text-[11px] text-slate-400">{item.sub}</div>
-                                                </div>
-                                            </button>
-                                        )
-                                    )}
-                                    <div className="px-3.5 pb-3">
-                                        <div className="text-[10px] text-slate-400 bg-slate-50 rounded-md px-2.5 py-1.5 leading-relaxed">
-                                            Exports all 4 MA charts and summary bar
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {exportStatus && (
-                                <div className="absolute top-[calc(100%+6px)] right-0 flex items-center gap-2 px-3.5 py-2.5 bg-white border border-slate-200 rounded-lg z-[1000] text-xs text-slate-800 whitespace-nowrap"
-                                    style={{ boxShadow: '0 4px 12px rgba(15,23,42,0.08)' }}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0F7A5A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <polyline points="20 6 9 17 4 12" />
-                                    </svg>
-                                    {exportStatus}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* rainbow rule */}
-                <div className="h-[2px]" style={{
-                    background: 'linear-gradient(90deg, #0F7A5A 0%, #1560A8 33%, #A0600A 66%, #B02040 100%)',
-                    opacity: 0.3,
-                }} />
-            </header>
-
+            <ShariahFilterBar variant="light" extraControls={extraControls} />
             {/* ── Main ───────────────────────────────────────────────────── */}
-            <main ref={pageRef} className="flex-1 min-h-0 flex flex-col w-full px-4 pt-2 pb-2">
+            <main ref={pageRef} className="flex-1 min-h-0 flex flex-col w-full px-2 pt-1 pb-1 overflow-hidden" style={{ flex: '1 1 0' }}>
 
-                {/* summary bar */}
-                <div className="bg-white border border-slate-200 rounded-[9px] px-4 py-2 flex justify-between items-center mb-2 flex-shrink-0"
-                    style={{ boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
-                    <div className="flex items-center gap-4 flex-wrap">
-                        {CHART_CONFIGS.map((cfg, i) => {
-                            const val = latest ? (latest[cfg.key] as number) : 50;
-                            const rounded = Math.round(val);
-                            const s = val >= 70
-                                ? { label: 'Bullish', color: '#0F7A5A', bg: '#E6F5F0' }
-                                : val <= 30
-                                    ? { label: 'Bearish', color: '#B02040', bg: '#FAE8EC' }
-                                    : { label: 'Neutral', color: '#A0600A', bg: '#FBF3E6' };
-                            return (
-                                <div key={cfg.key} className={`flex items-center gap-2 ${i > 0 ? 'pl-4 border-l border-slate-200' : ''}`}>
-                                    <span className="text-[11px] font-semibold text-slate-500">{cfg.label} MA</span>
-                                    <span className="text-[11px] font-bold" style={{ color: cfg.lineColor }}>{rounded}%</span>
-                                    <span className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ color: s.color, background: s.bg }}>
-                                        <span className="w-1 h-1 rounded-full inline-block" style={{ background: s.color }} />
-                                        {s.label}
-                                    </span>
-                                </div>
-                            );
-                        })}
-                    </div>
-                    <span className="text-[10px] text-slate-300 flex-shrink-0">{latest?.time || '—'}</span>
-                </div>
-
-                {/* CHART GRID */}
-                <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-2">
-                    {CHART_CONFIGS.map((cfg, i) => {
-                        const Icon = cfg.icon;
+                {/* CHART GRID — rows: 3+3 narrow, then 2+2 wide (Minervini) */}
+                <div
+                    className="flex-1 min-h-0 w-full grid grid-cols-6 gap-1.5"
+                    style={{ gridTemplateRows: 'repeat(4, minmax(0, 1fr))', height: '100%' }}
+                >
+                    {Array.from({ length: TOTAL_CHART_COUNT }, (_, i) => {
+                        const isMa = i < MA_CHART_COUNT;
+                        const isExtra = !isMa && i < MA_CHART_COUNT + EXTRA_PANELS.length;
+                        const isMinervini = i >= MA_CHART_COUNT + EXTRA_PANELS.length;
+                        const cfg = isMa ? CHART_CONFIGS[i] : null;
+                        const panel = isExtra ? EXTRA_PANELS[i - MA_CHART_COUNT] : null;
+                        const minCfg = isMinervini
+                            ? MINERVINI_CONFIGS[i - MA_CHART_COUNT - EXTRA_PANELS.length]
+                            : null;
+                        const lineColor = isMa
+                            ? cfg!.lineColor
+                            : isMinervini
+                                ? minCfg!.lineColor
+                                : panel!.lineColor;
+                        const Icon = isMa ? cfg!.icon : isMinervini ? minCfg!.icon : panel!.icon;
+                        const gridCol = chartGridColClass(i);
                         const hover = hoverValues[i];
                         const isVisible = seriesVisible[i] !== false;
-
-                        const displayVal = !isVisible
-                            ? '—'
-                            : hover?.main != null
-                                ? hover.main.toFixed(1)
-                                : latest ? (latest[cfg.key] as number).toFixed(1) : '—';
-
-                        const numVal = hover?.main != null
-                            ? hover.main
-                            : latest ? (latest[cfg.key] as number) : 50;
-
-                        const prev = data.length > 1 ? (data[data.length - 2][cfg.key] as number) : numVal;
-                        const delta = Math.abs(numVal - prev).toFixed(1);
-                        const isUp = numVal >= prev;
                         const isFS = fullscreenIdx === i;
 
-                        const selectedSet = selectedAverages[i] || new Set<string>();
-                        const avg50Key = cfg.avgKeys[0];
-                        const avg200Key = cfg.avgKeys[1];
+                        let displayVal = '—';
+                        let unit: string = isMa ? '%' : isMinervini ? 'stk' : panel!.unit;
+                        let secondaryDisplay: string | null = null;
+
+                        if (isMa && cfg) {
+                            displayVal = !isVisible ? '—' : hover?.main != null
+                                ? hover.main.toFixed(1)
+                                : latest ? (latest[cfg.key] as number).toFixed(1) : '—';
+                        } else if (panel?.kind === 'ad-count') {
+                            const pt = hover?.time
+                                ? adData.find((d) => d.time === hover.time)
+                                : latestAd;
+                            if (pt) {
+                                if (adShowPercent) {
+                                    unit = '';
+                                    const aVal = hover?.main != null ? hover.main : pt.a_rating_pct;
+                                    const dVal = hover?.secondary != null ? hover.secondary : pt.d_rating_pct;
+                                    const aStr = `${Number(aVal).toFixed(1)}%`;
+                                    const dStr = `${Number(dVal).toFixed(1)}%`;
+                                    displayVal = aStr;
+                                    secondaryDisplay = hover?.time
+                                        ? `${dStr} · ${pt.a_rating} / ${pt.d_rating}`
+                                        : dStr;
+                                } else {
+                                    unit = '';
+                                    const aNum = hover?.main != null ? Math.round(hover.main) : pt.a_rating;
+                                    const dNum = hover?.secondary != null ? Math.round(hover.secondary) : pt.d_rating;
+                                    displayVal = String(aNum);
+                                    secondaryDisplay = hover?.time
+                                        ? `${dNum} · ${pt.a_rating_pct}% / ${pt.d_rating_pct}%`
+                                        : String(dNum);
+                                }
+                            }
+                        } else if (panel?.kind === 'alhussain') {
+                            displayVal = hover?.main != null ? String(Math.round(hover.main)) : latestAlh ? String(latestAlh.count) : '—';
+                        } else if (isMinervini && minCfg) {
+                            const pt = hover?.time
+                                ? trendData.find((d) => d.time === hover.time)
+                                : latestTrend;
+                            const v = pt ? pt[minCfg.key] : null;
+                            displayVal = hover?.main != null
+                                ? String(Math.round(hover.main))
+                                : v != null ? String(v) : '—';
+                        }
+
+                        const title = isMa
+                            ? `${cfg!.label} MA`
+                            : isMinervini
+                                ? minCfg!.label
+                                : panel!.label;
+                        const sub = panel?.kind === 'ad-count'
+                            ? (adShowPercent ? 'A vs D · %' : 'A vs D · Count')
+                            : isMa
+                                ? cfg!.sublabel
+                                : isMinervini
+                                    ? minCfg!.sublabel
+                                    : panel!.sublabel;
+                        const badge = isMa ? cfg!.badge : isMinervini ? minCfg!.badge : panel!.badge;
+
+                        const selectedSet = isMa ? (selectedAverages[i] || new Set<string>()) : new Set<string>();
+                        const avg50Key = isMa ? cfg!.avgKeys[0] : '';
+                        const avg200Key = isMa ? cfg!.avgKeys[1] : '';
                         const isAvg50Active = selectedSet.has(avg50Key);
                         const isAvg200Active = selectedSet.has(avg200Key);
-
                         const avg50DisplayVal = hover?.avg50 != null ? hover.avg50.toFixed(1) : null;
                         const avg200DisplayVal = hover?.avg200 != null ? hover.avg200.toFixed(1) : null;
 
                         return (
                             <div
-                                key={cfg.key}
+                                key={i}
                                 ref={(el) => { cardRefs.current[i] = el; }}
-                                className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col relative min-h-0 transition-all duration-200"
-                                style={{ borderLeft: `3px solid ${cfg.lineColor}`, boxShadow: '0 1px 3px rgba(15,23,42,0.05)' }}
+                                className={`${gridCol} bg-white border border-slate-200 rounded-lg overflow-hidden flex flex-col relative min-h-0 h-full`}
+                                style={{ borderLeft: `3px solid ${lineColor}`, boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}
                             >
-                                {/* card header */}
-                                <div className="px-4 pt-2.5 pb-1.5 flex justify-between items-start flex-shrink-0">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-[30px] h-[30px] rounded-[8px] flex items-center justify-center flex-shrink-0" style={{ background: cfg.accentLight }}>
-                                            <Icon size={14} color={cfg.lineColor} strokeWidth={2} />
-                                        </div>
-                                        <div>
-                                            <div className="text-[12px] font-semibold text-slate-900 tracking-tight leading-none">{cfg.label} Moving Average</div>
-                                            <div className="text-[10px] text-slate-400 mt-0.5 tracking-wide leading-none">{cfg.sublabel}</div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-col items-end gap-0.5">
-                                        <div className="flex items-baseline gap-0.5 flex-wrap justify-end">
-                                            {isVisible && (
-                                                <>
-                                                    <span className="text-[22px] font-bold text-slate-900 leading-none tracking-tight">{displayVal}</span>
-                                                    <span className="text-[11px] text-slate-400 font-medium">%</span>
-                                                </>
-                                            )}
-                                            {avg50DisplayVal && isAvg50Active && (
-                                                <span className="text-[11px] ml-1.5 font-semibold" style={{ color: AVG50_COLOR }}>
-                                                    {isVisible ? '/ ' : ''}{avg50DisplayVal}%
-                                                </span>
-                                            )}
-                                            {avg200DisplayVal && isAvg200Active && (
-                                                <span className="text-[11px] ml-1.5 font-semibold" style={{ color: AVG200_COLOR }}>
-                                                    {isVisible || isAvg50Active ? '/ ' : ''}{avg200DisplayVal}%
-                                                </span>
-                                            )}
-                                        </div>
-                                        {hover?.time ? (
-                                            <span className="text-[10px] text-slate-400 font-medium">{hover.time}</span>
-                                        ) : isVisible ? (
-                                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded tracking-wide ${isUp ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}>
-                                                {isUp ? '▲' : '▼'} {delta}%
-                                            </span>
-                                        ) : null}
-                                    </div>
-                                </div>
-
-                                {/* progress bar */}
-                                <div className="px-4 pb-1.5 flex-shrink-0">
-                                    <div className="flex justify-between mb-0.5">
-                                        <span className="text-[9px] text-slate-300 uppercase tracking-widest font-medium">OVERSOLD · 30</span>
-                                        <span className="text-[9px] text-slate-300 uppercase tracking-widest font-medium">70 · OVERBOUGHT</span>
-                                    </div>
-                                    <div className="h-[4px] bg-slate-100 rounded-full relative overflow-hidden">
-                                        <div
-                                            className="absolute left-0 top-0 bottom-0 rounded-full transition-all duration-700"
+                                <div className="px-2.5 pt-1.5 pb-1 flex justify-between items-center flex-shrink-0">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                        <div className="w-[22px] h-[22px] rounded-md flex items-center justify-center flex-shrink-0"
                                             style={{
-                                                width: `${numVal}%`,
-                                                background: numVal >= 70
-                                                    ? `linear-gradient(90deg, #0F7A5A44, #0F7A5A)`
-                                                    : numVal <= 30
-                                                        ? `linear-gradient(90deg, #B0204044, #B02040)`
-                                                        : `linear-gradient(90deg, ${cfg.lineColor}44, ${cfg.lineColor})`,
-                                            }}
-                                        />
-                                        {[30, 50, 70].map((t) => (
-                                            <div key={t} className="absolute top-0 bottom-0 w-px bg-white/70 z-10" style={{ left: `${t}%` }} />
-                                        ))}
+                                                background: isMa
+                                                    ? cfg!.accentLight
+                                                    : isMinervini
+                                                        ? minCfg!.accentLight
+                                                        : panel!.accentLight,
+                                            }}>
+                                            <Icon size={11} color={lineColor} strokeWidth={2} />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="text-[10px] font-semibold text-slate-900 leading-none truncate">{title}</div>
+                                            <div className="text-[8px] text-slate-400 leading-none mt-0.5">{sub}</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-baseline gap-0.5 flex-shrink-0">
+                                        <span className="text-[15px] font-bold text-slate-900 leading-none">{displayVal}</span>
+                                        {unit === '%' && displayVal !== '—' && <span className="text-[9px] text-slate-400">%</span>}
+                                        {secondaryDisplay && (
+                                            <span className="text-[10px] font-semibold text-red-500 ml-1">/ {secondaryDisplay}</span>
+                                        )}
+                                        {avg50DisplayVal && isAvg50Active && (
+                                            <span className="text-[9px] ml-1 font-semibold" style={{ color: AVG50_COLOR }}>/{avg50DisplayVal}%</span>
+                                        )}
                                     </div>
                                 </div>
 
-                                {/* button row */}
-                                <div className="px-3 py-1 flex items-center gap-1 border-y border-slate-100 flex-shrink-0">
-                                    <button onClick={() => toggleAvgKey(i, avg50Key)}
-                                        className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border"
-                                        style={{
-                                            borderColor: isAvg50Active ? AVG50_COLOR : '#E2E8F0',
-                                            background: isAvg50Active ? AVG50_COLOR : 'transparent',
-                                            color: isAvg50Active ? '#FFFFFF' : '#64748B',
-                                        }}>
-                                        {cfg.avgLabels[0]}
-                                    </button>
-
-                                    <button onClick={() => toggleAvgKey(i, avg200Key)}
-                                        className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border"
-                                        style={{
-                                            borderColor: isAvg200Active ? AVG200_COLOR : '#E2E8F0',
-                                            background: isAvg200Active ? AVG200_COLOR : 'transparent',
-                                            color: isAvg200Active ? '#FFFFFF' : '#64748B',
-                                        }}>
-                                        {cfg.avgLabels[1]}
-                                    </button>
-
+                                <div className="px-2 py-0.5 flex items-center gap-1 border-y border-slate-100 flex-shrink-0">
+                                    <span className="text-[8px] font-bold text-slate-400 px-1">{badge}</span>
+                                    {isMa && (
+                                        <>
+                                            <button onClick={() => toggleAvgKey(i, avg50Key)}
+                                                className="px-1.5 py-0.5 rounded text-[8px] font-semibold cursor-pointer border"
+                                                style={{ borderColor: isAvg50Active ? AVG50_COLOR : '#E2E8F0', background: isAvg50Active ? AVG50_COLOR : 'transparent', color: isAvg50Active ? '#FFF' : '#64748B' }}>
+                                                AVG50
+                                            </button>
+                                            <button onClick={() => toggleAvgKey(i, avg200Key)}
+                                                className="px-1.5 py-0.5 rounded text-[8px] font-semibold cursor-pointer border"
+                                                style={{ borderColor: isAvg200Active ? AVG200_COLOR : '#E2E8F0', background: isAvg200Active ? AVG200_COLOR : 'transparent', color: isAvg200Active ? '#FFF' : '#64748B' }}>
+                                                AVG200
+                                            </button>
+                                        </>
+                                    )}
+                                    {isExtra && panel?.kind === 'ad-count' && (
+                                        <>
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                            <span className="text-[8px] text-slate-400">A</span>
+                                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 ml-1" />
+                                            <span className="text-[8px] text-slate-400">D</span>
+                                        </>
+                                    )}
                                     <div className="flex-1" />
-
-                                    <button onClick={() => setSeriesVisible((prev) => ({ ...prev, [i]: !prev[i] }))}
-                                        title={isVisible ? 'Hide original data' : 'Show original data'}
-                                        className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border flex items-center gap-1"
-                                        style={{
-                                            borderColor: !isVisible ? cfg.lineColor : '#E2E8F0',
-                                            background: !isVisible ? cfg.lineColor : 'transparent',
-                                            color: !isVisible ? '#FFFFFF' : '#64748B',
-                                        }}>
-                                        {isVisible ? <Eye size={9} /> : <EyeOff size={9} />}
-                                        <span>Data</span>
-                                    </button>
-
-                                    <button onClick={() => chartsRef.current[i]?.timeScale().fitContent()}
-                                        title="Fit data to screen"
-                                        className="w-[24px] h-[24px] flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer bg-transparent">
-                                        <Scan size={10} />
-                                    </button>
-
+                                    {hover?.time && <span className="text-[8px] text-slate-400">{hover.time}</span>}
+                                    {panel?.kind === 'ad-count' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setAdShowPercent((p) => !p)}
+                                            title={adShowPercent ? 'Show count' : 'Show percentage'}
+                                            className={[
+                                                'w-[20px] h-[20px] flex items-center justify-center rounded border cursor-pointer transition-colors',
+                                                adShowPercent
+                                                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                                                    : 'border-slate-200 bg-transparent text-slate-500 hover:bg-slate-50',
+                                            ].join(' ')}
+                                        >
+                                            {adShowPercent ? <Hash size={9} /> : <Percent size={9} />}
+                                        </button>
+                                    )}
                                     <button onClick={() => handleFullscreen(i)}
-                                        title={isFS ? 'Exit fullscreen' : 'Fullscreen'}
-                                        className="w-[24px] h-[24px] flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer bg-transparent">
-                                        {isFS ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
+                                        className="w-[20px] h-[20px] flex items-center justify-center rounded border border-slate-200 cursor-pointer bg-transparent">
+                                        {isFS ? <Minimize2 size={9} /> : <Maximize2 size={9} />}
                                     </button>
                                 </div>
 
-                                {/* chart canvas */}
-                                <div className="flex-1 min-h-0 p-1">
-                                    <div ref={(el) => { canvasRefs.current[i] = el; }} className="w-full h-full" />
-                                </div>
-
-                                {/* footer */}
-                                <div className="px-4 py-1 border-t border-slate-50 flex justify-between items-center flex-shrink-0">
-                                    <span className="text-[9px] text-slate-300 leading-relaxed line-clamp-1">{cfg.desc}</span>
-                                    <span className="text-[9px] text-slate-300 ml-3 flex-shrink-0 font-medium">{data.length.toLocaleString()} obs</span>
+                                <div className="flex-1 min-h-0 relative w-full">
+                                    <div ref={(el) => { canvasRefs.current[i] = el; }} className="absolute inset-0 w-full h-full" />
                                 </div>
                             </div>
                         );
                     })}
-                </div>
-
-                {/* footer strip */}
-                <div className="mt-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg flex justify-between items-center text-[9px] text-slate-300 tracking-wide flex-shrink-0">
-                    <div className="flex items-center gap-1.5">
-                        <Radio size={9} color="#CBD5E1" />
-                        <span>TASI Market Breadth Index · Constituent moving average analysis · All values in percentage terms</span>
-                    </div>
-                    <span>SMA 20 · 50 · 150 · 200</span>
                 </div>
             </main>
         </div>
@@ -991,8 +1170,8 @@ function MarketBreadthContent() {
 
 export default function MarketBreadthPage() {
     return (
-        <ShariahFilterPage variant="light" className="w-screen h-screen flex flex-col overflow-hidden">
+        <WatchlistShariahProvider>
             <MarketBreadthContent />
-        </ShariahFilterPage>
+        </WatchlistShariahProvider>
     );
 }

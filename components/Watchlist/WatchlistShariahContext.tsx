@@ -64,7 +64,7 @@ export function WatchlistShariahProvider({ children }: { children: ReactNode }) 
 
 const noopShariah: WatchlistShariahContextValue = {
     selected: [],
-    setSelected: () => {},
+    setSelected: () => { },
     options: [],
     bySymbol: new Map(),
     loading: false,
@@ -76,7 +76,7 @@ export function useWatchlistShariah() {
     return ctx ?? noopShariah;
 }
 
-function ShariahFilterBar({ variant }: { variant?: 'light' | 'dark' }) {
+export function ShariahFilterBar({ variant, extraControls }: { variant?: 'light' | 'dark'; extraControls?: ReactNode }) {
     const { selected, setSelected, options, loading } = useWatchlistShariah();
     const isLight = variant === 'light';
 
@@ -153,6 +153,13 @@ function ShariahFilterBar({ variant }: { variant?: 'light' | 'dark' }) {
                     </button>
                 </>
             )}
+
+            {extraControls && (
+                <>
+                    <div className="flex-1" />
+                    {extraControls}
+                </>
+            )}
         </div>
     );
 }
@@ -168,9 +175,9 @@ export function ShariahFilterPage({
 }) {
     return (
         <WatchlistShariahProvider>
-            <div className={className} style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className={`${className ?? ''} overflow-hidden`} style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                 <ShariahFilterBar variant={variant} />
-                <div style={{ flex: 1, minHeight: 0 }}>
+                <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                     {children}
                 </div>
             </div>

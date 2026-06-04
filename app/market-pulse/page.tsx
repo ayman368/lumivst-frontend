@@ -399,7 +399,7 @@ export default function MarketPulsePage() {
     })
       .then((r) => r.json())
       .then(setAvgs)
-      .catch(() => {});
+      .catch(() => { });
   }, [statusFilter, outlookFilter, yearFilter]);
 
   const clearFilters = () => { setStatusFilter(""); setOutlookFilter(""); setYearFilter(""); setPage(0); };
@@ -472,10 +472,9 @@ export default function MarketPulsePage() {
           </span>
         </div>
         <div style={{ height: 20, width: 1, background: "#ffffff20" }} />
-        <span style={{ color: "#A8C0D6", fontSize: 11 }}>Egyptian Exchange — Index Data</span>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
           <Link
-            href="/market-reports/market-pulse/settings"
+            href="/market-pulse/settings"
             style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "rgba(255,255,255,0.1)", borderRadius: 6, textDecoration: "none", transition: "background 0.2s" }}
             title="TASI Settings"
           >
@@ -557,7 +556,7 @@ export default function MarketPulsePage() {
               ✕ Clear Filters
             </button>
           )}
-          
+
         </div>
 
         {/* ── Averages strip ── */}
@@ -736,8 +735,8 @@ export default function MarketPulsePage() {
                           if (col.key === "market_pulse") {
                             const pBg =
                               raw === "Confirmed uptrend" ? "#D4EFDF" :
-                              raw === "Uptrend under pressure" ? "#FDEBD0" :
-                              raw === "Market in correction" ? "#FADBD8" : undefined;
+                                raw === "Uptrend under pressure" ? "#FDEBD0" :
+                                  raw === "Market in correction" ? "#FADBD8" : undefined;
                             return (
                               <td
                                 key={col.key}
@@ -782,7 +781,7 @@ export default function MarketPulsePage() {
                           const colorKey = col.color ? col.color(raw) : "";
                           const textColor =
                             colorKey === "positive" ? "#00875A" :
-                            colorKey === "negative" ? "#C0392B" : "#2C3E50";
+                              colorKey === "negative" ? "#C0392B" : "#2C3E50";
                           const isNeutral = text === "—";
 
                           return (

@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Layers,
   Activity,
@@ -12,10 +11,17 @@ import {
   MousePointer2,
   AlertCircle,
   RefreshCw,
-  ChevronRight,
+  ChevronDown,
   Search,
+  Download,
+  Loader,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
-import ScreenerTable from '@/components/Screeners/ScreenerTable';
+import { motion, AnimatePresence } from 'framer-motion';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { fetchBulkScreenerData } from '@/lib/utils/bulkExport';
 
 // ─────────────────────────────────────────────
@@ -43,6 +49,12 @@ interface GroupedData {
   items: StockResult[];
 }
 
+type SortDirection = 'asc' | 'desc';
+interface SortConfig {
+  key: keyof StockResult;
+  direction: SortDirection;
+}
+
 // ─────────────────────────────────────────────
 // Screener Config
 // ─────────────────────────────────────────────
@@ -60,77 +72,74 @@ const DEFAULT_CONFIG: ScreenerConfig = {
   border: '#E5E7EB',
 };
 
-/**
- * Ordered from most-specific to least-specific so that
- * "5 Months Wide" is matched before "5 Month".
- * Keys are substring tokens; the Map is built once at module load.
- */
 const SCREENER_CONFIG_ENTRIES: Array<[string, ScreenerConfig]> = [
   ['5 Months Wide', { icon: <Target className="w-4 h-4" />, accentColor: '#0369A1', lightBg: '#E0F2FE', border: '#7DD3FC' }],
   ['Power Play', { icon: <MousePointer2 className="w-4 h-4" />, accentColor: '#DC2626', lightBg: '#FEF2F2', border: '#FECACA' }],
   ['Alrayan', { icon: <Target className="w-4 h-4" />, accentColor: '#059669', lightBg: '#ECFDF5', border: '#A7F3D0' }],
+  ['Alhussain', { icon: <Target className="w-4 h-4" />, accentColor: '#7C3AED', lightBg: '#F5F3FF', border: '#DDD6FE' }],
+  ['RSI Momentum', { icon: <Activity className="w-4 h-4" />, accentColor: '#10B981', lightBg: '#D1FAE5', border: '#A7F3D0' }],
   ['1 Month', { icon: <Activity className="w-4 h-4" />, accentColor: '#6366F1', lightBg: '#EEF2FF', border: '#C7D2FE' }],
   ['2 Month', { icon: <Zap className="w-4 h-4" />, accentColor: '#7C3AED', lightBg: '#F5F3FF', border: '#DDD6FE' }],
   ['4 Month', { icon: <ShieldCheck className="w-4 h-4" />, accentColor: '#0284C7', lightBg: '#F0F9FF', border: '#BAE6FD' }],
   ['5 Month', { icon: <BarChart3 className="w-4 h-4" />, accentColor: '#B45309', lightBg: '#FFFBEB', border: '#FDE68A' }],
 ];
 
-// Module-level Map for O(1) exact-key lookup after the first call.
 const configCache = new Map<string, ScreenerConfig>();
 
-/**
- * Resolves a screener label → ScreenerConfig.
- * First checks the cache (exact label), then walks the ordered
- * entries for a substring match and memoises the result.
- */
 function getConfig(label: string): ScreenerConfig {
   const cached = configCache.get(label);
   if (cached) return cached;
-
   for (const [token, cfg] of SCREENER_CONFIG_ENTRIES) {
     if (label.includes(token)) {
       configCache.set(label, cfg);
       return cfg;
     }
   }
-
   configCache.set(label, DEFAULT_CONFIG);
   return DEFAULT_CONFIG;
 }
 
 // ─────────────────────────────────────────────
-// Skeleton Loaders
+// Helpers
 // ─────────────────────────────────────────────
-function SidebarSkeleton() {
+const formatNumber = (v: number | null | undefined, d = 2) => {
+  if (v === null || v === undefined) return 'N/A';
+  return v.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+};
+
+const formatPercent = (v: number | null | undefined) => {
+  if (v === null || v === undefined) return '0.00%';
+  const val = v.toFixed(2);
+  return `${parseFloat(val) > 0 ? '+' : ''}${val}%`;
+};
+
+const TABLE_COLUMNS: { key: keyof StockResult; label: string; width?: string; sortable: boolean }[] = [
+  { key: 'symbol', label: 'SYMBOL', width: '200px', sortable: true },
+  { key: 'close', label: 'PRICE', width: '80px', sortable: true },
+  { key: 'rs_rating', label: 'RS RATING', width: '65px', sortable: true },
+  { key: 'rank_1m', label: '1M', width: '50px', sortable: true },
+  { key: 'rank_3m', label: '3M', width: '50px', sortable: true },
+  { key: 'rank_6m', label: '6M', width: '50px', sortable: true },
+  { key: 'rank_9m', label: '9M', width: '50px', sortable: true },
+  { key: 'rank_12m', label: '12M', width: '55px', sortable: true },
+  { key: 'sma_50', label: 'SMA 50', width: '80px', sortable: true },
+  { key: 'sma_150', label: 'SMA 150', width: '80px', sortable: true },
+  { key: 'sma_200', label: 'SMA 200', width: '80px', sortable: true },
+  { key: 'percent_off_52w_high', label: 'OFF 52W HIGH', width: '95px', sortable: true },
+  { key: 'percent_off_52w_low', label: 'OFF 52W LOW', width: '95px', sortable: true },
+];
+
+function ListSkeleton() {
   return (
-    <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <div style={{ padding: '0 0 20px', display: 'flex', flexDirection: 'column', gap: 0 }}>
       {[1, 2, 3, 4, 5, 6, 7].map((i) => (
         <div
           key={i}
           style={{
-            height: 40,
-            borderRadius: 9,
-            background: '#F3F4F6',
+            height: 42,
+            background: i % 2 === 0 ? '#FAFBFC' : '#FFFFFF',
+            borderBottom: '1px solid #F3F4F6',
             animation: `shimmer 1.5s ease-in-out ${i * 0.07}s infinite`,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function TableSkeleton() {
-  return (
-    <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {[100, 85, 92, 78, 96, 70, 88, 82].map((_, i) => (
-        <div
-          key={i}
-          style={{
-            height: 44,
-            borderRadius: 8,
-            background: '#F3F4F6',
-            animation: `shimmer 1.5s ease-in-out ${i * 0.05}s infinite`,
-            opacity: 1 - i * 0.07,
           }}
         />
       ))}
@@ -146,10 +155,25 @@ export default function CompositePage() {
   const [totalUnique, setTotalUnique] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [activeLabel, setActiveLabel] = useState<string>('');
   const [search, setSearch] = useState('');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
+  // Sorting state (global for all tables)
+  const [sortConfigs, setSortConfigs] = useState<SortConfig[]>([]);
+
+  // Export state
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [bulkExportLoading, setBulkExportLoading] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node))
+        setShowExportMenu(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -158,10 +182,8 @@ export default function CompositePage() {
       const result = await fetchBulkScreenerData();
       setGroupedData(result.groupedData);
       setTotalUnique(result.data.length);
-      // Auto-select first non-empty strategy only
       const first = result.groupedData.find((g) => g.items.length > 0);
-      if (first) setActiveLabel(first.label);
-      else if (result.groupedData.length > 0) setActiveLabel(result.groupedData[0].label);
+      if (first) setExpandedGroups(new Set([first.label]));
     } catch (err: any) {
       setError(err);
     } finally {
@@ -179,28 +201,319 @@ export default function CompositePage() {
     return m;
   }, [groupedData]);
 
-  const activeGroup = useMemo(
-    () => groupedData.find((g) => g.label === activeLabel) ?? null,
-    [groupedData, activeLabel]
-  );
+  const toggleGroup = useCallback((label: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }, []);
 
-  const activeConfig = useMemo(
-    () => (activeLabel ? (configMap.get(activeLabel) ?? DEFAULT_CONFIG) : DEFAULT_CONFIG),
-    [configMap, activeLabel]
-  );
+  const handleSort = (key: keyof StockResult) => {
+    setSortConfigs((prevConfigs) => {
+      const existingConfigIndex = prevConfigs.findIndex((config) => config.key === key);
 
-  const filteredItems = useMemo(() => {
-    if (!activeGroup) return [];
-    if (!search.trim()) return activeGroup.items;
-    const q = search.toLowerCase();
-    return activeGroup.items.filter(
-      (s) =>
-        s.symbol.toLowerCase().includes(q) ||
-        s.company_name.toLowerCase().includes(q)
+      if (existingConfigIndex === -1) {
+        return [...prevConfigs, { key, direction: 'asc' }];
+      }
+
+      const currentDirection = prevConfigs[existingConfigIndex].direction;
+      if (currentDirection === 'asc') {
+        const newConfigs = [...prevConfigs];
+        newConfigs[existingConfigIndex] = { ...newConfigs[existingConfigIndex], direction: 'desc' };
+        return newConfigs;
+      }
+
+      return prevConfigs.filter((_, index) => index !== existingConfigIndex);
+    });
+  };
+
+  const getSortIcon = (key: keyof StockResult) => {
+    const configIndex = sortConfigs.findIndex(config => config.key === key);
+    if (configIndex === -1) return null;
+
+    const config = sortConfigs[configIndex];
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', marginLeft: '4px' }}>
+        {config.direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
+        <span style={{ fontSize: '9px', marginLeft: '2px', color: '#6366F1' }}>{configIndex + 1}</span>
+      </div>
     );
-  }, [activeGroup, search]);
+  };
 
-  const nonEmptyCount = groupedData.filter((g) => g.items.length > 0).length;
+  // Filter and Sort items per group
+  const processedGroupedData = useMemo(() => {
+    let data = groupedData;
+    
+    // Apply search
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      data = data.map((g) => ({
+        ...g,
+        items: g.items.filter(
+          (s) =>
+            s.symbol.toLowerCase().includes(q) ||
+            s.company_name.toLowerCase().includes(q)
+        ),
+      }));
+    }
+
+    // Apply sorting
+    if (sortConfigs.length > 0) {
+      data = data.map(group => {
+        const sortedItems = [...group.items].sort((a: any, b: any) => {
+          for (let i = 0; i < sortConfigs.length; i++) {
+            const { key, direction } = sortConfigs[i];
+            let valA = a[key] ?? -Infinity;
+            let valB = b[key] ?? -Infinity;
+
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            if (valA < valB) return direction === 'asc' ? -1 : 1;
+            if (valA > valB) return direction === 'asc' ? 1 : -1;
+          }
+          return 0;
+        });
+        return { ...group, items: sortedItems };
+      });
+    }
+
+    return data;
+  }, [groupedData, search, sortConfigs]);
+
+  const nonEmptyCount = processedGroupedData.filter((g) => g.items.length > 0).length;
+
+  // ── Single View Export (Current Visible Data Flattened) ──
+  const handleExport = useCallback((format: 'csv' | 'xls' | 'xlsx' | 'txt' | 'tv' | 'pdf') => {
+    const d = new Date();
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const plainFileName = `Current_View_${dateStr}`;
+    const tvFileName = `Current_View_${dateStr}_TradingView`;
+
+    // Flatten only visible/expanded groups
+    const flatData: StockResult[] = [];
+    const seen = new Set<string>();
+    processedGroupedData.forEach(g => {
+      if (expandedGroups.has(g.label)) {
+        g.items.forEach(item => {
+          if (!seen.has(item.symbol)) {
+            seen.add(item.symbol);
+            flatData.push(item);
+          }
+        });
+      }
+    });
+
+    if (format === 'tv') {
+      const tvContent = flatData.map(s => `TADAWUL:${s.symbol}`).join('\n');
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([tvContent], { type: 'text/csv;charset=utf-8;' }));
+      link.download = `${tvFileName}.csv`;
+      link.click();
+      setShowExportMenu(false);
+      return;
+    }
+
+    const headers = ['SYMBOL', 'COMPANY NAME', 'PRICE', 'SMA 50', 'SMA 150', 'SMA 200', 'RS RATING', '1M', '3M', '6M', '9M', '12M', 'OFF 52W HIGH', 'OFF 52W LOW'];
+    const rows = flatData.map(s => [s.symbol, s.company_name, s.close, s.sma_50, s.sma_150, s.sma_200, s.rs_rating, s.rank_1m, s.rank_3m, s.rank_6m, s.rank_9m, s.rank_12m, s.percent_off_52w_high, s.percent_off_52w_low]);
+
+    if (format === 'pdf') {
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'A4' });
+      doc.setFontSize(18);
+      doc.text(`Current View`, 40, 40);
+      autoTable(doc, {
+        head: [headers],
+        body: rows,
+        startY: 60,
+        theme: 'striped',
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [17, 24, 39] },
+      });
+      doc.save(`${plainFileName}.pdf`);
+      setShowExportMenu(false);
+      return;
+    }
+
+    if (format === 'csv' || format === 'txt') {
+      const sep = format === 'csv' ? ',' : '\t';
+      const content = [headers.join(sep), ...rows.map(r => r.join(sep))].join('\n');
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8;' }));
+      link.download = `${plainFileName}.${format}`;
+      link.click();
+    } else {
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Screener Data');
+      XLSX.writeFile(wb, `${plainFileName}.${format}`, { bookType: format === 'xls' ? 'biff8' : 'xlsx' });
+    }
+    setShowExportMenu(false);
+  }, [processedGroupedData, expandedGroups]);
+
+
+  // ── Bulk Export ──
+  const handleBulkExport = useCallback(async (format: 'csv' | 'xlsx' | 'tv' | 'pdf') => {
+    setBulkExportLoading(true);
+    setShowExportMenu(false);
+
+    try {
+      const result = await fetchBulkScreenerData();
+      
+      const d = new Date();
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const plainFileName = `REBH_Bulk_Unified_Export_${dateStr}`;
+      const tvFileName = `REBH_Bulk_Unified_Export_${dateStr}_TradingView`;
+
+      if (format === 'tv') {
+        const tvContent = (result.deduplicatedGroupedData || result.groupedData)
+          .filter(group => group.items.length > 0)
+          .map(group => {
+            const header = `### ${group.label}: ${group.items.length} Company`;
+            const symbols = group.items.map(s => `TADAWUL:${s.symbol}`).join('\n');
+            return `${header}\n${symbols}`;
+          }).join('\n\n');
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob([tvContent], { type: 'text/csv;charset=utf-8;' }));
+        link.download = `${tvFileName}.csv`;
+        link.click();
+        return;
+      }
+
+      const headers = ['SYMBOL', 'COMPANY NAME', 'PRICE', 'SMA 50', 'SMA 150', 'SMA 200', 'RS RATING', '1M', '3M', '6M', '9M', '12M', 'OFF 52W HIGH', 'OFF 52W LOW'];
+
+      if (format === 'pdf') {
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'A4' });
+        const validGroups = (result.deduplicatedGroupedData || result.groupedData).filter(g => g.items.length > 0);
+        let startY = 30;
+
+        doc.setFontSize(18);
+        doc.text('All Screeners', 40, startY);
+        startY += 20;
+
+        for (const group of validGroups) {
+          doc.setFontSize(14);
+          doc.text(`${group.label}: ${group.items.length} Company`, 40, startY);
+          startY += 10;
+
+          const rows = group.items.map(s => [s.symbol, s.company_name, s.close, s.sma_50, s.sma_150, s.sma_200, s.rs_rating, s.rank_1m, s.rank_3m, s.rank_6m, s.rank_9m, s.rank_12m, s.percent_off_52w_high, s.percent_off_52w_low]);
+
+          autoTable(doc, {
+            head: [headers],
+            body: rows,
+            startY: startY,
+            theme: 'striped',
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [17, 24, 39] },
+          });
+
+          startY = (doc as any).lastAutoTable.finalY + 30;
+
+          if (startY > doc.internal.pageSize.getHeight() - 40) {
+            doc.addPage();
+            startY = 40;
+          }
+        }
+        
+        doc.save(`${plainFileName}.pdf`);
+        return;
+      }
+
+      if (format === 'csv') {
+        let content = '';
+        const validGroups = (result.deduplicatedGroupedData || result.groupedData).filter(g => g.items.length > 0);
+        for (const group of validGroups) {
+          content += `${group.label}: ${group.items.length} Company\n`;
+          content += headers.join(',') + '\n';
+          const rows = group.items.map(s => [s.symbol, s.company_name, s.close, s.sma_50, s.sma_150, s.sma_200, s.rs_rating, s.rank_1m, s.rank_3m, s.rank_6m, s.rank_9m, s.rank_12m, s.percent_off_52w_high, s.percent_off_52w_low]);
+          content += rows.map(r => r.join(',')).join('\n') + '\n\n';
+        }
+        content = content.trimEnd();
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8;' }));
+        link.download = `${plainFileName}.csv`;
+        link.click();
+      } else {
+        let aoa: any[][] = [];
+        const validGroups = (result.deduplicatedGroupedData || result.groupedData).filter(g => g.items.length > 0);
+        for (const group of validGroups) {
+          aoa.push([`${group.label}: ${group.items.length} Company`]);
+          aoa.push(headers);
+          const rows = group.items.map(s => [s.symbol, s.company_name, s.close, s.sma_50, s.sma_150, s.sma_200, s.rs_rating, s.rank_1m, s.rank_3m, s.rank_6m, s.rank_9m, s.rank_12m, s.percent_off_52w_high, s.percent_off_52w_low]);
+          aoa.push(...rows);
+          aoa.push([]); // empty row for spacing
+        }
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Bulk Export');
+        XLSX.writeFile(wb, `${plainFileName}.xlsx`, { bookType: 'xlsx' });
+      }
+    } catch (error) {
+      console.error('Error during bulk export:', error);
+    } finally {
+      setBulkExportLoading(false);
+    }
+  }, []);
+
+  const renderCellValue = (stock: StockResult, key: keyof StockResult, cfg: ScreenerConfig) => {
+    switch (key) {
+      case 'symbol':
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: cfg.accentColor, flexShrink: 0 }} />
+            <span style={{ fontWeight: 800, fontSize: 13, color: cfg.accentColor, letterSpacing: '-0.01em' }}>
+              {stock.symbol}
+            </span>
+            <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>
+              {stock.company_name}
+            </span>
+          </div>
+        );
+      case 'close':
+        return (
+          <span style={{ fontWeight: 700, fontSize: 13, color: '#111827', fontVariantNumeric: 'tabular-nums' }}>
+            {formatNumber(stock.close)}
+          </span>
+        );
+      case 'rs_rating':
+      case 'rank_1m':
+      case 'rank_3m':
+      case 'rank_6m':
+      case 'rank_9m':
+      case 'rank_12m': {
+        const val = stock[key] as number;
+        const color = val >= 80 ? '#15803D' : val >= 70 ? '#A16207' : '#6B7280';
+        return (
+          <span style={{ fontWeight: 700, fontSize: 12, color, fontVariantNumeric: 'tabular-nums' }}>
+            {val !== undefined && val !== null ? Math.round(val) : '-'}
+          </span>
+        );
+      }
+      case 'sma_50':
+      case 'sma_150':
+      case 'sma_200':
+        return (
+          <span style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 500, color: '#4B5563', fontVariantNumeric: 'tabular-nums' }}>
+            {formatNumber(stock[key] as number)}
+          </span>
+        );
+      case 'percent_off_52w_high':
+        return (
+          <span style={{ fontWeight: 700, fontSize: 12, fontVariantNumeric: 'tabular-nums', color: (stock.percent_off_52w_high) > -5 ? '#B91C1C' : '#15803D' }}>
+            {formatPercent(stock.percent_off_52w_high)}
+          </span>
+        );
+      case 'percent_off_52w_low':
+        return (
+          <span style={{ fontWeight: 700, fontSize: 12, fontVariantNumeric: 'tabular-nums', color: (stock.percent_off_52w_low) > 100 ? '#15803D' : '#0369A1' }}>
+            {formatPercent(stock.percent_off_52w_low)}
+          </span>
+        );
+      default:
+        return <span>{String(stock[key])}</span>;
+    }
+  };
 
   return (
     <>
@@ -211,98 +524,84 @@ export default function CompositePage() {
           100% { opacity: 1; }
         }
 
-        /* Nav item */
-        .nav-item {
+        /* Scrollbar */
+        .composite-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .composite-scroll::-webkit-scrollbar-track { background: transparent; }
+        .composite-scroll::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }
+        .composite-scroll::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
+
+        /* Group header */
+        .group-header {
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 8px 10px;
-          border-radius: 9px;
+          padding: 0 16px;
+          height: 40px;
           cursor: pointer;
-          transition: background 0.15s;
           user-select: none;
-          border: 1px solid transparent;
-          background: transparent;
+          border: none;
           width: 100%;
           text-align: left;
+          transition: background-color 0.12s;
+          border-bottom: 1px solid #F3F4F6;
+          border-top: 1px solid #E5E7EB;
         }
-        .nav-item:hover:not(.nav-item--active) {
-          background: #F3F4F6;
+        .group-header:hover {
+          background-color: #FAFBFC;
         }
-        .nav-item--active {
-          background: var(--item-bg);
-          border-color: var(--item-border);
+        
+        .group-container:first-child .group-header {
+          border-top: none;
         }
-        .nav-item--empty { opacity: 0.45; }
 
-        /* Count badge */
-        .count-badge {
-          margin-left: auto;
-          font-size: 11px;
-          font-weight: 700;
-          padding: 1px 7px;
-          border-radius: 9px;
-          flex-shrink: 0;
-          transition: background 0.15s, color 0.15s;
+        /* Table header row */
+        .table-header-row {
+          display: flex;
+          align-items: center;
+          height: 34px;
+          backgroundColor: #F9FAFB;
+          border-bottom: 1px solid #E5E7EB;
+          padding: 0 16px;
+        }
+
+        /* Stock row */
+        .stock-row {
+          display: flex;
+          align-items: center;
+          height: 38px;
+          border-bottom: 1px solid #F3F4F6;
+          transition: background-color 0.1s;
+          cursor: default;
+          padding: 0 16px;
+        }
+        .stock-row:hover {
+          background-color: #FAFBFC;
         }
 
         /* Search */
-        .search-wrap { position: relative; flex: 1; max-width: 280px; }
-        .search-icon {
+        .composite-search-wrap { position: relative; }
+        .composite-search-icon {
           position: absolute; left: 10px; top: 50%;
           transform: translateY(-50%);
           color: #9CA3AF; pointer-events: none;
           width: 14px; height: 14px;
         }
-        .search-input {
-          width: 100%; box-sizing: border-box;
-          height: 34px; padding: 0 12px 0 32px;
-          font-size: 13px;
-          border: 1px solid #E5E7EB; border-radius: 8px;
+        .composite-search-input {
+          width: 220px; box-sizing: border-box;
+          height: 32px; padding: 0 12px 0 32px;
+          font-size: 12px;
+          border: 1px solid #E5E7EB; border-radius: 6px;
           background: #F9FAFB; color: #111827;
           outline: none; transition: border-color 0.15s, background 0.15s;
         }
-        .search-input:focus { border-color: #6366F1; background: #fff; }
-        .search-input::placeholder { color: #9CA3AF; }
+        .composite-search-input:focus { border-color: #6366F1; background: #fff; }
+        .composite-search-input::placeholder { color: #9CA3AF; }
 
-
-        .icon-btn {
-          display: flex; align-items: center; justify-content: center;
-          width: 34px; height: 34px; border-radius: 8px;
-          border: 1px solid #E5E7EB; background: #fff;
-          cursor: pointer; color: #6B7280; flex-shrink: 0;
-          transition: background 0.15s, color 0.15s;
-        }
-        .icon-btn:hover { background: #F3F4F6; color: #111827; }
-
-        /* Collapse button */
-        .collapse-btn {
-          display: flex; align-items: center; justify-content: center;
-          width: 22px; height: 22px; border-radius: 6px;
-          border: 1px solid #E5E7EB; background: #fff;
-          cursor: pointer; color: #9CA3AF; flex-shrink: 0;
-          transition: background 0.15s, color 0.15s;
-        }
-        .collapse-btn:hover { background: #F3F4F6; color: #111827; }
-
-        /* Empty/error screen */
+        /* Center screen */
         .center-screen {
           display: flex; flex-direction: column;
           align-items: center; justify-content: center;
           min-height: 360px; gap: 14px; text-align: center; padding: 40px;
-        }
-
-        /* Stat pill */
-        .stat-pill {
-          display: flex; flex-direction: column; align-items: center;
-          padding: 8px 14px; border-radius: 10px; min-width: 72px;
-        }
-        .stat-pill-label {
-          font-size: 10px; font-weight: 700; text-transform: uppercase;
-          letter-spacing: 0.06em; margin-bottom: 1px;
-        }
-        .stat-pill-value {
-          font-size: 19px; font-weight: 800; line-height: 1;
         }
       `}</style>
 
@@ -311,18 +610,18 @@ export default function CompositePage() {
           display: 'flex',
           flexDirection: 'column',
           height: '100vh',
-          backgroundColor: '#F8FAFC',
+          backgroundColor: '#FFFFFF',
           fontFamily: 'system-ui, -apple-system, sans-serif',
           overflow: 'hidden',
         }}
       >
-        {/* ── Top Header ── */}
+        {/* ── Top Header Bar ── */}
         <header
           style={{
             backgroundColor: '#FFFFFF',
             borderBottom: '1px solid #E5E7EB',
             padding: '0 20px',
-            height: 58,
+            height: 48,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -331,473 +630,341 @@ export default function CompositePage() {
             gap: 16,
           }}
         >
-          {/* Logo + Title */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-            <div
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 9,
-                backgroundColor: '#111827',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Layers className="w-4 h-4" color="#FFFFFF" />
+          {/* Left: Screeners info */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Layers className="w-4 h-4" color="#111827" />
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>Screeners</span>
             </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', lineHeight: 1.15 }}>
-                Composite Screeners
-              </div>
-              <div style={{ fontSize: 11, color: '#9CA3AF', lineHeight: 1.15 }}>
-                All active strategies
-              </div>
+
+            <div style={{ width: 1, height: 18, backgroundColor: '#E5E7EB' }} />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: '#6B7280' }}>
+              <span>
+                Strategies <strong style={{ color: '#111827' }}>{isLoading ? '–' : processedGroupedData.length}</strong>
+              </span>
+              <span>
+                Active <strong style={{ color: '#15803D' }}>{isLoading ? '–' : nonEmptyCount}</strong>
+              </span>
+              <span>
+                Total <strong style={{ color: '#111827' }}>{isLoading ? '–' : totalUnique}</strong>
+              </span>
             </div>
           </div>
 
-          {/* Stats */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div
-              className="stat-pill"
-              style={{ background: '#F9FAFB', border: '1px solid #E5E7EB' }}
-            >
-              <span className="stat-pill-label" style={{ color: '#9CA3AF' }}>Strategies</span>
-              <span className="stat-pill-value" style={{ color: '#111827' }}>
-                {isLoading ? '–' : groupedData.length}
-              </span>
+          {/* Right: Search & Export */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div className="composite-search-wrap">
+              <Search className="composite-search-icon" />
+              <input
+                className="composite-search-input"
+                type="text"
+                placeholder="Search symbol/name..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
+            
+            {/* Export Dropdown */}
+            <div style={{ position: 'relative' }} ref={exportMenuRef}>
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                style={{
+                  height: '32px', padding: '0 14px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                  backgroundColor: '#111827', color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px',
+                  fontWeight: 600, fontSize: '12px', transition: 'all 0.2s',
+                }}
+              >
+                {bulkExportLoading ? (
+                  <Loader key="loader" style={{ width: '13px', height: '13px', animation: 'spin 1s linear infinite' }} />
+                ) : (
+                  <Download key="download" style={{ width: '13px', height: '13px' }} />
+                )}
+                <span>Export</span>
+                <ChevronDown style={{ width: '12px', height: '12px', transform: showExportMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+              </button>
 
-            <div
-              className="stat-pill"
-              style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}
-            >
-              <span className="stat-pill-label" style={{ color: '#16A34A' }}>Active</span>
-              <span className="stat-pill-value" style={{ color: '#15803D' }}>
-                {isLoading ? '–' : nonEmptyCount}
-              </span>
-            </div>
+              <AnimatePresence>
+                {showExportMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                    style={{
+                      position: 'absolute', right: 0, top: 'calc(100% + 8px)',
+                      width: '260px', backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '12px',
+                      boxShadow: '0 8px 28px rgba(0,0,0,0.12)', padding: '6px', zIndex: 200,
+                    }}
+                  >
+                    {/* ── Section label: Current View ── */}
+                    <div style={{ padding: '6px 14px 4px', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#9CA3AF' }}>
+                      CURRENT VIEW
+                    </div>
 
-            <div
-              className="stat-pill"
-              style={{ background: '#EEF2FF', border: '1px solid #C7D2FE' }}
-            >
-              <span className="stat-pill-label" style={{ color: '#4F46E5' }}>Total</span>
-              <span className="stat-pill-value" style={{ color: '#3730A3' }}>
-                {isLoading ? '–' : totalUnique}
-              </span>
+                    {[
+                      { label: 'comma delimited (.csv)', fmt: 'csv' as const, dot: '#111827' },
+                      { label: 'excel 97-2003 (.xls)', fmt: 'xls' as const, dot: '#1A5276' },
+                      { label: 'excel (.xlsx)', fmt: 'xlsx' as const, dot: '#15803D' },
+                      { label: 'Text (.txt)', fmt: 'txt' as const, dot: '#6B7280' },
+                      { label: 'TradingView Symbols (.csv)', fmt: 'tv' as const, dot: '#2962FF' },
+                      { label: 'PDF Document (.pdf)', fmt: 'pdf' as const, dot: '#DC2626' },
+                    ].map(item => (
+                      <button key={item.fmt} onClick={() => handleExport(item.fmt)} style={{
+                        width: '100%', textAlign: 'left', padding: '9px 14px', fontSize: '12px', color: '#4B5563', display: 'flex', alignItems: 'center', gap: '10px',
+                        border: 'none', backgroundColor: 'transparent', cursor: 'pointer', borderRadius: '8px', transition: 'background-color 0.15s',
+                        fontWeight: 500,
+                      }}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#F9FAFB')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                      >
+                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: item.dot, flexShrink: 0 }} />
+                        {item.label}
+                      </button>
+                    ))}
+
+                    {/* ── Divider ── */}
+                    <div style={{ height: '1px', backgroundColor: '#E5E7EB', margin: '6px 0' }} />
+
+                    <div style={{ padding: '6px 14px 4px', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#059669' }}>
+                      BULK UNIFIED EXPORT — ALL SCREENERS
+                    </div>
+
+                    {[
+                      { label: 'Bulk Export (.csv)', fmt: 'csv' as const },
+                      { label: 'Bulk Export (.xlsx)', fmt: 'xlsx' as const },
+                      { label: 'Bulk TradingView (.csv)', fmt: 'tv' as const },
+                      { label: 'Bulk Export (.pdf)', fmt: 'pdf' as const },
+                    ].map(item => (
+                      <button
+                        key={`bulk-${item.fmt}`}
+                        onClick={() => handleBulkExport(item.fmt)}
+                        disabled={bulkExportLoading}
+                        style={{
+                          width: '100%', textAlign: 'left', padding: '9px 14px', fontSize: '12px',
+                          color: bulkExportLoading ? '#D1D5DB' : '#059669',
+                          display: 'flex', alignItems: 'center', gap: '10px',
+                          border: 'none', backgroundColor: 'transparent',
+                          cursor: bulkExportLoading ? 'not-allowed' : 'pointer',
+                          borderRadius: '8px', transition: 'background-color 0.15s', fontWeight: 600,
+                        }}
+                        onMouseEnter={e => !bulkExportLoading && (e.currentTarget.style.backgroundColor = '#F0FDF4')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                      >
+                        {bulkExportLoading ? (
+                          <Loader style={{ width: '11px', height: '11px', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+                        ) : (
+                          <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#059669', flexShrink: 0 }} />
+                        )}
+                        {item.label}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </header>
 
-        {/* ── Body ── */}
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-
-          {/* ── Sidebar ── */}
-          <aside
-            style={{
-              width: sidebarCollapsed ? 52 : 232,
-              minWidth: sidebarCollapsed ? 52 : 232,
-              backgroundColor: '#FFFFFF',
-              borderRight: '1px solid #E5E7EB',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-              flexShrink: 0,
-              transition: 'width 0.22s cubic-bezier(0.4,0,0.2,1), min-width 0.22s cubic-bezier(0.4,0,0.2,1)',
-            }}
-          >
-            {/* Sidebar toolbar */}
-            <div
-              style={{
-                height: 44,
-                padding: '0 10px',
-                borderBottom: '1px solid #F3F4F6',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: sidebarCollapsed ? 'center' : 'space-between',
-                flexShrink: 0,
-              }}
-            >
-              {!sidebarCollapsed && (
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: '#9CA3AF',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.08em',
-                  }}
-                >
-                  Strategies
-                </span>
-              )}
-              <button
-                className="collapse-btn"
-                onClick={() => setSidebarCollapsed((v) => !v)}
-                title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        {/* ── Main Scrollable List ── */}
+        <div
+          className="composite-scroll"
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            overflowX: 'auto',
+            minWidth: 0,
+            paddingBottom: '20px'
+          }}
+        >
+          {isLoading ? (
+            <ListSkeleton />
+          ) : error ? (
+            <div className="center-screen">
+              <div
+                style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: '50%',
+                  backgroundColor: '#FEF2F2',
+                  border: '1px solid #FECACA',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
               >
-                <ChevronRight
-                  style={{
-                    width: 12,
-                    height: 12,
-                    transform: sidebarCollapsed ? 'rotate(0deg)' : 'rotate(180deg)',
-                    transition: 'transform 0.22s',
-                  }}
-                />
+                <AlertCircle className="w-6 h-6" color="#DC2626" />
+              </div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#111827', marginBottom: 4 }}>
+                  Failed to load data
+                </div>
+                <div style={{ fontSize: 13, color: '#6B7280' }}>
+                  Something went wrong while fetching screener data.
+                </div>
+              </div>
+              <button
+                onClick={loadData}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '9px 18px',
+                  borderRadius: 9,
+                  backgroundColor: '#111827',
+                  color: '#FFFFFF',
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  border: 'none',
+                }}
+              >
+                <RefreshCw className="w-4 h-4" />
+                Try Again
               </button>
             </div>
+          ) : (
+            <div style={{ minWidth: 'fit-content' }}>
+              {processedGroupedData.map((group) => {
+                const cfg = configMap.get(group.label) ?? DEFAULT_CONFIG;
+                const isExpanded = expandedGroups.has(group.label);
+                const isEmpty = group.items.length === 0;
 
-            {/* Nav */}
-            <nav
-              style={{
-                flex: 1,
-                overflowY: 'auto',
-                overflowX: 'hidden',
-                padding: '6px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
-              }}
-            >
-              {isLoading ? (
-                sidebarCollapsed ? null : <SidebarSkeleton />
-              ) : (
-                groupedData.map((group) => {
-                  const cfg = configMap.get(group.label) ?? DEFAULT_CONFIG;
-                  const isActive = group.label === activeLabel;
-                  const isEmpty = group.items.length === 0;
-
-                  return (
+                return (
+                  <div key={group.label} className="group-container">
+                    {/* ── Group Header ── */}
                     <button
-                      key={group.label}
-                      className={[
-                        'nav-item',
-                        isActive ? 'nav-item--active' : '',
-                        isEmpty ? 'nav-item--empty' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      style={
-                        {
-                          '--item-bg': cfg.lightBg,
-                          '--item-border': cfg.border,
-                          justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-                        } as React.CSSProperties
-                      }
-                      onClick={() => {
-                        setActiveLabel(group.label);
-                        setSearch('');
+                      className="group-header"
+                      style={{
+                        backgroundColor: isExpanded ? '#FAFBFC' : '#FFFFFF',
+                        opacity: isEmpty && !search ? 0.5 : 1,
                       }}
-                      title={sidebarCollapsed ? `${group.label} (${group.items.length})` : undefined}
+                      onClick={() => toggleGroup(group.label)}
                     >
-                      {/* Icon */}
-                      <div
+                      <ChevronDown
                         style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: 7,
-                          backgroundColor: isActive ? '#FFFFFF' : cfg.lightBg,
+                          width: 14,
+                          height: 14,
                           color: cfg.accentColor,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          border: `1px solid ${cfg.border}`,
+                          transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)',
+                          transition: 'transform 0.2s ease',
                           flexShrink: 0,
-                          transition: 'background 0.15s',
                         }}
-                      >
-                        {cfg.icon}
-                      </div>
-
-                      {!sidebarCollapsed && (
-                        <>
-                          <span
-                            style={{
-                              fontSize: 13,
-                              fontWeight: isActive ? 700 : 500,
-                              color: isActive ? cfg.accentColor : '#374151',
-                              flex: 1,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              transition: 'color 0.15s',
-                            }}
-                          >
-                            {group.label}
-                          </span>
-
-                          <span
-                            className="count-badge"
-                            style={{
-                              backgroundColor: isActive
-                                ? cfg.accentColor
-                                : isEmpty
-                                  ? '#F3F4F6'
-                                  : cfg.lightBg,
-                              color: isActive
-                                ? '#FFFFFF'
-                                : isEmpty
-                                  ? '#9CA3AF'
-                                  : cfg.accentColor,
-                            }}
-                          >
-                            {group.items.length}
-                          </span>
-                        </>
-                      )}
-                    </button>
-                  );
-                })
-              )}
-            </nav>
-          </aside>
-
-          {/* ── Main Pane ── */}
-          <main
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-              minWidth: 0,
-            }}
-          >
-            {isLoading ? (
-              <>
-                {/* Fake toolbar */}
-                <div
-                  style={{
-                    height: 58,
-                    borderBottom: '1px solid #E5E7EB',
-                    backgroundColor: '#FFFFFF',
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '0 20px',
-                    gap: 10,
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 180,
-                      height: 32,
-                      borderRadius: 8,
-                      background: '#F3F4F6',
-                      animation: 'shimmer 1.5s ease-in-out infinite',
-                    }}
-                  />
-                  <div
-                    style={{
-                      width: 220,
-                      height: 32,
-                      borderRadius: 8,
-                      background: '#F3F4F6',
-                      animation: 'shimmer 1.5s ease-in-out 0.1s infinite',
-                    }}
-                  />
-                </div>
-                <TableSkeleton />
-              </>
-            ) : error ? (
-              <div className="center-screen">
-                <div
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: '50%',
-                    backgroundColor: '#FEF2F2',
-                    border: '1px solid #FECACA',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <AlertCircle className="w-6 h-6" color="#DC2626" />
-                </div>
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#111827', marginBottom: 4 }}>
-                    Failed to load data
-                  </div>
-                  <div style={{ fontSize: 13, color: '#6B7280' }}>
-                    Something went wrong while fetching screener data.
-                  </div>
-                </div>
-                <button
-                  onClick={loadData}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '9px 18px',
-                    borderRadius: 9,
-                    backgroundColor: '#111827',
-                    color: '#FFFFFF',
-                    fontWeight: 600,
-                    fontSize: 13,
-                    cursor: 'pointer',
-                    border: 'none',
-                  }}
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Try Again
-                </button>
-              </div>
-            ) : !activeGroup ? (
-              <div className="center-screen">
-                <div style={{ color: '#9CA3AF', fontSize: 14 }}>
-                  Select a strategy from the sidebar
-                </div>
-              </div>
-            ) : (
-              <>
-                {/* ── Toolbar ── */}
-                <div
-                  style={{
-                    height: 58,
-                    padding: '0 20px',
-                    borderBottom: '1px solid #E5E7EB',
-                    backgroundColor: '#FFFFFF',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    flexShrink: 0,
-                  }}
-                >
-                  {/* Active strategy badge */}
-                  <div
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 7,
-                      padding: '5px 11px',
-                      borderRadius: 8,
-                      backgroundColor: activeConfig.lightBg,
-                      border: `1px solid ${activeConfig.border}`,
-                      flexShrink: 0,
-                    }}
-                  >
-                    <span style={{ color: activeConfig.accentColor, display: 'flex' }}>
-                      {activeConfig.icon}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 700,
-                        color: activeConfig.accentColor,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {activeGroup.label}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        padding: '1px 7px',
-                        borderRadius: 8,
-                        backgroundColor: activeConfig.accentColor,
-                        color: '#FFFFFF',
-                      }}
-                    >
-                      {activeGroup.items.length}
-                    </span>
-                  </div>
-
-                  {/* Divider */}
-                  <div
-                    style={{
-                      width: 1,
-                      height: 22,
-                      backgroundColor: '#E5E7EB',
-                      flexShrink: 0,
-                    }}
-                  />
-
-                  {/* Search */}
-                  <div className="search-wrap">
-                    <Search className="search-icon" />
-                    <input
-                      className="search-input"
-                      type="text"
-                      placeholder="Search symbol or name..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
-                  </div>
-
-
-
-
-                </div>
-
-                {/* ── Table / Empty states ── */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
-                  {activeGroup.items.length === 0 ? (
-                    <div className="center-screen">
+                      />
                       <div
                         style={{
-                          width: 44,
-                          height: 44,
+                          width: 8,
+                          height: 8,
                           borderRadius: '50%',
-                          backgroundColor: '#F9FAFB',
-                          border: '1px solid #E5E7EB',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
+                          backgroundColor: cfg.accentColor,
+                          flexShrink: 0,
                         }}
-                      >
-                        <Layers className="w-5 h-5" color="#D1D5DB" />
-                      </div>
-                      <div>
-                        <div
-                          style={{
-                            fontSize: 15,
-                            fontWeight: 600,
-                            color: '#374151',
-                            marginBottom: 4,
-                          }}
-                        >
-                          No matches found
-                        </div>
-                        <div style={{ fontSize: 13, color: '#9CA3AF' }}>
-                          No companies currently meet the {activeGroup.label} criteria.
-                        </div>
-                      </div>
-                    </div>
-                  ) : filteredItems.length === 0 ? (
-                    <div className="center-screen">
-                      <div style={{ fontSize: 14, color: '#6B7280' }}>
-                        No results for <strong>"{search}"</strong>
-                      </div>
-                      <button
-                        onClick={() => setSearch('')}
+                      />
+                      <span
                         style={{
-                          padding: '7px 16px',
-                          borderRadius: 8,
-                          border: '1px solid #E5E7EB',
-                          background: '#fff',
-                          fontSize: 13,
-                          cursor: 'pointer',
+                          fontSize: 12,
+                          fontWeight: 700,
                           color: '#374151',
-                          fontWeight: 500,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
                         }}
                       >
-                        Clear search
-                      </button>
-                    </div>
-                  ) : (
-                    <ScreenerTable
-                      data={filteredItems}
-                      loading={false}
-                      screenerColor={activeConfig.accentColor}
-                      screenerName={activeGroup.label}
-                      exportFileNamePrefix={activeGroup.label.replace(/\s+/g, '')}
-                    />
-                  )}
-                </div>
-              </>
-            )}
-          </main>
+                        {group.label}:
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: cfg.accentColor,
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        {group.items.length} {group.items.length === 1 ? 'COMPANY' : 'COMPANIES'}
+                      </span>
+                    </button>
+
+                    {/* ── Expanded Table Content ── */}
+                    {isExpanded && group.items.length > 0 && (
+                      <div style={{ paddingBottom: '16px' }}>
+                        {/* ── Column Headers (Inside Group) ── */}
+                        <div className="table-header-row">
+                          {TABLE_COLUMNS.map((col) => (
+                            <div
+                              key={col.key}
+                              onClick={() => col.sortable && handleSort(col.key)}
+                              style={{
+                                width: col.width,
+                                minWidth: col.width,
+                                flexShrink: 0,
+                                flexGrow: col.key === 'symbol' ? 1 : 0,
+                                fontSize: 10,
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.1em',
+                                color: '#6B7280',
+                                padding: '0 8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: col.key === 'symbol' ? 'flex-start' : 'center',
+                                cursor: col.sortable ? 'pointer' : 'default',
+                                userSelect: 'none'
+                              }}
+                            >
+                              {col.label}
+                              {getSortIcon(col.key)}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* ── Stock Rows ── */}
+                        {group.items.map((stock, idx) => (
+                          <div
+                            key={stock.symbol}
+                            className="stock-row"
+                            style={{
+                              backgroundColor: idx % 2 === 0 ? '#FFFFFF' : '#FAFBFC',
+                            }}
+                          >
+                            {TABLE_COLUMNS.map((col) => (
+                              <div
+                                key={col.key}
+                                style={{
+                                  width: col.width,
+                                  minWidth: col.width,
+                                  flexShrink: 0,
+                                  flexGrow: col.key === 'symbol' ? 1 : 0,
+                                  padding: '0 8px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: col.key === 'symbol' ? 'flex-start' : 'center',
+                                }}
+                              >
+                                {renderCellValue(stock, col.key, cfg)}
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Empty state when expanded */}
+                    {isExpanded && group.items.length === 0 && (
+                      <div
+                        style={{
+                          padding: '16px 40px',
+                          fontSize: 12,
+                          color: '#9CA3AF',
+                          borderBottom: '1px solid #F3F4F6',
+                          backgroundColor: '#FAFBFC',
+                        }}
+                      >
+                        No companies currently meet the {group.label} criteria.
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </>
