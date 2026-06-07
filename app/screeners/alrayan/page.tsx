@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { Target, ShieldCheck } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/api/config';
 import { authFetch } from '@/lib/api/authFetch';
+import { WatchlistShariahProvider, useWatchlistShariah, ShariahFilterBar } from '@/components/Watchlist/WatchlistShariahContext';
 
 interface StockResult {
   symbol: string;
@@ -42,6 +43,8 @@ function AlrayanScreenerContent() {
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<ScreenerFilters>(initialScreenerFilters);
   const [lastUpdate, setLastUpdate] = useState('');
+
+  const { filterStocks } = useWatchlistShariah();
 
   useEffect(() => {
     async function fetchData() {
@@ -158,7 +161,7 @@ function AlrayanScreenerContent() {
 
   // Local filtering based on UI panel
   const filteredData = useMemo(() => {
-    return data.filter(stock => {
+    const localFiltered = data.filter(stock => {
       // Price
       if (filters.price_min && stock.close < parseFloat(filters.price_min)) return false;
       if (filters.price_max && stock.close > parseFloat(filters.price_max)) return false;
@@ -204,7 +207,8 @@ function AlrayanScreenerContent() {
 
       return true;
     });
-  }, [data, filters]);
+    return filterStocks(localFiltered);
+  }, [data, filters, filterStocks]);
 
 
 
@@ -213,6 +217,8 @@ function AlrayanScreenerContent() {
   return (
     <div style={{ width: '100%', minHeight: '100vh', backgroundColor: '#FFFFFF', color: '#111827', fontFamily: 'system-ui, sans-serif' }}>
       
+      <ShariahFilterBar variant="light" />
+
       <div style={{ padding: '32px 32px 0 32px', maxWidth: '1920px', margin: '0 auto' }}>
         <ScreenerFilterPanel 
           filters={filters} 
@@ -297,8 +303,10 @@ function AlrayanScreenerContent() {
 
 export default function AlrayanPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '100vh', backgroundColor: '#FFFFFF' }} />}>
-      <AlrayanScreenerContent />
-    </Suspense>
+    <WatchlistShariahProvider>
+      <Suspense fallback={<div style={{ minHeight: '100vh', backgroundColor: '#FFFFFF' }} />}>
+        <AlrayanScreenerContent />
+      </Suspense>
+    </WatchlistShariahProvider>
   );
 }

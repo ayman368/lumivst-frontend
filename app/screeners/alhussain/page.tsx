@@ -7,6 +7,7 @@ import ScreenerTable from '@/components/Screeners/ScreenerTable';
 import ScreenerFilterPanel, { initialScreenerFilters, ScreenerFilters } from '@/components/Screeners/ScreenerFilterPanel';
 import { API_BASE_URL } from '@/lib/api/config';
 import { authFetch } from '@/lib/api/authFetch';
+import { WatchlistShariahProvider, useWatchlistShariah, ShariahFilterBar } from '@/components/Watchlist/WatchlistShariahContext';
 
 interface StockResult {
   symbol: string;
@@ -39,6 +40,8 @@ function AlhussainScreenerContent() {
   const [data, setData] = useState<StockResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<ScreenerFilters>(initialScreenerFilters);
+
+  const { filterStocks } = useWatchlistShariah();
 
   useEffect(() => {
     async function fetchData() {
@@ -112,7 +115,7 @@ function AlhussainScreenerContent() {
   }, []);
 
   const filteredData = useMemo(() => {
-    return data.filter(stock => {
+    const localFiltered = data.filter(stock => {
       if (filters.price_min && stock.close < parseFloat(filters.price_min)) return false;
       if (filters.price_max && stock.close > parseFloat(filters.price_max)) return false;
 
@@ -151,10 +154,12 @@ function AlhussainScreenerContent() {
 
       return true;
     });
-  }, [data, filters]);
+    return filterStocks(localFiltered);
+  }, [data, filters, filterStocks]);
 
   return (
     <div style={{ width: '100%', minHeight: '100vh', backgroundColor: '#FFFFFF', color: '#111827', fontFamily: 'system-ui, sans-serif' }}>
+      <ShariahFilterBar variant="light" />
       <div style={{ padding: '32px 32px 0 32px', maxWidth: '1920px', margin: '0 auto' }}>
         <ScreenerFilterPanel
           filters={filters}
@@ -233,8 +238,10 @@ function AlhussainScreenerContent() {
 
 export default function AlhussainPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '100vh', backgroundColor: '#FFFFFF' }} />}>
-      <AlhussainScreenerContent />
-    </Suspense>
+    <WatchlistShariahProvider>
+      <Suspense fallback={<div style={{ minHeight: '100vh', backgroundColor: '#FFFFFF' }} />}>
+        <AlhussainScreenerContent />
+      </Suspense>
+    </WatchlistShariahProvider>
   );
 }

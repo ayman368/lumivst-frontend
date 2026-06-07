@@ -406,7 +406,7 @@ export default function ADRatingHistoryPage() {
 
       {/* ── Main content ── */}
       <main ref={pageRef} className="flex-1 min-h-0 flex flex-col w-full px-4 pt-4 pb-4 overflow-hidden">
-        
+
         {/* CHART CONTAINER — dual charts wrapper */}
         <div
           ref={chartCardRef}
@@ -454,31 +454,26 @@ export default function ADRatingHistoryPage() {
 
           {/* scrollable charts container */}
           <div className="flex-1 overflow-y-auto flex flex-col bg-slate-50">
-            {/* Absolute Count Chart */}
+
+            {/* ── Absolute Count Chart ── */}
             <div className="flex-shrink-0 h-[400px] sm:h-[450px] relative p-4 border-b border-slate-100 bg-white">
-              <div style={{
-                position: 'absolute', left: 15, top: '50%',
-                transform: 'translateY(-50%) rotate(-90deg)',
-                transformOrigin: 'center',
-                fontSize: '12px', fontWeight: 700, color: '#64748B',
-                letterSpacing: '0.05em', whiteSpace: 'nowrap', zIndex: 10,
-                pointerEvents: 'none',
-              }}>
-                A/D Rating (Absolute Count)
-              </div>
-              
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data} margin={{ top: 20, right: 20, left: 20, bottom: 30 }}>
+                <LineChart data={data} margin={{ top: 20, right: 20, left: 20, bottom: 65 }}>
                   <CartesianGrid stroke="#E5E7EB" strokeWidth={1} vertical={true} horizontal={true} />
+
                   <XAxis
                     dataKey="time"
                     tick={{ fontSize: 13, fill: '#6B7280', fontWeight: 500 }}
                     tickLine={{ stroke: '#E5E7EB' }}
                     axisLine={{ stroke: '#E5E7EB', strokeWidth: 2 }}
+                    angle={-90}
+                    textAnchor="end"
                     interval={Math.max(0, Math.floor(data.length / 45))}
-                    height={40}
-                    dy={10}
+                    height={100}
+                    dx={-5}
+                    dy={45}
                   />
+
                   <YAxis
                     tickFormatter={formatY}
                     tick={{ fontSize: 13, fill: '#6B7280', fontWeight: 500 }}
@@ -489,7 +484,7 @@ export default function ADRatingHistoryPage() {
                     dx={-5}
                   />
                   <Tooltip content={<CustomTooltip />} />
-                  
+
                   {seriesVisible.a_rating && (
                     <Line
                       type="linear"
@@ -503,7 +498,7 @@ export default function ADRatingHistoryPage() {
                       isAnimationActive={false}
                     />
                   )}
-                  
+
                   {seriesVisible.d_rating && (
                     <Line
                       type="linear"
@@ -521,19 +516,8 @@ export default function ADRatingHistoryPage() {
               </ResponsiveContainer>
             </div>
 
-            {/* Percentage Chart */}
+            {/* ── Percentage Chart ── */}
             <div className="flex-shrink-0 h-[400px] sm:h-[450px] relative p-4 bg-white">
-              <div style={{
-                position: 'absolute', left: 15, top: '50%',
-                transform: 'translateY(-50%) rotate(-90deg)',
-                transformOrigin: 'center',
-                fontSize: '12px', fontWeight: 700, color: '#64748B',
-                letterSpacing: '0.05em', whiteSpace: 'nowrap', zIndex: 10,
-                pointerEvents: 'none',
-              }}>
-                A/D Rating Percentage (%)
-              </div>
-              
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data} margin={{ top: 20, right: 20, left: 20, bottom: 65 }}>
                   <CartesianGrid stroke="#E5E7EB" strokeWidth={1} vertical={true} horizontal={true} />
@@ -559,7 +543,7 @@ export default function ADRatingHistoryPage() {
                     dx={-5}
                   />
                   <Tooltip content={<CustomTooltip />} />
-                  
+
                   {seriesVisible.a_rating && (
                     <Line
                       type="linear"
@@ -573,7 +557,7 @@ export default function ADRatingHistoryPage() {
                       isAnimationActive={false}
                     />
                   )}
-                  
+
                   {seriesVisible.d_rating && (
                     <Line
                       type="linear"
@@ -590,6 +574,7 @@ export default function ADRatingHistoryPage() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
+
           </div>
 
           {/* card footer */}
