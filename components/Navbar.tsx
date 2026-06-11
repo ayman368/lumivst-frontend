@@ -83,10 +83,12 @@ function DropdownItem({
       </button>
 
       {/* Nested flyout panel */}
+      {/* pl-1 + left-[calc(100%-4px)] → bridge the gap so mouseLeave doesn't fire mid-travel */}
       <div
-        className="absolute top-0 left-full ml-1 rounded-lg border border-gray-100 bg-white min-w-[200px] py-1 z-[1010]"
+        className="absolute top-0 z-[1010] min-w-[200px]"
         style={{
-          boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+          left: 'calc(100% - 4px)',
+          paddingLeft: '4px',
           opacity: open ? 1 : 0,
           visibility: open ? 'visible' : 'hidden',
           transform: open ? 'translateX(0)' : 'translateX(-6px)',
@@ -94,9 +96,14 @@ function DropdownItem({
           pointerEvents: open ? 'auto' : 'none',
         }}
       >
-        {item.items.map((child, i) => (
-          <DropdownItem key={i} item={child} onClose={onClose} />
-        ))}
+        <div
+          className="rounded-lg border border-gray-100 bg-white py-1"
+          style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.10)' }}
+        >
+          {item.items.map((child, i) => (
+            <DropdownItem key={i} item={child} onClose={onClose} />
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -396,10 +403,12 @@ export default function Navbar() {
               </button>
 
               {/* Dropdown panel */}
+              {/* pt-1 + top-[calc(100%-4px)] → bridge the gap so mouseLeave doesn't fire mid-travel */}
               <div
-                className="absolute top-full left-0 mt-0 rounded-lg border border-gray-100 bg-white min-w-[200px] py-1 z-[1001]"
+                className="absolute left-0 min-w-[200px] z-[1001]"
                 style={{
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+                  top: 'calc(100% - 4px)',
+                  paddingTop: '4px',
                   opacity: activeDropdown === key ? 1 : 0,
                   visibility: activeDropdown === key ? 'visible' : 'hidden',
                   transform: activeDropdown === key ? 'translateY(0)' : 'translateY(-8px)',
@@ -407,9 +416,14 @@ export default function Navbar() {
                   pointerEvents: activeDropdown === key ? 'auto' : 'none',
                 }}
               >
-                {section.items.map((item, i) => (
-                  <DropdownItem key={i} item={item} onClose={closeAll} />
-                ))}
+                <div
+                  className="rounded-lg border border-gray-100 bg-white py-1"
+                  style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.10)' }}
+                >
+                  {section.items.map((item, i) => (
+                    <DropdownItem key={i} item={item} onClose={closeAll} />
+                  ))}
+                </div>
               </div>
             </div>
           ))}
