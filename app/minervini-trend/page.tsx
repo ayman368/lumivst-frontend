@@ -18,12 +18,10 @@ import {
   Minimize2,
   Eye,
   EyeOff,
-  Download,
   FileText,
   Image as ImgIcon,
   Table2,
   Calendar,
-  Target,
   Scan,
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
@@ -32,22 +30,17 @@ import MinerviniExportButton from './_components/Minerviniexportbutton'
 import * as XLSX from 'xlsx';
 import { authFetch } from '@/lib/api/authFetch';
 
-/* ─── Types ─────────────────────────────────────────────────────────────── */
-
 interface TrendDataPoint {
   time: string;
   trend_1m: number;
   trend_4m: number;
   trend_5m_wide: number;
-  alrayan: number;
 }
 
 type HoverEntry = {
   value: number | null;
   time: string | null;
 };
-
-/* ─── Config ─────────────────────────────────────────────────────────────── */
 
 const CHART_CONFIGS = [
   {
@@ -83,22 +76,10 @@ const CHART_CONFIGS = [
     icon: BarChart2,
     desc: 'Number of stocks passing the Minervini 5-Month Wide trend template screener',
   },
-  {
-    key: 'alrayan' as const,
-    label: 'Alrayan Screener',
-    sublabel: 'Technical Alignment',
-    badge: 'ALR',
-    lineColor: '#8B5CF6',
-    topColor: 'rgba(139,92,246,0.10)',
-    accentLight: '#F5F3FF',
-    icon: Target,
-    desc: 'Number of stocks passing the Alrayan technical screener',
-  },
-] as const;
+];
 
 const CHART_COUNT = CHART_CONFIGS.length;
 
-/* ─── Period → days mapping ─────────────────────────────────────────────── */
 const PERIOD_DAYS: Record<string, number | null> = {
   '5D': 5,
   '1M': 22,
@@ -130,7 +111,6 @@ function mapSeries(items: any[]): TrendDataPoint[] {
     trend_1m: item.trend_1m ?? 0,
     trend_4m: item.trend_4m ?? 0,
     trend_5m_wide: item.trend_5m_wide ?? 0,
-    alrayan: item.alrayan ?? 0,
   }));
 }
 
@@ -150,21 +130,18 @@ function writeCache(series: TrendDataPoint[]) {
   try { sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify({ ts: Date.now(), series })); } catch { }
 }
 
-/* ─── Main Page ──────────────────────────────────────────────────────────── */
-
 export default function MinerviniTrendPage() {
   const [rawData, setRawData] = useState<TrendDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const [period, setPeriod] = useState('ALL');
-  const [seriesVisible, setSeriesVisible] = useState<Record<number, boolean>>({ 0: true, 1: true, 2: true, 3: true });
+  const [seriesVisible, setSeriesVisible] = useState<Record<number, boolean>>({ 0: true, 1: true, 2: true });
   const [fullscreenIdx, setFullscreenIdx] = useState<number | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [hoverValues, setHoverValues] = useState<Record<number, HoverEntry>>({});
 
-  /* refs */
   const pageRef = useRef<HTMLDivElement>(null);
   const exportDropRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>(Array(CHART_COUNT).fill(null));
@@ -180,13 +157,11 @@ export default function MinerviniTrendPage() {
   const seriesVisibleRef = useRef(seriesVisible);
   seriesVisibleRef.current = seriesVisible;
 
-  /* ── tick ── */
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 1400);
     return () => clearInterval(id);
   }, []);
 
-  /* ── fetch ── */
   useEffect(() => {
     if (fetchStarted.current) return;
     fetchStarted.current = true;
@@ -210,7 +185,6 @@ export default function MinerviniTrendPage() {
     })();
   }, []);
 
-  /* ── filter by period (client-side) ── */
   const data = useMemo(() => {
     const maxDays = PERIOD_DAYS[period];
     if (!maxDays || rawData.length <= maxDays) return rawData;
@@ -219,7 +193,6 @@ export default function MinerviniTrendPage() {
 
   const chartData = useMemo(() => downsample(data, MAX_CHART_POINTS), [data]);
 
-  /* ── click-outside export dropdown ── */
   useEffect(() => {
     if (!exportOpen) return;
     const handler = (e: MouseEvent) => {
@@ -229,11 +202,9 @@ export default function MinerviniTrendPage() {
     return () => document.removeEventListener('mousedown', handler);
   }, [exportOpen]);
 
-  /* ── build / rebuild charts ── */
   useEffect(() => {
     if (chartData.length === 0) return;
 
-    /* save zoom before rebuild */
     if (chartsRef.current.length > 0 && !isRestoringRef.current) {
       try {
         const range = chartsRef.current[0].timeScale().getVisibleLogicalRange();
@@ -241,7 +212,6 @@ export default function MinerviniTrendPage() {
       } catch { }
     }
 
-    /* destroy old */
     chartsRef.current.forEach((c) => c.remove());
     chartsRef.current = [];
     mainSeriesRef.current = Array(CHART_COUNT).fill(null);
@@ -317,7 +287,6 @@ export default function MinerviniTrendPage() {
       mainSeriesRef.current[i] = series;
     });
 
-    /* ── sync time-scale scroll/zoom ── */
     chartsRef.current.forEach((chart, i) => {
       chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
         if (!range || isSyncing.current || isRestoringRef.current) return;
@@ -333,7 +302,6 @@ export default function MinerviniTrendPage() {
       });
     });
 
-    /* ── crosshair sync + hover values ── */
     chartsRef.current.forEach((chart, i) => {
       chart.subscribeCrosshairMove((param) => {
         const mainS = mainSeriesRef.current[i];
@@ -354,7 +322,6 @@ export default function MinerviniTrendPage() {
           };
         }
 
-        /* RAF-batched state update */
         pendingHoverRef.current = { ...pendingHoverRef.current, [i]: entry };
         if (hoverRafRef.current === null) {
           hoverRafRef.current = requestAnimationFrame(() => {
@@ -363,7 +330,6 @@ export default function MinerviniTrendPage() {
           });
         }
 
-        /* sync crosshair to other charts */
         chartsRef.current.forEach((targetChart, j) => {
           if (j === i) return;
           const targetSeries = mainSeriesRef.current[j];
@@ -380,7 +346,6 @@ export default function MinerviniTrendPage() {
       });
     });
 
-    /* ── ResizeObserver ── */
     const ro = new ResizeObserver((entries) => {
       entries.forEach((entry) => {
         const el = entry.target as HTMLDivElement;
@@ -397,7 +362,6 @@ export default function MinerviniTrendPage() {
     });
     canvasRefs.current.forEach((el) => { if (el) ro.observe(el); });
 
-    /* force initial size after DOM settles */
     requestAnimationFrame(() => {
       chartsRef.current.forEach((chart, i) => {
         const el = canvasRefs.current[i];
@@ -408,7 +372,6 @@ export default function MinerviniTrendPage() {
       });
     });
 
-    /* ── restore zoom ── */
     const rangeToRestore = savedRangeRef.current;
     if (rangeToRestore) {
       isRestoringRef.current = true;
@@ -433,13 +396,10 @@ export default function MinerviniTrendPage() {
       chartsRef.current.forEach((c) => c.remove());
       chartsRef.current = [];
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartData]);
 
-  /* ── reset saved range on period change ── */
   useEffect(() => { savedRangeRef.current = null; }, [period]);
 
-  /* ── toggle visibility without rebuild ── */
   useEffect(() => {
     Object.entries(seriesVisible).forEach(([idx, vis]) => {
       const s = mainSeriesRef.current[Number(idx)];
@@ -447,25 +407,21 @@ export default function MinerviniTrendPage() {
     });
   }, [seriesVisible]);
 
-  /* ── fullscreen — CSS overlay (avoids browser black-bg issue) ── */
   const handleFullscreen = (i: number) => {
     setFullscreenIdx((prev) => (prev === i ? null : i));
   };
 
-  /* close fullscreen on Escape */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFullscreenIdx(null); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, []);
 
-  /* ── fit all ── */
   const fitAll = () => {
     savedRangeRef.current = null;
     chartsRef.current.forEach((c) => c.timeScale().fitContent());
   };
 
-  /* ── export ── */
   const today = () => new Date().toISOString().slice(0, 10);
   const notify = (msg: string) => { setExportStatus(msg); setTimeout(() => setExportStatus(null), 2500); };
 
@@ -505,17 +461,15 @@ export default function MinerviniTrendPage() {
       'Trend 1 Month': d.trend_1m,
       'Trend 4 Months': d.trend_4m,
       'Trend 5 Months Wide': d.trend_5m_wide,
-      Alrayan: d.alrayan,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 12 }, { wch: 15 }, { wch: 16 }, { wch: 20 }, { wch: 10 }];
+    ws['!cols'] = [{ wch: 12 }, { wch: 15 }, { wch: 16 }, { wch: 20 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Minervini Trend');
     XLSX.writeFile(wb, `Minervini-Trend-${today()}.xlsx`);
     notify('Excel downloaded ✓');
   };
 
-  /* ── Loading / Error ── */
   if (loading && rawData.length === 0)
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center" style={{ fontFamily: '"DM Sans", sans-serif' }}>
@@ -545,15 +499,12 @@ export default function MinerviniTrendPage() {
   const latest = data[data.length - 1];
   const dateRange = data.length > 0 ? `${data[0].time} — ${data[data.length - 1].time}` : '';
 
-  /* ─── Render ──────────────────────────────────────────────────────────── */
   return (
     <div className="w-full h-screen flex flex-col bg-slate-50 overflow-hidden mb-12" style={{ fontFamily: '"DM Sans", sans-serif' }}>
 
-      {/* ── Header ── */}
       <header className="bg-white border-b border-slate-200 flex-shrink-0 z-50" style={{ boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}>
         <div className="w-full px-5 h-[60px] flex items-center justify-between gap-6">
 
-          {/* brand */}
           <div className="flex items-center gap-3 flex-shrink-0">
             <div className="w-[34px] h-[34px] bg-slate-50 border border-slate-200 rounded-[9px] flex items-center justify-center flex-shrink-0">
               <svg width="16" height="16" viewBox="0 0 20 18" fill="none">
@@ -575,10 +526,8 @@ export default function MinerviniTrendPage() {
             </div>
           </div>
 
-          {/* controls */}
           <div className="flex items-center gap-2.5">
 
-            {/* period selector */}
             <div className="flex bg-slate-50 border border-slate-200 p-0.5 rounded-[9px] gap-0.5">
               {['5D', '1M', '6M', '1Y', '5Y', '10Y', 'ALL'].map((p) => (
                 <button key={p} onClick={() => setPeriod(p)} disabled={loading}
@@ -590,7 +539,6 @@ export default function MinerviniTrendPage() {
               ))}
             </div>
 
-            {/* stat blocks */}
             <div className="flex items-center bg-slate-50 border border-slate-200 rounded-[9px] px-3.5 py-2 gap-4">
               {CHART_CONFIGS.map((cfg, i) => {
                 const val = latest ? latest[cfg.key] : 0;
@@ -618,14 +566,12 @@ export default function MinerviniTrendPage() {
               )}
             </div>
 
-            {/* fit all */}
             <button onClick={fitAll} title="Fit all charts"
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-medium text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
               <Scan size={13} />
               Fit All
             </button>
 
-            {/* export */}
             <MinerviniExportButton
               data={data}
               period={period}
@@ -656,7 +602,7 @@ export default function MinerviniTrendPage() {
                   )
                 )}
                 <div className="px-3.5 pb-3">
-                  <div className="text-[10px] text-slate-400 bg-slate-50 rounded-md px-2.5 py-1.5 leading-relaxed">Exports all 4 Minervini trend charts</div>
+                  <div className="text-[10px] text-slate-400 bg-slate-50 rounded-md px-2.5 py-1.5 leading-relaxed">Exports all 3 Minervini trend charts</div>
                 </div>
               </div>
             )}
@@ -673,17 +619,14 @@ export default function MinerviniTrendPage() {
           </div>
         </div>
 
-        {/* rainbow rule */}
         <div className="h-[2px]" style={{
-          background: 'linear-gradient(90deg, #4472C4 0%, #ED7D31 33%, #70AD47 66%, #8B5CF6 100%)',
+          background: 'linear-gradient(90deg, #4472C4 0%, #ED7D31 50%, #70AD47 100%)',
           opacity: 0.4,
         }} />
       </header>
 
-      {/* ── Main content ── */}
       <main ref={pageRef} className="flex-1 min-h-0 flex flex-col w-full px-4 pt-2 pb-2 overflow-hidden">
 
-        {/* summary bar */}
         <div className="bg-white border border-slate-200 rounded-[9px] px-4 py-2 flex justify-between items-center mb-2 flex-shrink-0"
           style={{ boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
           <div className="flex items-center gap-4 flex-wrap">
@@ -707,16 +650,15 @@ export default function MinerviniTrendPage() {
           <span className="text-[10px] text-slate-300 flex-shrink-0">{latest?.time || '—'}</span>
         </div>
 
-        {/* CHART GRID */}
-        <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-2 relative overflow-hidden">
-          {
-            CHART_CONFIGS.map((cfg, i) => {
+        <div className="flex-1 min-h-0 flex flex-col gap-2 relative overflow-hidden">
+          <div className="grid grid-cols-2 gap-2 flex-1 min-h-0">
+            {CHART_CONFIGS.slice(0, 2).map((cfg, idx) => {
+              const i = idx;
               const Icon = cfg.icon;
               const isVisible = seriesVisible[i] !== false;
               const isFS = fullscreenIdx === i;
               const hover = hoverValues[i];
 
-              /* value to display: hover > latest */
               const displayVal = hover?.value != null
                 ? hover.value.toLocaleString()
                 : latest ? latest[cfg.key].toLocaleString() : '—';
@@ -739,7 +681,6 @@ export default function MinerviniTrendPage() {
                   ].join(" ")}
                   style={{ borderLeft: `3px solid ${cfg.lineColor}`, boxShadow: isFS ? '0 0 0 4px rgba(0,0,0,0.15)' : '0 1px 3px rgba(15,23,42,0.05)' }}
                 >
-                  {/* card header */}
                   <div className="px-4 pt-2.5 pb-1.5 flex justify-between items-start flex-shrink-0">
                     <div className="flex items-center gap-2">
                       <div className="w-[30px] h-[30px] rounded-[8px] flex items-center justify-center flex-shrink-0" style={{ background: cfg.accentLight }}>
@@ -773,7 +714,6 @@ export default function MinerviniTrendPage() {
                     </div>
                   </div>
 
-                  {/* progress bar */}
                   <div className="px-4 pb-1.5 flex-shrink-0">
                     <div className="flex justify-between mb-0.5">
                       <span className="text-[9px] text-slate-300 uppercase tracking-widest font-medium">0</span>
@@ -788,7 +728,6 @@ export default function MinerviniTrendPage() {
                     </div>
                   </div>
 
-                  {/* button row */}
                   <div className="px-3 py-1 flex items-center gap-1 border-y border-slate-100 flex-shrink-0">
                     <div className="flex-1" />
 
@@ -816,12 +755,10 @@ export default function MinerviniTrendPage() {
                     </button>
                   </div>
 
-                  {/* chart canvas */}
                   <div className="flex-1 min-h-0 relative" style={{ minHeight: 0 }}>
                     <div ref={(el) => { canvasRefs.current[i] = el; }} style={{ position: 'absolute', inset: 0 }} />
                   </div>
 
-                  {/* card footer */}
                   <div className="px-4 py-1 border-t border-slate-50 flex justify-between items-center flex-shrink-0">
                     <span className="text-[9px] text-slate-300 leading-relaxed line-clamp-1">{cfg.desc}</span>
                     <span className="text-[9px] text-slate-300 ml-3 flex-shrink-0 font-medium">
@@ -831,15 +768,134 @@ export default function MinerviniTrendPage() {
                   </div>
                 </div>
               );
-            })
-          }
+            })}
+          </div>
+
+          <div className="flex-1 min-h-0">
+            {CHART_CONFIGS.slice(2, 3).map((cfg, idx) => {
+              const i = idx + 2;
+              const Icon = cfg.icon;
+              const isVisible = seriesVisible[i] !== false;
+              const isFS = fullscreenIdx === i;
+              const hover = hoverValues[i];
+
+              const displayVal = hover?.value != null
+                ? hover.value.toLocaleString()
+                : latest ? latest[cfg.key].toLocaleString() : '—';
+
+              const numVal = latest ? latest[cfg.key] : 0;
+              const prev = data.length > 1 ? data[data.length - 2][cfg.key] : numVal;
+              const delta = Math.abs(numVal - prev);
+              const isUp = numVal >= prev;
+              const maxVal = Math.max(...data.map((d) => d[cfg.key]), 1);
+              const pct = Math.round((numVal / maxVal) * 100);
+
+              return (
+                <div key={cfg.key}
+                  ref={(el) => { cardRefs.current[i] = el; }}
+                  className={[
+                    "bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col transition-all duration-200 h-full",
+                    isFS
+                      ? "fixed inset-0 z-[200] rounded-none"
+                      : "relative min-h-0",
+                  ].join(" ")}
+                  style={{ borderLeft: `3px solid ${cfg.lineColor}`, boxShadow: isFS ? '0 0 0 4px rgba(0,0,0,0.15)' : '0 1px 3px rgba(15,23,42,0.05)' }}
+                >
+                  <div className="px-4 pt-2.5 pb-1.5 flex justify-between items-start flex-shrink-0">
+                    <div className="flex items-center gap-2">
+                      <div className="w-[30px] h-[30px] rounded-[8px] flex items-center justify-center flex-shrink-0" style={{ background: cfg.accentLight }}>
+                        <Icon size={14} color={cfg.lineColor} strokeWidth={2} />
+                      </div>
+                      <div>
+                        <div className="text-[12px] font-semibold text-slate-900 tracking-tight leading-none">{cfg.label} Trend</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5 tracking-wide leading-none">{cfg.sublabel}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-0.5">
+                      {isVisible && (
+                        <>
+                          <div className="flex items-baseline gap-0.5">
+                            <span className="text-[22px] font-bold leading-none tracking-tight"
+                              style={{ color: hover?.value != null ? cfg.lineColor : '#0F172A' }}>
+                              {displayVal}
+                            </span>
+                            <span className="text-[11px] text-slate-400 font-medium ml-0.5">stocks</span>
+                          </div>
+                          {hover?.time ? (
+                            <span className="text-[10px] text-slate-400 font-medium">{hover.time}</span>
+                          ) : (
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded tracking-wide ${isUp ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}>
+                              {isUp ? '▲' : '▼'} {delta}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="px-4 pb-1.5 flex-shrink-0">
+                    <div className="flex justify-between mb-0.5">
+                      <span className="text-[9px] text-slate-300 uppercase tracking-widest font-medium">0</span>
+                      <span className="text-[9px] text-slate-300 uppercase tracking-widest font-medium">MAX · {maxVal}</span>
+                    </div>
+                    <div className="h-[4px] bg-slate-100 rounded-full relative overflow-hidden">
+                      <div className="absolute left-0 top-0 bottom-0 rounded-full transition-all duration-700"
+                        style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${cfg.lineColor}44, ${cfg.lineColor})` }} />
+                      {[25, 50, 75].map((t) => (
+                        <div key={t} className="absolute top-0 bottom-0 w-px bg-white/70 z-10" style={{ left: `${t}%` }} />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="px-3 py-1 flex items-center gap-1 border-y border-slate-100 flex-shrink-0">
+                    <div className="flex-1" />
+
+                    <button onClick={() => setSeriesVisible((prev) => ({ ...prev, [i]: !prev[i] }))}
+                      title={isVisible ? 'Hide series' : 'Show series'}
+                      className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border flex items-center gap-1"
+                      style={{
+                        borderColor: !isVisible ? cfg.lineColor : '#E2E8F0',
+                        background: !isVisible ? cfg.lineColor : 'transparent',
+                        color: !isVisible ? '#FFFFFF' : '#64748B',
+                      }}>
+                      {isVisible ? <Eye size={9} /> : <EyeOff size={9} />}
+                      <span>Data</span>
+                    </button>
+
+                    <button onClick={() => chartsRef.current[i]?.timeScale().fitContent()}
+                      title="Fit to data"
+                      className="w-[24px] h-[24px] flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer bg-transparent">
+                      <Scan size={10} />
+                    </button>
+
+                    <button onClick={() => handleFullscreen(i)}
+                      className="w-[24px] h-[24px] flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer bg-transparent">
+                      {isFS ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
+                    </button>
+                  </div>
+
+                  <div className="flex-1 min-h-0 relative" style={{ minHeight: 0 }}>
+                    <div ref={(el) => { canvasRefs.current[i] = el; }} style={{ position: 'absolute', inset: 0 }} />
+                  </div>
+
+                  <div className="px-4 py-1 border-t border-slate-50 flex justify-between items-center flex-shrink-0">
+                    <span className="text-[9px] text-slate-300 leading-relaxed line-clamp-1">{cfg.desc}</span>
+                    <span className="text-[9px] text-slate-300 ml-3 flex-shrink-0 font-medium">
+                      {data.length.toLocaleString()} obs
+                      {chartData.length < data.length ? ` · chart ${chartData.length}` : ''}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        {/* footer strip */}
         <div className="mt-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg flex justify-between items-center text-[9px] text-slate-300 tracking-wide flex-shrink-0">
           <div className="flex items-center gap-1.5">
             <Radio size={9} color="#CBD5E1" />
-            <span>Minervini Trend Screener · Historical stock count analysis · 1M · 4M · 5MW · Alrayan templates</span>
+            <span>Minervini Trend Screener · Historical stock count analysis · 1M · 4M · 5MW</span>
           </div>
           <span>{dateRange}</span>
         </div>

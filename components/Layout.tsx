@@ -9,6 +9,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const showSidebar = shouldShowSidebar(pathname)
   const isFullBleedDashboard = pathname?.startsWith('/stocks/market-breadth')
+  const isPortfolio = pathname === '/my-portfolio'
+
+  if (isPortfolio) {
+    return <div className="h-[100dvh] overflow-hidden bg-[var(--bg-surface)]">{children}</div>
+  }
 
   return (
     <div className={`bg-white flex flex-col ${isFullBleedDashboard ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'}`}>

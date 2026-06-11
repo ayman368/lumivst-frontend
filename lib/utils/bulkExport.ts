@@ -100,15 +100,23 @@ export async function fetchBulkScreenerData(): Promise<BulkExportResult> {
   }
 
   // ── Pass 2: Deduplication (higher-priority screeners win) ────────────────
-  // Array is ordered lowest→highest priority, so iterating backwards
-  // means we claim symbols from highest priority first.
-  // Result: each symbol appears only in the highest-priority screener it belongs to.
   const claimedSymbols = new Set<string>();
-  const finalGroupedData: { label: string; items: StockResult[] }[] = [];
+  const finalGroupedData: { label: string; items: StockResult[] }[] = new Array(rawPerScreener.length);
 
-  // Iterate backwards from highest priority to lowest
-  for (let i = rawPerScreener.length - 1; i >= 0; i--) {
-    const group = rawPerScreener[i];
+  // Define priority order index (Highest priority to Lowest priority)
+  // 4: Trend 5 Months Wide (Highest, none removed)
+  // 3: Trend 5 Months
+  // 2: Trend 4 Months
+  // 1: Trend 2 Months
+  // 0: Trend 1 Month
+  // 5: Alhussain
+  // 6: Alrayan
+  // 7: RSI Momentum
+  // 8: Power Play (Lowest, removed if in anything above)
+  const priorityOrder = [4, 3, 2, 1, 0, 5, 6, 7, 8];
+
+  for (const idx of priorityOrder) {
+    const group = rawPerScreener[idx];
     const filteredItems: StockResult[] = [];
 
     for (const item of group.items) {
@@ -118,8 +126,8 @@ export async function fetchBulkScreenerData(): Promise<BulkExportResult> {
       }
     }
 
-    // Unshift to maintain original order in UI
-    finalGroupedData.unshift({ label: group.label, items: filteredItems });
+    // Place it in the correct visual order index
+    finalGroupedData[idx] = { label: group.label, items: filteredItems };
   }
 
   // ── Build final flat list (original order) + breakdown ───────────────────

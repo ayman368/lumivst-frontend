@@ -21,7 +21,6 @@ import {
   Image as ImgIcon,
   Table2,
   Calendar,
-  Radio
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -44,14 +43,16 @@ interface ADRatingDataPoint {
 const CHART_CONFIGS = [
   {
     key: 'a_rating' as const,
+    pctKey: 'a_rating_pct' as const,
     label: 'A Rating',
-    lineColor: '#4CAF50', // Green
+    lineColor: '#4CAF50',
     desc: 'Number of stocks with an A/D Rating of A',
   },
   {
     key: 'd_rating' as const,
+    pctKey: 'd_rating_pct' as const,
     label: 'D Rating',
-    lineColor: '#F44336', // Red
+    lineColor: '#F44336',
     desc: 'Number of stocks with an A/D Rating of D',
   },
 ] as const;
@@ -67,26 +68,54 @@ const PERIOD_DAYS: Record<string, number | null> = {
   'ALL': null,
 };
 
+/* ─── View mode type ─────────────────────────────────────────────────────── */
+type ViewMode = 'count' | 'percentage';
+
 /* ─── Custom Tooltip ─────────────────────────────────────────────────────── */
-function CustomTooltip({ active, payload, label }: any) {
+function CustomTooltip({ active, payload, label, viewMode }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: '12px', padding: '14px 18px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', minWidth: '180px' }}>
-      <div style={{ fontSize: '11px', fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.12em', marginBottom: '10px', borderBottom: '1px solid #F3F4F6', paddingBottom: '8px' }}>{label}</div>
-      {payload.map((entry: any, i: number) => {
-        const isPct = entry.name.includes('%');
-        return (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', padding: '3px 0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: entry.color }} />
-              <span style={{ fontSize: '12px', color: '#4B5563', fontWeight: 500 }}>{entry.name}</span>
-            </div>
-            <span style={{ fontSize: '13px', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: '#111827' }}>
-              {isPct ? `${entry.value}%` : entry.value?.toLocaleString()}
-            </span>
+    <div style={{
+      backgroundColor: '#fff',
+      border: '1px solid #E5E7EB',
+      borderRadius: '12px',
+      padding: '14px 18px',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+      minWidth: '180px',
+    }}>
+      <div style={{
+        fontSize: '11px',
+        fontWeight: 700,
+        color: '#9CA3AF',
+        letterSpacing: '0.12em',
+        marginBottom: '10px',
+        borderBottom: '1px solid #F3F4F6',
+        paddingBottom: '8px',
+      }}>
+        {label}
+      </div>
+      {payload.map((entry: any, i: number) => (
+        <div key={i} style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '16px',
+          padding: '3px 0',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: entry.color }} />
+            <span style={{ fontSize: '12px', color: '#4B5563', fontWeight: 500 }}>{entry.name}</span>
           </div>
-        );
-      })}
+          <span style={{
+            fontSize: '13px',
+            fontWeight: 800,
+            fontVariantNumeric: 'tabular-nums',
+            color: '#111827',
+          }}>
+            {viewMode === 'percentage' ? `${entry.value}%` : entry.value?.toLocaleString()}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -99,7 +128,11 @@ export default function ADRatingHistoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const [period, setPeriod] = useState('ALL');
-  const [seriesVisible, setSeriesVisible] = useState<Record<string, boolean>>({ a_rating: true, d_rating: true });
+  const [viewMode, setViewMode] = useState<ViewMode>('count');
+  const [seriesVisible, setSeriesVisible] = useState<Record<string, boolean>>({
+    a_rating: true,
+    d_rating: true,
+  });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
@@ -251,11 +284,11 @@ export default function ADRatingHistoryPage() {
   const latest = data[data.length - 1];
   const dateRange = data.length > 0 ? `${data[0].time} — ${data[data.length - 1].time}` : '';
 
-  const maxVal = Math.max(...data.map(d => Math.max(d.a_rating, d.d_rating)), 1);
-  const minVal = Math.min(...data.map(d => Math.min(d.a_rating, d.d_rating)), 0);
   const formatY = (v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}K` : v.toString();
   const formatYPct = (v: number) => `${v}%`;
   const showDots = data.length < 80;
+
+  const isCount = viewMode === 'count';
 
   /* ─── Render ──────────────────────────────────────────────────────────── */
   return (
@@ -407,7 +440,7 @@ export default function ADRatingHistoryPage() {
       {/* ── Main content ── */}
       <main ref={pageRef} className="flex-1 min-h-0 flex flex-col w-full px-4 pt-4 pb-4 overflow-hidden">
 
-        {/* CHART CONTAINER — dual charts wrapper */}
+        {/* CHART CONTAINER */}
         <div
           ref={chartCardRef}
           className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col relative transition-all duration-200 flex-1 h-full"
@@ -417,6 +450,34 @@ export default function ADRatingHistoryPage() {
           <div className="px-4 py-2 flex items-center gap-3 border-b border-slate-100 flex-shrink-0 bg-white z-10">
             <span className="text-[13px] font-bold text-slate-800">A/D Rating Distribution</span>
             <div className="flex-1" />
+
+            {/* ── Count / Percentage toggle ── */}
+            <div className="flex bg-slate-100 border border-slate-200 p-0.5 rounded-lg gap-0.5">
+              <button
+                onClick={() => setViewMode('count')}
+                className={[
+                  'px-3 py-1 rounded-md text-[11px] font-semibold transition-all border-none cursor-pointer',
+                  isCount
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'bg-transparent text-slate-500 hover:text-slate-700',
+                ].join(' ')}
+              >
+                Count
+              </button>
+              <button
+                onClick={() => setViewMode('percentage')}
+                className={[
+                  'px-3 py-1 rounded-md text-[11px] font-semibold transition-all border-none cursor-pointer',
+                  !isCount
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'bg-transparent text-slate-500 hover:text-slate-700',
+                ].join(' ')}
+              >
+                %
+              </button>
+            </div>
+
+            <div className="w-px h-4 bg-slate-200" />
 
             {/* Toggle series buttons */}
             <div className="flex items-center gap-2">
@@ -437,7 +498,7 @@ export default function ADRatingHistoryPage() {
                     <span className="w-2 h-2 rounded-full inline-block" style={{ background: isVisible ? cfg.lineColor : '#FFF' }} />
                     {cfg.label}
                   </button>
-                )
+                );
               })}
             </div>
 
@@ -452,129 +513,74 @@ export default function ADRatingHistoryPage() {
             </button>
           </div>
 
-          {/* scrollable charts container */}
-          <div className="flex-1 overflow-y-auto flex flex-col bg-slate-50">
+          {/* ── Single chart area ── */}
+          <div className="flex-1 overflow-hidden bg-white relative p-4">
 
-            {/* ── Absolute Count Chart ── */}
-            <div className="flex-shrink-0 h-[400px] sm:h-[450px] relative p-4 border-b border-slate-100 bg-white">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data} margin={{ top: 20, right: 20, left: 20, bottom: 65 }}>
-                  <CartesianGrid stroke="#E5E7EB" strokeWidth={1} vertical={true} horizontal={true} />
-
-                  <XAxis
-                    dataKey="time"
-                    tick={{ fontSize: 13, fill: '#6B7280', fontWeight: 500 }}
-                    tickLine={{ stroke: '#E5E7EB' }}
-                    axisLine={{ stroke: '#E5E7EB', strokeWidth: 2 }}
-                    angle={-90}
-                    textAnchor="end"
-                    interval={Math.max(0, Math.floor(data.length / 45))}
-                    height={100}
-                    dx={-5}
-                    dy={45}
-                  />
-
-                  <YAxis
-                    tickFormatter={formatY}
-                    tick={{ fontSize: 13, fill: '#6B7280', fontWeight: 500 }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#E5E7EB', strokeWidth: 2 }}
-                    width={60}
-                    domain={['auto', 'auto']}
-                    dx={-5}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-
-                  {seriesVisible.a_rating && (
-                    <Line
-                      type="linear"
-                      dataKey="a_rating"
-                      name="A Rating"
-                      stroke="#4CAF50"
-                      strokeWidth={showDots ? 4 : 2}
-                      dot={showDots ? { r: 4.5, fill: '#4CAF50', strokeWidth: 0 } : false}
-                      activeDot={{ r: 7, fill: '#4CAF50', stroke: '#fff', strokeWidth: 2 }}
-                      animationDuration={1200}
-                      isAnimationActive={false}
-                    />
-                  )}
-
-                  {seriesVisible.d_rating && (
-                    <Line
-                      type="linear"
-                      dataKey="d_rating"
-                      name="D Rating"
-                      stroke="#F44336"
-                      strokeWidth={showDots ? 4 : 2}
-                      dot={showDots ? { r: 4.5, fill: '#F44336', strokeWidth: 0 } : false}
-                      activeDot={{ r: 7, fill: '#F44336', stroke: '#fff', strokeWidth: 2 }}
-                      animationDuration={1200}
-                      isAnimationActive={false}
-                    />
-                  )}
-                </LineChart>
-              </ResponsiveContainer>
+            {/* Animated label showing current mode */}
+            <div className="absolute top-5 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+              <span
+                key={viewMode}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide"
+                style={{
+                  background: isCount ? 'rgba(68,114,196,0.08)' : 'rgba(15,150,100,0.08)',
+                  color: isCount ? '#4472C4' : '#0F7A5A',
+                  border: `1px solid ${isCount ? 'rgba(68,114,196,0.18)' : 'rgba(15,150,100,0.18)'}`,
+                }}
+              >
+                {isCount ? 'Absolute Count' : 'Percentage of Total'}
+              </span>
             </div>
 
-            {/* ── Percentage Chart ── */}
-            <div className="flex-shrink-0 h-[400px] sm:h-[450px] relative p-4 bg-white">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data} margin={{ top: 20, right: 20, left: 20, bottom: 65 }}>
-                  <CartesianGrid stroke="#E5E7EB" strokeWidth={1} vertical={true} horizontal={true} />
-                  <XAxis
-                    dataKey="time"
-                    tick={{ fontSize: 13, fill: '#6B7280', fontWeight: 500 }}
-                    tickLine={{ stroke: '#E5E7EB' }}
-                    axisLine={{ stroke: '#E5E7EB', strokeWidth: 2 }}
-                    angle={-90}
-                    textAnchor="end"
-                    interval={Math.max(0, Math.floor(data.length / 45))}
-                    height={100}
-                    dx={-5}
-                    dy={45}
-                  />
-                  <YAxis
-                    tickFormatter={formatYPct}
-                    tick={{ fontSize: 13, fill: '#6B7280', fontWeight: 500 }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#E5E7EB', strokeWidth: 2 }}
-                    width={60}
-                    domain={['auto', 'auto']}
-                    dx={-5}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data} margin={{ top: 32, right: 20, left: 20, bottom: 65 }}>
+                <CartesianGrid stroke="#E5E7EB" strokeWidth={1} vertical={true} horizontal={true} />
 
-                  {seriesVisible.a_rating && (
+                <XAxis
+                  dataKey="time"
+                  tick={{ fontSize: 13, fill: '#6B7280', fontWeight: 500 }}
+                  tickLine={{ stroke: '#E5E7EB' }}
+                  axisLine={{ stroke: '#E5E7EB', strokeWidth: 2 }}
+                  angle={-90}
+                  textAnchor="end"
+                  interval={Math.max(0, Math.floor(data.length / 45))}
+                  height={100}
+                  dx={-5}
+                  dy={45}
+                />
+
+                <YAxis
+                  tickFormatter={isCount ? formatY : formatYPct}
+                  tick={{ fontSize: 13, fill: '#6B7280', fontWeight: 500 }}
+                  tickLine={false}
+                  axisLine={{ stroke: '#E5E7EB', strokeWidth: 2 }}
+                  width={60}
+                  domain={['auto', 'auto']}
+                  dx={-5}
+                />
+
+                <Tooltip content={<CustomTooltip viewMode={viewMode} />} />
+
+                {CHART_CONFIGS.map(cfg => {
+                  const dataKey = isCount ? cfg.key : cfg.pctKey;
+                  const name = isCount ? cfg.label : `${cfg.label} (%)`;
+                  if (!seriesVisible[cfg.key]) return null;
+                  return (
                     <Line
+                      key={cfg.key}
                       type="linear"
-                      dataKey="a_rating_pct"
-                      name="A Rating (%)"
-                      stroke="#4CAF50"
+                      dataKey={dataKey}
+                      name={name}
+                      stroke={cfg.lineColor}
                       strokeWidth={showDots ? 4 : 2}
-                      dot={showDots ? { r: 4.5, fill: '#4CAF50', strokeWidth: 0 } : false}
-                      activeDot={{ r: 7, fill: '#4CAF50', stroke: '#fff', strokeWidth: 2 }}
-                      animationDuration={1200}
-                      isAnimationActive={false}
+                      dot={showDots ? { r: 4.5, fill: cfg.lineColor, strokeWidth: 0 } : false}
+                      activeDot={{ r: 7, fill: cfg.lineColor, stroke: '#fff', strokeWidth: 2 }}
+                      animationDuration={600}
+                      isAnimationActive={true}
                     />
-                  )}
-
-                  {seriesVisible.d_rating && (
-                    <Line
-                      type="linear"
-                      dataKey="d_rating_pct"
-                      name="D Rating (%)"
-                      stroke="#F44336"
-                      strokeWidth={showDots ? 4 : 2}
-                      dot={showDots ? { r: 4.5, fill: '#F44336', strokeWidth: 0 } : false}
-                      activeDot={{ r: 7, fill: '#F44336', stroke: '#fff', strokeWidth: 2 }}
-                      animationDuration={1200}
-                      isAnimationActive={false}
-                    />
-                  )}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-
+                  );
+                })}
+              </LineChart>
+            </ResponsiveContainer>
           </div>
 
           {/* card footer */}

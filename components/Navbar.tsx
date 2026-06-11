@@ -297,11 +297,20 @@ export default function Navbar() {
       href: '/portfolio',
       items: [
         { en: 'Portfolio', href: '/portfolio' },
+        // { en: 'My Portfolio', href: '/my-portfolio' },
         { en: 'Position Size', href: '/Positionsizecalculator' },
         { en: 'Risk Calculator', href: '/risk-calculator' },
         { en: 'RBAF', href: '/rbaf' },
         { en: 'Monthly Tracker', href: '/monthly-tracker' },
         { en: 'Weekly Study', href: '/weekly-study' },
+      ],
+    },
+    new_pages: {
+      en: 'Screener_Analytics',
+      href: '/Screener_Analytics',
+      items: [
+        { en: 'Screener_Analytics', href: '/Screener_Analytics' },
+        { en: 'combined', href: '/screeners/combined' },
       ],
     },
   }

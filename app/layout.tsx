@@ -3,6 +3,9 @@ import "./globals.css";
 import Layout from "@/components/Layout";
 import { AuthProvider } from "./providers/AuthProvider";
 import { ToastProvider } from "@/components/ui/Toast";
+import { ThemeProvider } from "./providers/ThemeProvider";
+
+import QueryProvider from "./providers/QueryProvider";
 
 export const metadata: Metadata = {
   title: "REBH",
@@ -15,7 +18,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" dir="ltr">
+    <html lang="en" dir="ltr" suppressHydrationWarning>
       <head>
         <link
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Arabic:wght@300;400;500;600;700&display=swap"
@@ -23,16 +26,18 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans">
-        <AuthProvider>
-          <ToastProvider>
-            <Layout>
-              {children}
-            </Layout>
-          </ToastProvider>
-        </AuthProvider>
+        <QueryProvider>
+          <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+            <AuthProvider>
+              <ToastProvider>
+                <Layout>
+                  {children}
+                </Layout>
+              </ToastProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </QueryProvider>
       </body>
     </html>
   );
 }
-
-

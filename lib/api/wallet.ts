@@ -180,3 +180,63 @@ export async function partialSellPosition(id: number, data: { qty: number; sell_
   return handleRes(response);
 }
 
+export async function getPortfolioTransactions(): Promise<any[]> {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/transactions`, {
+    credentials: "include",
+  });
+  return handleRes(response);
+}
+
+export async function getPortfolioEvents(): Promise<any> {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/events`, {
+    credentials: "include",
+  });
+  return handleRes(response);
+}
+
+export async function getPortfolioPerformance(): Promise<any[]> {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/performance`, {
+    credentials: "include",
+  });
+  return handleRes(response);
+}
+
+export async function getPortfolioCash(): Promise<{ cash: number }> {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/settings/cash`, {
+    credentials: "include",
+  });
+  return handleRes(response);
+}
+
+export async function updatePortfolioCash(cash: number): Promise<{ cash: number }> {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/settings/cash`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
+    credentials: "include",
+    body: JSON.stringify({ cash }),
+  });
+  return handleRes(response);
+}
+
+export async function getPortfolioSummary(): Promise<{
+  total_value: number;
+  stocks_value: number;
+  total_cost: number;
+  cash: number;
+  unrealized_pnl: number;
+  unrealized_pnl_pct: number;
+  realized_pnl: number;
+  num_positions: number;
+}> {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/summary`, {
+    credentials: "include",
+  });
+  return handleRes(response);
+}
+
+export async function getPortfolioRealizedPnl(): Promise<any[]> {
+  const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/realized-pnl`, {
+    credentials: "include",
+  });
+  return handleRes(response);
+}

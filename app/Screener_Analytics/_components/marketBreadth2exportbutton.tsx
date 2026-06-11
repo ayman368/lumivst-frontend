@@ -1,33 +1,44 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 
-interface TrendDataPoint {
+interface BreadthItem {
     time: string;
-    trend_1m: number;
-    trend_4m: number;
-    trend_5m_wide: number;
+    total: number;
+    pct_above_20: number;
+    pct_above_50: number;
+    pct_above_150: number;
+    pct_above_200: number;
+    ma50_20: number;
+    ma200_20: number;
+    ma50_50: number;
+    ma200_50: number;
+    ma50_150: number;
+    ma200_150: number;
+    ma50_200: number;
+    ma200_200: number;
 }
 
-interface MinerviniExportButtonProps {
-    data: TrendDataPoint[];
+interface MarketBreadthExportButtonProps {
+    data: BreadthItem[];
     period: string;
     captureRef: React.RefObject<HTMLElement>;
 }
 
-type TrendRow = {
+type BreadthRow = {
     Date: string;
-    '1M': number;
-    '4M': number;
-    '5MW': number;
+    '% Above MA20': number;
+    '% Above MA50': number;
+    '% Above MA150': number;
+    '% Above MA200': number;
 };
 
-type ExportType = 'all' | '1m' | '4m' | '5mw';
+type ExportType = 'all' | 'ma20' | 'ma50' | 'ma150' | 'ma200';
 
-function filterByPeriod(items: TrendDataPoint[], period: string): TrendDataPoint[] {
+function filterByPeriod(items: BreadthItem[], period: string): BreadthItem[] {
     if (!items.length || period === 'ALL') return items;
     const now = new Date();
     let cutoff: Date | null = null;
@@ -42,14 +53,23 @@ function filterByPeriod(items: TrendDataPoint[], period: string): TrendDataPoint
     return items.filter((d) => d.time >= cutoffStr);
 }
 
-export default function MinerviniExportButton({
+export default function MarketBreadthExportButton({
     data, period, captureRef,
-}: MinerviniExportButtonProps) {
+}: MarketBreadthExportButtonProps) {
     const [open, setOpen] = useState(false);
     const [subMenu, setSubMenu] = useState<'data' | null>(null);
     const [status, setStatus] = useState<string | null>(null);
     const [isWorking, setIsWorking] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+    const btnRef = useRef<HTMLButtonElement>(null);
+    const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+
+    useEffect(() => {
+        if (open && btnRef.current) {
+            const rect = btnRef.current.getBoundingClientRect();
+            setMenuPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+        }
+    }, [open]);
 
     const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
         if (!menuRef.current?.contains(e.relatedTarget as Node)) {
@@ -167,7 +187,7 @@ export default function MinerviniExportButton({
         try {
             const canvas = await captureHighQuality();
             const link = document.createElement('a');
-            link.download = `Minervini-Trend${periodSuffix}-${today()}.png`;
+            link.download = `TASI-Market-Breadth${periodSuffix}-${today()}.png`;
             link.href = canvas.toDataURL('image/png', 1.0);
             link.click();
             notify('PNG saved ✓');
@@ -190,11 +210,11 @@ export default function MinerviniExportButton({
             });
             pdf.addImage(canvas.toDataURL('image/png', 1.0), 'PNG', 0, 0, logicalW, logicalH, undefined, 'FAST');
             pdf.setProperties({
-                title: 'Minervini Trend Screener',
+                title: 'TASI Market Breadth Analysis',
                 subject: `${period} · ${today()}`,
                 creator: 'TASI Analytics',
             });
-            pdf.save(`Minervini-Trend${periodSuffix}-${today()}.pdf`);
+            pdf.save(`TASI-Market-Breadth${periodSuffix}-${today()}.pdf`);
             notify('PDF saved ✓');
         } catch { notify('PDF export failed', true); }
         finally { setIsWorking(false); }
@@ -221,23 +241,26 @@ export default function MinerviniExportButton({
 
     const getFilteredData = () => filterByPeriod(data, period);
 
-    const getAllRows = (): TrendRow[] =>
+    const getAllRows = (): BreadthRow[] =>
         getFilteredData().map((d) => ({
             Date: d.time,
-            '1M': d.trend_1m,
-            '4M': d.trend_4m,
-            '5MW': d.trend_5m_wide,
+            '% Above MA20': +d.pct_above_20.toFixed(2),
+            '% Above MA50': +d.pct_above_50.toFixed(2),
+            '% Above MA150': +d.pct_above_150.toFixed(2),
+            '% Above MA200': +d.pct_above_200.toFixed(2),
         }));
 
     const getChartRows = (type: ExportType): any[] => {
         const filtered = getFilteredData();
         switch (type) {
-            case '1m':
-                return filtered.map((d) => ({ Date: d.time, '1M': d.trend_1m }));
-            case '4m':
-                return filtered.map((d) => ({ Date: d.time, '4M': d.trend_4m }));
-            case '5mw':
-                return filtered.map((d) => ({ Date: d.time, '5MW': d.trend_5m_wide }));
+            case 'ma20':
+                return filtered.map((d) => ({ Date: d.time, 'MA20 (%)': +d.pct_above_20.toFixed(2) }));
+            case 'ma50':
+                return filtered.map((d) => ({ Date: d.time, 'MA50 (%)': +d.pct_above_50.toFixed(2) }));
+            case 'ma150':
+                return filtered.map((d) => ({ Date: d.time, 'MA150 (%)': +d.pct_above_150.toFixed(2) }));
+            case 'ma200':
+                return filtered.map((d) => ({ Date: d.time, 'MA200 (%)': +d.pct_above_200.toFixed(2) }));
             default:
                 return getAllRows();
         }
@@ -247,12 +270,13 @@ export default function MinerviniExportButton({
         setOpen(false); setSubMenu(null); notify('Preparing CSV…');
         const rows = getChartRows(type);
         const labels: Record<ExportType, string> = {
-            all: 'All-Trends',
-            '1m': '1M-Trend',
-            '4m': '4M-Trend',
-            '5mw': '5MW-Trend',
+            all: 'All-MAs',
+            ma20: 'MA20',
+            ma50: 'MA50',
+            ma150: 'MA150',
+            ma200: 'MA200',
         };
-        downloadText(arrayToCSV(rows), `Minervini-${labels[type]}${periodSuffix}-${today()}.csv`, 'text/csv');
+        downloadText(arrayToCSV(rows), `TASI-Breadth-${labels[type]}${periodSuffix}-${today()}.csv`, 'text/csv');
         notify('CSV saved ✓');
     };
 
@@ -268,15 +292,16 @@ export default function MinerviniExportButton({
             return [line, fmt(keys), line, ...rows.map((r) => fmt(keys.map((k) => String(r[k] ?? '')))), line].join('\n') + '\n';
         };
 
-        const header = `Minervini Trend Screener Export\nPeriod: ${period}  ·  Generated: ${today()}\n\n`;
+        const header = `TASI Market Breadth Export\nPeriod: ${period}  ·  Generated: ${today()}\n\n`;
         const rows = getChartRows(type);
         const labels: Record<ExportType, string> = {
-            all: 'All-Trends',
-            '1m': '1M-Trend',
-            '4m': '4M-Trend',
-            '5mw': '5MW-Trend',
+            all: 'All-MAs',
+            ma20: 'MA20',
+            ma50: 'MA50',
+            ma150: 'MA150',
+            ma200: 'MA200',
         };
-        downloadText(header + tableFromRows(rows), `Minervini-${labels[type]}${periodSuffix}-${today()}.txt`);
+        downloadText(header + tableFromRows(rows), `TASI-Breadth-${labels[type]}${periodSuffix}-${today()}.txt`);
         notify('TXT saved ✓');
     };
 
@@ -287,25 +312,30 @@ export default function MinerviniExportButton({
         if (!rows.length) { notify('No data to export', true); return; }
 
         const ws = XLSX.utils.json_to_sheet(rows);
-        ws['!cols'] = [{ wch: 12 }, { wch: 12 }];
-        if (type === 'all') ws['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 8 }, { wch: 8 }];
+        if (type === 'all') {
+            ws['!cols'] = [{ wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 15 }, { wch: 15 }];
+        } else {
+            ws['!cols'] = [{ wch: 12 }, { wch: 12 }];
+        }
 
         const labels: Record<ExportType, string> = {
-            all: 'All Trends',
-            '1m': '1 Month Trend',
-            '4m': '4 Months Trend',
-            '5mw': '5 Months Wide',
+            all: 'All Moving Averages',
+            ma20: 'MA20',
+            ma50: 'MA50',
+            ma150: 'MA150',
+            ma200: 'MA200',
         };
         XLSX.utils.book_append_sheet(wb, ws, labels[type]);
-        XLSX.writeFile(wb, `Minervini-${labels[type].replace(/\s/g, '-')}${periodSuffix}-${today()}.xlsx`);
+        XLSX.writeFile(wb, `TASI-Breadth-${labels[type].replace(/\s/g, '-')}${periodSuffix}-${today()}.xlsx`);
         notify('Excel saved ✓');
     };
 
     const DATASETS: { key: ExportType; label: string }[] = [
-        { key: 'all', label: 'All Trends' },
-        { key: '1m', label: '1 Month Trend' },
-        { key: '4m', label: '4 Months Trend' },
-        { key: '5mw', label: '5 Months Wide' },
+        { key: 'all', label: 'All Moving Averages' },
+        { key: 'ma20', label: 'MA20' },
+        { key: 'ma50', label: 'MA50' },
+        { key: 'ma150', label: 'MA150' },
+        { key: 'ma200', label: 'MA200' },
     ];
 
     return (
@@ -316,6 +346,7 @@ export default function MinerviniExportButton({
             tabIndex={-1}
         >
             <button
+                ref={btnRef}
                 onClick={() => { setOpen((o) => !o); setSubMenu(null); }}
                 disabled={isWorking}
                 style={{ ...S.btn, opacity: isWorking ? 0.7 : 1, cursor: isWorking ? 'wait' : 'pointer' }}
@@ -339,8 +370,8 @@ export default function MinerviniExportButton({
                 </svg>
             </button>
 
-            {open && (
-                <div style={S.menu}>
+            {open && menuPos && (
+                <div style={{ ...S.menu, position: 'fixed', top: menuPos.top, right: menuPos.right, left: 'auto' }}>
                     <div style={S.menuLabel}>
                         <span>Export</span>
                         {period !== 'ALL' && <span style={S.periodPill}>{period}</span>}
@@ -420,11 +451,17 @@ export default function MinerviniExportButton({
                             </div>
                         )}
                     </div>
+
+                    <div style={S.menuFooter}>
+                        <div style={S.menuFooterText}>
+                            Exports all 4 MA charts and summary bar
+                        </div>
+                    </div>
                 </div>
             )}
 
-            {status && (
-                <div style={S.toast}>
+            {status && menuPos && (
+                <div style={{ ...S.toast, position: 'fixed', top: menuPos.top, right: menuPos.right }}>
                     {status.includes('fail') ? (
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2.5">
                             <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
@@ -480,10 +517,9 @@ const S: Record<string, React.CSSProperties> = {
         cursor: 'pointer',
     },
     menu: {
-        position: 'absolute', top: 'calc(100% + 6px)', right: 0,
-        minWidth: '260px',
+        minWidth: '280px',
         background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px',
-        zIndex: 999,
+        zIndex: 9999,
         boxShadow: '0 8px 24px rgba(15,23,42,0.12)',
         display: 'flex', flexDirection: 'column',
         maxHeight: '80vh',
@@ -491,7 +527,7 @@ const S: Record<string, React.CSSProperties> = {
     menuLabel: {
         flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '8px 14px 6px',
+        padding: '10px 14px 8px',
         fontSize: '10px', color: '#94A3B8',
         letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600,
         fontFamily: '"DM Sans", sans-serif',
@@ -503,7 +539,6 @@ const S: Record<string, React.CSSProperties> = {
         overflowY: 'auto',
         overflowX: 'hidden',
         flex: 1,
-        borderRadius: '0 0 12px 12px',
     },
     periodPill: {
         fontSize: '9px', fontWeight: 700,
@@ -551,14 +586,28 @@ const S: Record<string, React.CSSProperties> = {
         whiteSpace: 'nowrap',
     },
     subRowBtns: { display: 'flex', gap: '4px', flexShrink: 0 },
+    menuFooter: {
+        padding: '10px 14px 12px',
+        borderTop: '1px solid #F1F5F9',
+        background: '#FFFFFF',
+        borderRadius: '0 0 12px 12px',
+    },
+    menuFooterText: {
+        fontSize: '10px',
+        color: '#94A3B8',
+        background: '#F8FAFC',
+        borderRadius: '6px',
+        padding: '6px 10px',
+        fontFamily: '"DM Sans", sans-serif',
+        lineHeight: 1.4,
+    },
     toast: {
-        position: 'absolute', top: 'calc(100% + 6px)', right: 0,
         display: 'flex', alignItems: 'center', gap: '7px',
         padding: '9px 14px', background: '#FFFFFF',
         border: '1px solid #E2E8F0', borderRadius: '8px',
         fontSize: '12px', color: '#0F172A',
         fontFamily: '"DM Sans", sans-serif',
         whiteSpace: 'nowrap',
-        boxShadow: '0 4px 12px rgba(15,23,42,0.08)', zIndex: 1000,
+        boxShadow: '0 4px 12px rgba(15,23,42,0.08)', zIndex: 9999,
     },
 };
