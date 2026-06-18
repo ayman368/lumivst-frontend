@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo } from 'react';
+import BreadthTabs from '../stocks/market-breadth/_components/BreadthTabs';
 import {
   createChart,
   ColorType,
@@ -501,6 +502,7 @@ export default function MinerviniTrendPage() {
 
   return (
     <div className="w-full h-screen flex flex-col bg-slate-50 overflow-hidden mb-12" style={{ fontFamily: '"DM Sans", sans-serif' }}>
+      <BreadthTabs />
 
       <header className="bg-white border-b border-slate-200 flex-shrink-0 z-50" style={{ boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}>
         <div className="w-full px-5 h-[60px] flex items-center justify-between gap-6">

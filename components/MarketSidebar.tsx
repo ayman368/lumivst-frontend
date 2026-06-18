@@ -52,6 +52,7 @@ const menuItems: SidebarItem[] = [
       { en: 'Share Buybacks', href: '/market-reports/share-buybacks' },
       { en: 'SBL Positions', href: '/market-reports/sbl-positions' },
       { en: 'Historical Reports', href: '/market-reports/historical-reports' },
+      // { en: 'Weekly Market Update', href: '/market-reports/weekly-update' },
     ],
   },
   {
@@ -149,8 +150,8 @@ export default function MarketSidebar() {
                 <button
                   onClick={() => toggleExpanded(key)}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-all duration-200 text-left text-[13px] font-medium ${parentActive
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                 >
                   <span>{item.en}</span>
@@ -168,8 +169,8 @@ export default function MarketSidebar() {
                         key={subIndex}
                         href={subItem.href}
                         className={`block px-3 py-1.5 rounded-md transition-all duration-200 text-[12px] ${isActive(subItem.href)
-                            ? 'bg-blue-100 text-blue-700 font-semibold border-l-2 border-blue-500 -ml-[9px] pl-[11px]'
-                            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700 font-medium'
+                          ? 'bg-blue-100 text-blue-700 font-semibold border-l-2 border-blue-500 -ml-[9px] pl-[11px]'
+                          : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700 font-medium'
                           }`}
                       >
                         {subItem.en}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import BreadthTabs from './_components/BreadthTabs';
 import {
     createChart,
     ColorType,
@@ -441,24 +442,15 @@ function MarketBreadthContent() {
             const fetchTrend = async () => {
                 try {
                     // Use the dashboard endpoint one more time but with short data
-                    // Actually, use the individual alhussain-count which also reads the same table
-                    // The screener_daily_bundle is already fast, so let's try dashboard again
-                    // with a longer timeout — this time the other sections are already loading
+                    // Use the new /screener-trend endpoint
                     const json = await fetchWithRetry(
-                        `${API_BASE_URL}/api/market-breadth/dashboard?${params.toString()}`,
+                        `${API_BASE_URL}/api/market-breadth/screener-trend?${indParams.toString()}&limit=3000`,
                         60_000, 1,
                     );
                     if (cancelled) return;
-                    // Extract only trend from the dashboard response
-                    const trendItems = transformTrend(json.screener_trend?.data || []);
+                    // Extract only trend from the response
+                    const trendItems = transformTrend(json?.data || []);
                     if (trendItems.length) setTrendData(trendItems);
-                    // Also backfill any sections that were slower individually
-                    const maData = json.ma_breadth?.data || [];
-                    const adItems = transformAD(json.ad_rating?.data || []);
-                    const alhItems = transformAlh(json.alhussain?.data || []);
-                    if (maData.length) setData((prev) => prev.length ? prev : maData);
-                    if (adItems.length) setAdData((prev) => prev.length ? prev : adItems);
-                    if (alhItems.length) setAlhussainData((prev) => prev.length ? prev : alhItems);
                     setSectionError((p) => ({ ...p, trend: null }));
                 } catch (e: any) {
                     if (!cancelled) setSectionError((p) => ({ ...p, trend: e.message || 'Failed' }));
@@ -977,6 +969,8 @@ function MarketBreadthContent() {
             className="w-full h-full flex-1 flex flex-col bg-slate-50 overflow-hidden min-h-0"
             style={{ fontFamily: '"DM Sans", sans-serif' }}
         >
+            <BreadthTabs />
+
             <ShariahFilterBar variant="light" extraControls={extraControls} />
             {/* ── Main ───────────────────────────────────────────────────── */}
             <main ref={pageRef} className="flex-1 min-h-0 flex flex-col w-full px-2 pt-1 pb-1 overflow-hidden" style={{ flex: '1 1 0' }}>

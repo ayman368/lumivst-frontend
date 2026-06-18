@@ -7,8 +7,9 @@ import React, {
     useMemo,
     useCallback,
 } from 'react';
+import BreadthTabs from '../../stocks/market-breadth/_components/BreadthTabs';
 import { motion } from 'framer-motion';
-import { Activity, Maximize2, Minimize2, Target, TrendingUp } from 'lucide-react';
+import { Activity, Maximize2, Minimize2, Target, TrendingUp, BarChart2 } from 'lucide-react';
 import {
     createChart,
     IChartApi,
@@ -668,6 +669,8 @@ function CombinedDashboardContent() {
             fontFamily: 'system-ui, -apple-system, sans-serif',
             overflow: 'hidden',
         }}>
+            <BreadthTabs />
+
             {/* Header */}
             <div style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '0 24px', flexShrink: 0 }}>
                 <div style={{

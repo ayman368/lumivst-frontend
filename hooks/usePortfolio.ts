@@ -121,7 +121,7 @@ export function usePortfolioMutations() {
   });
 
   const closePosition = useMutation({
-    mutationFn: (id: number) => closePortfolioPosition(id),
+    mutationFn: ({ id, data }: { id: number; data: { sell_price: number; exit_date: string } }) => closePortfolioPosition(id, data),
     onSuccess: invalidateAll,
   });
 

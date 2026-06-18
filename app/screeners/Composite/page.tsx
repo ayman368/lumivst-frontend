@@ -361,13 +361,31 @@ export default function CompositePage() {
     try {
       const result = await fetchBulkScreenerData();
       
+      const desiredOrder = [
+        'Power Play',
+        'Trend - 5 Months',
+        'Trend - 4 Months',
+        'Trend - 2 Months',
+        'Trend - 1 Month',
+        'Trend - 5 Months Wide',
+        'Alhussain',
+        'Alrayan',
+        'RSI Momentum'
+      ];
+
+      const sortedGroupedData = [...result.groupedData].sort((a, b) => {
+        const idxA = desiredOrder.indexOf(a.label);
+        const idxB = desiredOrder.indexOf(b.label);
+        return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
+      });
+
       const d = new Date();
       const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const plainFileName = `REBH_Bulk_Unified_Export_${dateStr}`;
       const tvFileName = `REBH_Bulk_Unified_Export_${dateStr}_TradingView`;
 
       if (format === 'tv') {
-        const tvContent = (result.deduplicatedGroupedData || result.groupedData)
+        const tvContent = sortedGroupedData
           .filter(group => group.items.length > 0)
           .map(group => {
             const header = `### ${group.label}: ${group.items.length} Company`;
@@ -385,7 +403,7 @@ export default function CompositePage() {
 
       if (format === 'pdf') {
         const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'A4' });
-        const validGroups = (result.deduplicatedGroupedData || result.groupedData).filter(g => g.items.length > 0);
+        const validGroups = sortedGroupedData.filter(g => g.items.length > 0);
         let startY = 30;
 
         doc.setFontSize(18);
@@ -422,7 +440,7 @@ export default function CompositePage() {
 
       if (format === 'csv') {
         let content = '';
-        const validGroups = (result.deduplicatedGroupedData || result.groupedData).filter(g => g.items.length > 0);
+        const validGroups = sortedGroupedData.filter(g => g.items.length > 0);
         for (const group of validGroups) {
           content += `${group.label}: ${group.items.length} Company\n`;
           content += headers.join(',') + '\n';
@@ -436,7 +454,7 @@ export default function CompositePage() {
         link.click();
       } else {
         let aoa: any[][] = [];
-        const validGroups = (result.deduplicatedGroupedData || result.groupedData).filter(g => g.items.length > 0);
+        const validGroups = sortedGroupedData.filter(g => g.items.length > 0);
         for (const group of validGroups) {
           aoa.push([`${group.label}: ${group.items.length} Company`]);
           aoa.push(headers);

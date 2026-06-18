@@ -274,7 +274,7 @@ export default function ScreenerTable({
             startY = 40;
           }
         }
-        
+
         doc.save(`${plainFileName}.pdf`);
         return;
       }

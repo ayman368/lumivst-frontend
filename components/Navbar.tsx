@@ -230,6 +230,14 @@ export default function Navbar() {
                 { en: 'A/D Rating', href: '/screeners/ad-rating' },
               ],
             },
+            {
+              en: 'Alhussain', href: '#',
+              items: [
+                { en: 'Alhussain', href: '/screeners/alhussain' },
+                { en: 'A/D Rating', href: '/screeners/ad-rating' },
+                { en: 'Minervini Trend', href: '/minervini-trend' },
+              ],
+            },
           ],
         },
       ],
@@ -313,11 +321,11 @@ export default function Navbar() {
       ],
     },
     new_pages: {
-      en: 'Screener_Analytics',
+      en: 'Screener',
       href: '/Screener_Analytics',
       items: [
-        { en: 'Screener_Analytics', href: '/Screener_Analytics' },
-        { en: 'combined', href: '/screeners/combined' },
+        { en: 'Percent_of_Stocks_Above_MA', href: '/Percent_of_Stocks_Above_MA' },
+        { en: 'Alrayan&Alhussain', href: '/screeners/Alrayan&Alhussain' },
       ],
     },
   }

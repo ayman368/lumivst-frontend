@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import BreadthTabs from '../stocks/market-breadth/_components/BreadthTabs';
 import {
     createChart,
     ColorType,
@@ -526,12 +527,13 @@ function MarketBreadthContent() {
 
     const latest = data[data.length - 1];
 
-    /* ─── Render ───────────────────────────────────────────────────────── */
     return (
         <div
             className="w-full h-screen flex flex-col bg-slate-50 overflow-hidden"
             style={{ fontFamily: '"DM Sans", sans-serif', minWidth: 0 }}
         >
+            <BreadthTabs />
+
             {/* ── Header ─────────────────────────────────────────────────── */}
             <header
                 className="bg-white border-b border-slate-200 flex-shrink-0 z-50 overflow-x-hidden"
