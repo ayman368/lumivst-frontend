@@ -14,8 +14,12 @@ import {
 import type { WalletPositionDB } from "@/types/wallet";
 import { useToast } from "@/components/ui/Toast";
 import PortfolioExportButton from "./_components/PortfolioExportButton";
+import PortfolioFilterPanel, {
+  PortfolioFilterState,
+  initialPortfolioFilterState,
+} from "./_components/Portfoliofilterpanel";
 
-// ── Icons (inline SVG components — no extra dependency) ──────────────────────
+// ── Icons ─────────────────────────────────────────────────────────────────────
 const Icon = {
   Edit: () => (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -50,11 +54,6 @@ const Icon = {
       <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   ),
-  ChevronDown: () => (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  ),
   Warning: () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
@@ -85,13 +84,12 @@ interface Position {
   pctChg: number;
   last: number;
   cost: number;
-  growth: number;
-  rsGrade: string;
-  rs: number;
-  rs6m: number;
-  rs3m: number;
-  rs1m: number;
-  rs1w: number;
+  rsRating: number | null;
+  rank1m: number | null;
+  rank3m: number | null;
+  rank6m: number | null;
+  rank9m: number | null;
+  rank12m: number | null;
   trend: string;
   sRs: number;
   sRs3m: number;
@@ -146,9 +144,13 @@ interface Position {
   pflCost: number;
 }
 
-// ── Action Menu Types ─────────────────────────────────────────────────────────
-type ActionType = "edit" | "add" | "sell" | "close" | "delete";
+// ── Sort config ───────────────────────────────────────────────────────────────
+interface SortConfig {
+  key: string;
+  direction: 'asc' | 'desc';
+}
 
+type ActionType = "edit" | "add" | "sell" | "close" | "delete";
 interface ConfirmState {
   type: "close" | "delete";
   positionId: number;
@@ -160,8 +162,8 @@ interface ConfirmState {
 const COL_GROUPS = [
   { label: "Identity", cols: ["Pfl.", "Sym", "Name"] },
   { label: "Allocation", cols: ["Pfl.%", "Mgn%", "Short%"] },
-  { label: "Price", cols: ["%Chg", "Last", "Cost", "Growth"] },
-  { label: "RS", cols: ["RS-Grade", "RS", "RS-6M", "RS-3M", "RS-1M", "RS-1W"] },
+  { label: "Price", cols: ["%Chg", "Last", "Cost"] },
+  { label: "RS", cols: ["RS Rating", "RS 1M", "RS 3M", "RS 6M", "RS 9M", "RS 12M"] },
   { label: "Signal", cols: ["Trend", "S-RS", "S-RS-3M", "S-RS-1M", "S-150 MA"] },
   { label: "Dates", cols: ["Entry date", "Add date 1", "Add date 2", "Add date 3"] },
   { label: "Position", cols: ["Qty", "T.Cost", "Sell Value", "Sell", "Exit date", "T.Sold"] },
@@ -172,6 +174,29 @@ const COL_GROUPS = [
   { label: "P&L", cols: ["P&L", "P&L%", "T.Cost(full)", "Sector", "Sell.Mnth", "Sell Mnth", "Sell All.Mnth"] },
   { label: "Summary", cols: ["All.P&L", "%", "C.Gain", "PT-T.V", "PT-V", "PT%", "Pfl.Cost"] },
 ];
+
+// ── Column → sort key mapping ─────────────────────────────────────────────────
+const COL_SORT_KEY: Record<string, string> = {
+  "Pfl.": "pfl", "Sym": "sym", "Name": "name",
+  "Pfl.%": "pflPct", "Mgn%": "mgnPct", "Short%": "shortPct",
+  "%Chg": "pctChg", "Last": "last", "Cost": "cost",
+  "RS Rating": "rsRating", "RS 1M": "rank1m", "RS 3M": "rank3m",
+  "RS 6M": "rank6m", "RS 9M": "rank9m", "RS 12M": "rank12m",
+  "Trend": "trend", "S-RS": "sRs", "S-RS-3M": "sRs3m", "S-RS-1M": "sRs1m", "S-150 MA": "s150ma",
+  "Entry date": "entryDate", "Add date 1": "addDate1", "Add date 2": "addDate2", "Add date 3": "addDate3",
+  "Qty": "qty", "T.Cost": "tCost", "Sell Value": "sellValue", "Sell": "sell",
+  "Exit date": "exitDate", "T.Sold": "tSold",
+  "Return": "return_", "Return%": "returnPct", "Days": "days",
+  "Stop Price": "stopPrice", "C.RRR": "cRRR", "C.Loss%": "cLossPct", "% of Ptf.": "pctOfPtf",
+  "RF-100%": "rf100", "RF-75%": "rf75", "RF-50%": "rf50", "RF-25%": "rf25",
+  "ES-100%": "es100", "ES-75%": "es75", "ES-50%": "es50", "ES-25%": "es25",
+  "Position": "position", "Category": "category", "P.Price": "pPrice",
+  "Amount": "amount", "Qty(plan)": "qtyPlan", "Gain": "gain", "Loss": "loss", "RRR": "rrr",
+  "P&L": "pandl", "P&L%": "pandlPct", "T.Cost(full)": "tCostFull",
+  "Sector": "sector", "Sell.Mnth": "sellMnth", "Sell Mnth": "sellMnthNum", "Sell All.Mnth": "sellAllMnth",
+  "All.P&L": "allPandl", "%": "pct", "C.Gain": "cGain",
+  "PT-T.V": "ptTV", "PT-V": "ptV", "PT%": "ptPct", "Pfl.Cost": "pflCost",
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (v: number | null | undefined, decimals = 2) =>
@@ -194,14 +219,7 @@ const mapWalletPosition = (pos: any, totalCost: number): Position => {
   const returnPct = tCost > 0 ? return_ / tCost : 0;
   const pflPct = totalCost > 0 ? tCost / totalCost : 0;
   const pctChg = pos.change_percent ?? (cost > 0 ? (last - cost) / cost : 0);
-  const growth = last - cost;
   const mgnPct = pos.marginable_percent != null ? Number(pos.marginable_percent) / 100 : 0;
-  const rs6m = pos.percent_change_126d ? pos.percent_change_126d / 100 : 0;
-  const rs1m = pos.percent_change_20d ? pos.percent_change_20d / 100 : 0;
-  const rs1w = pos.percent_change_15d ? pos.percent_change_15d / 100 : 0;
-  const rs3m = pos.percent_change_63d ? pos.percent_change_63d / 100 : 0;
-  const rsTotal = rs6m + rs1m + rs1w;
-  const rsGrade = rsTotal > 0.3 ? "A" : rsTotal > 0.15 ? "B" : rsTotal > 0 ? "C" : rsTotal > -0.15 ? "D" : "F";
   const trendSignal = pos.trend_signal ?? false;
   const finalSignal = pos.final_signal ?? false;
   const score = pos.score ?? 0;
@@ -214,10 +232,7 @@ const mapWalletPosition = (pos: any, totalCost: number): Position => {
   const cRRR = riskAmount > 0 ? (last - cost) / riskAmount : 0;
   const denom = last - stop;
   const rfShares = (pctNum: number) => denom > 0 ? (riskAmount * qty * pctNum) / denom : 0;
-  const rf100 = rfShares(1.0);
-  const rf75 = rfShares(0.75);
-  const rf50 = rfShares(0.50);
-  const rf25 = rfShares(0.25);
+  const rf100 = rfShares(1.0), rf75 = rfShares(0.75), rf50 = rfShares(0.50), rf25 = rfShares(0.25);
   const effStop = (sharesSold: number) => {
     if (qty === 0 || cost === 0) return 0;
     const newStopValue = (sharesSold * last + (qty - sharesSold) * stop) / qty;
@@ -243,7 +258,9 @@ const mapWalletPosition = (pos: any, totalCost: number): Position => {
     id: pos.id, pfl: pos.portfolio_name || "Default", sym: pos.symbol,
     name: pos.name || "", pflPct, mgnPct,
     shortPct: pos.short_percent != null ? Number(pos.short_percent) / 100 : 0,
-    pctChg, last, cost, growth, rsGrade, rs: rsTotal, rs6m, rs3m, rs1m, rs1w,
+    pctChg, last, cost,
+    rsRating: pos.rs_rating, rank1m: pos.rank_1m, rank3m: pos.rank_3m,
+    rank6m: pos.rank_6m, rank9m: pos.rank_9m, rank12m: pos.rank_12m,
     trend, sRs, sRs3m: score, sRs1m: score, s150ma,
     entryDate: pos.entry_date || "", addDate1, addDate2, addDate3,
     qty, tCost, sellValue, sell: sellQty, exitDate, tSold,
@@ -271,13 +288,12 @@ function getCellValue(pos: Position, col: string): { display: string; className?
     case "%Chg": return { display: pct(pos.pctChg), className: color(pos.pctChg) };
     case "Last": return { display: fmt(pos.last), className: "font-semibold text-slate-900" };
     case "Cost": return { display: fmt(pos.cost) };
-    case "Growth": return { display: fmt(pos.growth) };
-    case "RS-Grade": return { display: pos.rsGrade || "—" };
-    case "RS": return { display: fmt(pos.rs) };
-    case "RS-6M": return { display: fmt(pos.rs6m) };
-    case "RS-3M": return { display: fmt(pos.rs3m) };
-    case "RS-1M": return { display: fmt(pos.rs1m) };
-    case "RS-1W": return { display: fmt(pos.rs1w) };
+    case "RS Rating": return { display: pos.rsRating != null ? String(pos.rsRating) : "—" };
+    case "RS 1M": return { display: pos.rank1m != null ? String(pos.rank1m) : "—" };
+    case "RS 3M": return { display: pos.rank3m != null ? String(pos.rank3m) : "—" };
+    case "RS 6M": return { display: pos.rank6m != null ? String(pos.rank6m) : "—" };
+    case "RS 9M": return { display: pos.rank9m != null ? String(pos.rank9m) : "—" };
+    case "RS 12M": return { display: pos.rank12m != null ? String(pos.rank12m) : "—" };
     case "Trend": return { display: pos.trend || "—" };
     case "S-RS": return { display: fmt(pos.sRs) };
     case "S-RS-3M": return { display: fmt(pos.sRs3m) };
@@ -366,18 +382,15 @@ const GROUP_HEADER_COLORS: Record<string, string> = {
   "Summary": "bg-slate-200/60 text-slate-600",
 };
 
-// ── Action Menu Component (Portal-based for correct overflow/sticky behavior) ──
+// ── Action Menu ───────────────────────────────────────────────────────────────
 interface ActionMenuProps {
   pos: Position;
-  onEdit: () => void;
-  onAdd: () => void;
-  onSell: () => void;
-  onClose: () => void;
-  onDelete: () => void;
+  onEdit: () => void; onAdd: () => void; onSell: () => void;
+  onClose: () => void; onDelete: () => void;
 }
 
-const MENU_WIDTH = 208; // w-52 = 208px
-const MENU_HEIGHT = 240; // approximate height of the dropdown
+const MENU_WIDTH = 208;
+const MENU_HEIGHT = 240;
 const VIEWPORT_PADDING = 8;
 
 function ActionMenu({ pos, onEdit, onAdd, onSell, onClose, onDelete }: ActionMenuProps) {
@@ -386,151 +399,63 @@ function ActionMenu({ pos, onEdit, onAdd, onSell, onClose, onDelete }: ActionMen
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Calculate smart position — flips up if too close to bottom
   const calcPosition = useCallback(() => {
     if (!btnRef.current) return;
     const rect = btnRef.current.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-
+    const vw = window.innerWidth, vh = window.innerHeight;
     const spaceBelow = vh - rect.bottom - VIEWPORT_PADDING;
     const spaceAbove = rect.top - VIEWPORT_PADDING;
     const openUp = spaceBelow < MENU_HEIGHT && spaceAbove > MENU_HEIGHT;
-
-    // Horizontal: align left of button, but clamp to viewport
     let left = rect.left;
-    if (left + MENU_WIDTH > vw - VIEWPORT_PADDING) {
-      left = vw - MENU_WIDTH - VIEWPORT_PADDING;
-    }
-
+    if (left + MENU_WIDTH > vw - VIEWPORT_PADDING) left = vw - MENU_WIDTH - VIEWPORT_PADDING;
     setMenuStyle({
-      position: "fixed",
-      zIndex: 9999,
-      width: MENU_WIDTH,
-      left,
-      ...(openUp
-        ? { bottom: vh - rect.top + 4 }
-        : { top: rect.bottom + 4 }),
+      position: "fixed", zIndex: 9999, width: MENU_WIDTH, left,
+      ...(openUp ? { bottom: vh - rect.top + 4 } : { top: rect.bottom + 4 }),
     });
   }, []);
 
-  const handleOpen = () => {
-    calcPosition();
-    setOpen(true);
-  };
-
-  // Close on outside click or scroll
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => {
-      if (
-        menuRef.current && !menuRef.current.contains(e.target as Node) &&
-        btnRef.current && !btnRef.current.contains(e.target as Node)
-      ) setOpen(false);
+      if (menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        btnRef.current && !btnRef.current.contains(e.target as Node)) setOpen(false);
     };
-    const onScroll = () => { setOpen(false); };
+    const onScroll = () => setOpen(false);
     document.addEventListener("mousedown", close);
     window.addEventListener("scroll", onScroll, true);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      window.removeEventListener("scroll", onScroll, true);
-    };
+    return () => { document.removeEventListener("mousedown", close); window.removeEventListener("scroll", onScroll, true); };
   }, [open]);
 
   const actions = [
-    {
-      id: "edit",
-      label: "Edit Position",
-      description: "Modify qty, price, stop",
-      icon: <Icon.Edit />,
-      color: "text-blue-600",
-      hoverBg: "hover:bg-blue-50",
-      action: onEdit,
-    },
-    {
-      id: "add",
-      label: "Add Shares",
-      description: "Scale in to position",
-      icon: <Icon.Plus />,
-      color: "text-emerald-600",
-      hoverBg: "hover:bg-emerald-50",
-      action: onAdd,
-    },
-    {
-      id: "sell",
-      label: "Partial Sell",
-      description: "Trim position size",
-      icon: <Icon.Minus />,
-      color: "text-amber-600",
-      hoverBg: "hover:bg-amber-50",
-      action: onSell,
-    },
+    { id: "edit", label: "Edit Position", description: "Modify qty, price, stop", icon: <Icon.Edit />, color: "text-blue-600", hoverBg: "hover:bg-blue-50", action: onEdit },
+    { id: "add", label: "Add Shares", description: "Scale in to position", icon: <Icon.Plus />, color: "text-emerald-600", hoverBg: "hover:bg-emerald-50", action: onAdd },
+    { id: "sell", label: "Partial Sell", description: "Trim position size", icon: <Icon.Minus />, color: "text-amber-600", hoverBg: "hover:bg-amber-50", action: onSell },
     { type: "divider" as const },
-    {
-      id: "close",
-      label: "Close Position",
-      description: "Move to Monthly Tracker",
-      icon: <Icon.Close />,
-      color: "text-purple-600",
-      hoverBg: "hover:bg-purple-50",
-      action: onClose,
-    },
-    {
-      id: "delete",
-      label: "Delete Permanently",
-      description: "Cannot be undone",
-      icon: <Icon.Trash />,
-      color: "text-red-600",
-      hoverBg: "hover:bg-red-50",
-      action: onDelete,
-      danger: true,
-    },
+    { id: "close", label: "Close Position", description: "Move to Monthly Tracker", icon: <Icon.Close />, color: "text-purple-600", hoverBg: "hover:bg-purple-50", action: onClose },
+    { id: "delete", label: "Delete Permanently", description: "Cannot be undone", icon: <Icon.Trash />, color: "text-red-600", hoverBg: "hover:bg-red-50", action: onDelete, danger: true },
   ];
 
   const dropdown = open ? (
-    <div
-      ref={menuRef}
-      role="menu"
+    <div ref={menuRef} role="menu"
       style={{ ...menuStyle, animation: "menuFadeIn 0.12s ease-out forwards" }}
-      className="bg-white rounded-xl shadow-2xl border border-slate-200/80 overflow-hidden"
-    >
-      {/* Header */}
+      className="bg-white rounded-xl shadow-2xl border border-slate-200/80 overflow-hidden">
       <div className="px-3 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
-        <div className="w-6 h-6 rounded-md bg-slate-800 flex items-center justify-center text-white">
-          <Icon.Portfolio />
-        </div>
+        <div className="w-6 h-6 rounded-md bg-slate-800 flex items-center justify-center text-white"><Icon.Portfolio /></div>
         <div>
           <p className="text-[11px] font-semibold text-slate-800 leading-tight">{String(pos.sym)}</p>
           <p className="text-[10px] text-slate-500 leading-tight truncate max-w-[130px]">{pos.name}</p>
         </div>
       </div>
-
-      {/* Actions */}
       <div className="py-1">
         {actions.map((action, idx) =>
-          action.type === "divider" ? (
-            <div key={idx} className="my-1 border-t border-slate-100" />
-          ) : (
-            <button
-              key={action.id}
-              role="menuitem"
+          action.type === "divider" ? <div key={idx} className="my-1 border-t border-slate-100" /> : (
+            <button key={action.id} role="menuitem"
               onClick={() => { setOpen(false); action.action(); }}
-              className={`
-                w-full flex items-center gap-3 px-3 py-2 text-left transition-colors
-                ${action.hoverBg}
-                ${action.danger ? "group/danger" : ""}
-              `}
-            >
-              <span className={`flex-shrink-0 ${action.color} ${action.danger ? "group-hover/danger:text-red-700" : ""}`}>
-                {action.icon}
-              </span>
+              className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${action.hoverBg} ${action.danger ? "group/danger" : ""}`}>
+              <span className={`flex-shrink-0 ${action.color} ${action.danger ? "group-hover/danger:text-red-700" : ""}`}>{action.icon}</span>
               <div>
-                <p className={`text-xs font-medium leading-tight ${action.color} ${action.danger ? "group-hover/danger:text-red-700" : ""}`}>
-                  {action.label}
-                </p>
-                <p className="text-[10px] text-slate-400 leading-tight mt-0.5">
-                  {action.description}
-                </p>
+                <p className={`text-xs font-medium leading-tight ${action.color} ${action.danger ? "group-hover/danger:text-red-700" : ""}`}>{action.label}</p>
+                <p className="text-[10px] text-slate-400 leading-tight mt-0.5">{action.description}</p>
               </div>
             </button>
           )
@@ -541,39 +466,16 @@ function ActionMenu({ pos, onEdit, onAdd, onSell, onClose, onDelete }: ActionMen
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className="font-mono text-[11px] font-semibold text-slate-700 tracking-tight cursor-default">
-        {String(pos.sym)}
-      </span>
-      <button
-        ref={btnRef}
-        onClick={handleOpen}
-        className={`
-          flex items-center rounded-md px-1.5 py-1 transition-all duration-150
-          ${open
-            ? "bg-slate-800 text-white shadow-sm"
-            : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"}
-        `}
-        aria-label="Position actions"
-        aria-expanded={open}
-        aria-haspopup="menu"
-      >
+      <span className="font-mono text-[11px] font-semibold text-slate-700 tracking-tight cursor-default">{String(pos.sym)}</span>
+      <button ref={btnRef} onClick={() => { calcPosition(); setOpen(true); }}
+        className={`flex items-center rounded-md px-1.5 py-1 transition-all duration-150 ${open ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"}`}
+        aria-label="Position actions" aria-expanded={open} aria-haspopup="menu">
         <span className="flex gap-[3px] items-center">
-          <span className={`w-[3px] h-[3px] rounded-full transition-colors ${open ? "bg-white" : "bg-slate-400"}`} />
-          <span className={`w-[3px] h-[3px] rounded-full transition-colors ${open ? "bg-white" : "bg-slate-400"}`} />
-          <span className={`w-[3px] h-[3px] rounded-full transition-colors ${open ? "bg-white" : "bg-slate-400"}`} />
+          {[0, 1, 2].map(i => <span key={i} className={`w-[3px] h-[3px] rounded-full transition-colors ${open ? "bg-white" : "bg-slate-400"}`} />)}
         </span>
       </button>
-
       {typeof document !== "undefined" && createPortal(
-        <>
-          {dropdown}
-          <style>{`
-            @keyframes menuFadeIn {
-              from { opacity: 0; transform: translateY(-4px) scale(0.97); }
-              to   { opacity: 1; transform: translateY(0)  scale(1); }
-            }
-          `}</style>
-        </>,
+        <>{dropdown}<style>{`@keyframes menuFadeIn{from{opacity:0;transform:translateY(-4px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}`}</style></>,
         document.body
       )}
     </div>
@@ -581,63 +483,32 @@ function ActionMenu({ pos, onEdit, onAdd, onSell, onClose, onDelete }: ActionMen
 }
 
 // ── Confirm Dialog ────────────────────────────────────────────────────────────
-interface ConfirmDialogProps {
-  state: ConfirmState;
-  onConfirm: () => void;
-  onCancel: () => void;
-}
-
-function ConfirmDialog({ state, onConfirm, onCancel }: ConfirmDialogProps) {
+function ConfirmDialog({ state, onConfirm, onCancel }: { state: ConfirmState; onConfirm: () => void; onCancel: () => void }) {
   const isDelete = state.type === "delete";
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200"
-        style={{ animation: "modalSlideIn 0.18s ease-out" }}
-      >
-        {/* Top accent */}
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200" style={{ animation: "modalSlideIn 0.18s ease-out" }}>
         <div className={`h-1 w-full ${isDelete ? "bg-red-500" : "bg-purple-500"}`} />
-
         <div className="px-6 pt-6 pb-5">
-          {/* Icon */}
           <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 ${isDelete ? "bg-red-50 text-red-500" : "bg-purple-50 text-purple-500"}`}>
             {isDelete ? <Icon.Trash /> : <Icon.Close />}
           </div>
-
-          <h3 className="text-[15px] font-semibold text-slate-900 mb-1.5">
-            {isDelete ? "Delete Position" : "Close Position"}
-          </h3>
+          <h3 className="text-[15px] font-semibold text-slate-900 mb-1.5">{isDelete ? "Delete Position" : "Close Position"}</h3>
           <p className="text-sm text-slate-500 leading-relaxed mb-1">
             {isDelete
-              ? <>This will permanently delete <span className="font-semibold text-slate-700">{state.symbol} — {state.name}</span>. This action cannot be undone.</>
-              : <>This will close <span className="font-semibold text-slate-700">{state.symbol} — {state.name}</span> and move it to the Monthly Tracker.</>
-            }
+              ? <></>
+              : <>This will close <span className="font-semibold text-slate-700">{state.symbol} — {state.name}</span> and move it to the Monthly Tracker.</>}
           </p>
-
           {isDelete && (
             <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-100 flex items-start gap-2">
               <span className="text-red-500 mt-0.5 flex-shrink-0"><Icon.Warning /></span>
-              <p className="text-xs text-red-700 leading-relaxed">
-                All transaction history for this position will be permanently erased.
-              </p>
+              <p className="text-xs text-red-700 leading-relaxed">All transaction history for this position will be permanently erased.</p>
             </div>
           )}
         </div>
-
         <div className="px-6 pb-6 flex gap-3">
-          <button
-            onClick={onCancel}
-            className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-medium text-white transition-colors shadow-sm ${isDelete
-              ? "bg-red-500 hover:bg-red-600"
-              : "bg-purple-500 hover:bg-purple-600"
-              }`}
-          >
+          <button onClick={onCancel} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">Cancel</button>
+          <button onClick={onConfirm} className={`flex-1 py-2.5 rounded-xl text-sm font-medium text-white transition-colors shadow-sm ${isDelete ? "bg-red-500 hover:bg-red-600" : "bg-purple-500 hover:bg-purple-600"}`}>
             {isDelete ? "Yes, Delete" : "Close & Move"}
           </button>
         </div>
@@ -647,58 +518,31 @@ function ConfirmDialog({ state, onConfirm, onCancel }: ConfirmDialogProps) {
 }
 
 // ── Modal Shell ───────────────────────────────────────────────────────────────
-interface ModalShellProps {
-  title: string;
-  subtitle?: string;
-  accentColor: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}
-
-function ModalShell({ title, subtitle, accentColor, onClose, children }: ModalShellProps) {
+function ModalShell({ title, subtitle, accentColor, onClose, children }: {
+  title: string; subtitle?: string; accentColor: string; onClose: () => void; children: React.ReactNode;
+}) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100"
-        style={{ animation: "modalSlideIn 0.18s ease-out" }}
-      >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100" style={{ animation: "modalSlideIn 0.18s ease-out" }}>
         <div className={`h-1 w-full ${accentColor}`} />
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h3 className="text-[15px] font-semibold text-slate-900">{title}</h3>
             {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-          >
-            <Icon.X />
-          </button>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><Icon.X /></button>
         </div>
         <div className="px-6 py-5">{children}</div>
       </div>
-      <style>{`
-        @keyframes modalSlideIn {
-          from { opacity: 0; transform: translateY(12px) scale(0.98); }
-          to   { opacity: 1; transform: translateY(0)   scale(1); }
-        }
-      `}</style>
+      <style>{`@keyframes modalSlideIn{from{opacity:0;transform:translateY(12px) scale(0.98)}to{opacity:1;transform:translateY(0) scale(1)}}`}</style>
     </div>
   );
 }
 
-// ── Field Component ───────────────────────────────────────────────────────────
-interface FieldProps {
-  label: string;
-  children: React.ReactNode;
-  hint?: string;
-}
-function Field({ label, children, hint }: FieldProps) {
+function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">
-        {label}
-      </label>
+      <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">{label}</label>
       {children}
       {hint && <p className="text-[10px] text-slate-400">{hint}</p>}
     </div>
@@ -708,7 +552,27 @@ function Field({ label, children, hint }: FieldProps) {
 const inputCls = "w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 bg-white placeholder-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/15 transition-all";
 const disabledInputCls = "w-full border border-slate-100 rounded-xl px-3.5 py-2.5 text-sm text-slate-400 bg-slate-50 cursor-not-allowed";
 
-// ── Main Component ────────────────────────────────────────────────────────────
+// ── Active filter count helper ─────────────────────────────────────────────────
+function countActiveFilters(f: PortfolioFilterState): number {
+  let count = 0;
+  if (f.symbol) count++;
+  if (f.name) count++;
+  if (f.pfl) count++;
+  if (f.trend !== 'any') count++;
+  if (f.position !== 'any') count++;
+  const ranges = [
+    'pflPct', 'mgnPct', 'last', 'cost', 'pctChg',
+    'rsRating', 'rank1m', 'rank3m', 'rank6m', 'rank9m', 'rank12m',
+    'qty', 'tCost', 'days', 'stopPrice',
+    'returnPct', 'cRRR', 'cLossPct', 'pctOfPtf',
+  ];
+  ranges.forEach(key => {
+    if ((f as any)[`${key}_min`] || (f as any)[`${key}_max`]) count++;
+  });
+  return count;
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function PortfolioPage() {
   const { toast } = useToast();
 
@@ -719,8 +583,12 @@ export default function PortfolioPage() {
   const [activeGroups, setActiveGroups] = useState<Set<string>>(
     new Set(["Identity", "Allocation", "Price", "Position", "Performance", "Risk Financed", "Effective Stop", "P&L"])
   );
-  const [search, setSearch] = useState("");
-  const [selectedPfl, setSelectedPfl] = useState("All");
+
+  // ── FILTER STATE ──────────────────────────────────────────────────────────
+  const [filters, setFilters] = useState<PortfolioFilterState>(initialPortfolioFilterState);
+
+  // ── SORT STATE — priority multi-sort ─────────────────────────────────────
+  const [sortConfigs, setSortConfigs] = useState<SortConfig[]>([]);
 
   // Add new position form
   const [isAdding, setIsAdding] = useState(false);
@@ -734,23 +602,20 @@ export default function PortfolioPage() {
   const [editingPos, setEditingPos] = useState<any>(null);
   const [addingPos, setAddingPos] = useState<any>(null);
   const [sellingPos, setSellingPos] = useState<any>(null);
+  const [closingPos, setClosingPos] = useState<any>(null);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
 
-  // Table ref for export
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
-  // ── Data loading ──
+  // ── Data loading ──────────────────────────────────────────────────────────
   const loadPositions = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
     try {
       const positions = await fetchPortfolioPositions();
-      const totalCost = positions.reduce(
-        (sum: number, p: any) => sum + Number(p.qty) * Number(p.buy_price), 0
-      );
+      const totalCost = positions.reduce((sum: number, p: any) => sum + Number(p.qty) * Number(p.buy_price), 0);
       setData(positions.map((p: any) => mapWalletPosition(p, totalCost)));
     } catch (error) {
-      console.error("Failed to load wallet positions", error);
       setLoadError("Failed to load positions. Please try again.");
     } finally {
       setIsLoading(false);
@@ -759,92 +624,90 @@ export default function PortfolioPage() {
 
   useEffect(() => { loadPositions(); }, [loadPositions]);
 
-  // ── Handlers ──
+  // ── Sort handler — priority cycling ──────────────────────────────────────
+  const handleSort = useCallback((colLabel: string) => {
+    const key = COL_SORT_KEY[colLabel];
+    if (!key) return;
+    setSortConfigs(prev => {
+      const existingIdx = prev.findIndex(c => c.key === key);
+      if (existingIdx === -1) {
+        // Not sorted yet → add as lowest priority, asc
+        return [...prev, { key, direction: 'asc' }];
+      }
+      const existing = prev[existingIdx];
+      if (existing.direction === 'asc') {
+        // asc → desc
+        const next = [...prev];
+        next[existingIdx] = { key, direction: 'desc' };
+        return next;
+      }
+      // desc → remove
+      return prev.filter((_, i) => i !== existingIdx);
+    });
+  }, []);
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleAddPosition = async () => {
     try {
       await createPortfolioPosition(newPosition);
       setIsAdding(false);
-      setNewPosition({
-        symbol: "", name: "", qty: 0, total_cost: 0, buy_price: 0,
-        stop_price: 0, portfolio_name: newPosition.portfolio_name,
-        entry_date: new Date().toISOString().slice(0, 10),
-      });
+      setNewPosition({ symbol: "", name: "", qty: 0, total_cost: 0, buy_price: 0, stop_price: 0, portfolio_name: newPosition.portfolio_name, entry_date: new Date().toISOString().slice(0, 10) });
       await loadPositions();
       toast("Position added successfully!", "success");
-    } catch {
-      toast("Failed to add position.", "error");
-    }
+    } catch { toast("Failed to add position.", "error"); }
   };
 
   const handleConfirmAction = async () => {
     if (!confirmState) return;
     try {
       if (confirmState.type === "close") {
-        await closePortfolioPosition(confirmState.positionId);
-        toast("Position closed and moved to Monthly Tracker.", "success");
+        // Obsolete, close moved to closingPos modal
       } else {
         await deletePortfolioPosition(confirmState.positionId);
         toast("Position deleted successfully.", "success");
       }
       await loadPositions();
-    } catch {
-      toast(`Failed to ${confirmState.type} position.`, "error");
-    } finally {
-      setConfirmState(null);
-    }
+    } catch { toast(`Failed to ${confirmState.type} position.`, "error"); }
+    finally { setConfirmState(null); }
   };
 
   const handleUpdateSubmit = async () => {
     try {
       await updatePortfolioPosition(editingPos.id, {
-        name: editingPos.name,
-        qty: Number(editingPos.qty),
+        name: editingPos.name, qty: Number(editingPos.qty),
         buy_price: Number(editingPos.buy_price),
         stop_price: editingPos.stop_price ? Number(editingPos.stop_price) : null,
         entry_date: editingPos.entry_date || null,
         portfolio_name: editingPos.portfolio_name || "Default",
       });
-      setEditingPos(null);
-      await loadPositions();
-      toast("Position updated", "success");
-    } catch {
-      toast("Update failed", "error");
-    }
+      setEditingPos(null); await loadPositions(); toast("Position updated", "success");
+    } catch { toast("Update failed", "error"); }
   };
 
   const handleAddSubmit = async () => {
     try {
-      await addSharesToPosition(addingPos.id, {
-        qty: Number(addingPos.add_qty),
-        buy_price: Number(addingPos.add_price),
-        trade_date: addingPos.add_date,
-      });
-      setAddingPos(null);
-      await loadPositions();
-      toast("Shares added successfully", "success");
-    } catch {
-      toast("Failed to add shares", "error");
-    }
+      await addSharesToPosition(addingPos.id, { qty: Number(addingPos.add_qty), buy_price: Number(addingPos.add_price), trade_date: addingPos.add_date });
+      setAddingPos(null); await loadPositions(); toast("Shares added successfully", "success");
+    } catch { toast("Failed to add shares", "error"); }
   };
 
   const handleSellSubmit = async () => {
     try {
-      await partialSellPosition(sellingPos.id, {
-        qty: Number(sellingPos.sell_qty),
-        sell_price: Number(sellingPos.sell_price),
-        trade_date: sellingPos.sell_date,
-      });
-      setSellingPos(null);
-      await loadPositions();
-      toast("Shares sold successfully", "success");
-    } catch {
-      toast("Failed to sell shares", "error");
-    }
+      await partialSellPosition(sellingPos.id, { qty: Number(sellingPos.sell_qty), sell_price: Number(sellingPos.sell_price), trade_date: sellingPos.sell_date });
+      setSellingPos(null); await loadPositions(); toast("Shares sold successfully", "success");
+    } catch { toast("Failed to sell shares", "error"); }
   };
 
-  // ── Derived state ──
+  const handleCloseSubmit = async () => {
+    try {
+      await closePortfolioPosition(closingPos.id, { sell_price: Number(closingPos.sell_price), exit_date: closingPos.exit_date });
+      setClosingPos(null); await loadPositions(); toast("Position closed and moved to Monthly Tracker.", "success");
+    } catch { toast("Failed to close position", "error"); }
+  };
+
+  // ── Derived state ─────────────────────────────────────────────────────────
   const portfolios = useMemo(() =>
-    ["All", ...Array.from(new Set(data.map(p => p.pfl)))], [data]);
+    Array.from(new Set(data.map(p => p.pfl))), [data]);
 
   const visibleCols = useMemo(() =>
     COL_GROUPS
@@ -852,15 +715,70 @@ export default function PortfolioPage() {
       .flatMap(g => g.cols.map(c => ({ col: c, group: g.label }))),
     [activeGroups]);
 
-  const filtered = useMemo(() =>
-    data.filter(p =>
-      (selectedPfl === "All" || p.pfl === selectedPfl) &&
-      (p.name.toLowerCase().includes(search.toLowerCase()) ||
-        String(p.sym).includes(search))
-    ), [data, search, selectedPfl]);
+  // ── Filtered + sorted positions ───────────────────────────────────────────
+  const filtered = useMemo(() => {
+    const f = filters;
+    const inRange = (val: number, minKey: string, maxKey: string) => {
+      const min = parseFloat((f as any)[minKey]);
+      const max = parseFloat((f as any)[maxKey]);
+      if (!isNaN(min) && val < min) return false;
+      if (!isNaN(max) && val > max) return false;
+      return true;
+    };
+
+    let result = data.filter(p => {
+      if (f.symbol && !String(p.sym).toLowerCase().includes(f.symbol.toLowerCase())) return false;
+      if (f.name && !p.name.toLowerCase().includes(f.name.toLowerCase())) return false;
+      if (f.pfl && p.pfl !== f.pfl) return false;
+      if (f.trend !== 'any' && ((f.trend === 'yes') !== (p.trend === 'UP'))) return false;
+      if (f.position !== 'any' && p.position !== f.position) return false;
+      if (!inRange(p.pflPct * 100, 'pflPct_min', 'pflPct_max')) return false;
+      if (!inRange(p.mgnPct * 100, 'mgnPct_min', 'mgnPct_max')) return false;
+      if (!inRange(p.last, 'last_min', 'last_max')) return false;
+      if (!inRange(p.cost, 'cost_min', 'cost_max')) return false;
+      if (!inRange(p.pctChg * 100, 'pctChg_min', 'pctChg_max')) return false;
+      if (!inRange(p.rsRating ?? 0, 'rsRating_min', 'rsRating_max')) return false;
+      if (!inRange(p.rank1m ?? 0, 'rank1m_min', 'rank1m_max')) return false;
+      if (!inRange(p.rank3m ?? 0, 'rank3m_min', 'rank3m_max')) return false;
+      if (!inRange(p.rank6m ?? 0, 'rank6m_min', 'rank6m_max')) return false;
+      if (!inRange(p.rank9m ?? 0, 'rank9m_min', 'rank9m_max')) return false;
+      if (!inRange(p.rank12m ?? 0, 'rank12m_min', 'rank12m_max')) return false;
+      if (!inRange(p.qty, 'qty_min', 'qty_max')) return false;
+      if (!inRange(p.tCost, 'tCost_min', 'tCost_max')) return false;
+      if (!inRange(p.days, 'days_min', 'days_max')) return false;
+      if (!inRange(p.stopPrice, 'stopPrice_min', 'stopPrice_max')) return false;
+      if (!inRange(p.returnPct * 100, 'returnPct_min', 'returnPct_max')) return false;
+      if (!inRange(p.cRRR, 'cRRR_min', 'cRRR_max')) return false;
+      if (!inRange(p.cLossPct * 100, 'cLossPct_min', 'cLossPct_max')) return false;
+      if (!inRange(p.pctOfPtf * 100, 'pctOfPtf_min', 'pctOfPtf_max')) return false;
+      return true;
+    });
+
+    // ── Multi-key priority sort ───────────────────────────────────────────
+    if (sortConfigs.length > 0) {
+      result = [...result].sort((a, b) => {
+        for (const cfg of sortConfigs) {
+          const aVal = (a as any)[cfg.key];
+          const bVal = (b as any)[cfg.key];
+          if (aVal === bVal) continue;
+          if (typeof aVal === 'string' && typeof bVal === 'string') {
+            const cmp = aVal.localeCompare(bVal);
+            if (cmp !== 0) return cfg.direction === 'asc' ? cmp : -cmp;
+          } else {
+            const aN = Number(aVal ?? 0), bN = Number(bVal ?? 0);
+            if (aN !== bN) return cfg.direction === 'asc' ? aN - bN : bN - aN;
+          }
+        }
+        return 0;
+      });
+    }
+
+    return result;
+  }, [data, filters, sortConfigs]);
 
   const totalReturn = filtered.reduce((s, p) => s + p.return_, 0);
   const totalCost = filtered.reduce((s, p) => s + p.tCost, 0);
+  const activeFiltersCount = useMemo(() => countActiveFilters(filters), [filters]);
 
   return (
     <div className="h-screen flex flex-col bg-[#f8f9fb] text-slate-900 font-sans overflow-hidden">
@@ -882,40 +800,27 @@ export default function PortfolioPage() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <select
-            className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/15 transition-all"
-            value={selectedPfl}
-            onChange={e => setSelectedPfl(e.target.value)}
-          >
-            {portfolios.map(p => <option key={p} value={p}>{p === "All" ? "All Portfolios" : p}</option>)}
-          </select>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-              <Icon.Search />
-            </span>
-            <input
-              className="bg-white border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/15 transition-all w-44 lg:w-52"
-              placeholder="Symbol or name…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
           <PortfolioExportButton
             data={filtered}
             tableRef={tableContainerRef}
             activeColumns={visibleCols.map(vc => vc.col)}
           />
           <button
-            className={`text-sm px-4 py-2 rounded-lg font-medium transition-all shadow-sm ${isAdding
-              ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              : "bg-slate-900 text-white hover:bg-slate-800"
-              }`}
-            onClick={() => setIsAdding(v => !v)}
-          >
+            className={`text-sm px-4 py-2 rounded-lg font-medium transition-all shadow-sm ${isAdding ? "bg-slate-100 text-slate-600 hover:bg-slate-200" : "bg-slate-900 text-white hover:bg-slate-800"}`}
+            onClick={() => setIsAdding(v => !v)}>
             {isAdding ? "Cancel" : "+ New Position"}
           </button>
         </div>
       </div>
+
+      {/* ── Filter Panel ── */}
+      <PortfolioFilterPanel
+        filters={filters}
+        setFilters={setFilters}
+        portfolios={portfolios}
+        activeFiltersCount={activeFiltersCount}
+        clearAllFilters={() => setFilters(initialPortfolioFilterState)}
+      />
 
       {/* ── Add Position Form ── */}
       {isAdding && (
@@ -933,18 +838,15 @@ export default function PortfolioPage() {
                 onChange={e => setNewPosition({ ...newPosition, name: e.target.value })} />
             </Field>
             <Field label="Entry Date">
-              <input type="date" className={inputCls}
-                value={newPosition.entry_date}
+              <input type="date" className={inputCls} value={newPosition.entry_date}
                 onChange={e => setNewPosition({ ...newPosition, entry_date: e.target.value })} />
             </Field>
             <Field label="Portfolio">
-              <input className={inputCls} placeholder="Default"
-                value={newPosition.portfolio_name}
+              <input className={inputCls} placeholder="Default" value={newPosition.portfolio_name}
                 onChange={e => setNewPosition({ ...newPosition, portfolio_name: e.target.value })} />
             </Field>
             <Field label="Quantity">
-              <input type="number" className={inputCls} placeholder="0"
-                value={newPosition.qty || ""}
+              <input type="number" className={inputCls} placeholder="0" value={newPosition.qty || ""}
                 onChange={e => {
                   const qty = Number(e.target.value);
                   const buy_price = qty > 0 ? Number((newPosition.total_cost / qty).toFixed(4)) : 0;
@@ -952,8 +854,7 @@ export default function PortfolioPage() {
                 }} />
             </Field>
             <Field label="Total Cost (SAR)">
-              <input type="number" className={inputCls} placeholder="0.00"
-                value={newPosition.total_cost || ""}
+              <input type="number" className={inputCls} placeholder="0.00" value={newPosition.total_cost || ""}
                 onChange={e => {
                   const total_cost = Number(e.target.value);
                   const buy_price = newPosition.qty > 0 ? Number((total_cost / newPosition.qty).toFixed(4)) : 0;
@@ -964,24 +865,13 @@ export default function PortfolioPage() {
               <input type="number" disabled className={disabledInputCls} value={newPosition.buy_price} />
             </Field>
             <Field label="Stop Price (SAR)">
-              <input type="number" className={inputCls} placeholder="0.00"
-                value={newPosition.stop_price || ""}
+              <input type="number" className={inputCls} placeholder="0.00" value={newPosition.stop_price || ""}
                 onChange={e => setNewPosition({ ...newPosition, stop_price: Number(e.target.value) })} />
             </Field>
           </div>
           <div className="mt-4 flex items-center gap-3">
-            <button
-              className="bg-slate-900 hover:bg-slate-800 text-white text-sm px-5 py-2.5 rounded-xl font-medium shadow-sm transition-colors"
-              onClick={handleAddPosition}
-            >
-              Save Position
-            </button>
-            <button
-              className="text-slate-500 text-sm px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors"
-              onClick={() => setIsAdding(false)}
-            >
-              Cancel
-            </button>
+            <button className="bg-slate-900 hover:bg-slate-800 text-white text-sm px-5 py-2.5 rounded-xl font-medium shadow-sm transition-colors" onClick={handleAddPosition}>Save Position</button>
+            <button className="text-slate-500 text-sm px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors" onClick={() => setIsAdding(false)}>Cancel</button>
           </div>
         </div>
       )}
@@ -992,29 +882,43 @@ export default function PortfolioPage() {
         {COL_GROUPS.map(g => {
           const isActive = activeGroups.has(g.label);
           return (
-            <button
-              key={g.label}
+            <button key={g.label}
               onClick={() => setActiveGroups(prev => {
                 const next = new Set(prev);
                 next.has(g.label) ? next.delete(g.label) : next.add(g.label);
                 return next;
               })}
-              className={`text-[11px] px-3.5 py-1.5 rounded-full border transition-all ${isActive
-                ? "bg-[#1E293B] text-white border-transparent font-semibold shadow-sm"
-                : "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700 font-medium"
-                }`}
-            >
+              className={`text-[11px] px-3.5 py-1.5 rounded-full border transition-all ${isActive ? "bg-[#1E293B] text-white border-transparent font-semibold shadow-sm" : "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700 font-medium"}`}>
               {g.label}
             </button>
           );
         })}
+        {/* Sort indicators */}
+        {sortConfigs.length > 0 && (
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs text-slate-400">Sorted by:</span>
+            {sortConfigs.map((cfg, i) => (
+              <span key={cfg.key}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[11px] font-medium">
+                <span className="inline-flex items-center justify-center w-4 h-4 bg-slate-800 text-white text-[9px] font-bold rounded-full">{i + 1}</span>
+                {Object.entries(COL_SORT_KEY).find(([, v]) => v === cfg.key)?.[0] ?? cfg.key}
+                <span className="text-slate-400">{cfg.direction === 'asc' ? '▲' : '▼'}</span>
+                <button onClick={() => setSortConfigs(prev => prev.filter(c => c.key !== cfg.key))}
+                  className="text-slate-400 hover:text-red-500 transition-colors leading-none">×</button>
+              </span>
+            ))}
+            <button onClick={() => setSortConfigs([])}
+              className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors">
+              Clear all
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Error state ── */}
       {loadError && (
         <div className="flex-none mx-6 mt-3 mb-1 p-3 bg-red-50 border border-red-100 rounded-lg flex items-center gap-2 text-sm text-red-700">
-          <Icon.Warning />
-          {loadError}
+          <Icon.Warning />{loadError}
           <button onClick={loadPositions} className="ml-auto text-red-600 font-medium hover:underline">Retry</button>
         </div>
       )}
@@ -1025,77 +929,80 @@ export default function PortfolioPage() {
           <thead className="sticky top-0 z-20">
             <tr className="border-b border-slate-200">
               {COL_GROUPS.filter(g => activeGroups.has(g.label)).map(g => (
-                <th
-                  key={g.label}
-                  colSpan={g.cols.length}
-                  className={`px-2 py-1.5 text-center text-[10px] font-semibold tracking-widest uppercase border-r border-slate-200 ${GROUP_HEADER_COLORS[g.label]}`}
-                >
+                <th key={g.label} colSpan={g.cols.length}
+                  className={`px-2 py-1.5 text-center text-[10px] font-semibold tracking-widest uppercase border-r border-slate-200 ${GROUP_HEADER_COLORS[g.label]}`}>
                   {g.label}
                 </th>
               ))}
             </tr>
+
+            {/* ── Column header row with sort indicators ── */}
             <tr className="border-b border-slate-200 shadow-sm">
-              {visibleCols.map(({ col, group }) => (
-                <th
-                  key={`${group}-${col}`}
-                  className={`px-2.5 py-2 text-center whitespace-nowrap font-medium tracking-tight border-r border-slate-100 ${GROUP_COLORS[group]}`}
-                >
-                  {col}
-                </th>
-              ))}
+              {visibleCols.map(({ col, group }) => {
+                const sortKey = COL_SORT_KEY[col];
+                const sortIdx = sortKey ? sortConfigs.findIndex(c => c.key === sortKey) : -1;
+                const isSorted = sortIdx !== -1;
+                const sortDir = isSorted ? sortConfigs[sortIdx].direction : null;
+                const sortPriority = sortIdx + 1;
+                const isSortable = !!sortKey;
+
+                return (
+                  <th key={`${group}-${col}`}
+                    onClick={isSortable ? () => handleSort(col) : undefined}
+                    className={`px-2.5 py-2 text-center whitespace-nowrap tracking-tight border-r border-slate-100 select-none transition-colors
+                      ${isSortable ? 'cursor-pointer hover:bg-slate-100' : ''}
+                      ${isSorted ? 'bg-blue-50/80 text-blue-900 border-b-2 border-b-blue-400' : GROUP_COLORS[group]}
+                      font-medium`}>
+                    <div className="flex items-center justify-center gap-1">
+                      <span>{col}</span>
+                      {isSortable && (
+                        <div className="flex flex-col items-center leading-none ml-0.5">
+                          {isSorted ? (
+                            <span className="text-blue-600 text-[10px] font-bold leading-none">
+                              {sortDir === 'asc' ? '▲' : '▼'}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 text-[9px] leading-none opacity-60">▲<br />▼</span>
+                          )}
+                        </div>
+                      )}
+                      {isSorted && (
+                        <span className="inline-flex items-center justify-center w-[14px] h-[14px] bg-blue-600 text-white text-[8px] font-bold rounded-full flex-shrink-0">
+                          {sortPriority}
+                        </span>
+                      )}
+                    </div>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
 
           <tbody>
             {isLoading && data.length === 0 && (
-              <tr>
-                <td colSpan={visibleCols.length} className="text-center py-20">
-                  <div className="flex flex-col items-center gap-3 text-slate-400">
-                    <div className="w-8 h-8 border-2 border-slate-200 border-t-slate-500 rounded-full animate-spin" />
-                    <span className="text-sm">Loading positions…</span>
-                  </div>
-                </td>
-              </tr>
+              <tr><td colSpan={visibleCols.length} className="text-center py-20">
+                <div className="flex flex-col items-center gap-3 text-slate-400">
+                  <div className="w-8 h-8 border-2 border-slate-200 border-t-slate-500 rounded-full animate-spin" />
+                  <span className="text-sm">Loading positions…</span>
+                </div>
+              </td></tr>
             )}
             {!isLoading && filtered.length === 0 && (
-              <tr>
-                <td colSpan={visibleCols.length} className="text-center py-20 text-slate-400 text-sm">
-                  No positions found
-                </td>
-              </tr>
+              <tr><td colSpan={visibleCols.length} className="text-center py-20 text-slate-400 text-sm">No positions found</td></tr>
             )}
-            {filtered.map((pos, i) => (
-              <tr
-                key={pos.id}
-                className="border-b border-slate-100 hover:bg-blue-50/30 transition-colors even:bg-slate-50/30"
-              >
+            {filtered.map((pos) => (
+              <tr key={pos.id} className="border-b border-slate-100 hover:bg-blue-50/30 transition-colors even:bg-slate-50/30">
                 {visibleCols.map(({ col, group }) => {
                   const { display, className } = getCellValue(pos, col);
                   return (
-                    <td
-                      key={`${group}-${col}`}
-                      className={`px-2.5 py-2.5 text-center whitespace-nowrap border-r border-slate-100 tabular-nums ${className ?? "text-slate-600"}`}
-                    >
+                    <td key={`${group}-${col}`}
+                      className={`px-2.5 py-2.5 text-center whitespace-nowrap border-r border-slate-100 tabular-nums ${className ?? "text-slate-600"}`}>
                       {col === "Sym" ? (
-                        <ActionMenu
-                          pos={pos}
-                          onEdit={() => setEditingPos({
-                            id: pos.id, name: pos.name, qty: pos.qty,
-                            buy_price: pos.cost, total_cost: pos.cost * pos.qty,
-                            stop_price: pos.stopPrice, entry_date: pos.entryDate,
-                            portfolio_name: pos.pfl,
-                          })}
-                          onAdd={() => setAddingPos({
-                            id: pos.id, symbol: pos.sym,
-                            add_qty: "", add_price: pos.last,
-                            add_date: new Date().toISOString().slice(0, 10),
-                          })}
-                          onSell={() => setSellingPos({
-                            id: pos.id, symbol: pos.sym, max_qty: pos.qty,
-                            sell_qty: "", sell_price: pos.last,
-                            sell_date: new Date().toISOString().slice(0, 10),
-                          })}
-                          onClose={() => setConfirmState({ type: "close", positionId: pos.id, symbol: pos.sym, name: pos.name })}
+                        <ActionMenu pos={pos}
+                          onEdit={() => setEditingPos({ id: pos.id, name: pos.name, qty: pos.qty, buy_price: pos.cost, total_cost: pos.cost * pos.qty, stop_price: pos.stopPrice, entry_date: pos.entryDate, portfolio_name: pos.pfl })}
+                          onAdd={() => setAddingPos({ id: pos.id, symbol: pos.sym, add_qty: "", add_price: pos.last, add_date: new Date().toISOString().slice(0, 10) })}
+                          onSell={() => setSellingPos({ id: pos.id, symbol: pos.sym, max_qty: pos.qty, sell_qty: "", sell_price: pos.last, sell_date: new Date().toISOString().slice(0, 10) })}
+                          onClose={() => setClosingPos({ id: pos.id, symbol: pos.sym, name: pos.name, qty: pos.qty, cost: pos.cost, sell_price: pos.last, exit_date: new Date().toISOString().slice(0, 10) })}
                           onDelete={() => setConfirmState({ type: "delete", positionId: pos.id, symbol: pos.sym, name: pos.name })}
                         />
                       ) : display}
@@ -1114,16 +1021,13 @@ export default function PortfolioPage() {
                 if (col === "Return") { val = fmt(totalReturn, 0); cls = `font-bold ${color(totalReturn)}`; }
                 if (col === "Name" || col === "Pfl.") { val = "TOTAL"; cls = "text-slate-600 font-semibold text-left text-[11px] tracking-wider uppercase"; }
                 return (
-                  <td key={`${group}-${col}`} className={`px-2.5 py-2.5 text-center border-r border-slate-200 tabular-nums ${cls}`}>
-                    {val}
-                  </td>
+                  <td key={`${group}-${col}`} className={`px-2.5 py-2.5 text-center border-r border-slate-200 tabular-nums ${cls}`}>{val}</td>
                 );
               })}
             </tr>
           </tfoot>
         </table>
 
-        {/* ── Empty portfolio state — inside scroll container ── */}
         {!isLoading && data.length === 0 && !loadError && (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-5 text-3xl shadow-inner">📊</div>
@@ -1135,153 +1039,132 @@ export default function PortfolioPage() {
       </div>
 
       {/* ── Confirm Dialog ── */}
-      {confirmState && (
-        <ConfirmDialog
-          state={confirmState}
-          onConfirm={handleConfirmAction}
-          onCancel={() => setConfirmState(null)}
-        />
-      )}
+      {confirmState && <ConfirmDialog state={confirmState} onConfirm={handleConfirmAction} onCancel={() => setConfirmState(null)} />}
 
       {/* ── Edit Modal ── */}
       {editingPos && (
-        <ModalShell
-          title="Edit Position"
-          subtitle={`ID #${editingPos.id}`}
-          accentColor="bg-blue-500"
-          onClose={() => setEditingPos(null)}
-        >
+        <ModalShell title="Edit Position" subtitle={`ID #${editingPos.id}`} accentColor="bg-blue-500" onClose={() => setEditingPos(null)}>
           <div className="space-y-4">
-            <Field label="Name">
-              <input className={inputCls} value={editingPos.name}
-                onChange={e => setEditingPos({ ...editingPos, name: e.target.value })} />
-            </Field>
+            <Field label="Name"><input className={inputCls} value={editingPos.name} onChange={e => setEditingPos({ ...editingPos, name: e.target.value })} /></Field>
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Portfolio">
-                <input className={inputCls} value={editingPos.portfolio_name}
-                  onChange={e => setEditingPos({ ...editingPos, portfolio_name: e.target.value })} />
-              </Field>
-              <Field label="Entry Date">
-                <input type="date" className={inputCls} value={editingPos.entry_date?.slice(0, 10) || ""}
-                  onChange={e => setEditingPos({ ...editingPos, entry_date: e.target.value })} />
-              </Field>
-              <Field label="Quantity">
-                <input type="number" className={inputCls} value={editingPos.qty}
-                  onChange={e => {
-                    const qty = Number(e.target.value);
-                    const buy_price = qty > 0 ? Number((editingPos.total_cost / qty).toFixed(4)) : 0;
-                    setEditingPos({ ...editingPos, qty, buy_price });
-                  }} />
-              </Field>
-              <Field label="Total Cost (SAR)">
-                <input type="number" className={inputCls} value={editingPos.total_cost}
-                  onChange={e => {
-                    const total_cost = Number(e.target.value);
-                    const buy_price = editingPos.qty > 0 ? Number((total_cost / editingPos.qty).toFixed(4)) : 0;
-                    setEditingPos({ ...editingPos, total_cost, buy_price });
-                  }} />
-              </Field>
-              <Field label="Avg. Price" hint="Auto-calculated">
-                <input type="number" disabled className={disabledInputCls} value={editingPos.buy_price} />
-              </Field>
-              <Field label="Stop Price">
-                <input type="number" className={inputCls} value={editingPos.stop_price}
-                  onChange={e => setEditingPos({ ...editingPos, stop_price: e.target.value })} />
-              </Field>
+              <Field label="Portfolio"><input className={inputCls} value={editingPos.portfolio_name} onChange={e => setEditingPos({ ...editingPos, portfolio_name: e.target.value })} /></Field>
+              <Field label="Entry Date"><input type="date" className={inputCls} value={editingPos.entry_date?.slice(0, 10) || ""} onChange={e => setEditingPos({ ...editingPos, entry_date: e.target.value })} /></Field>
+              <Field label="Quantity"><input type="number" className={inputCls} value={editingPos.qty}
+                onChange={e => { const qty = Number(e.target.value); const buy_price = qty > 0 ? Number((editingPos.total_cost / qty).toFixed(4)) : 0; setEditingPos({ ...editingPos, qty, buy_price }); }} /></Field>
+              <Field label="Total Cost (SAR)"><input type="number" className={inputCls} value={editingPos.total_cost}
+                onChange={e => { const total_cost = Number(e.target.value); const buy_price = editingPos.qty > 0 ? Number((total_cost / editingPos.qty).toFixed(4)) : 0; setEditingPos({ ...editingPos, total_cost, buy_price }); }} /></Field>
+              <Field label="Avg. Price" hint="Auto-calculated"><input type="number" disabled className={disabledInputCls} value={editingPos.buy_price} /></Field>
+              <Field label="Stop Price"><input type="number" className={inputCls} value={editingPos.stop_price} onChange={e => setEditingPos({ ...editingPos, stop_price: e.target.value })} /></Field>
             </div>
-            <button onClick={handleUpdateSubmit}
-              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium py-2.5 rounded-xl transition-colors mt-1 text-sm">
-              Save Changes
-            </button>
+            <button onClick={handleUpdateSubmit} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium py-2.5 rounded-xl transition-colors mt-1 text-sm">Save Changes</button>
           </div>
         </ModalShell>
       )}
 
       {/* ── Add Shares Modal ── */}
       {addingPos && (
-        <ModalShell
-          title="Add Shares"
-          subtitle={`Scale in — ${addingPos.symbol}`}
-          accentColor="bg-emerald-500"
-          onClose={() => setAddingPos(null)}
-        >
+        <ModalShell title="Add Shares" subtitle={`Scale in — ${addingPos.symbol}`} accentColor="bg-emerald-500" onClose={() => setAddingPos(null)}>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Quantity to Add">
-                <input type="number" className={inputCls} placeholder="0"
-                  value={addingPos.add_qty}
-                  onChange={e => setAddingPos({ ...addingPos, add_qty: e.target.value })} />
-              </Field>
-              <Field label="Buy Price (SAR)">
-                <input type="number" className={inputCls}
-                  value={addingPos.add_price}
-                  onChange={e => setAddingPos({ ...addingPos, add_price: e.target.value })} />
-              </Field>
+              <Field label="Quantity to Add"><input type="number" className={inputCls} placeholder="0" value={addingPos.add_qty} onChange={e => setAddingPos({ ...addingPos, add_qty: e.target.value })} /></Field>
+              <Field label="Buy Price (SAR)"><input type="number" className={inputCls} value={addingPos.add_price} onChange={e => setAddingPos({ ...addingPos, add_price: e.target.value })} /></Field>
             </div>
-            <Field label="Trade Date">
-              <input type="date" className={inputCls}
-                value={addingPos.add_date}
-                onChange={e => setAddingPos({ ...addingPos, add_date: e.target.value })} />
-            </Field>
+            <Field label="Trade Date"><input type="date" className={inputCls} value={addingPos.add_date} onChange={e => setAddingPos({ ...addingPos, add_date: e.target.value })} /></Field>
             {addingPos.add_qty && addingPos.add_price && (
               <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-                <p className="text-xs text-emerald-700">
-                  Total cost: <span className="font-semibold">{fmt(Number(addingPos.add_qty) * Number(addingPos.add_price), 0)} SAR</span>
-                </p>
+                <p className="text-xs text-emerald-700">Total cost: <span className="font-semibold">{fmt(Number(addingPos.add_qty) * Number(addingPos.add_price), 0)} SAR</span></p>
               </div>
             )}
-            <button onClick={handleAddSubmit}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-xl transition-colors text-sm">
-              Confirm Add
-            </button>
+            <button onClick={handleAddSubmit} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-xl transition-colors text-sm">Confirm Add</button>
           </div>
         </ModalShell>
       )}
 
       {/* ── Partial Sell Modal ── */}
       {sellingPos && (
-        <ModalShell
-          title="Partial Sell"
-          subtitle={`Trim position — ${sellingPos.symbol}`}
-          accentColor="bg-amber-500"
-          onClose={() => setSellingPos(null)}
-        >
+        <ModalShell title="Partial Sell" subtitle={`Trim position — ${sellingPos.symbol}`} accentColor="bg-amber-500" onClose={() => setSellingPos(null)}>
           <div className="space-y-4">
             <div className="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-100">
               <span className="text-xs text-amber-700">Available to sell</span>
               <span className="text-sm font-bold text-amber-800">{sellingPos.max_qty} shares</span>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Qty to Sell">
-                <input type="number" className={inputCls} placeholder="0"
-                  value={sellingPos.sell_qty}
-                  onChange={e => setSellingPos({ ...sellingPos, sell_qty: e.target.value })} />
-              </Field>
-              <Field label="Sell Price (SAR)">
-                <input type="number" className={inputCls}
-                  value={sellingPos.sell_price}
-                  onChange={e => setSellingPos({ ...sellingPos, sell_price: e.target.value })} />
-              </Field>
+              <Field label="Qty to Sell"><input type="number" className={inputCls} placeholder="0" value={sellingPos.sell_qty} onChange={e => setSellingPos({ ...sellingPos, sell_qty: e.target.value })} /></Field>
+              <Field label="Sell Price (SAR)"><input type="number" className={inputCls} value={sellingPos.sell_price} onChange={e => setSellingPos({ ...sellingPos, sell_price: e.target.value })} /></Field>
             </div>
-            <Field label="Trade Date">
-              <input type="date" className={inputCls}
-                value={sellingPos.sell_date}
-                onChange={e => setSellingPos({ ...sellingPos, sell_date: e.target.value })} />
-            </Field>
-            {sellingPos.sell_qty && sellingPos.sell_price && (
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
-                <p className="text-xs text-amber-700">
-                  Proceeds: <span className="font-semibold">{fmt(Number(sellingPos.sell_qty) * Number(sellingPos.sell_price), 0)} SAR</span>
-                </p>
-              </div>
-            )}
-            <button onClick={handleSellSubmit}
-              className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium py-2.5 rounded-xl transition-colors text-sm">
-              Confirm Sell
-            </button>
+            <Field label="Trade Date"><input type="date" className={inputCls} value={sellingPos.sell_date} onChange={e => setSellingPos({ ...sellingPos, sell_date: e.target.value })} /></Field>
+            {sellingPos.sell_qty && sellingPos.sell_price && (() => {
+              const sellTotal = Number(sellingPos.sell_qty) * Number(sellingPos.sell_price);
+              const remainingQty = sellingPos.max_qty - Number(sellingPos.sell_qty);
+              return (
+                <div className="p-4 rounded-xl border space-y-2 bg-amber-50 border-amber-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-amber-700">Total Sell Value</span>
+                    <span className="text-sm font-bold text-amber-800">{fmt(sellTotal, 0)} SAR</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-amber-600">Remaining Shares</span>
+                    <span className="text-sm font-semibold text-amber-700">{remainingQty >= 0 ? remainingQty : 0}</span>
+                  </div>
+                </div>
+              );
+            })()}
+            <button onClick={handleSellSubmit} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium py-2.5 rounded-xl transition-colors text-sm">Confirm Sell</button>
           </div>
         </ModalShell>
       )}
+
+      {/* ── Close Position Modal ── */}
+      {closingPos && (() => {
+        const sellTotal = Number(closingPos.sell_price) * Number(closingPos.qty);
+        const costTotal = Number(closingPos.cost) * Number(closingPos.qty);
+        const pnl = sellTotal - costTotal;
+        const pnlPct = costTotal > 0 ? (pnl / costTotal) * 100 : 0;
+        return (
+          <ModalShell title="Close Position" subtitle={`${closingPos.symbol} — ${closingPos.name}`} accentColor="bg-purple-500" onClose={() => setClosingPos(null)}>
+            <div className="space-y-4">
+              {/* Position info summary */}
+              <div className="flex items-center justify-between p-3 bg-purple-50 rounded-xl border border-purple-100">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-purple-500 uppercase tracking-wider font-medium">Position Size</span>
+                  <span className="text-sm font-bold text-purple-800">{closingPos.qty} shares</span>
+                </div>
+                <div className="flex flex-col gap-0.5 text-right">
+                  <span className="text-[10px] text-purple-500 uppercase tracking-wider font-medium">Avg. Cost</span>
+                  <span className="text-sm font-bold text-purple-800">{fmt(closingPos.cost)} SAR</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Sell Price (SAR)"><input type="number" className={inputCls} value={closingPos.sell_price} onChange={e => setClosingPos({ ...closingPos, sell_price: e.target.value })} /></Field>
+                <Field label="Exit Date"><input type="date" className={inputCls} value={closingPos.exit_date} onChange={e => setClosingPos({ ...closingPos, exit_date: e.target.value })} /></Field>
+              </div>
+
+              {/* Total proceeds & P&L */}
+              {closingPos.sell_price && (
+                <div className="p-4 rounded-xl border space-y-2 bg-slate-50 border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500">Total Cost</span>
+                    <span className="text-sm font-semibold text-slate-700">{fmt(costTotal, 0)} SAR</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500">Total Sell Value</span>
+                    <span className="text-sm font-semibold text-slate-700">{fmt(sellTotal, 0)} SAR</span>
+                  </div>
+                  <div className="border-t border-slate-200 pt-2 flex items-center justify-between">
+                    <span className="text-xs font-medium text-slate-600">Realized P&L</span>
+                    <span className={`text-sm font-bold ${pnl >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                      {pnl >= 0 ? "+" : ""}{fmt(pnl, 0)} SAR ({pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%)
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <button onClick={handleCloseSubmit} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2.5 rounded-xl transition-colors text-sm">Close & Move to Tracker</button>
+            </div>
+          </ModalShell>
+        );
+      })()}
     </div>
   );
 }

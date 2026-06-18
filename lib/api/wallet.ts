@@ -73,11 +73,12 @@ export async function createPortfolioPosition(data: PortfolioPositionCreate): Pr
   return handleRes(response);
 }
 
-export async function closePortfolioPosition(id: number): Promise<any> {
+export async function closePortfolioPosition(id: number, data: { sell_price: number; exit_date: string }): Promise<any> {
   const response = await authFetch(`${API_BASE_URL}/api/wallet/portfolio/positions/${id}/close`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
     credentials: "include",
+    body: JSON.stringify(data),
   });
   return handleRes(response);
 }

@@ -16,13 +16,12 @@ interface Position {
     pctChg: number;
     last: number;
     cost: number;
-    growth: number;
-    rsGrade: string;
-    rs: number;
-    rs6m: number;
-    rs3m: number;
-    rs1m: number;
-    rs1w: number;
+    rsRating: number | null;
+    rank1m: number | null;
+    rank3m: number | null;
+    rank6m: number | null;
+    rank9m: number | null;
+    rank12m: number | null;
     trend: string;
     sRs: number;
     sRs3m: number;
@@ -115,13 +114,12 @@ function buildAllRows(positions: Position[], activeColumns?: string[]) {
             '%Chg': p(safeNumber(pos.pctChg)),
             'Last': f(safeNumber(pos.last)),
             'Cost': f(safeNumber(pos.cost)),
-            'Growth': f(safeNumber(pos.growth)),
-            'RS-Grade': pos.rsGrade || '—',
-            'RS': f(safeNumber(pos.rs)),
-            'RS-6M': f(safeNumber(pos.rs6m)),
-            'RS-3M': f(safeNumber(pos.rs3m)),
-            'RS-1M': f(safeNumber(pos.rs1m)),
-            'RS-1W': f(safeNumber(pos.rs1w)),
+            'RS Rating': pos.rsRating != null ? String(pos.rsRating) : '—',
+            'RS 1M': pos.rank1m != null ? String(pos.rank1m) : '—',
+            'RS 3M': pos.rank3m != null ? String(pos.rank3m) : '—',
+            'RS 6M': pos.rank6m != null ? String(pos.rank6m) : '—',
+            'RS 9M': pos.rank9m != null ? String(pos.rank9m) : '—',
+            'RS 12M': pos.rank12m != null ? String(pos.rank12m) : '—',
             'Trend': pos.trend || '—',
             'S-RS': f(safeNumber(pos.sRs)),
             'S-RS-3M': f(safeNumber(pos.sRs3m)),
