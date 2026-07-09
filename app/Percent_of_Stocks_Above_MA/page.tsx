@@ -121,6 +121,9 @@ function MarketBreadthContent() {
     const [error, setError] = useState<string | null>(null);
     const [tick, setTick] = useState(0);
     const [period, setPeriod] = useState('ALL');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [refreshKey, setRefreshKey] = useState(0);
     const [selectedAverages, setSelectedAverages] =
         useState<Record<number, Set<string>>>({});
     const [seriesVisible, setSeriesVisible] =
@@ -161,6 +164,8 @@ function MarketBreadthContent() {
                 setLoading(true);
                 setError(null);
                 const params = new URLSearchParams({ period });
+                if (startDate) params.set('start_date', startDate);
+                if (endDate) params.set('end_date', endDate);
                 const res = await fetch(
                     `${API_BASE_URL}/api/market-breadth/percent-above-ma?${params.toString()}`
                 );
@@ -175,7 +180,7 @@ function MarketBreadthContent() {
             }
         }
         fetchData();
-    }, [period]);
+    }, [period, startDate, endDate, refreshKey]);
 
     /* ── build / rebuild charts ── */
     useEffect(() => {
@@ -516,7 +521,7 @@ function MarketBreadthContent() {
                     <p className="text-sm font-semibold text-red-700">Connection Failed</p>
                     <p className="text-xs text-slate-400 mt-1">{error}</p>
                     <button
-                        onClick={() => setPeriod((p) => p)}
+                        onClick={() => setRefreshKey((k) => k + 1)}
                         className="mt-4 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-lg cursor-pointer border-none"
                     >
                         Retry
@@ -573,21 +578,53 @@ function MarketBreadthContent() {
                     {/* controls */}
                     <div className="flex items-center gap-2.5 min-w-0 overflow-x-auto flex-shrink">
                         {/* period selector */}
-                        <div className="flex bg-slate-50 border border-slate-200 p-0.5 rounded-[9px] gap-0.5 flex-shrink-0">
-                            {['5D', '1M', '6M', '1Y', '5Y', '10Y', 'ALL'].map((p) => (
-                                <button
-                                    key={p}
-                                    onClick={() => setPeriod(p)}
-                                    disabled={loading}
-                                    className={[
-                                        'px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all border-none cursor-pointer whitespace-nowrap',
-                                        period === p ? 'bg-white text-slate-900 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700',
-                                        loading ? 'opacity-50' : '',
-                                    ].join(' ')}
-                                >
-                                    {p}
-                                </button>
-                            ))}
+                        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                            <div className="flex bg-slate-50 border border-slate-200 p-0.5 rounded-[9px] gap-0.5 flex-shrink-0">
+                                {['5D', '1M', '6M', '1Y', '5Y', '10Y', 'ALL'].map((p) => (
+                                    <button
+                                        key={p}
+                                        onClick={() => setPeriod(p)}
+                                        disabled={loading}
+                                        className={[
+                                            'px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all border-none cursor-pointer whitespace-nowrap',
+                                            period === p ? 'bg-white text-slate-900 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700',
+                                            loading ? 'opacity-50' : '',
+                                        ].join(' ')}
+                                    >
+                                        {p}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <label className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-[9px] px-2.5 py-1.5 text-[11px] text-slate-600">
+                                <span className="text-slate-400">From</span>
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="bg-transparent border-none outline-none text-[11px] text-slate-700"
+                                />
+                            </label>
+
+                            <label className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-[9px] px-2.5 py-1.5 text-[11px] text-slate-600">
+                                <span className="text-slate-400">To</span>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="bg-transparent border-none outline-none text-[11px] text-slate-700"
+                                />
+                            </label>
+
+                            <button
+                                onClick={() => {
+                                    setStartDate('');
+                                    setEndDate('');
+                                }}
+                                className="px-2.5 py-1.5 rounded-[9px] border border-slate-200 bg-white text-[11px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+                            >
+                                Clear
+                            </button>
                         </div>
 
                         {/* stat blocks */}

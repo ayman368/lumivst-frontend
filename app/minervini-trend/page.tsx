@@ -36,6 +36,12 @@ interface TrendDataPoint {
   trend_1m: number;
   trend_4m: number;
   trend_5m_wide: number;
+  avg50_trend_1m?: number | null;
+  avg200_trend_1m?: number | null;
+  avg50_trend_4m?: number | null;
+  avg200_trend_4m?: number | null;
+  avg50_trend_5m_wide?: number | null;
+  avg200_trend_5m_wide?: number | null;
 }
 
 type HoverEntry = {
@@ -95,6 +101,8 @@ const MAX_CHART_POINTS = 900;
 const API_FULL_LIMIT = 6000;
 const SESSION_CACHE_KEY = 'lumivst:minervini-trend:v3';
 const SESSION_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const AVG50_COLOR = '#38BDF8';
+const AVG200_COLOR = '#F59E0B';
 
 function downsample(data: TrendDataPoint[], max: number): TrendDataPoint[] {
   if (data.length <= max) return data;
@@ -113,6 +121,32 @@ function mapSeries(items: any[]): TrendDataPoint[] {
     trend_4m: item.trend_4m ?? 0,
     trend_5m_wide: item.trend_5m_wide ?? 0,
   }));
+}
+
+function buildSma(values: number[], window: number): Array<number | null> {
+  const out: Array<number | null> = [];
+  for (let i = 0; i < values.length; i += 1) {
+    const start = Math.max(0, i - window + 1);
+    const slice = values.slice(start, i + 1);
+    out.push(slice.length === window ? slice.reduce((sum, value) => sum + value, 0) / window : null);
+  }
+  return out;
+}
+
+function enrichWithMovingAverages(items: TrendDataPoint[]): TrendDataPoint[] {
+  const enriched = items.map((item) => ({ ...item }));
+  CHART_CONFIGS.forEach((cfg) => {
+    const values = enriched.map((item) => Number((item[cfg.key] as number | undefined) ?? 0));
+    const avg50Values = buildSma(values, 50);
+    const avg200Values = buildSma(values, 200);
+    enriched.forEach((item, index) => {
+      const avg50Key = `avg50_${cfg.key}` as keyof TrendDataPoint;
+      const avg200Key = `avg200_${cfg.key}` as keyof TrendDataPoint;
+      (item as any)[avg50Key] = avg50Values[index];
+      (item as any)[avg200Key] = avg200Values[index];
+    });
+  });
+  return enriched;
 }
 
 function readCache(): TrendDataPoint[] | null {
@@ -137,7 +171,10 @@ export default function MinerviniTrendPage() {
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const [period, setPeriod] = useState('ALL');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [seriesVisible, setSeriesVisible] = useState<Record<number, boolean>>({ 0: true, 1: true, 2: true });
+  const [selectedAverages, setSelectedAverages] = useState<Record<number, Set<string>>>({});
   const [fullscreenIdx, setFullscreenIdx] = useState<number | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
@@ -149,6 +186,8 @@ export default function MinerviniTrendPage() {
   const canvasRefs = useRef<(HTMLDivElement | null)[]>(Array(CHART_COUNT).fill(null));
   const chartsRef = useRef<IChartApi[]>([]);
   const mainSeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>(Array(CHART_COUNT).fill(null));
+  const avg50SeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>(Array(CHART_COUNT).fill(null));
+  const avg200SeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>(Array(CHART_COUNT).fill(null));
   const isSyncing = useRef(false);
   const isRestoringRef = useRef(false);
   const savedRangeRef = useRef<any>(null);
@@ -187,12 +226,31 @@ export default function MinerviniTrendPage() {
   }, []);
 
   const data = useMemo(() => {
-    const maxDays = PERIOD_DAYS[period];
-    if (!maxDays || rawData.length <= maxDays) return rawData;
-    return rawData.slice(-maxDays);
-  }, [rawData, period]);
+    let filtered = rawData;
+    if (startDate) {
+      filtered = filtered.filter(d => d.time >= startDate);
+    }
+    if (endDate) {
+      filtered = filtered.filter(d => d.time <= endDate);
+    }
 
-  const chartData = useMemo(() => downsample(data, MAX_CHART_POINTS), [data]);
+    const maxDays = PERIOD_DAYS[period];
+    if (!maxDays || filtered.length <= maxDays) return filtered;
+    return filtered.slice(-maxDays);
+  }, [rawData, period, startDate, endDate]);
+
+  const chartData = useMemo(() => enrichWithMovingAverages(downsample(data, MAX_CHART_POINTS)), [data]);
+
+  const toggleAvgKey = (index: number, key: string) => {
+    setSelectedAverages((prev) => {
+      const next = { ...prev };
+      const current = new Set(prev[index] ?? []);
+      if (current.has(key)) current.delete(key);
+      else current.add(key);
+      next[index] = current;
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!exportOpen) return;
@@ -216,6 +274,8 @@ export default function MinerviniTrendPage() {
     chartsRef.current.forEach((c) => c.remove());
     chartsRef.current = [];
     mainSeriesRef.current = Array(CHART_COUNT).fill(null);
+    avg50SeriesRef.current = Array(CHART_COUNT).fill(null);
+    avg200SeriesRef.current = Array(CHART_COUNT).fill(null);
 
     const baseOptions = {
       layout: {
@@ -286,6 +346,49 @@ export default function MinerviniTrendPage() {
         chartData.map((d) => ({ time: d.time, value: d[cfg.key] })) as any
       );
       mainSeriesRef.current[i] = series;
+
+      const selectedSet = selectedAverages[i] || new Set<string>();
+      const avg50Key = `avg50_${cfg.key}` as keyof TrendDataPoint;
+      if (selectedSet.has('avg50') && avg50Key in chartData[0]) {
+        const avg50Series = chart.addSeries(AreaSeries, {
+          lineColor: AVG50_COLOR,
+          topColor: 'rgba(0,0,0,0)',
+          bottomColor: 'rgba(0,0,0,0)',
+          lineWidth: 1.5 as any,
+          lineStyle: 1,
+          crosshairMarkerVisible: true,
+          crosshairMarkerRadius: 3,
+          crosshairMarkerBorderColor: AVG50_COLOR,
+          crosshairMarkerBackgroundColor: '#FFFFFF',
+          lastValueVisible: true,
+          priceLineVisible: false,
+        });
+        avg50Series.setData(
+          chartData.map((d) => ({ time: d.time, value: (d[avg50Key] as number | null) ?? null })) as any
+        );
+        avg50SeriesRef.current[i] = avg50Series;
+      }
+
+      const avg200Key = `avg200_${cfg.key}` as keyof TrendDataPoint;
+      if (selectedSet.has('avg200') && avg200Key in chartData[0]) {
+        const avg200Series = chart.addSeries(AreaSeries, {
+          lineColor: AVG200_COLOR,
+          topColor: 'rgba(0,0,0,0)',
+          bottomColor: 'rgba(0,0,0,0)',
+          lineWidth: 1.5 as any,
+          lineStyle: 1,
+          crosshairMarkerVisible: true,
+          crosshairMarkerRadius: 3,
+          crosshairMarkerBorderColor: AVG200_COLOR,
+          crosshairMarkerBackgroundColor: '#FFFFFF',
+          lastValueVisible: true,
+          priceLineVisible: false,
+        });
+        avg200Series.setData(
+          chartData.map((d) => ({ time: d.time, value: (d[avg200Key] as number | null) ?? null })) as any
+        );
+        avg200SeriesRef.current[i] = avg200Series;
+      }
     });
 
     chartsRef.current.forEach((chart, i) => {
@@ -397,7 +500,7 @@ export default function MinerviniTrendPage() {
       chartsRef.current.forEach((c) => c.remove());
       chartsRef.current = [];
     };
-  }, [chartData]);
+  }, [chartData, selectedAverages]);
 
   useEffect(() => { savedRangeRef.current = null; }, [period]);
 
@@ -540,6 +643,36 @@ export default function MinerviniTrendPage() {
                 </button>
               ))}
             </div>
+
+            <label className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-[9px] px-2.5 py-1.5 text-[11px] text-slate-600">
+                <span className="text-slate-400">From</span>
+                <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="bg-transparent border-none outline-none text-[11px] text-slate-700"
+                />
+            </label>
+
+            <label className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-[9px] px-2.5 py-1.5 text-[11px] text-slate-600">
+                <span className="text-slate-400">To</span>
+                <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="bg-transparent border-none outline-none text-[11px] text-slate-700"
+                />
+            </label>
+
+            <button
+                onClick={() => {
+                    setStartDate('');
+                    setEndDate('');
+                }}
+                className="px-2.5 py-1.5 rounded-[9px] border border-slate-200 bg-white text-[11px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+                Clear
+            </button>
 
             <div className="flex items-center bg-slate-50 border border-slate-200 rounded-[9px] px-3.5 py-2 gap-4">
               {CHART_CONFIGS.map((cfg, i) => {
@@ -733,6 +866,27 @@ export default function MinerviniTrendPage() {
                   <div className="px-3 py-1 flex items-center gap-1 border-y border-slate-100 flex-shrink-0">
                     <div className="flex-1" />
 
+                    {(() => {
+                      const selectedSet = selectedAverages[i] || new Set<string>();
+                      const isAvg50 = selectedSet.has('avg50');
+                      const isAvg200 = selectedSet.has('avg200');
+                      return (
+                        <>
+                          <button onClick={() => toggleAvgKey(i, 'avg50')}
+                            className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border whitespace-nowrap"
+                            style={{ borderColor: isAvg50 ? AVG50_COLOR : '#E2E8F0', background: isAvg50 ? AVG50_COLOR : 'transparent', color: isAvg50 ? '#FFFFFF' : '#64748B' }}>
+                            AVG 50
+                          </button>
+
+                          <button onClick={() => toggleAvgKey(i, 'avg200')}
+                            className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border whitespace-nowrap"
+                            style={{ borderColor: isAvg200 ? AVG200_COLOR : '#E2E8F0', background: isAvg200 ? AVG200_COLOR : 'transparent', color: isAvg200 ? '#FFFFFF' : '#64748B' }}>
+                            AVG 200
+                          </button>
+                        </>
+                      );
+                    })()}
+
                     <button onClick={() => setSeriesVisible((prev) => ({ ...prev, [i]: !prev[i] }))}
                       title={isVisible ? 'Hide series' : 'Show series'}
                       className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border flex items-center gap-1"
@@ -852,6 +1006,26 @@ export default function MinerviniTrendPage() {
 
                   <div className="px-3 py-1 flex items-center gap-1 border-y border-slate-100 flex-shrink-0">
                     <div className="flex-1" />
+                    {(() => {
+                      const selectedSet = selectedAverages[i] || new Set<string>();
+                      const isAvg50 = selectedSet.has('avg50');
+                      const isAvg200 = selectedSet.has('avg200');
+                      return (
+                        <>
+                          <button onClick={() => toggleAvgKey(i, 'avg50')}
+                            className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border whitespace-nowrap"
+                            style={{ borderColor: isAvg50 ? AVG50_COLOR : '#E2E8F0', background: isAvg50 ? AVG50_COLOR : 'transparent', color: isAvg50 ? '#FFFFFF' : '#64748B' }}>
+                            AVG 50
+                          </button>
+
+                          <button onClick={() => toggleAvgKey(i, 'avg200')}
+                            className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border whitespace-nowrap"
+                            style={{ borderColor: isAvg200 ? AVG200_COLOR : '#E2E8F0', background: isAvg200 ? AVG200_COLOR : 'transparent', color: isAvg200 ? '#FFFFFF' : '#64748B' }}>
+                            AVG 200
+                          </button>
+                        </>
+                      );
+                    })()}
 
                     <button onClick={() => setSeriesVisible((prev) => ({ ...prev, [i]: !prev[i] }))}
                       title={isVisible ? 'Hide series' : 'Show series'}

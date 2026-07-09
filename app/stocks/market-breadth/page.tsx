@@ -28,6 +28,7 @@ import {
 import { API_BASE_URL } from '@/lib/api/config';
 import { WatchlistShariahProvider, ShariahFilterBar, useWatchlistShariah } from '@/components/Watchlist/WatchlistShariahContext';
 import ExportButton from './_components/ExportButton';
+import { seriesMovingAverage } from '../../../lib/movingAverage';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -253,6 +254,8 @@ function MarketBreadthContent() {
         : null;
 
     const [period, setPeriod] = useState('ALL');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [selectedAverages, setSelectedAverages] = useState<Record<number, Set<string>>>({});
     const [seriesVisible, setSeriesVisible] = useState<Record<number, boolean>>(
         Object.fromEntries(Array.from({ length: TOTAL_CHART_COUNT }, (_, i) => [i, true]))
@@ -343,6 +346,8 @@ function MarketBreadthContent() {
         };
 
         const params = new URLSearchParams({ period, ad_limit: '3000', alhussain_limit: '3000', screener_trend_limit: '3000' });
+        if (startDate) params.set('start_date', startDate);
+        if (endDate) params.set('end_date', endDate);
         if (shariahSelected.length > 0) {
             params.set('approval_with_controls', shariahSelected.join(','));
         }
@@ -383,6 +388,8 @@ function MarketBreadthContent() {
             //           each section renders independently as it arrives
             // ═══════════════════════════════════════════════════════
             const indParams = new URLSearchParams({ period });
+            if (startDate) indParams.set('start_date', startDate);
+            if (endDate) indParams.set('end_date', endDate);
             if (shariahSelected.length > 0) {
                 indParams.set('approval_with_controls', shariahSelected.join(','));
             }
@@ -469,7 +476,7 @@ function MarketBreadthContent() {
             cancelled = true;
             controllers.forEach((c) => c.abort());
         };
-    }, [period, shariahSelected]);
+    }, [period, startDate, endDate, shariahSelected]);
 
 
     /* ── build / rebuild charts ── */
@@ -667,6 +674,36 @@ function MarketBreadthContent() {
                 );
                 mainSeriesRef.current[i] = aSeries;
                 secondarySeriesRef.current[i] = dSeries;
+
+                const selectedSet = selectedAverages[i] || new Set<string>();
+                if (selectedSet.has('avg50_ad-count')) {
+                    const avg50Series = chart.addSeries(LineSeries, {
+                        color: AVG50_COLOR,
+                        lineWidth: 1.5 as any,
+                        lineStyle: 1,
+                        crosshairMarkerVisible: true,
+                        lastValueVisible: true,
+                        priceLineVisible: false,
+                    });
+                    avg50Series.setData(
+                        seriesMovingAverage(adData, (d) => adShowPercent ? d.a_rating_pct : d.a_rating, 50) as any
+                    );
+                    avg50SeriesRef.current[i] = avg50Series;
+                }
+                if (selectedSet.has('avg200_ad-count')) {
+                    const avg200Series = chart.addSeries(LineSeries, {
+                        color: AVG200_COLOR,
+                        lineWidth: 1.5 as any,
+                        lineStyle: 1,
+                        crosshairMarkerVisible: true,
+                        lastValueVisible: true,
+                        priceLineVisible: false,
+                    });
+                    avg200Series.setData(
+                        seriesMovingAverage(adData, (d) => adShowPercent ? d.a_rating_pct : d.a_rating, 200) as any
+                    );
+                    avg200SeriesRef.current[i] = avg200Series;
+                }
             } else if (panel.kind === 'alhussain' && alhussainData.length > 0) {
                 const series = chart.addSeries(AreaSeries, {
                     lineColor: panel.lineColor,
@@ -683,6 +720,36 @@ function MarketBreadthContent() {
                 });
                 series.setData(alhussainData.map((d) => ({ time: d.time, value: d.count })) as any);
                 mainSeriesRef.current[i] = series;
+
+                const selectedSet = selectedAverages[i] || new Set<string>();
+                if (selectedSet.has('avg50_alhussain')) {
+                    const avg50Series = chart.addSeries(LineSeries, {
+                        color: AVG50_COLOR,
+                        lineWidth: 1.5 as any,
+                        lineStyle: 1,
+                        crosshairMarkerVisible: true,
+                        lastValueVisible: true,
+                        priceLineVisible: false,
+                    });
+                    avg50Series.setData(
+                        seriesMovingAverage(alhussainData, (d) => d.count, 50) as any
+                    );
+                    avg50SeriesRef.current[i] = avg50Series;
+                }
+                if (selectedSet.has('avg200_alhussain')) {
+                    const avg200Series = chart.addSeries(LineSeries, {
+                        color: AVG200_COLOR,
+                        lineWidth: 1.5 as any,
+                        lineStyle: 1,
+                        crosshairMarkerVisible: true,
+                        lastValueVisible: true,
+                        priceLineVisible: false,
+                    });
+                    avg200Series.setData(
+                        seriesMovingAverage(alhussainData, (d) => d.count, 200) as any
+                    );
+                    avg200SeriesRef.current[i] = avg200Series;
+                }
             }
         });
 
@@ -718,6 +785,47 @@ function MarketBreadthContent() {
                 trendChartData.map((d) => ({ time: d.time, value: d[cfg.key] })) as any
             );
             mainSeriesRef.current[i] = series;
+
+            // add moving average overlays for Minervini charts when toggled
+            const selSet = selectedAverages[i] || new Set<string>();
+            const mv50Key = `avg50_${cfg.key}`;
+            const mv200Key = `avg200_${cfg.key}`;
+            if (selSet.has(mv50Key)) {
+                const ma50 = seriesMovingAverage(trendChartData, (d: any) => d[cfg.key], 50);
+                const avg50Series = chart.addSeries(AreaSeries, {
+                    lineColor: AVG50_COLOR,
+                    topColor: 'rgba(0,0,0,0)',
+                    bottomColor: 'rgba(0,0,0,0)',
+                    lineWidth: 1.5 as any,
+                    lineStyle: 1,
+                    crosshairMarkerVisible: true,
+                    crosshairMarkerRadius: 3,
+                    crosshairMarkerBorderColor: AVG50_COLOR,
+                    crosshairMarkerBackgroundColor: '#FFFFFF',
+                    lastValueVisible: true,
+                    priceLineVisible: false,
+                });
+                avg50Series.setData(ma50 as any);
+                avg50SeriesRef.current[i] = avg50Series;
+            }
+            if (selSet.has(mv200Key)) {
+                const ma200 = seriesMovingAverage(trendChartData, (d: any) => d[cfg.key], 200);
+                const avg200Series = chart.addSeries(AreaSeries, {
+                    lineColor: AVG200_COLOR,
+                    topColor: 'rgba(0,0,0,0)',
+                    bottomColor: 'rgba(0,0,0,0)',
+                    lineWidth: 1.5 as any,
+                    lineStyle: 1,
+                    crosshairMarkerVisible: true,
+                    crosshairMarkerRadius: 3,
+                    crosshairMarkerBorderColor: AVG200_COLOR,
+                    crosshairMarkerBackgroundColor: '#FFFFFF',
+                    lastValueVisible: true,
+                    priceLineVisible: false,
+                });
+                avg200Series.setData(ma200 as any);
+                avg200SeriesRef.current[i] = avg200Series;
+            }
         });
 
         /* ── sync time-scale ── */
@@ -926,6 +1034,36 @@ function MarketBreadthContent() {
                 ))}
             </div>
 
+            <label className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-[9px] px-2 py-1 text-[10px] text-slate-600">
+                <span className="text-slate-400 font-medium">From</span>
+                <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="bg-transparent border-none outline-none text-[10px] font-medium text-slate-700"
+                />
+            </label>
+
+            <label className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-[9px] px-2 py-1 text-[10px] text-slate-600">
+                <span className="text-slate-400 font-medium">To</span>
+                <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="bg-transparent border-none outline-none text-[10px] font-medium text-slate-700"
+                />
+            </label>
+
+            <button
+                onClick={() => {
+                    setStartDate('');
+                    setEndDate('');
+                }}
+                className="px-2 py-1 rounded-[9px] border border-slate-200 bg-white text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+                CLEAR
+            </button>
+
             {/* fit all */}
             <button
                 onClick={fitAll}
@@ -1059,11 +1197,21 @@ function MarketBreadthContent() {
                                     : panel!.sublabel;
                         const badge = isMa ? cfg!.badge : isMinervini ? minCfg!.badge : panel!.badge;
 
-                        const selectedSet = isMa ? (selectedAverages[i] || new Set<string>()) : new Set<string>();
-                        const avg50Key = isMa ? cfg!.avgKeys[0] : '';
-                        const avg200Key = isMa ? cfg!.avgKeys[1] : '';
-                        const isAvg50Active = selectedSet.has(avg50Key);
-                        const isAvg200Active = selectedSet.has(avg200Key);
+                        const selectedSet = selectedAverages[i] || new Set<string>();
+                        let avg50Key = '';
+                        let avg200Key = '';
+                        if (isMa) {
+                            avg50Key = cfg!.avgKeys[0];
+                            avg200Key = cfg!.avgKeys[1];
+                        } else if (isMinervini && minCfg) {
+                            avg50Key = `avg50_${minCfg.key}`;
+                            avg200Key = `avg200_${minCfg.key}`;
+                        } else if (isExtra && panel) {
+                            avg50Key = `avg50_${panel.kind}`;
+                            avg200Key = `avg200_${panel.kind}`;
+                        }
+                        const isAvg50Active = avg50Key ? selectedSet.has(avg50Key) : false;
+                        const isAvg200Active = avg200Key ? selectedSet.has(avg200Key) : false;
                         const avg50DisplayVal = hover?.avg50 != null ? hover.avg50.toFixed(1) : null;
                         const avg200DisplayVal = hover?.avg200 != null ? hover.avg200.toFixed(1) : null;
 
@@ -1105,7 +1253,7 @@ function MarketBreadthContent() {
 
                                 <div className="px-2 py-0.5 flex items-center gap-1 border-y border-slate-100 flex-shrink-0">
                                     <span className="text-[8px] font-bold text-slate-400 px-1">{badge}</span>
-                                    {isMa && (
+                                    {(isMa || isMinervini || isExtra) && (
                                         <>
                                             <button onClick={() => toggleAvgKey(i, avg50Key)}
                                                 className="px-1.5 py-0.5 rounded text-[8px] font-semibold cursor-pointer border"

@@ -15,15 +15,17 @@ import type {
   ValuationZone,
 } from "@/types/valuation";
 import { authFetch } from "./authFetch";
-
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { API_BASE_URL } from "./config";
 
 async function get<T>(path: string, params?: Record<string, string | number>): Promise<T> {
-  const url = new URL(`${BASE}${path}`);
+  let urlStr = `${API_BASE_URL}${path}`;
   if (params) {
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => searchParams.set(k, String(v)));
+    const qs = searchParams.toString();
+    if (qs) urlStr += `?${qs}`;
   }
-  const res = await authFetch(url.toString(), {
+  const res = await authFetch(urlStr, {
     next: { revalidate: 60 },   // ISR: refresh every 60 seconds
   } as any);
   if (!res.ok) {
@@ -34,7 +36,7 @@ async function get<T>(path: string, params?: Record<string, string | number>): P
 }
 
 async function post<T>(path: string, body?: unknown): Promise<T> {
-  const res = await authFetch(`${BASE}${path}`, {
+  const res = await authFetch(`${API_BASE_URL}${path}`, {
     method:  "POST",
     headers: { "Content-Type": "application/json" },
     body:    body ? JSON.stringify(body) : undefined,
@@ -47,7 +49,7 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
 }
 
 async function put<T>(path: string, body?: unknown): Promise<T> {
-  const res = await authFetch(`${BASE}${path}`, {
+  const res = await authFetch(`${API_BASE_URL}${path}`, {
     method:  "PUT",
     headers: { "Content-Type": "application/json" },
     body:    body ? JSON.stringify(body) : undefined,

@@ -41,6 +41,10 @@ interface TrendPoint {
     a_rating_pct: number;
     d_rating_pct: number;
     total_stocks: number;
+    avg50_alhussain?: number | null;
+    avg200_alhussain?: number | null;
+    avg50_alrayan?: number | null;
+    avg200_alrayan?: number | null;
 }
 
 type PeriodKey = '5D' | '1M' | '6M' | '1Y' | '5Y' | '10Y' | 'ALL';
@@ -95,6 +99,33 @@ function fmt(n: number, decimals = 1): string {
     if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
     if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
     return n.toFixed(decimals);
+}
+
+function buildSma(values: number[], window: number): Array<number | null> {
+    const out: Array<number | null> = [];
+    for (let i = 0; i < values.length; i += 1) {
+        const start = Math.max(0, i - window + 1);
+        const slice = values.slice(start, i + 1);
+        out.push(slice.length === window ? slice.reduce((sum, value) => sum + value, 0) / window : null);
+    }
+    return out;
+}
+
+function addMovingAverages(items: TrendPoint[], baseKey: 'alhussain' | 'alrayan'): TrendPoint[] {
+    const values = items.map((item) => Number(item[baseKey] ?? 0));
+    const avg50 = buildSma(values, 50);
+    const avg200 = buildSma(values, 200);
+    return items.map((item, index) => {
+        const next = { ...item } as TrendPoint & Record<string, number | null>;
+        if (baseKey === 'alhussain') {
+            next.avg50_alhussain = avg50[index];
+            next.avg200_alhussain = avg200[index];
+        } else {
+            next.avg50_alrayan = avg50[index];
+            next.avg200_alrayan = avg200[index];
+        }
+        return next as TrendPoint;
+    });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -239,6 +270,8 @@ function ChartPanel({
     viewMode, onViewModeChange, showViewToggle,
 }: ChartPanelProps) {
     const [fullscreen, setFullscreen] = useState(false);
+    const [avg50Active, setAvg50Active] = useState(false);
+    const [avg200Active, setAvg200Active] = useState(false);
     const [hoverValues, setHoverValues] = useState<HoverValue[]>([]);
     const [hoverLabel, setHoverLabel] = useState<string | null>(null);
     const [seriesVisible, setSeriesVisible] = useState<Record<string, boolean>>(
@@ -248,6 +281,7 @@ function ChartPanel({
     const containerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
     const seriesRef = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
+    const avgSeriesRef = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
 
     const yFormatter = useCallback((v: number) => {
         if (viewMode === 'percentage') return v.toFixed(1) + '%';
@@ -300,6 +334,26 @@ function ChartPanel({
             seriesMap.set(l.dataKey, series);
         });
 
+        // create placeholder avg series (hidden by default)
+        try {
+            const ma50 = chart.addSeries(LineSeries, {
+                color: '#E02020',
+                lineWidth: 2,
+                lineStyle: LineStyle.Dashed,
+                priceLineVisible: false,
+                lastValueVisible: false,
+            });
+            const ma200 = chart.addSeries(LineSeries, {
+                color: '#1A1A1A',
+                lineWidth: 2,
+                lineStyle: LineStyle.Dashed,
+                priceLineVisible: false,
+                lastValueVisible: false,
+            });
+            avgSeriesRef.current.set('avg50', ma50);
+            avgSeriesRef.current.set('avg200', ma200);
+        } catch { }
+
         seriesRef.current = seriesMap;
 
         chart.subscribeCrosshairMove((param: MouseEventParams) => {
@@ -350,11 +404,37 @@ function ChartPanel({
             }));
             series.setData(seriesData);
             series.applyOptions({ visible: seriesVisible[l.dataKey] ?? true });
+
+            // compute and push average overlays
+            try {
+                const values = data.map(d => Number(d[l.dataKey as keyof TrendPoint] ?? 0));
+                const ma50 = buildSma(values, 50);
+                const ma200 = buildSma(values, 200);
+                const ma50Data: LineData[] = data.map((d, idx) => {
+                    const v = ma50[idx];
+                    return v != null ? { time: d.time as Time, value: v } : null;
+                }).filter(Boolean) as LineData[];
+                const ma200Data: LineData[] = data.map((d, idx) => {
+                    const v = ma200[idx];
+                    return v != null ? { time: d.time as Time, value: v } : null;
+                }).filter(Boolean) as LineData[];
+
+                const ma50Series = avgSeriesRef.current.get('avg50');
+                const ma200Series = avgSeriesRef.current.get('avg200');
+                if (ma50Series) {
+                    ma50Series.setData(ma50Data);
+                    ma50Series.applyOptions({ visible: avg50Active });
+                }
+                if (ma200Series) {
+                    ma200Series.setData(ma200Data);
+                    ma200Series.applyOptions({ visible: avg200Active });
+                }
+            } catch { }
         });
         if (chartRef.current && data.length > 0) {
             chartRef.current.timeScale().fitContent();
         }
-    }, [data, lines, seriesVisible]);
+    }, [data, lines, seriesVisible, avg50Active, avg200Active]);
 
     // Re-fit on fullscreen toggle
     useEffect(() => {
@@ -440,6 +520,27 @@ function ChartPanel({
                 )}
 
                 <div style={{ display: 'flex', gap: 5 }}>
+                    <button
+                        onClick={() => setAvg50Active(v => !v)}
+                        title="Toggle AVG 50"
+                        style={{
+                            padding: '3px 7px', border: '1px solid #E5E7EB', borderRadius: 6,
+                            background: avg50Active ? '#EFF6F6' : '#F9FAFB', cursor: 'pointer', color: '#0F172A', fontWeight: 700,
+                        }}
+                    >
+                        AVG 50
+                    </button>
+
+                    <button
+                        onClick={() => setAvg200Active(v => !v)}
+                        title="Toggle AVG 200"
+                        style={{
+                            padding: '3px 7px', border: '1px solid #E5E7EB', borderRadius: 6,
+                            background: avg200Active ? '#F3F4F6' : '#F9FAFB', cursor: 'pointer', color: '#0F172A', fontWeight: 700,
+                        }}
+                    >
+                        AVG 200
+                    </button>
                     {lines.map(l => (
                         <button
                             key={l.dataKey}
@@ -542,11 +643,24 @@ function CombinedDashboardContent() {
     const [trendData, setTrendData] = useState<TrendPoint[]>([]);
     const [loading, setLoading] = useState(false);
     const [period, setPeriod] = useState<PeriodKey>('1Y');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [adViewMode, setAdViewMode] = useState<ViewMode>('count');
     const dashRef = useRef<HTMLDivElement>(null);
     const sync = useChartSync();
 
-    const filtered = useMemo(() => filterByPeriod(trendData, period), [trendData, period]);
+    const filtered = useMemo(() => {
+        let items = trendData;
+        if (startDate) {
+            items = items.filter((d) => d.time >= startDate);
+        }
+        if (endDate) {
+            items = items.filter((d) => d.time <= endDate);
+        }
+        return filterByPeriod(items, period);
+    }, [trendData, period, startDate, endDate]);
+    const alhussainChartData = useMemo(() => addMovingAverages(filtered, 'alhussain'), [filtered]);
+    const alrayanChartData = useMemo(() => addMovingAverages(filtered, 'alrayan'), [filtered]);
     const latestPoint = useMemo(() => trendData[trendData.length - 1] ?? null, [trendData]);
 
     const mainDashboardDatasets: ChartDataset[] = useMemo(() => [
@@ -576,8 +690,11 @@ function CombinedDashboardContent() {
         async function fetchAll() {
             setLoading(true);
             try {
+                const params = new URLSearchParams({ period: 'ALL' });
+                if (startDate) params.set('start_date', startDate);
+                if (endDate) params.set('end_date', endDate);
                 const response = await authFetch(
-                    `${API_BASE_URL}/api/market-breadth/dashboard?period=ALL`,
+                    `${API_BASE_URL}/api/market-breadth/dashboard?${params.toString()}`,
                     { cache: 'no-store', credentials: 'include' },
                 );
                 const data = response.ok ? await response.json() : {};
@@ -641,7 +758,7 @@ function CombinedDashboardContent() {
         }
 
         fetchAll();
-    }, []);
+    }, [startDate, endDate]);
 
     const adLines: LineDef[] = useMemo(() => [
         {
@@ -675,7 +792,8 @@ function CombinedDashboardContent() {
             <div style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '0 24px', flexShrink: 0 }}>
                 <div style={{
                     maxWidth: 1920, margin: '0 auto',
-                    display: 'flex', alignItems: 'center', gap: 16, height: 56,
+                    display: 'flex', alignItems: 'center', gap: 16, minHeight: 56,
+                    flexWrap: 'wrap', padding: '8px 0',
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{
@@ -696,6 +814,38 @@ function CombinedDashboardContent() {
                     </div>
 
                     <div style={{ flex: 1 }} />
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 9, padding: '5px 10px', minWidth: 140 }}>
+                            <span style={{ fontSize: 10, color: '#64748B', fontWeight: 700 }}>From</span>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                style={{ border: 'none', background: 'transparent', fontSize: 11, color: '#0F172A', outline: 'none', width: '100%', minWidth: 90, cursor: 'pointer' }}
+                            />
+                        </label>
+
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 9, padding: '5px 10px', minWidth: 140 }}>
+                            <span style={{ fontSize: 10, color: '#64748B', fontWeight: 700 }}>To</span>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                style={{ border: 'none', background: 'transparent', fontSize: 11, color: '#0F172A', outline: 'none', width: '100%', minWidth: 90, cursor: 'pointer' }}
+                            />
+                        </label>
+
+                        <button
+                            onClick={() => {
+                                setStartDate('');
+                                setEndDate('');
+                            }}
+                            style={{ padding: '5px 9px', borderRadius: 9, border: '1px solid #E2E8F0', background: '#fff', color: '#475569', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                        >
+                            Clear
+                        </button>
+                    </div>
 
                     {/* Period selector */}
                     <div style={{
@@ -749,8 +899,12 @@ function CombinedDashboardContent() {
                         icon={<Target size={16} />}
                         conditions={ALHUSSAIN_CONDITIONS}
                         count={latestPoint?.alhussain}
-                        data={filtered}
-                        lines={[{ dataKey: 'alhussain', name: 'Alhussain', color: '#7C3AED', show: true }]}
+                        data={alhussainChartData}
+                        lines={[
+                            { dataKey: 'alhussain', name: 'Alhussain', color: '#7C3AED', show: true },
+                            { dataKey: 'avg50_alhussain', name: 'AVG50', color: '#38BDF8', show: false },
+                            { dataKey: 'avg200_alhussain', name: 'AVG200', color: '#F59E0B', show: false },
+                        ]}
                         loading={loading}
                         sync={sync}
                     />
@@ -765,8 +919,12 @@ function CombinedDashboardContent() {
                         icon={<Target size={16} />}
                         conditions={ALRAYAN_CONDITIONS}
                         count={latestPoint?.alrayan}
-                        data={filtered}
-                        lines={[{ dataKey: 'alrayan', name: 'Alrayan', color: '#2962FF', show: true }]}
+                        data={alrayanChartData}
+                        lines={[
+                            { dataKey: 'alrayan', name: 'Alrayan', color: '#2962FF', show: true },
+                            { dataKey: 'avg50_alrayan', name: 'AVG50', color: '#38BDF8', show: false },
+                            { dataKey: 'avg200_alrayan', name: 'AVG200', color: '#F59E0B', show: false },
+                        ]}
                         loading={loading}
                         sync={sync}
                     />
