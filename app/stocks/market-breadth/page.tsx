@@ -275,8 +275,8 @@ function MarketBreadthContent() {
     const chartsRef = useRef<IChartApi[]>([]);
     const mainSeriesRef = useRef<(ISeriesApi<'Area'> | ISeriesApi<'Line'> | null)[]>(Array(TOTAL_CHART_COUNT).fill(null));
     const secondarySeriesRef = useRef<(ISeriesApi<'Line'> | null)[]>(Array(TOTAL_CHART_COUNT).fill(null));
-    const avg50SeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>(Array(TOTAL_CHART_COUNT).fill(null));
-    const avg200SeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>(Array(TOTAL_CHART_COUNT).fill(null));
+    const avg50SeriesRef = useRef<(ISeriesApi<'Area'> | ISeriesApi<'Line'> | null)[]>(Array(TOTAL_CHART_COUNT).fill(null));
+    const avg200SeriesRef = useRef<(ISeriesApi<'Area'> | ISeriesApi<'Line'> | null)[]>(Array(TOTAL_CHART_COUNT).fill(null));
     const isSyncing = useRef(false);
     const savedRangeRef = useRef<any>(null);
 
