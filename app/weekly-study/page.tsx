@@ -244,7 +244,6 @@ export default function WeeklyStudyPage() {
         ) : (
           <div className="bg-white border border-slate-200 rounded-xl p-12 shadow-sm flex flex-col items-center justify-center text-slate-500 gap-3">
             <div className="w-9 h-9 border-[3px] border-slate-200 border-t-blue-600 rounded-full animate-spin" />
-            <p className="text-sm">Loading data...</p>
           </div>
         )}
       </div>

@@ -43,6 +43,15 @@ export function useTreasuryDaily(params?: {
   return { data, error, isLoading, refresh: mutate };
 }
 
+export function useTreasuryLatest() {
+  const { data, error, isLoading, mutate } = useSWR(
+    "treasury-latest",
+    api.getTreasuryLatest,
+    { refreshInterval: 5 * 60 * 1000 }
+  );
+  return { data, error, isLoading, refresh: mutate };
+}
+
 // ── Tab 3 ─────────────────────────────────────────────────────────────────────
 export function useMonthlyCurve() {
   const { data, error, isLoading } = useSWR(
@@ -64,10 +73,10 @@ export function useEconomyAssessment() {
 }
 
 // ── Tab 5 ─────────────────────────────────────────────────────────────────────
-export function useSP500Scenarios(epsYear: number = 2026, nYears: number = 2) {
+export function useSP500Scenarios(nYears: number = 2) {
   const { data, error, isLoading, mutate } = useSWR(
-    ["sp500-scenarios", epsYear, nYears],
-    () => api.getSP500Scenarios(epsYear, nYears),
+    ["sp500-scenarios", nYears],
+    () => api.getSP500Scenarios(nYears),
     { revalidateOnFocus: false }
   );
   return { data, error, isLoading, refresh: mutate };

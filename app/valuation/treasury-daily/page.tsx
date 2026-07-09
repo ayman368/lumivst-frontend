@@ -5,6 +5,7 @@
 
 import { useState } from "react";
 import { useTreasuryDaily } from "@/hooks/useValuation";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 const COLUMNS = [
   { key: "month_1", label: "1M" },
@@ -34,7 +35,7 @@ export function TreasuryDailyPage() {
   const [page, setPage] = useState(1);
   const { data, isLoading, error } = useTreasuryDaily({ page, page_size: 30 });
 
-  if (isLoading) return <div className="p-8 text-gray-400 text-center">Loading treasury data…</div>;
+  if (isLoading) return <LoadingSpinner className="h-[50vh]" />;
   if (error || !data) return <div className="p-8 text-red-400 text-center">Failed to load.</div>;
 
   return (

@@ -105,6 +105,16 @@ export interface ScenarioRow {
   upside_pct: number;
   return_2y?: number | null;
   return_3y?: number | null;
+  irr?: number | null;
+}
+
+export interface IrrScenario {
+  name: string;
+  n: number;
+  pv: number;
+  pmt: number;
+  fv: number;
+  irr: number | null;
 }
 
 export interface HistoricalPeStats {
@@ -117,7 +127,16 @@ export interface HistoricalPeStats {
 
 export interface SP500ScenariosResponse {
   scenarios: ScenarioRow[];
+  scenarios_n2: ScenarioRow[];
+  scenarios_n3: ScenarioRow[];
   scenarios_adjusted: ScenarioRow[];
+  adj_details: {
+    adj_bbb_yield_pct: number | null;
+    adj_a_yield_pct: number | null;
+    adj_pe_bbb: number | null;
+    adj_pe_a: number | null;
+  };
+  irr_scenarios: IrrScenario[];
   gold_silver_bronze: {
     gold: number[];
     silver: number[];
@@ -131,11 +150,13 @@ export interface SP500ScenariosResponse {
     current_pe: number | null;
     a_yield_pct: number;
     bbb_yield_pct: number;
+    sp_ey_pct: number | null;
     fed_rate_current_pct: number | null;
     fed_rate_expected_pct: number | null;
     dividend_yield_pct: number;
     annual_dividend: number;
     n_years: number;
+    eps_estimates: Record<string, number>;
   };
   historical_pe_stats: HistoricalPeStats;
 }
@@ -156,10 +177,13 @@ export interface HistoricalPeResponse {
   a_yield_pct: number;
   a_yield_3yr_avg_pct: number;
   required_ey_pct: number;
+  required_ey_adj_pct: number;
   target_pe: number | null;
   target_pe_adj: number | null;
-  target_price: number | null;
-  target_price_adj: number | null;
+  target_price_2026: number | null;
+  target_price_adj_2026: number | null;
+  target_price_2027: number | null;
+  target_price_adj_2027: number | null;
   pe_stats: HistoricalPeStats;
   deviations: {
     min: Record<string, number | null>;
@@ -182,11 +206,14 @@ export interface TasiComponentRow {
   eps: number | null;
   pe_ratio: number | null;
   weighted_eps: number | null;
+  top70_raw: number | null;
+  top70_adj: number | null;
   weighted_eps_top70: number | null;
   is_in_top70: boolean;
 }
 
 export interface TasiSummary {
+  index_adj: number | null;
   tasi_level: number | null;
   weighted_eps: number;
   pe: number | null;

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, FileSpreadsheet, AlertCircle, BarChart3, Search, X } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/api/config';
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 // ─── DESIGN TOKENS: Warm Cream × Forest Green ────────────────────────────────
 // Page bg: #EDE8DC  |  Card bg: #FDFAF5  |  Row alt bg: #FAF7F0
@@ -83,23 +84,7 @@ export default function XBRLDataViewerEnhanced({ symbol }: XBRLDataViewerEnhance
     };
 
     // ── Loading state ──
-    if (loading) return (
-        <div style={{ display: 'flex', height: '600px', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderRadius: '20px', border: '1px solid #E5E7EB', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
-                <div style={{ position: 'relative', width: '80px', height: '80px' }}>
-                    <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid #E8E2D5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <BarChart3 style={{ width: '32px', height: '32px', color: '#2D6A4F', opacity: 0.7 }} />
-                    </div>
-                    <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid transparent', borderTopColor: '#2D6A4F', animation: 'xbrl-spin 1s cubic-bezier(0.5,0.1,0.5,0.9) infinite' }} />
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#2C2416', marginBottom: '4px' }}>Loading Financial Data</p>
-                    <p style={{ fontSize: '11px', fontFamily: 'monospace', color: '#2D6A4F', letterSpacing: '0.15em' }}>{symbol}</p>
-                </div>
-            </div>
-            <style>{`@keyframes xbrl-spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
-        </div>
-    );
+    if (loading) return <LoadingSpinner className="h-[600px]" />;
 
     // ── Error state ──
     if (error) return (

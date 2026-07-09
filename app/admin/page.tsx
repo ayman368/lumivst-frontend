@@ -27,6 +27,10 @@ const SCHEDULE = {
         { id: 'sp500-ey', title: 'S&P 500 Earnings Yield', source: 'GuruFocus', url: '/api/economic-indicators/scrape/SP500_EY', msg: '✅ SP500 EY started!', when: 'Once a month', file: 'gurufocus_scraper.py', note: 'Selenium' },
         { id: 'sp500-pe-guru', title: 'S&P 500 PE Ratio', source: 'GuruFocus', url: '/api/economic-indicators/scrape/SP500_PE', msg: '✅ SP500 PE Ratio started!', when: 'Once a month', file: 'gurufocus_scraper.py', note: 'Selenium' },
     ],
+    marketReports: [
+        { id: 'market-reports-all', title: 'Saudi Market Reports (All)', source: 'Saudi Exchange', url: '/api/market-reports/scrape', msg: '✅ Saudi Market Reports started in background!', when: 'Sun-Thu (After Close)', file: 'update_market_reports.py', note: 'Runs Substantial Shareholders, Net Short, Headroom, Buybacks, SBL' },
+        { id: 'daily-financial-indicators', title: 'Daily Financial Indicators', source: 'Saudi Exchange', url: '/api/market-reports/scrape/daily-financial-indicators', msg: '✅ Daily Financial Indicators started!', when: 'Sun-Thu (After Close)', file: 'daily_financial_indicators_scraper.py', note: 'Selenium — Updates TASI weights, EPS, prices' },
+    ],
 };
 
 const PIPELINES = [
@@ -55,6 +59,11 @@ const PIPELINES = [
         table: 'cme_fedwatch', label: 'CME FedWatch',
         scrapers: ['cmefedwatch_scraper.py → CME Group (snapshot)'],
         pages: ['/interest-rate/cme-fedwatch'],
+    },
+    {
+        table: 'tasi_components', label: 'TASI Components (Market Weight)',
+        scrapers: ['daily_financial_indicators_scraper.py → Saudi Exchange (Selenium)'],
+        pages: ['/valuation/market-weight', '/valuation/report'],
     },
 ];
 
@@ -120,6 +129,18 @@ export default function AdminDashboard() {
             headerText: 'text-blue-700',
             btnCls: 'bg-blue-600 hover:bg-blue-700 shadow-blue-100',
             tagCls: 'bg-blue-100 text-blue-700',
+        },
+        {
+            key: 'marketReports' as const,
+            label: 'Market Reports (Saudi)',
+            icon: '📊',
+            accent: 'purple',
+            desc: 'Run after market close (Saudi)',
+            headerBg: 'bg-purple-50',
+            headerBorder: 'border-purple-100',
+            headerText: 'text-purple-700',
+            btnCls: 'bg-purple-600 hover:bg-purple-700 shadow-purple-100',
+            tagCls: 'bg-purple-100 text-purple-700',
         },
     ];
 
@@ -330,6 +351,7 @@ export default function AdminDashboard() {
                             <li className="flex items-start gap-2"><span className="mt-0.5 shrink-0">•</span><span><b>Credit Spreads</b> (BAMLC0A3CA, BAMLC0A4CBBB, BAMLC0A3CAEY) are <b>daily</b> data from FRED.</span></li>
                             <li className="flex items-start gap-2"><span className="mt-0.5 shrink-0">•</span><span><b>GuruFocus</b> scrapers use Selenium — may take 30–60s. Incremental mode scrapes last 3 pages (≈ 2 months).</span></li>
                             <li className="flex items-start gap-2"><span className="mt-0.5 shrink-0">•</span><span><b>S&P 500 PE</b>: GuruFocus feeds the main chart page; Multpl updates the PE column in the History table (used for Yield Curve).</span></li>
+                            <li className="flex items-start gap-2"><span className="mt-0.5 shrink-0">•</span><span><b>Daily Financial Indicators</b> uses Selenium to scrape Saudi Exchange. Updates <b>tasi_components</b> table (weights, EPS, prices) for Market Weight &amp; Report pages.</span></li>
                         </ul>
                     </div>
                 </div>

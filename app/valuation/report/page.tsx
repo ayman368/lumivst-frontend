@@ -1,79 +1,72 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Tab 8: Report (report/page.tsx)
-// ─────────────────────────────────────────────────────────────────────────────
 "use client";
 
-import { useReport } from "@/hooks/useValuation";
+import { useTasiMarketWeight } from "@/hooks/useValuation";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import React from "react";
 
 export default function ReportPage() {
-  const { data, error, isLoading } = useReport();
+  const { data, error, isLoading } = useTasiMarketWeight();
 
-  if (isLoading)
-    return <div className="p-8 text-gray-400 text-center">Generating report…</div>;
-  if (error || !data)
-    return <div className="p-8 text-red-400 text-center">Failed to load report.</div>;
+  if (isLoading) return <LoadingSpinner className="h-[50vh]" />;
+  if (error || !data) return <div className="p-8 text-red-600 text-center">Failed to load data.</div>;
 
-  const { summary_current, summary_top70 } = data;
+  const current = data.summary_current;
+  const top70 = data.summary_top70;
 
-  const rows = [
-    {
-      label:   "Index Level",
-      current: summary_current.tasi_level?.toLocaleString() ?? "—",
-      top70:   summary_top70.tasi_level?.toLocaleString() ?? "—",
-    },
-    {
-      label:   "Weighted EPS",
-      current: summary_current.weighted_eps.toFixed(4),
-      top70:   summary_top70.weighted_eps.toFixed(4),
-    },
-    {
-      label:   "P/E Ratio",
-      current: summary_current.pe ? `${summary_current.pe.toFixed(2)}x` : "—",
-      top70:   summary_top70.pe ? `${summary_top70.pe.toFixed(2)}x` : "—",
-    },
-  ];
+  const renderVal = (val: number | null | undefined, decimals = 2) => {
+    if (val == null) return "—";
+    return val.toFixed(decimals);
+  };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-2">TASI Valuation Report</h1>
-      <p className="text-xs text-gray-500 mb-8">
-        Generated {new Date().toLocaleDateString("en-US", { dateStyle: "long" })}
-      </p>
-
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl overflow-hidden">
-        <table className="w-full">
+    <div className="min-h-screen bg-white text-black p-6 w-full flex justify-center items-start pt-10">
+      
+      <div className="w-[400px]">
+        {/* Table container matching the simple excel look */}
+        <table className="w-full text-center border-collapse border border-gray-300 shadow-sm" style={{ fontFamily: "Arial, sans-serif" }}>
           <thead>
-            <tr className="bg-gray-800 text-xs uppercase text-gray-400 tracking-wide">
-              <th className="text-left px-6 py-4">Metric</th>
-              <th className="text-right px-6 py-4">Current Weights</th>
-              <th className="text-right px-6 py-4">Top 70% Adjusted</th>
+            <tr>
+              <th className="border border-gray-300 p-2 bg-white w-1/3"></th>
+              <th className="border border-gray-300 p-2 bg-white text-[#C00000] font-bold w-1/3 leading-tight">
+                Current<br/>weight
+              </th>
+              <th className="border border-gray-300 p-2 bg-white text-[#C00000] font-bold w-1/3 leading-tight">
+                Weight Adj.<br/>top 70%
+              </th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, i) => (
-              <tr
-                key={row.label}
-                className={`border-t border-gray-800 ${i % 2 === 0 ? "" : "bg-gray-900/50"}`}
-              >
-                <td className="px-6 py-5 text-gray-400 text-sm">{row.label}</td>
-                <td className="px-6 py-5 text-right">
-                  <span className="text-white font-bold text-xl">{row.current}</span>
-                </td>
-                <td className="px-6 py-5 text-right">
-                  <span className="text-yellow-300 font-bold text-xl">{row.top70}</span>
-                </td>
-              </tr>
-            ))}
+            <tr>
+              <td className="border border-gray-300 p-2 text-left text-[#C00000] font-bold bg-white">Index Adj.</td>
+              <td className="border border-gray-300 p-2 text-[#C00000] font-bold bg-white">
+                {renderVal(current.index_adj, 2)}
+              </td>
+              <td className="border border-gray-300 p-2 text-[#C00000] font-bold bg-white">
+                {renderVal(top70.index_adj, 2)}
+              </td>
+            </tr>
+            <tr>
+              <td className="border border-gray-300 p-2 text-left text-[#C00000] font-bold bg-white">Earnings</td>
+              <td className="border border-gray-300 p-2 text-[#C00000] font-bold bg-white">
+                {renderVal(current.weighted_eps, 2)}
+              </td>
+              <td className="border border-gray-300 p-2 text-[#C00000] font-bold bg-white">
+                {renderVal(top70.weighted_eps, 2)}
+              </td>
+            </tr>
+            <tr>
+              <td className="border border-gray-300 p-2 text-left text-[#C00000] font-bold bg-white">P/E</td>
+              <td className="border border-gray-300 p-2 text-[#C00000] font-bold bg-white">
+                {renderVal(current.pe, 2)}
+              </td>
+              <td className="border border-gray-300 p-2 text-[#C00000] font-bold bg-white">
+                {renderVal(top70.pe, 2)}
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
-
-      <button
-        onClick={() => window.print()}
-        className="mt-8 w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium text-sm"
-      >
-        Download / Print Report
-      </button>
+      
     </div>
   );
 }

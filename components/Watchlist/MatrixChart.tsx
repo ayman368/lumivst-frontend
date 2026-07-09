@@ -32,7 +32,8 @@ export default function MatrixChart() {
     const [hoveredStock, setHoveredStock] = useState<{ stock: StockRS; x: number; y: number; movedFrom?: string } | null>(null);
     const [iscapturing, setIsCapturing] = useState(false); // لحالة الزر أثناء التصوير
 
-    const chartRef = useRef<HTMLDivElement>(null); // 2. مرجع للعنصر المراد تصويره
+    // 2. مرجع للعنصر المراد تصويره — أصبح الآن على <main> فقط (بدون الهيدر)
+    const chartRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
 
     useEffect(() => {
@@ -132,8 +133,8 @@ export default function MatrixChart() {
     const getPct = (count: number) => ((count / totalCount) * 100).toFixed(1) + '%';
 
     return (
-        /* أضفنا الـ ref هنا ليشمل الهيدر والمصفوفة معاً */
-        <div ref={chartRef} className="h-screen flex flex-col bg-white overflow-hidden font-sans text-[#333]">
+        /* أزلنا الـ ref من هنا حتى لا يشمل الهيدر */
+        <div className="h-screen flex flex-col bg-white overflow-hidden font-sans text-[#333]">
             <header className="h-[60px] bg-[#1e222d] border-b border-[#2a2e39] flex items-center justify-between px-5 shrink-0 z-50">
                 <h1 className="text-white text-[1.3rem] font-bold"> RS Matrix Chart</h1>
                 <div className="flex gap-2 bg-white/5 p-1 rounded-lg">
@@ -149,7 +150,9 @@ export default function MatrixChart() {
                 </div>
             </header>
 
+            {/* أضفنا الـ ref هنا فقط، ليشمل المصفوفة دون الهيدر */}
             <main
+                ref={chartRef}
                 className="flex-1 grid w-full bg-white transition-all duration-500 ease-in-out"
                 style={{
                     gridTemplateColumns: `${gridStyles.col1} ${gridStyles.col2}`,

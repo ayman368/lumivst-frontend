@@ -23,6 +23,7 @@ export interface IndexPerformance {
 export interface TrendSeriesPoint {
   date: string;
   close: number;
+  trend: TrendType;
   high_250: number;
   low_250: number;
 }
@@ -110,15 +111,15 @@ export interface StockPerformance {
 }
 
 export interface StockAnalytics {
+  symbol: string;
   stock_name: string;
-  symbol?: string;
-  weekly_return: number;
+  weekly_return: number | null;
   trend_daily: TrendType;
   trend_weekly: TrendType;
   trend_monthly: TrendType;
   trend_rank: number;
-  pct_below_250d_high?: number;
-  days_since_250d_high?: number;
+  pct_below_250d_high: number;
+  days_since_250d_high: number;
 }
 
 export interface BreakoutPoint {

@@ -326,6 +326,8 @@ export default function Navbar() {
       items: [
         { en: 'Percent_of_Stocks_Above_MA', href: '/Percent_of_Stocks_Above_MA' },
         { en: 'Alrayan&Alhussain', href: '/screeners/Alrayan&Alhussain' },
+        { en: 'Valuation', href: '/valuation' },
+        { en: 'Weekly Update', href: '/weekly-update' },
       ],
     },
   }

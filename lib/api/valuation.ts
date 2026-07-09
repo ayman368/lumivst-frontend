@@ -83,8 +83,8 @@ export const getEconomyAssessment = () =>
   get<EconomyAssessmentResponse>("/api/valuation/economy-assessment");
 
 // ── Tab 5 ────────────────────────────────────────────────────────────────────
-export const getSP500Scenarios = (eps_year: number = 2026, n_years: number = 2) =>
-  get<SP500ScenariosResponse>("/api/valuation/sp500-scenarios", { eps_year, n_years });
+export const getSP500Scenarios = (n_years: number = 2) =>
+  get<SP500ScenariosResponse>("/api/valuation/sp500-scenarios", { n_years });
 
 // ── Tab 6 ────────────────────────────────────────────────────────────────────
 export const getHistoricalPE = (limit: number = 10) =>

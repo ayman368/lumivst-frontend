@@ -1,13 +1,13 @@
 "use client";
 
 import { useEconomyAssessment } from "@/hooks/useValuation";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { ValuationZone } from "@/types/valuation";
 
 export default function EconomyAssessmentPage() {
   const { data, isLoading, error } = useEconomyAssessment();
 
-  if (isLoading)
-    return <div className="p-8 text-black text-center">Loading economy assessment...</div>;
+  if (isLoading) return <LoadingSpinner className="h-[50vh]" />;
   if (error || !data)
     return <div className="p-8 text-red-500 text-center">Failed to load data.</div>;
 
