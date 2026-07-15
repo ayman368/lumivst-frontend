@@ -256,6 +256,7 @@ function HoverLegend({ values, label }: { values: HoverValue[]; label: string | 
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface LineDef {
+    id: string;
     dataKey: string;
     name: string;
     color: string;
@@ -288,7 +289,7 @@ function ChartPanel({
     const [hoverValues, setHoverValues] = useState<HoverValue[]>([]);
     const [hoverLabel, setHoverLabel] = useState<string | null>(null);
     const [seriesVisible, setSeriesVisible] = useState<Record<string, boolean>>(
-        () => Object.fromEntries(lines.map(l => [l.dataKey, l.show]))
+        () => Object.fromEntries(lines.map(l => [l.id, l.show]))
     );
 
     const containerRef = useRef<HTMLDivElement>(null);
@@ -350,7 +351,7 @@ function ChartPanel({
                     minMove: 0.01,
                 },
             });
-            seriesMap.set(l.dataKey, series);
+            seriesMap.set(l.id, series);
         });
 
         // MAs are now handled directly by the lines array provided by the parent.
@@ -364,7 +365,7 @@ function ChartPanel({
             }
             const vals: HoverValue[] = [];
             lines.forEach(l => {
-                const series = seriesMap.get(l.dataKey);
+                const series = seriesMap.get(l.id);
                 if (!series) return;
                 const d = param.seriesData.get(series) as LineData | undefined;
                 vals.push({ name: l.name, color: l.color, value: d ? (d.value as number) : null });
@@ -396,7 +397,7 @@ function ChartPanel({
     // Push data + visibility into series
     useEffect(() => {
         lines.forEach(l => {
-            const series = seriesRef.current.get(l.dataKey);
+            const series = seriesRef.current.get(l.id);
             if (!series) return;
             const seriesData: LineData[] = data
                 .filter(d => d[l.dataKey as keyof TrendPoint] != null)
@@ -405,7 +406,7 @@ function ChartPanel({
                     value: Number(d[l.dataKey as keyof TrendPoint]),
                 }));
             series.setData(seriesData);
-            series.applyOptions({ visible: seriesVisible[l.dataKey] ?? true });
+            series.applyOptions({ visible: seriesVisible[l.id] ?? true });
         });
         if (chartRef.current && data.length > 0) {
             chartRef.current.timeScale().fitContent();
@@ -498,8 +499,8 @@ function ChartPanel({
                 <div style={{ display: 'flex', gap: 5 }}>
                     {lines.map(l => (
                         <button
-                            key={l.dataKey}
-                            onClick={() => toggleSeries(l.dataKey)}
+                            key={l.id}
+                            onClick={() => toggleSeries(l.id)}
                             style={{
                                 display: 'flex', alignItems: 'center', gap: 4,
                                 padding: '3px 7px', border: '1px solid #E5E7EB',
@@ -508,7 +509,7 @@ function ChartPanel({
                         >
                             <span style={{
                                 width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-                                background: seriesVisible[l.dataKey] ? l.color : '#CBD5E1',
+                                background: seriesVisible[l.id] ? l.color : '#CBD5E1',
                             }} />
                             <span style={{ fontSize: 10, fontWeight: 600, color: '#6B7280' }}>{l.name}</span>
                         </button>
@@ -728,36 +729,42 @@ function CombinedDashboardContent() {
 
     const adLines: LineDef[] = useMemo(() => [
         {
+            id: 'a_rating',
             dataKey: adViewMode === 'count' ? 'a_rating' : 'a_rating_pct',
             name: 'A Rating',
             color: '#16A34A',
             show: true,
         },
         {
+            id: 'avg50_a_rating',
             dataKey: adViewMode === 'count' ? 'avg50_a_rating' : 'avg50_a_rating_pct',
             name: 'A AVG 50',
             color: '#38BDF8',
             show: false,
         },
         {
+            id: 'avg200_a_rating',
             dataKey: adViewMode === 'count' ? 'avg200_a_rating' : 'avg200_a_rating_pct',
             name: 'A AVG 200',
             color: '#F59E0B',
             show: false,
         },
         {
+            id: 'd_rating',
             dataKey: adViewMode === 'count' ? 'd_rating' : 'd_rating_pct',
             name: 'D Rating',
             color: '#DC2626',
             show: true,
         },
         {
+            id: 'avg50_d_rating',
             dataKey: adViewMode === 'count' ? 'avg50_d_rating' : 'avg50_d_rating_pct',
             name: 'D AVG 50',
             color: '#818CF8',
             show: false,
         },
         {
+            id: 'avg200_d_rating',
             dataKey: adViewMode === 'count' ? 'avg200_d_rating' : 'avg200_d_rating_pct',
             name: 'D AVG 200',
             color: '#D946EF',
@@ -894,9 +901,9 @@ function CombinedDashboardContent() {
                         count={latestPoint?.alhussain}
                         data={alhussainChartData}
                         lines={[
-                            { dataKey: 'alhussain', name: 'Alhussain', color: '#7C3AED', show: true },
-                            { dataKey: 'avg50_alhussain', name: 'AVG50', color: '#38BDF8', show: false },
-                            { dataKey: 'avg200_alhussain', name: 'AVG200', color: '#F59E0B', show: false },
+                            { id: 'alhussain', dataKey: 'alhussain', name: 'Alhussain', color: '#7C3AED', show: true },
+                            { id: 'avg50_alhussain', dataKey: 'avg50_alhussain', name: 'AVG50', color: '#38BDF8', show: false },
+                            { id: 'avg200_alhussain', dataKey: 'avg200_alhussain', name: 'AVG200', color: '#F59E0B', show: false },
                         ]}
                         loading={loading}
                         sync={sync}
@@ -915,9 +922,9 @@ function CombinedDashboardContent() {
                         count={latestPoint?.alrayan}
                         data={alrayanChartData}
                         lines={[
-                            { dataKey: 'alrayan', name: 'Alrayan', color: '#2962FF', show: true },
-                            { dataKey: 'avg50_alrayan', name: 'AVG50', color: '#38BDF8', show: false },
-                            { dataKey: 'avg200_alrayan', name: 'AVG200', color: '#F59E0B', show: false },
+                            { id: 'alrayan', dataKey: 'alrayan', name: 'Alrayan', color: '#2962FF', show: true },
+                            { id: 'avg50_alrayan', dataKey: 'avg50_alrayan', name: 'AVG50', color: '#38BDF8', show: false },
+                            { id: 'avg200_alrayan', dataKey: 'avg200_alrayan', name: 'AVG200', color: '#F59E0B', show: false },
                         ]}
                         loading={loading}
                         sync={sync}
