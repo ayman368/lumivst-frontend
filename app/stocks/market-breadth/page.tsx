@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import BreadthTabs from './_components/BreadthTabs';
+import TasiIndexChart from './_components/TasiIndexChart';
 import {
     createChart,
     ColorType,
@@ -197,7 +198,9 @@ function downsampleSeries<T extends { time: string }>(data: T[], max: number): T
 
 const GRID_COL_NARROW = 'col-span-2';
 const GRID_COL_WIDE = 'col-span-3';
-const NARROW_CHART_COUNT = 6;
+// First 9 grid cells (3 rows × 3) use the narrow (span-2 of 6) column,
+// the remaining cells (final row of 2) use the wide (span-3 of 6) column.
+const NARROW_CHART_COUNT = 9;
 
 function chartGridColClass(chartIndex: number): string {
     return chartIndex < NARROW_CHART_COUNT ? GRID_COL_NARROW : GRID_COL_WIDE;
@@ -231,7 +234,11 @@ const EXTRA_PANELS = [
 ] as const;
 
 const MINERVINI_CHART_COUNT = MINERVINI_CONFIGS.length;
+// Total charts driven by lightweight-charts refs (MA + extras + Minervini) — unchanged.
 const TOTAL_CHART_COUNT = MA_CHART_COUNT + EXTRA_PANELS.length + MINERVINI_CHART_COUNT;
+// Total grid cells rendered = the charts above + 1 dedicated cell for TASI.
+// 9 (3×3) + 2 = 11 → rows of 3, 3, 3, 2.
+const GRID_ITEM_COUNT = TOTAL_CHART_COUNT + 1;
 
 /* ─── Component ─────────────────────────────────────────────────────────── */
 
@@ -278,7 +285,24 @@ function MarketBreadthContent() {
     const avg50SeriesRef = useRef<(ISeriesApi<'Area'> | ISeriesApi<'Line'> | null)[]>(Array(TOTAL_CHART_COUNT).fill(null));
     const avg200SeriesRef = useRef<(ISeriesApi<'Area'> | ISeriesApi<'Line'> | null)[]>(Array(TOTAL_CHART_COUNT).fill(null));
     const isSyncing = useRef(false);
+    const isSyncingCrosshair = useRef(false);
     const savedRangeRef = useRef<any>(null);
+    const lastValueUpdateRef = useRef(false);
+
+    const tasiChartRef = useRef<IChartApi | null>(null);
+
+    const handleTasiReady = useCallback((chart: IChartApi, _series: ISeriesApi<"Area">) => {
+        tasiChartRef.current = chart;
+
+        chart.timeScale().subscribeVisibleTimeRangeChange((range) => {
+            if (!range || isSyncing.current || isRestoringRef.current) return;
+            isSyncing.current = true;
+            chartsRef.current.forEach((c) => {
+                if (c) try { c.timeScale().setVisibleRange(range); } catch { }
+            });
+            setTimeout(() => { isSyncing.current = false; }, 0);
+        });
+    }, []);
 
     // ✅ تحسين hover: استخدام useRef كـ buffer مع requestAnimationFrame
     const hoverRafRef = useRef<number | null>(null);
@@ -303,22 +327,36 @@ function MarketBreadthContent() {
          *            Each chart renders as soon as its data arrives (progressive).
          */
 
+        function sortAndDedupeByTime<T extends { time: string }>(items: T[]): T[] {
+            const map = new Map<string, T>();
+            items.forEach((item) => {
+                if (item.time) map.set(item.time, item);
+            });
+            return Array.from(map.values()).sort((a, b) => a.time.localeCompare(b.time));
+        }
+
         const transformAD = (items: any[]): ADRatingItem[] =>
-            items.map((item: any) => ({
-                time: item.time, a_rating: item.a_rating ?? 0,
-                d_rating: item.d_rating ?? 0, a_rating_pct: item.a_rating_pct ?? 0,
-                d_rating_pct: item.d_rating_pct ?? 0,
-            }));
+            sortAndDedupeByTime(
+                items.map((item: any) => ({
+                    time: item.time, a_rating: item.a_rating ?? 0,
+                    d_rating: item.d_rating ?? 0, a_rating_pct: item.a_rating_pct ?? 0,
+                    d_rating_pct: item.d_rating_pct ?? 0,
+                }))
+            );
 
         const transformAlh = (items: any[]): AlhussainItem[] =>
-            items.map((item: any) => ({ time: item.time, count: item.count ?? 0 }));
+            sortAndDedupeByTime(
+                items.map((item: any) => ({ time: item.time, count: item.count ?? 0 }))
+            );
 
         const transformTrend = (items: any[]): ScreenerTrendItem[] =>
-            items.map((item: any) => ({
-                time: item.time, trend_1m: item.trend_1m ?? 0,
-                trend_4m: item.trend_4m ?? 0, trend_5m_wide: item.trend_5m_wide ?? 0,
-                alrayan: item.alrayan ?? 0,
-            }));
+            sortAndDedupeByTime(
+                items.map((item: any) => ({
+                    time: item.time, trend_1m: item.trend_1m ?? 0,
+                    trend_4m: item.trend_4m ?? 0, trend_5m_wide: item.trend_5m_wide ?? 0,
+                    alrayan: item.alrayan ?? 0,
+                }))
+            );
 
         // ── helper: fetch with timeout, retry, and per-section state ──
         const fetchWithRetry = async (
@@ -345,7 +383,8 @@ function MarketBreadthContent() {
             }
         };
 
-        const params = new URLSearchParams({ period, ad_limit: '3000', alhussain_limit: '3000', screener_trend_limit: '3000' });
+        const params = new URLSearchParams({ ad_limit: '3000', alhussain_limit: '3000', screener_trend_limit: '3000' });
+        if (period) params.set('period', period);
         if (startDate) params.set('start_date', startDate);
         if (endDate) params.set('end_date', endDate);
         if (shariahSelected.length > 0) {
@@ -387,7 +426,8 @@ function MarketBreadthContent() {
             // PHASE 2 — parallel individual requests (60s each, 1 retry)
             //           each section renders independently as it arrives
             // ═══════════════════════════════════════════════════════
-            const indParams = new URLSearchParams({ period });
+            const indParams = new URLSearchParams();
+            if (period) indParams.set('period', period);
             if (startDate) indParams.set('start_date', startDate);
             if (endDate) indParams.set('end_date', endDate);
             if (shariahSelected.length > 0) {
@@ -478,6 +518,54 @@ function MarketBreadthContent() {
         };
     }, [period, startDate, endDate, shariahSelected]);
 
+    // دالة مساعدة لتحديث آخر قيمة على الشارت
+    const updateLastValues = useCallback(() => {
+        if (!data.length || lastValueUpdateRef.current) return;
+
+        lastValueUpdateRef.current = true;
+        const latest = data[data.length - 1];
+
+        CHART_CONFIGS.forEach((cfg, i) => {
+            const mainSeries = mainSeriesRef.current[i];
+            if (mainSeries && latest) {
+                try {
+                    // تحديث قيمة آخر يوم للخط الرئيسي
+                    (mainSeries as any).update({
+                        time: latest.time,
+                        value: latest[cfg.key] as number,
+                    });
+                } catch (e) { }
+            }
+
+            // تحديث قيمة آخر يوم لـ AVG 50
+            const avg50Series = avg50SeriesRef.current[i];
+            if (avg50Series && latest) {
+                try {
+                    const avg50Key = cfg.avgKeys[0];
+                    (avg50Series as any).update({
+                        time: latest.time,
+                        value: latest[avg50Key] as number,
+                    });
+                } catch (e) { }
+            }
+
+            // تحديث قيمة آخر يوم لـ AVG 200
+            const avg200Series = avg200SeriesRef.current[i];
+            if (avg200Series && latest) {
+                try {
+                    const avg200Key = cfg.avgKeys[1];
+                    (avg200Series as any).update({
+                        time: latest.time,
+                        value: latest[avg200Key] as number,
+                    });
+                } catch (e) { }
+            }
+        });
+
+        setTimeout(() => {
+            lastValueUpdateRef.current = false;
+        }, 100);
+    }, [data]);
 
     /* ── build / rebuild charts ── */
     useEffect(() => {
@@ -487,7 +575,7 @@ function MarketBreadthContent() {
 
         if (chartsRef.current.length > 0 && !isRestoringRef.current) {
             try {
-                const range = chartsRef.current[0].timeScale().getVisibleLogicalRange();
+                const range = chartsRef.current[0].timeScale().getVisibleRange();
                 if (range) savedRangeRef.current = range;
             } catch (e) {
                 console.warn('Could not save range:', e);
@@ -536,6 +624,7 @@ function MarketBreadthContent() {
                     color: '#CBD5E1',
                     style: 0 as any,
                     labelBackgroundColor: '#1E293B',
+                    labelVisible: true,
                 },
             },
         };
@@ -552,49 +641,7 @@ function MarketBreadthContent() {
             });
             chartsRef.current[i] = chart;
 
-            const series = chart.addSeries(AreaSeries, {
-                lineColor: cfg.lineColor,
-                topColor: cfg.topColor,
-                bottomColor: 'rgba(0,0,0,0)',
-                lineWidth: 1.5 as any,
-                crosshairMarkerVisible: true,
-                crosshairMarkerRadius: 3,
-                crosshairMarkerBorderColor: cfg.lineColor,
-                crosshairMarkerBackgroundColor: '#FFFFFF',
-                lastValueVisible: true,
-                priceLineVisible: false,
-                visible: seriesVisibleRef.current[i] !== false,
-            });
-            series.setData(
-                data.map((item) => ({ time: item.time, value: item[cfg.key] as number })) as any
-            );
-            mainSeriesRef.current[i] = series;
-
             const selectedSet = selectedAverages[i] || new Set<string>();
-
-            const avg50Key = cfg.avgKeys[0];
-            if (selectedSet.has(avg50Key) && avg50Key in data[0]) {
-                const avg50Series = chart.addSeries(AreaSeries, {
-                    lineColor: AVG50_COLOR,
-                    topColor: 'rgba(0,0,0,0)',
-                    bottomColor: 'rgba(0,0,0,0)',
-                    lineWidth: 1.5 as any,
-                    lineStyle: 1,
-                    crosshairMarkerVisible: true,
-                    crosshairMarkerRadius: 3,
-                    crosshairMarkerBorderColor: AVG50_COLOR,
-                    crosshairMarkerBackgroundColor: '#FFFFFF',
-                    lastValueVisible: true,
-                    priceLineVisible: false,
-                });
-                avg50Series.setData(
-                    data.map((item) => ({
-                        time: item.time,
-                        value: item[avg50Key as keyof BreadthItem] as number,
-                    })) as any
-                );
-                avg50SeriesRef.current[i] = avg50Series;
-            }
 
             const avg200Key = cfg.avgKeys[1];
             if (selectedSet.has(avg200Key) && avg200Key in data[0]) {
@@ -609,6 +656,10 @@ function MarketBreadthContent() {
                     crosshairMarkerBorderColor: AVG200_COLOR,
                     crosshairMarkerBackgroundColor: '#FFFFFF',
                     lastValueVisible: true,
+                    priceFormat: {
+                        type: 'custom',
+                        formatter: (value: number) => `${value.toFixed(1)}%`,
+                    },
                     priceLineVisible: false,
                 });
                 avg200Series.setData(
@@ -618,6 +669,69 @@ function MarketBreadthContent() {
                     })) as any
                 );
                 avg200SeriesRef.current[i] = avg200Series;
+            }
+
+            const avg50Key = cfg.avgKeys[0];
+            if (selectedSet.has(avg50Key) && avg50Key in data[0]) {
+                const avg50Series = chart.addSeries(AreaSeries, {
+                    lineColor: AVG50_COLOR,
+                    topColor: 'rgba(0,0,0,0)',
+                    bottomColor: 'rgba(0,0,0,0)',
+                    lineWidth: 1.5 as any,
+                    lineStyle: 1,
+                    crosshairMarkerVisible: true,
+                    crosshairMarkerRadius: 3,
+                    crosshairMarkerBorderColor: AVG50_COLOR,
+                    crosshairMarkerBackgroundColor: '#FFFFFF',
+                    lastValueVisible: true,
+                    priceFormat: {
+                        type: 'custom',
+                        formatter: (value: number) => `${value.toFixed(1)}%`,
+                    },
+                    priceLineVisible: false,
+                });
+                avg50Series.setData(
+                    data.map((item) => ({
+                        time: item.time,
+                        value: item[avg50Key as keyof BreadthItem] as number,
+                    })) as any
+                );
+                avg50SeriesRef.current[i] = avg50Series;
+            }
+
+            const series = chart.addSeries(AreaSeries, {
+                lineColor: cfg.lineColor,
+                topColor: cfg.topColor,
+                bottomColor: 'rgba(0,0,0,0)',
+                lineWidth: 1.5 as any,
+                crosshairMarkerVisible: true,
+                crosshairMarkerRadius: 3,
+                crosshairMarkerBorderColor: cfg.lineColor,
+                crosshairMarkerBackgroundColor: '#FFFFFF',
+                lastValueVisible: false,
+                priceFormat: {
+                    type: 'custom',
+                    formatter: (value: number) => `${value.toFixed(1)}%`,
+                },
+                priceLineVisible: false,
+                visible: seriesVisibleRef.current[i] !== false,
+            });
+            series.setData(
+                data.map((item) => ({ time: item.time, value: item[cfg.key] as number })) as any
+            );
+            mainSeriesRef.current[i] = series;
+
+            // ── PriceLine ثابت لآخر قيمة (لا يتأثر بالـ crosshair أبداً) ──
+            const lastVal = data[data.length - 1]?.[cfg.key] as number;
+            if (lastVal != null && !isNaN(lastVal)) {
+                series.createPriceLine({
+                    price: lastVal,
+                    color: cfg.lineColor,
+                    lineWidth: 0 as any,
+                    lineStyle: 0,
+                    axisLabelVisible: true,
+                    title: '',
+                });
             }
 
             [20, 50, 80].forEach((level) =>
@@ -831,16 +945,20 @@ function MarketBreadthContent() {
         /* ── sync time-scale ── */
         chartsRef.current.forEach((chart, i) => {
             if (!chart) return;
-            chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+            chart.timeScale().subscribeVisibleTimeRangeChange((range) => {
                 if (!range || isSyncing.current || isRestoringRef.current) return;
                 isSyncing.current = true;
                 chartsRef.current.forEach((c, j) => {
-                    if (j !== i && c) c.timeScale().setVisibleLogicalRange(range);
+                    if (j !== i && c) c.timeScale().setVisibleRange(range);
                 });
+                // Also sync to TASI chart
+                if (tasiChartRef.current) {
+                    try { tasiChartRef.current.timeScale().setVisibleRange(range); } catch { }
+                }
                 setTimeout(() => { isSyncing.current = false; }, 0);
                 if (!isRestoringRef.current && chartsRef.current[0]) {
                     try {
-                        const newRange = chartsRef.current[0].timeScale().getVisibleLogicalRange();
+                        const newRange = chartsRef.current[0].timeScale().getVisibleRange();
                         if (newRange) savedRangeRef.current = newRange;
                     } catch { }
                 }
@@ -856,55 +974,131 @@ function MarketBreadthContent() {
                 const avg50S = avg50SeriesRef.current[i];
                 const avg200S = avg200SeriesRef.current[i];
 
-                let entry: HoverEntry = { main: null, secondary: null, avg50: null, avg200: null, time: null };
-
-                if (param.point && param.time && mainS) {
-                    const mainVal = param.seriesData.get(mainS);
-                    const secVal = secS ? param.seriesData.get(secS) : null;
-                    const avg50Val = avg50S ? param.seriesData.get(avg50S) : null;
-                    const avg200Val = avg200S ? param.seriesData.get(avg200S) : null;
-
-                    const timeStr =
-                        typeof param.time === 'string'
-                            ? param.time
-                            : typeof param.time === 'number'
-                                ? String(param.time)
-                                : `${(param.time as any).year}-${String((param.time as any).month).padStart(2, '0')}-${String((param.time as any).day).padStart(2, '0')}`;
-
-                    entry = {
-                        main: mainVal && 'value' in mainVal ? (mainVal as any).value : null,
-                        secondary: secVal && 'value' in secVal ? (secVal as any).value : null,
-                        avg50: avg50Val && 'value' in avg50Val ? (avg50Val as any).value : null,
-                        avg200: avg200Val && 'value' in avg200Val ? (avg200Val as any).value : null,
-                        time: timeStr,
-                    };
+                /* ── mouse left / no data → clear everything ── */
+                if (!param.point || !param.time || !mainS) {
+                    if (isSyncingCrosshair.current) return;   // triggered by our own clear – ignore
+                    isSyncingCrosshair.current = true;
+                    const emptyEntry: HoverEntry = { main: null, secondary: null, avg50: null, avg200: null, time: null };
+                    const cleared: Record<number, HoverEntry> = {};
+                    chartsRef.current.forEach((c, j) => {
+                        cleared[j] = emptyEntry;
+                        if (c && c !== chart) { try { c.clearCrosshairPosition(); } catch { } }
+                    });
+                    pendingHoverRef.current = cleared;
+                    if (hoverRafRef.current === null) {
+                        hoverRafRef.current = requestAnimationFrame(() => {
+                            setHoverValues({ ...pendingHoverRef.current });
+                            hoverRafRef.current = null;
+                        });
+                    }
+                    isSyncingCrosshair.current = false;
+                    return;
                 }
 
-                // ✅ تحسين الأداء: استخدام pendingHoverRef كـ buffer مع RAF
+                /* ── valid hover → extract values ── */
+                const mainVal = param.seriesData.get(mainS);
+                const secVal = secS ? param.seriesData.get(secS) : null;
+                const avg50Val = avg50S ? param.seriesData.get(avg50S) : null;
+                const avg200Val = avg200S ? param.seriesData.get(avg200S) : null;
+
+                const timeStr =
+                    typeof param.time === 'string'
+                        ? param.time
+                        : typeof param.time === 'number'
+                            ? String(param.time)
+                            : `${(param.time as any).year}-${String((param.time as any).month).padStart(2, '0')}-${String((param.time as any).day).padStart(2, '0')}`;
+
+                const entry: HoverEntry = {
+                    main: mainVal && 'value' in mainVal ? (mainVal as any).value : null,
+                    secondary: secVal && 'value' in secVal ? (secVal as any).value : null,
+                    avg50: avg50Val && 'value' in avg50Val ? (avg50Val as any).value : null,
+                    avg200: avg200Val && 'value' in avg200Val ? (avg200Val as any).value : null,
+                    time: timeStr,
+                };
+
                 pendingHoverRef.current = { ...pendingHoverRef.current, [i]: entry };
+
+                /* ── sync crosshair to other charts (only from real mouse, not from our own sync) ── */
+                if (!isSyncingCrosshair.current) {
+                    isSyncingCrosshair.current = true;
+
+                    // Build a lookup of correct prices for each target chart at this time.
+                    // Each chart section reads from a different data source, so we look up
+                    // the value from the right array + key for each chart index.
+                    chartsRef.current.forEach((targetChart, j) => {
+                        if (j === i || !targetChart) return;
+                        const targetSeries = mainSeriesRef.current[j];
+                        if (!targetSeries) return;
+                        try {
+                            let price: number | null = null;
+                            let secondary: number | null = null;
+                            let avg50: number | null = null;
+                            let avg200: number | null = null;
+
+                            // MA charts (indices 0..3)
+                            if (j < MA_CHART_COUNT && data.length > 0) {
+                                const item = data.find(d => d.time === timeStr);
+                                if (item) {
+                                    price = item[CHART_CONFIGS[j].key] as number;
+                                    avg50 = item[CHART_CONFIGS[j].avgKeys[0]] as number;
+                                    avg200 = item[CHART_CONFIGS[j].avgKeys[1]] as number;
+                                }
+                            }
+                            // Extra panels: AD Rating (index 4), Alhussain (index 5)
+                            else if (j === MA_CHART_COUNT && adData.length > 0) {
+                                const item = adData.find(d => d.time === timeStr);
+                                if (item) {
+                                    price = adShowPercent ? item.a_rating_pct : item.a_rating;
+                                    secondary = adShowPercent ? item.d_rating_pct : item.d_rating;
+                                }
+                            }
+                            else if (j === MA_CHART_COUNT + 1 && alhussainData.length > 0) {
+                                const item = alhussainData.find(d => d.time === timeStr);
+                                if (item) price = item.count;
+                            }
+                            // Minervini charts (indices 6..9)
+                            else if (j >= MA_CHART_COUNT + EXTRA_PANELS.length && trendData.length > 0) {
+                                const minIdx = j - MA_CHART_COUNT - EXTRA_PANELS.length;
+                                if (minIdx >= 0 && minIdx < MINERVINI_CONFIGS.length) {
+                                    const item = trendData.find(d => d.time === timeStr);
+                                    if (item) {
+                                        const cfgKey = MINERVINI_CONFIGS[minIdx].key;
+                                        price = item[cfgKey] as number;
+                                        avg50 = item[`avg50_${cfgKey}` as keyof ScreenerTrendItem] as number;
+                                        avg200 = item[`avg200_${cfgKey}` as keyof ScreenerTrendItem] as number;
+                                    }
+                                }
+                            }
+
+                            if (price !== null) {
+                                targetChart.setCrosshairPosition(price, param.time!, targetSeries);
+
+                                pendingHoverRef.current[j] = {
+                                    main: price,
+                                    secondary,
+                                    avg50,
+                                    avg200,
+                                    time: timeStr,
+                                };
+                            }
+                        } catch { }
+                    });
+
+                    isSyncingCrosshair.current = false;
+                }
+
+                // If this callback was triggered by sync, still update hoverValues
+                // so the header shows the correct value for THIS chart at hover time.
                 if (hoverRafRef.current === null) {
                     hoverRafRef.current = requestAnimationFrame(() => {
                         setHoverValues({ ...pendingHoverRef.current });
                         hoverRafRef.current = null;
                     });
                 }
-
-                // ✅ الحفاظ على مزامنة الـ crosshair بين جميع الشارتات
-                chartsRef.current.forEach((targetChart, j) => {
-                    if (j === i || !targetChart) return;
-                    const targetSeries = mainSeriesRef.current[j];
-                    if (!param.point || !param.time || !targetSeries) {
-                        try { targetChart.clearCrosshairPosition(); } catch { }
-                        return;
-                    }
-                    try {
-                        const price = targetSeries.coordinateToPrice(param.point.y);
-                        if (price !== null)
-                            targetChart.setCrosshairPosition(price, param.time, targetSeries);
-                    } catch { }
-                });
             });
         });
+
+        // `mouseleave` handled natively via `param.point === undefined` in `subscribeCrosshairMove`
 
         /* ── ResizeObserver ── */
         const ro = new ResizeObserver(() => {
@@ -943,7 +1137,7 @@ function MarketBreadthContent() {
                 requestAnimationFrame(() => {
                     chartsRef.current.forEach((chart) => {
                         if (!chart) return;
-                        try { chart.timeScale().setVisibleLogicalRange(rangeToRestore); }
+                        try { chart.timeScale().setVisibleRange(rangeToRestore); }
                         catch { chart.timeScale().fitContent(); }
                     });
                     setTimeout(() => { isRestoringRef.current = false; }, 100);
@@ -957,13 +1151,26 @@ function MarketBreadthContent() {
             });
         }
 
+        // بعد أن تستقر كل العمليات (fitContent, setVisibleLogicalRange, crosshair sync)
+        // نمسح أي crosshair عالق حتى يعود Y-axis label لعرض آخر قيمة حقيقية
+        setTimeout(() => {
+            chartsRef.current.forEach((c) => {
+                if (c) try { c.clearCrosshairPosition(); } catch { }
+            });
+        }, 300);
+
         return () => {
             if (hoverRafRef.current !== null) {
                 cancelAnimationFrame(hoverRafRef.current);
                 hoverRafRef.current = null;
             }
+            // No DOM leave handlers to cleanup
             ro.disconnect();
-            chartsRef.current.forEach((c) => c?.remove());
+            chartsRef.current.forEach((c) => {
+                if (c) {
+                    try { c.remove(); } catch { }
+                }
+            });
             chartsRef.current = [];
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1021,7 +1228,12 @@ function MarketBreadthContent() {
                 {['5D', '1M', '6M', '1Y', '5Y', '10Y', 'ALL'].map((p) => (
                     <button
                         key={p}
-                        onClick={() => setPeriod(p)}
+                        onClick={() => {
+                            setPeriod(p);
+                            // custom date range and preset period are mutually exclusive
+                            setStartDate('');
+                            setEndDate('');
+                        }}
                         disabled={loading}
                         className={[
                             'px-2.5 py-1 rounded-md text-[10px] font-bold transition-all border-none cursor-pointer',
@@ -1039,7 +1251,11 @@ function MarketBreadthContent() {
                 <input
                     type="date"
                     value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+                    onChange={(e) => {
+                        setStartDate(e.target.value);
+                        // picking a custom date clears the active period preset
+                        if (e.target.value) setPeriod('');
+                    }}
                     className="bg-transparent border-none outline-none text-[10px] font-medium text-slate-700"
                 />
             </label>
@@ -1049,7 +1265,11 @@ function MarketBreadthContent() {
                 <input
                     type="date"
                     value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
+                    onChange={(e) => {
+                        setEndDate(e.target.value);
+                        // picking a custom date clears the active period preset
+                        if (e.target.value) setPeriod('');
+                    }}
                     className="bg-transparent border-none outline-none text-[10px] font-medium text-slate-700"
                 />
             </label>
@@ -1058,6 +1278,8 @@ function MarketBreadthContent() {
                 onClick={() => {
                     setStartDate('');
                     setEndDate('');
+                    // restore a sane default so the grid isn't left with no filter at all
+                    setPeriod('ALL');
                 }}
                 className="px-2 py-1 rounded-[9px] border border-slate-200 bg-white text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
             >
@@ -1086,16 +1308,6 @@ function MarketBreadthContent() {
         </div>
     );
 
-    /* ─── helpers: which section does each chart belong to? ──────────── */
-    const sectionForChart = (i: number): string => {
-        if (i < MA_CHART_COUNT) return 'ma';
-        if (i < MA_CHART_COUNT + EXTRA_PANELS.length) {
-            const panel = EXTRA_PANELS[i - MA_CHART_COUNT];
-            return panel.kind === 'ad-count' ? 'ad' : 'alhussain';
-        }
-        return 'trend';
-    };
-
     const latest = data[data.length - 1];
     const latestAd = adData[adData.length - 1];
     const latestAlh = alhussainData[alhussainData.length - 1];
@@ -1107,18 +1319,40 @@ function MarketBreadthContent() {
             className="w-full h-full flex-1 flex flex-col bg-slate-50 overflow-hidden min-h-0"
             style={{ fontFamily: '"DM Sans", sans-serif' }}
         >
-            <BreadthTabs />
+            <BreadthTabs>
+                {extraControls}
+            </BreadthTabs>
 
-            <ShariahFilterBar variant="light" extraControls={extraControls} />
+            <ShariahFilterBar variant="light" />
             {/* ── Main ───────────────────────────────────────────────────── */}
-            <main ref={pageRef} className="flex-1 min-h-0 flex flex-col w-full px-2 pt-1 pb-1 overflow-hidden" style={{ flex: '1 1 0' }}>
-
-                {/* CHART GRID — rows: 3+3 narrow, then 2+2 wide (Minervini) */}
+            <main ref={pageRef} className="flex-1 min-h-0 flex flex-col w-full px-2 pt-1 pb-1 overflow-auto" style={{ flex: '1 1 0' }}>
+                {/* CHART GRID — TASI + 10 breadth charts = 11 cells, rows: 3-3-3-2 */}
                 <div
                     className="flex-1 min-h-0 w-full grid grid-cols-6 gap-1.5"
                     style={{ gridTemplateRows: 'repeat(4, minmax(0, 1fr))', height: '100%' }}
                 >
-                    {Array.from({ length: TOTAL_CHART_COUNT }, (_, i) => {
+                    {Array.from({ length: GRID_ITEM_COUNT }, (_, gridIdx) => {
+                        /* ── cell 0: TASI Index ── */
+                        if (gridIdx === 0) {
+                            const gridCol = chartGridColClass(gridIdx);
+                            return (
+                                <div
+                                    key="tasi-chart"
+                                    className={`${gridCol} bg-white border border-slate-200 rounded-lg overflow-hidden flex flex-col relative min-h-0 h-full`}
+                                    style={{ boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}
+                                >
+                                    <TasiIndexChart
+                                        period={period}
+                                        startDate={startDate}
+                                        endDate={endDate}
+                                        onChartReady={handleTasiReady}
+                                    />
+                                </div>
+                            );
+                        }
+
+                        /* ── cells 1..10: the 10 breadth charts, unchanged internal logic ── */
+                        const i = gridIdx - 1;
                         const isMa = i < MA_CHART_COUNT;
                         const isExtra = !isMa && i < MA_CHART_COUNT + EXTRA_PANELS.length;
                         const isMinervini = i >= MA_CHART_COUNT + EXTRA_PANELS.length;
@@ -1133,7 +1367,7 @@ function MarketBreadthContent() {
                                 ? minCfg!.lineColor
                                 : panel!.lineColor;
                         const Icon = isMa ? cfg!.icon : isMinervini ? minCfg!.icon : panel!.icon;
-                        const gridCol = chartGridColClass(i);
+                        const gridCol = chartGridColClass(gridIdx);
                         const hover = hoverValues[i];
                         const isVisible = seriesVisible[i] !== false;
                         const isFS = fullscreenIdx === i;
@@ -1217,7 +1451,7 @@ function MarketBreadthContent() {
 
                         return (
                             <div
-                                key={i}
+                                key={gridIdx}
                                 ref={(el) => { cardRefs.current[i] = el; }}
                                 className={`${gridCol} bg-white border border-slate-200 rounded-lg overflow-hidden flex flex-col relative min-h-0 h-full`}
                                 style={{ borderLeft: `3px solid ${lineColor}`, boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}

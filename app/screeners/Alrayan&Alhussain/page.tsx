@@ -8,8 +8,9 @@ import React, {
     useCallback,
 } from 'react';
 import BreadthTabs from '../../stocks/market-breadth/_components/BreadthTabs';
+import TasiIndexChart from '../../stocks/market-breadth/_components/TasiIndexChart';
 import { motion } from 'framer-motion';
-import { Activity, Maximize2, Minimize2, Target, TrendingUp, BarChart2 } from 'lucide-react';
+import { Activity, Maximize2, Minimize2, Target, TrendingUp, BarChart2, Info } from 'lucide-react';
 import {
     createChart,
     IChartApi,
@@ -45,6 +46,14 @@ interface TrendPoint {
     avg200_alhussain?: number | null;
     avg50_alrayan?: number | null;
     avg200_alrayan?: number | null;
+    avg50_a_rating?: number | null;
+    avg200_a_rating?: number | null;
+    avg50_d_rating?: number | null;
+    avg200_d_rating?: number | null;
+    avg50_a_rating_pct?: number | null;
+    avg200_a_rating_pct?: number | null;
+    avg50_d_rating_pct?: number | null;
+    avg200_d_rating_pct?: number | null;
 }
 
 type PeriodKey = '5D' | '1M' | '6M' | '1Y' | '5Y' | '10Y' | 'ALL';
@@ -111,19 +120,14 @@ function buildSma(values: number[], window: number): Array<number | null> {
     return out;
 }
 
-function addMovingAverages(items: TrendPoint[], baseKey: 'alhussain' | 'alrayan'): TrendPoint[] {
+function addMovingAverages(items: TrendPoint[], baseKey: 'alhussain' | 'alrayan' | 'a_rating' | 'd_rating' | 'a_rating_pct' | 'd_rating_pct'): TrendPoint[] {
     const values = items.map((item) => Number(item[baseKey] ?? 0));
     const avg50 = buildSma(values, 50);
     const avg200 = buildSma(values, 200);
     return items.map((item, index) => {
-        const next = { ...item } as TrendPoint & Record<string, number | null>;
-        if (baseKey === 'alhussain') {
-            next.avg50_alhussain = avg50[index];
-            next.avg200_alhussain = avg200[index];
-        } else {
-            next.avg50_alrayan = avg50[index];
-            next.avg200_alrayan = avg200[index];
-        }
+        const next = { ...item } as any;
+        next[`avg50_${baseKey}`] = avg50[index];
+        next[`avg200_${baseKey}`] = avg200[index];
         return next as TrendPoint;
     });
 }
@@ -149,7 +153,7 @@ function useChartSync() {
             isSyncingRef.current = true;
             chartsRef.current.forEach((other, otherId) => {
                 if (otherId !== id) {
-                    other.chart.timeScale().setVisibleLogicalRange(range);
+                    try { other.chart.timeScale().setVisibleLogicalRange(range); } catch { }
                 }
             });
             isSyncingRef.current = false;
@@ -161,11 +165,22 @@ function useChartSync() {
             chartsRef.current.forEach((other, otherId) => {
                 if (otherId !== id) {
                     if (param.time === undefined || param.point === undefined) {
-                        other.chart.clearCrosshairPosition();
+                        try { other.chart.clearCrosshairPosition(); } catch { }
                     } else {
                         const firstSeries = other.series.values().next().value;
                         if (firstSeries) {
-                            other.chart.setCrosshairPosition(0, param.time, firstSeries);
+                            try {
+                                // Use the actual series data value at this time
+                                // instead of coordinateToPrice which gives wrong
+                                // values when charts have different Y scales.
+                                const seriesData = param.seriesData?.get(firstSeries);
+                                const price = seriesData && 'value' in seriesData
+                                    ? (seriesData as any).value
+                                    : firstSeries.coordinateToPrice(param.point.y);
+                                if (price !== null) {
+                                    other.chart.setCrosshairPosition(price, param.time, firstSeries);
+                                }
+                            } catch { }
                         }
                     }
                 }
@@ -270,8 +285,6 @@ function ChartPanel({
     viewMode, onViewModeChange, showViewToggle,
 }: ChartPanelProps) {
     const [fullscreen, setFullscreen] = useState(false);
-    const [avg50Active, setAvg50Active] = useState(false);
-    const [avg200Active, setAvg200Active] = useState(false);
     const [hoverValues, setHoverValues] = useState<HoverValue[]>([]);
     const [hoverLabel, setHoverLabel] = useState<string | null>(null);
     const [seriesVisible, setSeriesVisible] = useState<Record<string, boolean>>(
@@ -281,7 +294,6 @@ function ChartPanel({
     const containerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
     const seriesRef = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
-    const avgSeriesRef = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
 
     const yFormatter = useCallback((v: number) => {
         if (viewMode === 'percentage') return v.toFixed(1) + '%';
@@ -304,9 +316,16 @@ function ChartPanel({
                 horzLines: { color: '#F0F0F0' },
             },
             rightPriceScale: { borderColor: '#E5E7EB', visible: true },
-            timeScale: { borderColor: '#E5E7EB', timeVisible: false, secondsVisible: false },
+            timeScale: {
+                borderColor: '#E5E7EB',
+                timeVisible: false,
+                secondsVisible: false,
+                fixLeftEdge: true,
+                fixRightEdge: true,
+                rightBarStaysOnScroll: true,
+            },
             crosshair: {
-                mode: CrosshairMode.Normal,
+                mode: CrosshairMode.Magnet,
                 vertLine: { labelBackgroundColor: accentColor, width: 1, style: LineStyle.Dashed },
                 horzLine: { labelBackgroundColor: accentColor, width: 1, style: LineStyle.Dashed },
             },
@@ -334,26 +353,7 @@ function ChartPanel({
             seriesMap.set(l.dataKey, series);
         });
 
-        // create placeholder avg series (hidden by default)
-        try {
-            const ma50 = chart.addSeries(LineSeries, {
-                color: '#E02020',
-                lineWidth: 2,
-                lineStyle: LineStyle.Dashed,
-                priceLineVisible: false,
-                lastValueVisible: false,
-            });
-            const ma200 = chart.addSeries(LineSeries, {
-                color: '#1A1A1A',
-                lineWidth: 2,
-                lineStyle: LineStyle.Dashed,
-                priceLineVisible: false,
-                lastValueVisible: false,
-            });
-            avgSeriesRef.current.set('avg50', ma50);
-            avgSeriesRef.current.set('avg200', ma200);
-        } catch { }
-
+        // MAs are now handled directly by the lines array provided by the parent.
         seriesRef.current = seriesMap;
 
         chart.subscribeCrosshairMove((param: MouseEventParams) => {
@@ -398,43 +398,19 @@ function ChartPanel({
         lines.forEach(l => {
             const series = seriesRef.current.get(l.dataKey);
             if (!series) return;
-            const seriesData: LineData[] = data.map(d => ({
-                time: d.time as Time,
-                value: d[l.dataKey as keyof TrendPoint] as number,
-            }));
+            const seriesData: LineData[] = data
+                .filter(d => d[l.dataKey as keyof TrendPoint] != null)
+                .map(d => ({
+                    time: d.time as Time,
+                    value: Number(d[l.dataKey as keyof TrendPoint]),
+                }));
             series.setData(seriesData);
             series.applyOptions({ visible: seriesVisible[l.dataKey] ?? true });
-
-            // compute and push average overlays
-            try {
-                const values = data.map(d => Number(d[l.dataKey as keyof TrendPoint] ?? 0));
-                const ma50 = buildSma(values, 50);
-                const ma200 = buildSma(values, 200);
-                const ma50Data: LineData[] = data.map((d, idx) => {
-                    const v = ma50[idx];
-                    return v != null ? { time: d.time as Time, value: v } : null;
-                }).filter(Boolean) as LineData[];
-                const ma200Data: LineData[] = data.map((d, idx) => {
-                    const v = ma200[idx];
-                    return v != null ? { time: d.time as Time, value: v } : null;
-                }).filter(Boolean) as LineData[];
-
-                const ma50Series = avgSeriesRef.current.get('avg50');
-                const ma200Series = avgSeriesRef.current.get('avg200');
-                if (ma50Series) {
-                    ma50Series.setData(ma50Data);
-                    ma50Series.applyOptions({ visible: avg50Active });
-                }
-                if (ma200Series) {
-                    ma200Series.setData(ma200Data);
-                    ma200Series.applyOptions({ visible: avg200Active });
-                }
-            } catch { }
         });
         if (chartRef.current && data.length > 0) {
             chartRef.current.timeScale().fitContent();
         }
-    }, [data, lines, seriesVisible, avg50Active, avg200Active]);
+    }, [data, lines, seriesVisible]);
 
     // Re-fit on fullscreen toggle
     useEffect(() => {
@@ -520,27 +496,6 @@ function ChartPanel({
                 )}
 
                 <div style={{ display: 'flex', gap: 5 }}>
-                    <button
-                        onClick={() => setAvg50Active(v => !v)}
-                        title="Toggle AVG 50"
-                        style={{
-                            padding: '3px 7px', border: '1px solid #E5E7EB', borderRadius: 6,
-                            background: avg50Active ? '#EFF6F6' : '#F9FAFB', cursor: 'pointer', color: '#0F172A', fontWeight: 700,
-                        }}
-                    >
-                        AVG 50
-                    </button>
-
-                    <button
-                        onClick={() => setAvg200Active(v => !v)}
-                        title="Toggle AVG 200"
-                        style={{
-                            padding: '3px 7px', border: '1px solid #E5E7EB', borderRadius: 6,
-                            background: avg200Active ? '#F3F4F6' : '#F9FAFB', cursor: 'pointer', color: '#0F172A', fontWeight: 700,
-                        }}
-                    >
-                        AVG 200
-                    </button>
                     {lines.map(l => (
                         <button
                             key={l.dataKey}
@@ -649,8 +604,18 @@ function CombinedDashboardContent() {
     const dashRef = useRef<HTMLDivElement>(null);
     const sync = useChartSync();
 
+    const trendDataWithMA = useMemo(() => {
+        let items = addMovingAverages(trendData, 'alhussain');
+        items = addMovingAverages(items, 'alrayan');
+        items = addMovingAverages(items, 'a_rating');
+        items = addMovingAverages(items, 'd_rating');
+        items = addMovingAverages(items, 'a_rating_pct');
+        items = addMovingAverages(items, 'd_rating_pct');
+        return items;
+    }, [trendData]);
+
     const filtered = useMemo(() => {
-        let items = trendData;
+        let items = trendDataWithMA;
         if (startDate) {
             items = items.filter((d) => d.time >= startDate);
         }
@@ -658,9 +623,10 @@ function CombinedDashboardContent() {
             items = items.filter((d) => d.time <= endDate);
         }
         return filterByPeriod(items, period);
-    }, [trendData, period, startDate, endDate]);
-    const alhussainChartData = useMemo(() => addMovingAverages(filtered, 'alhussain'), [filtered]);
-    const alrayanChartData = useMemo(() => addMovingAverages(filtered, 'alrayan'), [filtered]);
+    }, [trendDataWithMA, period, startDate, endDate]);
+
+    const alhussainChartData = filtered;
+    const alrayanChartData = filtered;
     const latestPoint = useMemo(() => trendData[trendData.length - 1] ?? null, [trendData]);
 
     const mainDashboardDatasets: ChartDataset[] = useMemo(() => [
@@ -768,10 +734,34 @@ function CombinedDashboardContent() {
             show: true,
         },
         {
+            dataKey: adViewMode === 'count' ? 'avg50_a_rating' : 'avg50_a_rating_pct',
+            name: 'A AVG 50',
+            color: '#38BDF8',
+            show: false,
+        },
+        {
+            dataKey: adViewMode === 'count' ? 'avg200_a_rating' : 'avg200_a_rating_pct',
+            name: 'A AVG 200',
+            color: '#F59E0B',
+            show: false,
+        },
+        {
             dataKey: adViewMode === 'count' ? 'd_rating' : 'd_rating_pct',
             name: 'D Rating',
             color: '#DC2626',
             show: true,
+        },
+        {
+            dataKey: adViewMode === 'count' ? 'avg50_d_rating' : 'avg50_d_rating_pct',
+            name: 'D AVG 50',
+            color: '#818CF8',
+            show: false,
+        },
+        {
+            dataKey: adViewMode === 'count' ? 'avg200_d_rating' : 'avg200_d_rating_pct',
+            name: 'D AVG 200',
+            color: '#D946EF',
+            show: false,
         },
     ], [adViewMode]);
 
@@ -786,35 +776,11 @@ function CombinedDashboardContent() {
             fontFamily: 'system-ui, -apple-system, sans-serif',
             overflow: 'hidden',
         }}>
-            <BreadthTabs />
-
-            {/* Header */}
-            <div style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '0 24px', flexShrink: 0 }}>
+            <BreadthTabs>
                 <div style={{
-                    maxWidth: 1920, margin: '0 auto',
-                    display: 'flex', alignItems: 'center', gap: 16, minHeight: 56,
-                    flexWrap: 'wrap', padding: '8px 0',
+                    display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 16,
+                    flexWrap: 'wrap'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{
-                            width: 34, height: 34, borderRadius: 10,
-                            background: 'linear-gradient(135deg, #7C3AED, #2962FF)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                            <Activity size={17} color="#fff" />
-                        </div>
-                        <div>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: '#111827', lineHeight: 1.1 }}>
-                                Combined Screener Dashboard
-                            </div>
-                            <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 500 }}>
-                                Alhussain · Alrayan · A/D Rating — Synchronized
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style={{ flex: 1 }} />
-
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 9, padding: '5px 10px', minWidth: 140 }}>
                             <span style={{ fontSize: 10, color: '#64748B', fontWeight: 700 }}>From</span>
@@ -874,9 +840,9 @@ function CombinedDashboardContent() {
                         datasets={mainDashboardDatasets}
                     />
                 </div>
-            </div>
+            </BreadthTabs>
 
-            {/* Charts Grid */}
+            {/* Charts Grid — 2×2 يشمل TASI */}
             <div
                 ref={dashRef}
                 style={{
@@ -890,7 +856,34 @@ function CombinedDashboardContent() {
                     boxSizing: 'border-box',
                 }}
             >
-                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }} style={{ minHeight: 0 }}>
+                {/* TASI Index */}
+                <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0 }}
+                    style={{
+                        minHeight: 0,
+                        background: '#fff',
+                        border: '1px solid #E5E7EB',
+                        borderRadius: 20,
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                    }}
+                >
+                    <TasiIndexChart
+                        period={period}
+                        startDate={startDate}
+                        endDate={endDate}
+                        onChartReady={(chart, series) => {
+                            sync.register('tasi', { chart, series: new Map([['tasi', series as any]]) });
+                        }}
+                    />
+                </motion.div>
+
+                {/* Alhussain */}
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} style={{ minHeight: 0 }}>
                     <ChartPanel
                         chartId="alhussain"
                         title="Alhussain Screener"
@@ -910,7 +903,8 @@ function CombinedDashboardContent() {
                     />
                 </motion.div>
 
-                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.07 }} style={{ minHeight: 0 }}>
+                {/* Alrayan */}
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} style={{ minHeight: 0 }}>
                     <ChartPanel
                         chartId="alrayan"
                         title="Alrayan Screener"
@@ -930,7 +924,8 @@ function CombinedDashboardContent() {
                     />
                 </motion.div>
 
-                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }} style={{ gridColumn: '1 / -1', minHeight: 0 }}>
+                {/* A/D Rating */}
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} style={{ minHeight: 0 }}>
                     <ChartPanel
                         chartId="ad-rating"
                         title="A/D Rating Distribution"

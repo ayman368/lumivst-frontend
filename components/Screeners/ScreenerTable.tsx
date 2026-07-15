@@ -6,19 +6,16 @@ import {
 } from '@/components/ui/table';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
-import { ChevronLeft, ChevronRight, Download, ChevronDown, X, Loader } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, ChevronDown, X, Loader, Check, FileText, FileSpreadsheet, FileDown, TrendingUp } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { fetchBulkScreenerData } from '@/lib/utils/bulkExport';
+import { buildShariahMap } from '@/lib/watchlist/shariah';
+import { API_BASE_URL } from '@/lib/api/config';
+import { authFetch } from '@/lib/api/authFetch';
 
-// ─── DESIGN TOKENS: Black & White ────────────────────────────────
-// Page bg: #FFFFFF  |  Card bg: #FFFFFF  |  Border: #E5E7EB  |  Border-light: #F3F4F6
-// Accent dark: #111827  |  Accent mid: #374151
-// Text primary: #111827  |  secondary: #4B5563  |  muted: #9CA3AF
-// Positive: #15803D bg #DCFCE7  |  Negative: #B91C1C bg #FEE2E2
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── TYPES ──────────────────────────────────────────────────────────
 interface StockResult {
   symbol: string;
   company_name: string;
@@ -50,6 +47,28 @@ interface SortConfig {
   direction: SortDirection;
 }
 
+// ─── EXPORT FORMATS ──────────────────────────────────────────────
+type CurrentViewFormat = 'csv' | 'xls' | 'xlsx' | 'txt' | 'tv' | 'pdf';
+type BulkFormat = 'csv' | 'xlsx' | 'tv' | 'pdf';
+type ExportScope = 'current' | 'bulk';
+
+const CURRENT_VIEW_FORMATS: { value: CurrentViewFormat; label: string; icon: React.ElementType }[] = [
+  { value: 'xlsx', label: 'Excel (.xlsx)', icon: FileSpreadsheet },
+  { value: 'csv', label: 'CSV (.csv)', icon: FileText },
+  { value: 'xls', label: 'Excel 97–2003 (.xls)', icon: FileSpreadsheet },
+  { value: 'txt', label: 'Text (.txt)', icon: FileText },
+  { value: 'tv', label: 'TradingView symbols', icon: TrendingUp },
+  { value: 'pdf', label: 'PDF document', icon: FileDown },
+];
+
+const BULK_FORMATS: { value: BulkFormat; label: string; icon: React.ElementType }[] = [
+  { value: 'xlsx', label: 'Excel (.xlsx)', icon: FileSpreadsheet },
+  { value: 'csv', label: 'CSV (.csv)', icon: FileText },
+  { value: 'tv', label: 'TradingView symbols', icon: TrendingUp },
+  { value: 'pdf', label: 'PDF document', icon: FileDown },
+];
+
+// ─── CONSTANTS ────────────────────────────────────────────────────
 const COLUMN_DEFS: { key: keyof StockResult | '#'; label: string; sortable: boolean }[] = [
   { key: '#', label: '#', sortable: false },
   { key: 'symbol', label: 'Symbol', sortable: true },
@@ -68,6 +87,19 @@ const COLUMN_DEFS: { key: keyof StockResult | '#'; label: string; sortable: bool
   { key: 'percent_off_52w_low', label: 'Off 52W Low', sortable: true },
 ];
 
+const DESIRED_ORDER = [
+  'Trend - 5 Months',
+  'Trend - 2 Months',
+  'Trend - 1 Month',
+  'Trend - 4 Months',
+  'Trend - 5 Months Wide',
+  'Alhussain',
+  'Alrayan',
+  'RSI Momentum',
+  'Power Play'
+];
+
+// ─── COMPONENT ────────────────────────────────────────────────────
 export default function ScreenerTable({
   data, loading, screenerColor = '#374151', exportFileNamePrefix = 'REBH_Screeners', screenerName,
 }: ScreenerTableProps) {
@@ -77,6 +109,12 @@ export default function ScreenerTable({
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [bulkExportLoading, setBulkExportLoading] = useState(false);
   const [bulkExportResult, setBulkExportResult] = useState<Record<string, number> | null>(null);
+
+  // New export state (matching CompositePage)
+  const [exportScope, setExportScope] = useState<ExportScope>('current');
+  const [exportFormat, setExportFormat] = useState<CurrentViewFormat | BulkFormat>('xlsx');
+  const [shariahOnly, setShariahOnly] = useState(false);
+
   const exportMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -88,12 +126,10 @@ export default function ScreenerTable({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Reset page when data changes
   useEffect(() => {
     setPage(0);
   }, [data]);
 
-  // Auto-dismiss bulk export toast after 8 seconds
   useEffect(() => {
     if (!bulkExportResult) return;
     const timer = setTimeout(() => setBulkExportResult(null), 8000);
@@ -104,18 +140,15 @@ export default function ScreenerTable({
     setPage(0);
     setSortConfigs((prevConfigs) => {
       const existingConfigIndex = prevConfigs.findIndex((config) => config.key === key);
-
       if (existingConfigIndex === -1) {
         return [...prevConfigs, { key, direction: 'asc' }];
       }
-
       const currentDirection = prevConfigs[existingConfigIndex].direction;
       if (currentDirection === 'asc') {
         const newConfigs = [...prevConfigs];
         newConfigs[existingConfigIndex] = { ...newConfigs[existingConfigIndex], direction: 'desc' };
         return newConfigs;
       }
-
       return prevConfigs.filter((_, index) => index !== existingConfigIndex);
     });
   };
@@ -127,10 +160,8 @@ export default function ScreenerTable({
         const { key, direction } = sortConfigs[i];
         let valA = a[key] ?? -Infinity;
         let valB = b[key] ?? -Infinity;
-
         if (typeof valA === 'string') valA = valA.toLowerCase();
         if (typeof valB === 'string') valB = valB.toLowerCase();
-
         if (valA < valB) return direction === 'asc' ? -1 : 1;
         if (valA > valB) return direction === 'asc' ? 1 : -1;
       }
@@ -153,8 +184,17 @@ export default function ScreenerTable({
     return `${parseFloat(val) > 0 ? '+' : ''}${val}%`;
   };
 
-  // ── Single screener export (current tab data only) ──────────────────────────
-  const handleExport = useCallback((format: 'csv' | 'xls' | 'xlsx' | 'txt' | 'tv' | 'pdf') => {
+  // ── Scope change handler ──
+  const handleScopeChange = useCallback((scope: ExportScope) => {
+    setExportScope(scope);
+    const validValues = (scope === 'current' ? CURRENT_VIEW_FORMATS : BULK_FORMATS).map(f => f.value);
+    if (!validValues.includes(exportFormat as any)) {
+      setExportFormat('xlsx');
+    }
+  }, [exportFormat]);
+
+  // ── Single screener export (current tab data only) ──
+  const handleExport = useCallback((format: CurrentViewFormat) => {
     const d = new Date();
     const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const plainFileName = `${exportFileNamePrefix}_${dateStr}`;
@@ -207,26 +247,57 @@ export default function ScreenerTable({
       XLSX.writeFile(wb, `${plainFileName}.${format}`, { bookType: format === 'xls' ? 'biff8' : 'xlsx' });
     }
     setShowExportMenu(false);
-  }, [sortedData, exportFileNamePrefix]);
+  }, [sortedData, exportFileNamePrefix, screenerName]);
 
-  // ── Bulk unified export (all screeners, deduplicated) ──────────────────────
-  const handleBulkExport = useCallback(async (format: 'csv' | 'xlsx' | 'tv' | 'pdf') => {
+  // ── Bulk unified export ──
+  const handleBulkExport = useCallback(async (format: BulkFormat, shariahOnlyFlag?: boolean) => {
     setBulkExportLoading(true);
     setBulkExportResult(null);
     setShowExportMenu(false);
 
     try {
       const result = await fetchBulkScreenerData();
-      setBulkExportResult(result.screenerBreakdown);
 
       const d = new Date();
       const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const plainFileName = `REBH_Bulk_Unified_Export_${dateStr}`;
-      const tvFileName = `REBH_Bulk_Unified_Export_${dateStr}_TradingView`;
-      const exportData = result.data;
+      const plainFileName = shariahOnlyFlag ? `REBH_Bulk_Unified_Export_Shariah_${dateStr}` : `REBH_Bulk_Unified_Export_${dateStr}`;
+      const tvFileName = shariahOnlyFlag ? `REBH_Bulk_Unified_Export_Shariah_${dateStr}_TradingView` : `REBH_Bulk_Unified_Export_${dateStr}_TradingView`;
+
+      let sortedGroupedData = [...result.groupedData].sort((a, b) => {
+        const idxA = DESIRED_ORDER.indexOf(a.label);
+        const idxB = DESIRED_ORDER.indexOf(b.label);
+        return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
+      });
+
+      if (shariahOnlyFlag) {
+        try {
+          const res = await authFetch(`${API_BASE_URL}/api/prices/latest?limit=1000`, {
+            credentials: 'include',
+            cache: 'no-store',
+          });
+          const json = await res.json();
+          const { bySymbol } = buildShariahMap(json.data || []);
+
+          sortedGroupedData = sortedGroupedData.map(group => ({
+            ...group,
+            items: group.items.filter(item => {
+              const status = bySymbol.get(String(item.symbol)) || '';
+              return status.includes('متوافق') || status.includes('نقي');
+            })
+          }));
+        } catch (err) {
+          console.error("Failed to apply shariah filter", err);
+        }
+      }
+
+      const newBreakdown: Record<string, number> = {};
+      for (const g of sortedGroupedData) {
+        newBreakdown[g.label] = g.items.length;
+      }
+      setBulkExportResult(newBreakdown);
 
       if (format === 'tv') {
-        const tvContent = result.groupedData
+        const tvContent = sortedGroupedData
           .filter(group => group.items.length > 0)
           .map(group => {
             const header = `### ${group.label}: ${group.items.length} Company`;
@@ -244,7 +315,7 @@ export default function ScreenerTable({
 
       if (format === 'pdf') {
         const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'A4' });
-        const validGroups = result.groupedData.filter(g => g.items.length > 0);
+        const validGroups = sortedGroupedData.filter(g => g.items.length > 0);
         let startY = 30;
 
         doc.setFontSize(18);
@@ -281,7 +352,7 @@ export default function ScreenerTable({
 
       if (format === 'csv') {
         let content = '';
-        const validGroups = result.groupedData.filter(g => g.items.length > 0);
+        const validGroups = sortedGroupedData.filter(g => g.items.length > 0);
         for (const group of validGroups) {
           content += `${group.label}: ${group.items.length} Company\n`;
           content += headers.join(',') + '\n';
@@ -295,13 +366,13 @@ export default function ScreenerTable({
         link.click();
       } else {
         let aoa: any[][] = [];
-        const validGroups = result.groupedData.filter(g => g.items.length > 0);
+        const validGroups = sortedGroupedData.filter(g => g.items.length > 0);
         for (const group of validGroups) {
           aoa.push([`${group.label}: ${group.items.length} Company`]);
           aoa.push(headers);
           const rows = group.items.map(s => [s.symbol, s.company_name, s.close, s.sma_50, s.sma_150, s.sma_200, s.rs_rating, s.rank_1m, s.rank_3m, s.rank_6m, s.rank_9m, s.rank_12m, s.percent_off_52w_high, s.percent_off_52w_low]);
           aoa.push(...rows);
-          aoa.push([]); // empty row for spacing
+          aoa.push([]);
         }
         const ws = XLSX.utils.aoa_to_sheet(aoa);
         const wb = XLSX.utils.book_new();
@@ -314,6 +385,17 @@ export default function ScreenerTable({
       setBulkExportLoading(false);
     }
   }, []);
+
+  // ── Single confirm action ──
+  const handleExportConfirm = useCallback(() => {
+    if (exportScope === 'current') {
+      handleExport(exportFormat as CurrentViewFormat);
+    } else {
+      handleBulkExport(exportFormat as BulkFormat, shariahOnly);
+    }
+  }, [exportScope, exportFormat, shariahOnly, handleExport, handleBulkExport]);
+
+  const activeFormatList = exportScope === 'current' ? CURRENT_VIEW_FORMATS : BULK_FORMATS;
 
   if (loading && data.length === 0) {
     return (
@@ -338,7 +420,6 @@ export default function ScreenerTable({
         boxShadow: '0 1px 4px rgba(0,0,0,0.05)', position: 'relative', zIndex: 50,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* Records per page buttons */}
           <div style={{ display: 'flex', backgroundColor: '#F9FAFB', borderRadius: '10px', padding: '3px', border: '1px solid #F3F4F6' }}>
             {[25, 50, 100].map(val => (
               <button key={val} onClick={() => { setLimit(val); setPage(0); }} style={{
@@ -361,7 +442,7 @@ export default function ScreenerTable({
             MATCHED: <span style={{ color: '#111827', fontWeight: 700 }}>{total}</span>
           </div>
 
-          {/* ── Export Dropdown ── */}
+          {/* ── NEW Export Dropdown (same as CompositePage) ── */}
           <div style={{ position: 'relative' }} ref={exportMenuRef}>
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
@@ -383,77 +464,142 @@ export default function ScreenerTable({
             <AnimatePresence>
               {showExportMenu && (
                 <motion.div
-                  initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                  initial={{ opacity: 0, y: 8, scale: 0.97 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.97 }}
+                  transition={{ duration: 0.14 }}
                   style={{
                     position: 'absolute', right: 0, top: 'calc(100% + 8px)',
-                    width: '240px', backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '16px',
-                    boxShadow: '0 8px 28px rgba(0,0,0,0.12)', padding: '6px', zIndex: 200,
+                    width: '260px', backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '12px',
+                    boxShadow: '0 12px 32px rgba(0,0,0,0.12)', padding: '12px', zIndex: 200,
                   }}
                 >
-                  {/* ── Section label: This screener ── */}
-                  <div style={{ padding: '6px 14px 4px', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#9CA3AF' }}>
-                    This Screener
-                  </div>
-
-                  {[
-                    { label: 'comma delimited (.csv)', fmt: 'csv' as const, dot: '#111827' },
-                    { label: 'excel 97-2003 (.xls)', fmt: 'xls' as const, dot: '#1A5276' },
-                    { label: 'excel (.xlsx)', fmt: 'xlsx' as const, dot: '#15803D' },
-                    { label: 'Text (.txt)', fmt: 'txt' as const, dot: '#6B7280' },
-                    { label: 'TradingView Symbols (.csv)', fmt: 'tv' as const, dot: '#2962FF' },
-                    { label: 'PDF Document (.pdf)', fmt: 'pdf' as const, dot: '#DC2626' },
-                  ].map(item => (
-                    <button key={item.fmt} onClick={() => handleExport(item.fmt)} style={{
-                      width: '100%', textAlign: 'left', padding: '9px 14px', fontSize: '12px', color: '#4B5563', display: 'flex', alignItems: 'center', gap: '10px',
-                      border: 'none', backgroundColor: 'transparent', cursor: 'pointer', borderRadius: '10px', transition: 'background-color 0.15s',
-                    }}
-                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#F9FAFB')}
-                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                    >
-                      <div style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: item.dot, flexShrink: 0 }} />
-                      {item.label}
-                    </button>
-                  ))}
-
-                  {/* ── Divider ── */}
-                  <div style={{ height: '1px', backgroundColor: '#E5E7EB', margin: '6px 0' }} />
-
-                  {/* ── Section label: Bulk export ── */}
-                  <div style={{ padding: '4px 14px 4px', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#059669' }}>
-                    Bulk Unified Export — All Screeners
-                  </div>
-
-                  {[
-                    { label: 'Bulk Export (.csv)', fmt: 'csv' as const },
-                    { label: 'Bulk Export (.xlsx)', fmt: 'xlsx' as const },
-                    { label: 'Bulk TradingView (.csv)', fmt: 'tv' as const },
-                    { label: 'Bulk Export (.pdf)', fmt: 'pdf' as const },
-                  ].map(item => (
+                  {/* ── Scope segmented control ── */}
+                  <div style={{ display: 'flex', gap: 4, padding: 3, backgroundColor: '#F3F4F6', borderRadius: 8, marginBottom: 12 }}>
                     <button
-                      key={`bulk-${item.fmt}`}
-                      onClick={() => handleBulkExport(item.fmt)}
-                      disabled={bulkExportLoading}
+                      onClick={() => handleScopeChange('current')}
                       style={{
-                        width: '100%', textAlign: 'left', padding: '9px 14px', fontSize: '12px',
-                        color: bulkExportLoading ? '#D1D5DB' : '#059669',
-                        display: 'flex', alignItems: 'center', gap: '10px',
-                        border: 'none', backgroundColor: 'transparent',
-                        cursor: bulkExportLoading ? 'not-allowed' : 'pointer',
-                        borderRadius: '10px', transition: 'background-color 0.15s', fontWeight: 600,
+                        flex: 1,
+                        padding: '6px 0',
+                        borderRadius: 6,
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        transition: 'background-color 0.15s, color 0.15s',
+                        backgroundColor: exportScope === 'current' ? '#FFFFFF' : 'transparent',
+                        color: exportScope === 'current' ? '#111827' : '#6B7280',
+                        boxShadow: exportScope === 'current' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
                       }}
-                      onMouseEnter={e => !bulkExportLoading && (e.currentTarget.style.backgroundColor = '#F0FDF4')}
-                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
                     >
-                      {bulkExportLoading ? (
-                        <Loader style={{ width: '11px', height: '11px', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-                      ) : (
-                        <div style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#059669', flexShrink: 0 }} />
-                      )}
-                      {item.label}
+                      Current View
                     </button>
-                  ))}
+                    <button
+                      onClick={() => handleScopeChange('bulk')}
+                      style={{
+                        flex: 1,
+                        padding: '6px 0',
+                        borderRadius: 6,
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        transition: 'background-color 0.15s, color 0.15s',
+                        backgroundColor: exportScope === 'bulk' ? '#FFFFFF' : 'transparent',
+                        color: exportScope === 'bulk' ? '#111827' : '#6B7280',
+                        boxShadow: exportScope === 'bulk' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                      }}
+                    >
+                      All Screeners
+                    </button>
+                  </div>
+
+                  {/* ── Format list ── */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: exportScope === 'bulk' ? 10 : 14 }}>
+                    {activeFormatList.map((opt) => {
+                      const selected = exportFormat === opt.value;
+                      const Icon = opt.icon;
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => setExportFormat(opt.value)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10,
+                            width: '100%',
+                            padding: '8px 10px',
+                            borderRadius: 8,
+                            border: '1px solid transparent',
+                            backgroundColor: selected ? '#F9FAFB' : 'transparent',
+                            borderColor: selected ? '#111827' : 'transparent',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            transition: 'background-color 0.12s, border-color 0.12s',
+                          }}
+                        >
+                          <Icon size={15} color={selected ? '#111827' : '#9CA3AF'} />
+                          <span style={{ fontSize: 12.5, fontWeight: selected ? 600 : 500, color: selected ? '#111827' : '#4B5563', flex: 1 }}>
+                            {opt.label}
+                          </span>
+                          {selected && <Check size={14} color="#111827" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* ── Shariah toggle (bulk only) ── */}
+                  {exportScope === 'bulk' && (
+                    <button
+                      onClick={() => setShariahOnly((s) => !s)}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
+                        padding: '8px 10px', borderRadius: 8, border: '1px solid #E5E7EB', backgroundColor: '#FAFBFC',
+                        marginBottom: 12, cursor: 'pointer',
+                      }}
+                    >
+                      <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>Shariah-compliant only</span>
+                      <div
+                        style={{
+                          width: 32, height: 18, borderRadius: 99,
+                          backgroundColor: shariahOnly ? '#059669' : '#D1D5DB',
+                          position: 'relative', transition: 'background-color 0.15s', flexShrink: 0,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 14, height: 14, borderRadius: '50%', backgroundColor: '#FFFFFF',
+                            position: 'absolute', top: 2, left: shariahOnly ? 16 : 2, transition: 'left 0.15s',
+                          }}
+                        />
+                      </div>
+                    </button>
+                  )}
+
+                  {/* ── Confirm ── */}
+                  <button
+                    onClick={handleExportConfirm}
+                    disabled={bulkExportLoading}
+                    style={{
+                      width: '100%', padding: '10px 0', borderRadius: 8, border: 'none',
+                      backgroundColor: '#111827', color: '#FFFFFF', fontWeight: 600, fontSize: 12.5,
+                      cursor: bulkExportLoading ? 'not-allowed' : 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      opacity: bulkExportLoading ? 0.6 : 1, transition: 'opacity 0.15s',
+                    }}
+                  >
+                    {bulkExportLoading ? (
+                      <>
+                        <Loader style={{ width: 13, height: 13, animation: 'spin 1s linear infinite' }} />
+                        Exporting…
+                      </>
+                    ) : (
+                      <>
+                        <Download size={13} />
+                        Export
+                      </>
+                    )}
+                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -461,7 +607,7 @@ export default function ScreenerTable({
         </div>
       </div>
 
-      {/* ── Main Table ── */}
+      {/* ── Rest of the table (unchanged) ── */}
       <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
         <div style={{ overflowX: 'auto' }}>
           <Table>
@@ -536,41 +682,30 @@ export default function ScreenerTable({
                     onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#F9FAFB')}
                     onMouseLeave={e => (e.currentTarget.style.backgroundColor = index % 2 === 0 ? '#FFFFFF' : '#F9FAFB')}
                   >
-                    {/* Row number */}
                     <TableCell style={{ padding: '14px 20px', fontSize: '11px', fontFamily: 'monospace', color: '#9CA3AF', whiteSpace: 'nowrap' }}>
                       {(page * limit + index + 1).toString().padStart(3, '0')}
                     </TableCell>
-
-                    {/* Symbol */}
                     <TableCell style={{ padding: '14px 20px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                       <span style={{ fontSize: '13px', fontWeight: 900, letterSpacing: '-0.02em', color: screenerColor }}>
                         {stock.symbol}
                       </span>
                     </TableCell>
-
-                    {/* Company name */}
                     <TableCell style={{ padding: '14px 20px', textAlign: 'center' }}>
                       <span style={{ fontSize: '11px', fontWeight: 500, color: '#4B5563', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '160px', margin: '0 auto' }}>
                         {stock.company_name}
                       </span>
                     </TableCell>
-
-                    {/* Price */}
                     <TableCell style={{ padding: '14px 20px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                         <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(stock.close)}</span>
                         <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#9CA3AF' }}>SAR</span>
                       </div>
                     </TableCell>
-
-                    {/* SMAs */}
                     {[stock.sma_50, stock.sma_150, stock.sma_200].map((sma, i) => (
                       <TableCell key={i} style={{ padding: '14px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <span style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: 500, color: '#4B5563', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(sma)}</span>
                       </TableCell>
                     ))}
-
-                    {/* RS Rating badge */}
                     <TableCell style={{ padding: '14px 20px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                         <span className={`font-bold ${(stock.rs_rating || 0) >= 80 ? 'text-green-600' : (stock.rs_rating || 0) >= 70 ? 'text-yellow-600' : 'text-gray-500'}`}>
@@ -578,8 +713,6 @@ export default function ScreenerTable({
                         </span>
                       </div>
                     </TableCell>
-
-                    {/* Additional RS timeframes */}
                     {[stock.rank_1m, stock.rank_3m, stock.rank_6m, stock.rank_9m, stock.rank_12m].map((rank, i) => (
                       <TableCell key={`rank-${i}`} style={{ padding: '14px 20px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <span className={`font-bold ${(rank || 0) >= 80 ? 'text-green-600' : (rank || 0) >= 70 ? 'text-yellow-600' : 'text-gray-500'}`}>
@@ -587,8 +720,6 @@ export default function ScreenerTable({
                         </span>
                       </TableCell>
                     ))}
-
-                    {/* Off 52W High */}
                     <TableCell style={{ padding: '14px 20px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                       <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
@@ -598,8 +729,6 @@ export default function ScreenerTable({
                         {formatPercent(stock.percent_off_52w_high)}
                       </div>
                     </TableCell>
-
-                    {/* Off 52W Low */}
                     <TableCell style={{ padding: '14px 20px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                       <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
@@ -617,7 +746,7 @@ export default function ScreenerTable({
         </div>
       </div>
 
-      {/* ── Bulk Export Result Toast ── */}
+      {/* ── Bulk Export Result Toast (unchanged) ── */}
       <AnimatePresence>
         {bulkExportResult && (
           <motion.div
@@ -637,11 +766,17 @@ export default function ScreenerTable({
                   ✓ Bulk Export Complete
                 </div>
                 <div style={{ fontSize: '12px', color: '#4B5563', lineHeight: 1.7 }}>
-                  {Object.entries(bulkExportResult).map(([label, count]) => (
-                    <div key={label}>
-                      <strong>{label}:</strong> {count} Company
-                    </div>
-                  ))}
+                  {Object.entries(bulkExportResult)
+                    .sort(([labelA], [labelB]) => {
+                      const idxA = DESIRED_ORDER.indexOf(labelA);
+                      const idxB = DESIRED_ORDER.indexOf(labelB);
+                      return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
+                    })
+                    .map(([label, count]) => (
+                      <div key={label}>
+                        <strong>{label}:</strong> {count} Company
+                      </div>
+                    ))}
                   <div style={{ marginTop: '8px', fontWeight: 700, color: '#059669' }}>
                     Total: {Object.values(bulkExportResult).reduce((a, b) => a + b, 0)} unique Company
                   </div>
@@ -660,9 +795,8 @@ export default function ScreenerTable({
         )}
       </AnimatePresence>
 
-      {/* ── Pagination ── */}
+      {/* ── Pagination (unchanged) ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', padding: '4px 0' }}>
-        {/* Page number pills */}
         <div style={{ display: 'flex', gap: '4px' }}>
           {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => (
             <button key={i} onClick={() => setPage(i)} style={{
@@ -677,7 +811,6 @@ export default function ScreenerTable({
           {totalPages > 5 && <span style={{ padding: '0 8px', color: '#9CA3AF', alignSelf: 'center' }}>...</span>}
         </div>
 
-        {/* Prev / Forward */}
         <div style={{ display: 'flex', gap: '8px' }}>
           <Button
             onClick={() => setPage(page - 1)}

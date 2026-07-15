@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Activity, BarChart2, TrendingUp, Target } from 'lucide-react';
 
-export default function BreadthTabs() {
+export default function BreadthTabs({ children }: { children?: React.ReactNode }) {
     const pathname = usePathname();
 
     const tabs = [
@@ -16,8 +16,9 @@ export default function BreadthTabs() {
     ];
 
     return (
-        <div style={{ backgroundColor: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: '0 32px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-            <div style={{ maxWidth: '1920px', margin: '0 auto', display: 'flex', gap: '4px', overflowX: 'auto', padding: '10px 0' }}>
+        <div className="flex-shrink-0 z-50 overflow-x-hidden" style={{ backgroundColor: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: '0 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div style={{ maxWidth: '1920px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
+                <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', flexShrink: 0 }}>
                 {tabs.map(tab => {
                     const active = pathname === tab.id || pathname.startsWith(tab.id + '/');
                     return (
@@ -39,6 +40,12 @@ export default function BreadthTabs() {
                         </Link>
                     );
                 })}
+                </div>
+                {children && (
+                    <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, overflowX: 'auto', flexShrink: 1 }}>
+                        {children}
+                    </div>
+                )}
             </div>
         </div>
     );

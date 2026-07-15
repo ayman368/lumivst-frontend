@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import BreadthTabs from '../stocks/market-breadth/_components/BreadthTabs';
+import TasiIndexChart from '../stocks/market-breadth/_components/TasiIndexChart';
 import {
     createChart,
     ColorType,
@@ -113,6 +114,19 @@ const CHART_CONFIGS = [
 
 const CHART_COUNT = CHART_CONFIGS.length;
 
+/* ─── Grid layout: TASI + 4 MA charts = 5 cells, rows of 3 then 2 ───────── */
+
+const GRID_COL_NARROW = 'col-span-2'; // 6/2 = 3 cells per row
+const GRID_COL_WIDE = 'col-span-3';   // 6/3 = 2 cells per row
+const NARROW_CHART_COUNT = 3;         // first row: TASI, MA20, MA50
+
+function chartGridColClass(gridIdx: number): string {
+    return gridIdx < NARROW_CHART_COUNT ? GRID_COL_NARROW : GRID_COL_WIDE;
+}
+
+// +1 grid cell reserved for the TASI chart, placed at index 0
+const GRID_ITEM_COUNT = CHART_COUNT + 1;
+
 /* ─── Component ─────────────────────────────────────────────────────────── */
 
 function MarketBreadthContent() {
@@ -143,7 +157,34 @@ function MarketBreadthContent() {
     const avg50SeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>(Array(CHART_COUNT).fill(null));
     const avg200SeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>(Array(CHART_COUNT).fill(null));
     const isSyncing = useRef(false);
+    const isSyncingCrosshair = useRef(false);
     const savedRangeRef = useRef<any>(null);
+    const lastValueUpdateRef = useRef(false);
+
+    // ── NEW: guards against the "phantom crosshair on mount" bug ──
+    // lightweight-charts fires an initial subscribeCrosshairMove event
+    // immediately if the cursor already happens to be resting over the
+    // canvas when the chart is (re)created. Before that point there has
+    // been no genuine user interaction, so any crosshair event must be
+    // ignored until we explicitly flip this flag to true — which we only
+    // do once ALL charts are built AND the zoom/range restore + fitContent
+    // sequence has fully settled (not on a fixed timer, which can race).
+    const chartsReadyRef = useRef(false);
+
+    const tasiChartRef = useRef<IChartApi | null>(null);
+
+    const handleTasiReady = useCallback((chart: IChartApi, _series: ISeriesApi<"Area">) => {
+        tasiChartRef.current = chart;
+
+        chart.timeScale().subscribeVisibleTimeRangeChange((range) => {
+            if (!range || isSyncing.current || isRestoringRef.current) return;
+            isSyncing.current = true;
+            chartsRef.current.forEach((c) => {
+                if (c) try { c.timeScale().setVisibleRange(range); } catch { }
+            });
+            setTimeout(() => { isSyncing.current = false; }, 0);
+        });
+    }, []);
 
     const hoverRafRef = useRef<number | null>(null);
     const pendingHoverRef = useRef<Record<number, HoverEntry>>({});
@@ -163,7 +204,8 @@ function MarketBreadthContent() {
             try {
                 setLoading(true);
                 setError(null);
-                const params = new URLSearchParams({ period });
+                const params = new URLSearchParams();
+                if (period) params.set('period', period);
                 if (startDate) params.set('start_date', startDate);
                 if (endDate) params.set('end_date', endDate);
                 const res = await fetch(
@@ -182,13 +224,72 @@ function MarketBreadthContent() {
         fetchData();
     }, [period, startDate, endDate, refreshKey]);
 
+    // دالة مساعدة لتحديث آخر قيمة على الشارت
+    const updateLastValues = useCallback(() => {
+        if (!data.length || lastValueUpdateRef.current) return;
+
+        lastValueUpdateRef.current = true;
+        const latest = data[data.length - 1];
+
+        CHART_CONFIGS.forEach((cfg, i) => {
+            const mainSeries = mainSeriesRef.current[i];
+            if (mainSeries && latest) {
+                try {
+                    // تحديث قيمة آخر يوم للخط الرئيسي
+                    (mainSeries as any).update({
+                        time: latest.time,
+                        value: latest[cfg.key] as number,
+                    });
+                } catch (e) {
+                    // تجاهل الأخطاء
+                }
+            }
+
+            // تحديث قيمة آخر يوم لـ AVG 50
+            const avg50Series = avg50SeriesRef.current[i];
+            if (avg50Series && latest) {
+                try {
+                    const avg50Key = cfg.avgKeys[0];
+                    (avg50Series as any).update({
+                        time: latest.time,
+                        value: latest[avg50Key] as number,
+                    });
+                } catch (e) {
+                    // تجاهل الأخطاء
+                }
+            }
+
+            // تحديث قيمة آخر يوم لـ AVG 200
+            const avg200Series = avg200SeriesRef.current[i];
+            if (avg200Series && latest) {
+                try {
+                    const avg200Key = cfg.avgKeys[1];
+                    (avg200Series as any).update({
+                        time: latest.time,
+                        value: latest[avg200Key] as number,
+                    });
+                } catch (e) {
+                    // تجاهل الأخطاء
+                }
+            }
+        });
+
+        setTimeout(() => {
+            lastValueUpdateRef.current = false;
+        }, 100);
+    }, [data]);
+
     /* ── build / rebuild charts ── */
     useEffect(() => {
         if (data.length === 0) return;
 
+        // block every crosshair event (real or phantom) until the whole
+        // build + zoom-restore sequence below has fully settled
+        chartsReadyRef.current = false;
+
         if (chartsRef.current.length > 0 && !isRestoringRef.current) {
             try {
-                const range = chartsRef.current[0].timeScale().getVisibleLogicalRange();
+                const range = chartsRef.current[0].timeScale().getVisibleRange();
                 if (range) savedRangeRef.current = range;
             } catch (e) {
                 console.warn('Could not save range:', e);
@@ -236,6 +337,7 @@ function MarketBreadthContent() {
                     color: '#CBD5E1',
                     style: 0 as any,
                     labelBackgroundColor: '#1E293B',
+                    labelVisible: true,
                 },
             },
         };
@@ -252,49 +354,7 @@ function MarketBreadthContent() {
             });
             chartsRef.current.push(chart);
 
-            const series = chart.addSeries(AreaSeries, {
-                lineColor: cfg.lineColor,
-                topColor: cfg.topColor,
-                bottomColor: 'rgba(0,0,0,0)',
-                lineWidth: 1.5 as any,
-                crosshairMarkerVisible: true,
-                crosshairMarkerRadius: 4,
-                crosshairMarkerBorderColor: cfg.lineColor,
-                crosshairMarkerBackgroundColor: '#FFFFFF',
-                lastValueVisible: true,
-                priceLineVisible: false,
-                visible: seriesVisibleRef.current[i] !== false,
-            });
-            series.setData(
-                data.map((item) => ({ time: item.time, value: item[cfg.key] as number })) as any
-            );
-            mainSeriesRef.current[i] = series;
-
             const selectedSet = selectedAverages[i] || new Set<string>();
-
-            const avg50Key = cfg.avgKeys[0];
-            if (selectedSet.has(avg50Key) && avg50Key in data[0]) {
-                const avg50Series = chart.addSeries(AreaSeries, {
-                    lineColor: AVG50_COLOR,
-                    topColor: 'rgba(0,0,0,0)',
-                    bottomColor: 'rgba(0,0,0,0)',
-                    lineWidth: 1.5 as any,
-                    lineStyle: 1,
-                    crosshairMarkerVisible: true,
-                    crosshairMarkerRadius: 3,
-                    crosshairMarkerBorderColor: AVG50_COLOR,
-                    crosshairMarkerBackgroundColor: '#FFFFFF',
-                    lastValueVisible: true,
-                    priceLineVisible: false,
-                });
-                avg50Series.setData(
-                    data.map((item) => ({
-                        time: item.time,
-                        value: item[avg50Key as keyof BreadthItem] as number,
-                    })) as any
-                );
-                avg50SeriesRef.current[i] = avg50Series;
-            }
 
             const avg200Key = cfg.avgKeys[1];
             if (selectedSet.has(avg200Key) && avg200Key in data[0]) {
@@ -308,8 +368,17 @@ function MarketBreadthContent() {
                     crosshairMarkerRadius: 3,
                     crosshairMarkerBorderColor: AVG200_COLOR,
                     crosshairMarkerBackgroundColor: '#FFFFFF',
+                    // ── تعديل: إظهار آخر قيمة لـ AVG 200 على محور Y ──
                     lastValueVisible: true,
-                    priceLineVisible: false,
+                    priceFormat: {
+                        type: 'custom',
+                        formatter: (value: number) => `${value.toFixed(1)}%`,
+                    },
+                    // ── تعديل: تفعيل خط السعر الأفقي لتوضيح مكان آخر قيمة ──
+                    priceLineVisible: true,
+                    priceLineColor: AVG200_COLOR,
+                    priceLineWidth: 1 as any,
+                    priceLineStyle: 2,
                 });
                 avg200Series.setData(
                     data.map((item) => ({
@@ -318,6 +387,74 @@ function MarketBreadthContent() {
                     })) as any
                 );
                 avg200SeriesRef.current[i] = avg200Series;
+            }
+
+            const avg50Key = cfg.avgKeys[0];
+            if (selectedSet.has(avg50Key) && avg50Key in data[0]) {
+                const avg50Series = chart.addSeries(AreaSeries, {
+                    lineColor: AVG50_COLOR,
+                    topColor: 'rgba(0,0,0,0)',
+                    bottomColor: 'rgba(0,0,0,0)',
+                    lineWidth: 1.5 as any,
+                    lineStyle: 1,
+                    crosshairMarkerVisible: true,
+                    crosshairMarkerRadius: 3,
+                    crosshairMarkerBorderColor: AVG50_COLOR,
+                    crosshairMarkerBackgroundColor: '#FFFFFF',
+                    // ── تعديل: إظهار آخر قيمة لـ AVG 50 على محور Y ──
+                    lastValueVisible: true,
+                    priceFormat: {
+                        type: 'custom',
+                        formatter: (value: number) => `${value.toFixed(1)}%`,
+                    },
+                    // ── تعديل: تفعيل خط السعر الأفقي لتوضيح مكان آخر قيمة ──
+                    priceLineVisible: true,
+                    priceLineColor: AVG50_COLOR,
+                    priceLineWidth: 1 as any,
+                    priceLineStyle: 2,
+                });
+                avg50Series.setData(
+                    data.map((item) => ({
+                        time: item.time,
+                        value: item[avg50Key as keyof BreadthItem] as number,
+                    })) as any
+                );
+                avg50SeriesRef.current[i] = avg50Series;
+            }
+
+            const series = chart.addSeries(AreaSeries, {
+                lineColor: cfg.lineColor,
+                topColor: cfg.topColor,
+                bottomColor: 'rgba(0,0,0,0)',
+                lineWidth: 1.5 as any,
+                crosshairMarkerVisible: true,
+                crosshairMarkerRadius: 4,
+                crosshairMarkerBorderColor: cfg.lineColor,
+                crosshairMarkerBackgroundColor: '#FFFFFF',
+                lastValueVisible: false,
+                priceFormat: {
+                    type: 'custom',
+                    formatter: (value: number) => `${value.toFixed(1)}%`,
+                },
+                priceLineVisible: false,
+                visible: seriesVisibleRef.current[i] !== false,
+            });
+            series.setData(
+                data.map((item) => ({ time: item.time, value: item[cfg.key] as number })) as any
+            );
+            mainSeriesRef.current[i] = series;
+
+            // ── PriceLine ثابت لآخر قيمة (لا يتأثر بالـ crosshair أبداً) ──
+            const lastVal = data[data.length - 1]?.[cfg.key] as number;
+            if (lastVal != null && !isNaN(lastVal)) {
+                series.createPriceLine({
+                    price: lastVal,
+                    color: cfg.lineColor,
+                    lineWidth: 0 as any,
+                    lineStyle: 0,
+                    axisLabelVisible: true,
+                    title: '',
+                });
             }
 
             [20, 50, 80].forEach((level) =>
@@ -331,18 +468,24 @@ function MarketBreadthContent() {
             );
         });
 
-        /* ── sync time-scale ── */
+        // لا نحتاج updateLastValues هنا - البيانات الصحيحة موجودة بالفعل في الـ series
+
+        /* ── sync time-scale (time-based, not index-based) ── */
         chartsRef.current.forEach((chart, i) => {
-            chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+            chart.timeScale().subscribeVisibleTimeRangeChange((range) => {
                 if (!range || isSyncing.current || isRestoringRef.current) return;
                 isSyncing.current = true;
                 chartsRef.current.forEach((c, j) => {
-                    if (j !== i) c.timeScale().setVisibleLogicalRange(range);
+                    if (j !== i) try { c.timeScale().setVisibleRange(range); } catch { }
                 });
+                // Also sync to TASI chart
+                if (tasiChartRef.current) {
+                    try { tasiChartRef.current.timeScale().setVisibleRange(range); } catch { }
+                }
                 setTimeout(() => { isSyncing.current = false; }, 0);
                 if (!isRestoringRef.current && chartsRef.current[0]) {
                     try {
-                        const newRange = chartsRef.current[0].timeScale().getVisibleLogicalRange();
+                        const newRange = chartsRef.current[0].timeScale().getVisibleRange();
                         if (newRange) savedRangeRef.current = newRange;
                     } catch { }
                 }
@@ -352,55 +495,106 @@ function MarketBreadthContent() {
         /* ── crosshair sync + hover ── */
         chartsRef.current.forEach((chart, i) => {
             chart.subscribeCrosshairMove((param) => {
+                // Ignore any crosshair event — real or phantom — until the
+                // charts have fully finished building, zoom-restoring and
+                // fitting content. This is what stops the "value changes by
+                // itself right after load" bug: lightweight-charts can fire
+                // a crosshair event on mount if the mouse cursor is already
+                // resting over the canvas, and without this guard that
+                // phantom event would get propagated to every other chart.
+                if (!chartsReadyRef.current) return;
+
                 const mainS = mainSeriesRef.current[i];
                 const avg50S = avg50SeriesRef.current[i];
                 const avg200S = avg200SeriesRef.current[i];
 
-                let entry: HoverEntry = { main: null, avg50: null, avg200: null, time: null };
-
-                if (param.point && param.time && mainS) {
-                    const mainVal = param.seriesData.get(mainS);
-                    const avg50Val = avg50S ? param.seriesData.get(avg50S) : null;
-                    const avg200Val = avg200S ? param.seriesData.get(avg200S) : null;
-
-                    const timeStr =
-                        typeof param.time === 'string'
-                            ? param.time
-                            : typeof param.time === 'number'
-                                ? String(param.time)
-                                : `${(param.time as any).year}-${String((param.time as any).month).padStart(2, '0')}-${String((param.time as any).day).padStart(2, '0')}`;
-
-                    entry = {
-                        main: mainVal && 'value' in mainVal ? (mainVal as any).value : null,
-                        avg50: avg50Val && 'value' in avg50Val ? (avg50Val as any).value : null,
-                        avg200: avg200Val && 'value' in avg200Val ? (avg200Val as any).value : null,
-                        time: timeStr,
-                    };
+                /* ── mouse left / no data → clear everything ── */
+                if (!param.point || !param.time || !mainS) {
+                    if (isSyncingCrosshair.current) return;   // triggered by our own clear – ignore
+                    isSyncingCrosshair.current = true;
+                    const emptyEntry: HoverEntry = { main: null, avg50: null, avg200: null, time: null };
+                    const cleared: Record<number, HoverEntry> = {};
+                    chartsRef.current.forEach((c, j) => {
+                        cleared[j] = emptyEntry;
+                        if (c && c !== chart) { try { c.clearCrosshairPosition(); } catch { } }
+                    });
+                    pendingHoverRef.current = cleared;
+                    if (hoverRafRef.current === null) {
+                        hoverRafRef.current = requestAnimationFrame(() => {
+                            setHoverValues({ ...pendingHoverRef.current });
+                            hoverRafRef.current = null;
+                        });
+                    }
+                    isSyncingCrosshair.current = false;
+                    return;
                 }
 
+                /* ── valid hover → extract values ── */
+                const mainVal = param.seriesData.get(mainS);
+                const avg50Val = avg50S ? param.seriesData.get(avg50S) : null;
+                const avg200Val = avg200S ? param.seriesData.get(avg200S) : null;
+
+                const timeStr =
+                    typeof param.time === 'string'
+                        ? param.time
+                        : typeof param.time === 'number'
+                            ? String(param.time)
+                            : `${(param.time as any).year}-${String((param.time as any).month).padStart(2, '0')}-${String((param.time as any).day).padStart(2, '0')}`;
+
+                const entry: HoverEntry = {
+                    main: mainVal && 'value' in mainVal ? (mainVal as any).value : null,
+                    avg50: avg50Val && 'value' in avg50Val ? (avg50Val as any).value : null,
+                    avg200: avg200Val && 'value' in avg200Val ? (avg200Val as any).value : null,
+                    time: timeStr,
+                };
+
                 pendingHoverRef.current = { ...pendingHoverRef.current, [i]: entry };
+
+                /* ── sync crosshair to other charts (only from real mouse, not from our own sync) ── */
+                if (!isSyncingCrosshair.current) {
+                    isSyncingCrosshair.current = true;
+
+                    // Look up the data row for this time so we can place crosshairs at the
+                    // CORRECT price on each target chart (coordinateToPrice is wrong
+                    // because charts have different Y scales).
+                    const dataItem = data.find(d => d.time === timeStr);
+
+                    chartsRef.current.forEach((targetChart, j) => {
+                        if (j === i) return;
+                        const targetSeries = mainSeriesRef.current[j];
+                        if (!targetSeries) return;
+                        try {
+                            if (dataItem) {
+                                const price = dataItem[CHART_CONFIGS[j].key] as number;
+                                targetChart.setCrosshairPosition(price, param.time!, targetSeries);
+
+                                // Manually update hover state for the synced chart 
+                                // since setCrosshairPosition won't have param.point to trigger it.
+                                pendingHoverRef.current[j] = {
+                                    main: price,
+                                    avg50: dataItem[CHART_CONFIGS[j].avgKeys[0]] as number | null,
+                                    avg200: dataItem[CHART_CONFIGS[j].avgKeys[1]] as number | null,
+                                    time: timeStr,
+                                };
+                            }
+                        } catch { }
+                    });
+
+                    isSyncingCrosshair.current = false;
+                }
+
+                // If this callback was triggered by sync, still update hoverValues
+                // so the header shows the correct value for THIS chart at hover time.
                 if (hoverRafRef.current === null) {
                     hoverRafRef.current = requestAnimationFrame(() => {
                         setHoverValues({ ...pendingHoverRef.current });
                         hoverRafRef.current = null;
                     });
                 }
-
-                chartsRef.current.forEach((targetChart, j) => {
-                    if (j === i) return;
-                    const targetSeries = mainSeriesRef.current[j];
-                    if (!param.point || !param.time || !targetSeries) {
-                        try { targetChart.clearCrosshairPosition(); } catch { }
-                        return;
-                    }
-                    try {
-                        const price = targetSeries.coordinateToPrice(param.point.y);
-                        if (price !== null)
-                            targetChart.setCrosshairPosition(price, param.time, targetSeries);
-                    } catch { }
-                });
             });
         });
+
+        // `mouseleave` handled natively via `param.point === undefined` in `subscribeCrosshairMove`
 
         /* ── ResizeObserver ── */
         const ro = new ResizeObserver(() => {
@@ -413,35 +607,80 @@ function MarketBreadthContent() {
                     chart.applyOptions({ width: w, height: h });
                 }
             });
+            // Any resize — caused by a late-loading web font, an image,
+            // a sidebar toggle, or any other layout shift elsewhere on the
+            // page — invalidates whatever pixel position the crosshair was
+            // last anchored to. Without this, the library can re-project
+            // that stale pixel onto the newly-resized chart and silently
+            // swap the axis label to a wrong value with no user interaction
+            // at all. Defensively clear on every resize so the axis label
+            // always falls back to the true last value.
+            chartsRef.current.forEach((c) => {
+                if (c) try { c.clearCrosshairPosition(); } catch { }
+            });
+            if (hoverRafRef.current === null) {
+                const emptyEntry: HoverEntry = { main: null, avg50: null, avg200: null, time: null };
+                const cleared: Record<number, HoverEntry> = {};
+                chartsRef.current.forEach((_, j) => { cleared[j] = emptyEntry; });
+                pendingHoverRef.current = cleared;
+                hoverRafRef.current = requestAnimationFrame(() => {
+                    setHoverValues({ ...pendingHoverRef.current });
+                    hoverRafRef.current = null;
+                });
+            }
         });
         canvasRefs.current.forEach((el) => { if (el) ro.observe(el); });
 
-        /* Restore zoom */
+        /* Restore zoom, THEN flip chartsReadyRef.current = true once everything
+           has settled — this replaces the old fixed setTimeout(300) hack, which
+           could race against fitContent()/setVisibleLogicalRange() on slower
+           layouts and leave stale crosshair state on screen. */
         const rangeToRestore = savedRangeRef.current;
         if (rangeToRestore) {
             isRestoringRef.current = true;
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     chartsRef.current.forEach((chart) => {
-                        try { chart.timeScale().setVisibleLogicalRange(rangeToRestore); }
+                        try { chart.timeScale().setVisibleRange(rangeToRestore); }
                         catch { chart.timeScale().fitContent(); }
                     });
-                    setTimeout(() => { isRestoringRef.current = false; }, 100);
+                    setTimeout(() => {
+                        isRestoringRef.current = false;
+                        // defensively clear any crosshair state that may have
+                        // accumulated while we were still building/restoring,
+                        // THEN allow real user interaction to take over.
+                        chartsRef.current.forEach((c) => {
+                            if (c) try { c.clearCrosshairPosition(); } catch { }
+                        });
+                        chartsReadyRef.current = true;
+                    }, 100);
                 });
             });
         } else {
             requestAnimationFrame(() => {
                 chartsRef.current.forEach((chart) => chart.timeScale().fitContent());
+                requestAnimationFrame(() => {
+                    chartsRef.current.forEach((c) => {
+                        if (c) try { c.clearCrosshairPosition(); } catch { }
+                    });
+                    chartsReadyRef.current = true;
+                });
             });
         }
 
         return () => {
+            chartsReadyRef.current = false;
             if (hoverRafRef.current !== null) {
                 cancelAnimationFrame(hoverRafRef.current);
                 hoverRafRef.current = null;
             }
+            // No DOM leave handlers to cleanup
             ro.disconnect();
-            chartsRef.current.forEach((c) => c.remove());
+            chartsRef.current.forEach((c) => {
+                if (c) {
+                    try { c.remove(); } catch { }
+                }
+            });
             chartsRef.current = [];
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -537,179 +776,125 @@ function MarketBreadthContent() {
             className="w-full h-screen flex flex-col bg-slate-50 overflow-hidden"
             style={{ fontFamily: '"DM Sans", sans-serif', minWidth: 0 }}
         >
-            <BreadthTabs />
-
-            {/* ── Header ─────────────────────────────────────────────────── */}
-            <header
-                className="bg-white border-b border-slate-200 flex-shrink-0 z-50 overflow-x-hidden"
-                style={{ boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}
-            >
-                <div className="px-5 h-[60px] flex items-center justify-between gap-6 min-w-0">
-
-                    {/* brand */}
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                        <div className="w-[34px] h-[34px] bg-slate-50 border border-slate-200 rounded-[9px] flex items-center justify-center flex-shrink-0">
-                            <svg width="16" height="16" viewBox="0 0 20 18" fill="none">
-                                <rect x="0" y="10" width="3.5" height="8" rx="1" fill="#0F7A5A" />
-                                <rect x="5.5" y="6" width="3.5" height="12" rx="1" fill="#1560A8" />
-                                <rect x="11" y="2" width="3.5" height="16" rx="1" fill="#A0600A" />
-                                <rect x="16.5" y="8" width="3.5" height="10" rx="1" fill="#B02040" opacity="0.8" />
-                            </svg>
+            <BreadthTabs>
+                <div className="flex items-center gap-2.5 min-w-0 overflow-x-auto flex-shrink mr-2">
+                    {/* period selector */}
+                    <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                        <div className="flex bg-slate-50 border border-slate-200 p-0.5 rounded-[9px] gap-0.5 flex-shrink-0">
+                            {['5D', '1M', '6M', '1Y', '5Y', '10Y', 'ALL'].map((p) => (
+                                <button
+                                    key={p}
+                                    onClick={() => {
+                                        setPeriod(p);
+                                        // custom date range and preset period are mutually exclusive
+                                        setStartDate('');
+                                        setEndDate('');
+                                    }}
+                                    disabled={loading}
+                                    className={[
+                                        'px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all border-none cursor-pointer whitespace-nowrap',
+                                        period === p ? 'bg-white text-slate-900 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700',
+                                        loading ? 'opacity-50' : '',
+                                    ].join(' ')}
+                                >
+                                    {p}
+                                </button>
+                            ))}
                         </div>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h1 className="text-[14px] font-bold text-slate-900 tracking-tight m-0">Market Breadth</h1>
-                                <span className="text-slate-300">/</span>
-                                <span className="text-[12px] text-slate-500">TASI Analysis</span>
-                                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded ml-1">
-                                    <span
-                                        className="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block"
-                                        style={{ opacity: tick % 2 === 0 ? 1 : 0.25, transition: 'opacity 0.5s ease' }}
-                                    />
-                                    Live
-                                </span>
-                            </div>
-                            <p className="text-[10px] text-slate-400 mt-0.5 leading-none">
-                                Constituent breadth across moving average thresholds
-                            </p>
-                        </div>
+
+                        <label className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-[9px] px-2.5 py-1.5 text-[11px] text-slate-600">
+                            <span className="text-slate-400">From</span>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => {
+                                    setStartDate(e.target.value);
+                                    // picking a custom date clears the active period preset
+                                    if (e.target.value) setPeriod('');
+                                }}
+                                className="bg-transparent border-none outline-none text-[11px] text-slate-700"
+                            />
+                        </label>
+
+                        <label className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-[9px] px-2.5 py-1.5 text-[11px] text-slate-600">
+                            <span className="text-slate-400">To</span>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => {
+                                    setEndDate(e.target.value);
+                                    // picking a custom date clears the active period preset
+                                    if (e.target.value) setPeriod('');
+                                }}
+                                className="bg-transparent border-none outline-none text-[11px] text-slate-700"
+                            />
+                        </label>
+
+                        <button
+                            onClick={() => {
+                                setStartDate('');
+                                setEndDate('');
+                                // restore a sane default so the grid isn't left with no filter at all
+                                setPeriod('ALL');
+                            }}
+                            className="px-2.5 py-1.5 rounded-[9px] border border-slate-200 bg-white text-[11px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+                        >
+                            Clear
+                        </button>
                     </div>
 
-                    {/* controls */}
-                    <div className="flex items-center gap-2.5 min-w-0 overflow-x-auto flex-shrink">
-                        {/* period selector */}
-                        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-                            <div className="flex bg-slate-50 border border-slate-200 p-0.5 rounded-[9px] gap-0.5 flex-shrink-0">
-                                {['5D', '1M', '6M', '1Y', '5Y', '10Y', 'ALL'].map((p) => (
-                                    <button
-                                        key={p}
-                                        onClick={() => setPeriod(p)}
-                                        disabled={loading}
-                                        className={[
-                                            'px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all border-none cursor-pointer whitespace-nowrap',
-                                            period === p ? 'bg-white text-slate-900 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700',
-                                            loading ? 'opacity-50' : '',
-                                        ].join(' ')}
-                                    >
-                                        {p}
-                                    </button>
-                                ))}
-                            </div>
+                    {/* fit all */}
+                    <button
+                        onClick={fitAll}
+                        title="Fit all charts to data"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-medium text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer flex-shrink-0"
+                    >
+                        <Scan size={13} />
+                        Fit All
+                    </button>
 
-                            <label className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-[9px] px-2.5 py-1.5 text-[11px] text-slate-600">
-                                <span className="text-slate-400">From</span>
-                                <input
-                                    type="date"
-                                    value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                    className="bg-transparent border-none outline-none text-[11px] text-slate-700"
-                                />
-                            </label>
-
-                            <label className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-[9px] px-2.5 py-1.5 text-[11px] text-slate-600">
-                                <span className="text-slate-400">To</span>
-                                <input
-                                    type="date"
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                    className="bg-transparent border-none outline-none text-[11px] text-slate-700"
-                                />
-                            </label>
-
-                            <button
-                                onClick={() => {
-                                    setStartDate('');
-                                    setEndDate('');
-                                }}
-                                className="px-2.5 py-1.5 rounded-[9px] border border-slate-200 bg-white text-[11px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
-                            >
-                                Clear
-                            </button>
-                        </div>
-
-                        {/* stat blocks */}
-                        <div className="flex items-center bg-slate-50 border border-slate-200 rounded-[9px] px-3.5 py-2 gap-4 flex-shrink-0">
-                            {CHART_CONFIGS.map((cfg, i) => {
-                                const val = latest ? Math.round(latest[cfg.key] as number) : 0;
-                                return (
-                                    <div key={cfg.key} className={i > 0 ? 'pl-4 border-l border-slate-100' : ''}>
-                                        <div className="flex items-center gap-1 mb-0.5">
-                                            <span className="w-[6px] h-[6px] rounded-[2px] inline-block flex-shrink-0" style={{ background: cfg.lineColor }} />
-                                            <span className="text-[9px] text-slate-400 font-medium tracking-wide">{cfg.badge}</span>
-                                        </div>
-                                        <div className="flex items-baseline gap-0.5">
-                                            <span className="text-[18px] font-bold text-slate-900 leading-none tracking-tight">{val}</span>
-                                            <span className="text-[10px] text-slate-400">%</span>
-                                        </div>
-                                        <div className="mt-1 h-[3px] rounded-full bg-slate-100 overflow-hidden w-[60px]">
-                                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${val}%`, background: cfg.lineColor }} />
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {/* fit all */}
-                        <button
-                            onClick={fitAll}
-                            title="Fit all charts to data"
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-medium text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer flex-shrink-0"
-                        >
-                            <Scan size={13} />
-                            Fit All
-                        </button>
-
-                        {/* export button */}
-                        <div className="flex-shrink-0 mr-2">
-                            <MarketBreadthExportButton
-                                data={data}
-                                period={period}
-                                captureRef={pageRef}
-                            />
-                        </div>
+                    {/* export button */}
+                    <div className="flex-shrink-0 mr-2">
+                        <MarketBreadthExportButton
+                            data={data}
+                            period={period}
+                            captureRef={pageRef}
+                        />
                     </div>
                 </div>
-
-                {/* rainbow rule */}
-                <div className="h-[2px]" style={{
-                    background: 'linear-gradient(90deg, #0F7A5A 0%, #1560A8 33%, #A0600A 66%, #B02040 100%)',
-                    opacity: 0.3,
-                }} />
-            </header>
-
+            </BreadthTabs>
             {/* ── Main ── */}
-            <main ref={pageRef} className="flex-1 min-h-0 flex flex-col px-4 pt-2 pb-2 overflow-hidden">
+            <main ref={pageRef} className="flex-1 min-h-0 flex flex-col w-full px-2 pt-1 pb-1 overflow-auto" style={{ flex: '1 1 0' }}>
 
-                {/* summary bar */}
-                <div className="bg-white border border-slate-200 rounded-[9px] px-4 py-2 flex justify-between items-center mb-2 flex-shrink-0 flex-wrap gap-2"
-                    style={{ boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
-                    <div className="flex items-center gap-4 flex-wrap">
-                        {CHART_CONFIGS.map((cfg, i) => {
-                            const val = latest ? (latest[cfg.key] as number) : 50;
-                            const rounded = Math.round(val);
-                            const s = val >= 70
-                                ? { label: 'Bullish', color: '#0F7A5A', bg: '#E6F5F0' }
-                                : val <= 30
-                                    ? { label: 'Bearish', color: '#B02040', bg: '#FAE8EC' }
-                                    : { label: 'Neutral', color: '#A0600A', bg: '#FBF3E6' };
+                {/* CHART GRID — TASI + 4 MA charts = 5 cells, rows: 3-2 */}
+                <div
+                    className="flex-1 min-h-0 grid grid-cols-6 gap-2"
+                    style={{ gridTemplateRows: 'repeat(2, minmax(0, 1fr))' }}
+                >
+                    {Array.from({ length: GRID_ITEM_COUNT }, (_, gridIdx) => {
+                        /* ── cell 0: TASI Index ── */
+                        if (gridIdx === 0) {
+                            const gridCol = chartGridColClass(gridIdx);
                             return (
-                                <div key={cfg.key} className={`flex items-center gap-2 ${i > 0 ? 'pl-4 border-l border-slate-200' : ''}`}>
-                                    <span className="text-[11px] font-semibold text-slate-500">{cfg.label} MA</span>
-                                    <span className="text-[11px] font-bold" style={{ color: cfg.lineColor }}>{rounded}%</span>
-                                    <span className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ color: s.color, background: s.bg }}>
-                                        <span className="w-1 h-1 rounded-full inline-block" style={{ background: s.color }} />
-                                        {s.label}
-                                    </span>
+                                <div
+                                    key="tasi-chart"
+                                    className={`${gridCol} bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col relative min-h-0`}
+                                    style={{ boxShadow: '0 1px 3px rgba(15,23,42,0.05)' }}
+                                >
+                                    <TasiIndexChart
+                                        period={period}
+                                        startDate={startDate}
+                                        endDate={endDate}
+                                        onChartReady={handleTasiReady}
+                                    />
                                 </div>
                             );
-                        })}
-                    </div>
-                    <span className="text-[10px] text-slate-300 flex-shrink-0">{latest?.time || '—'}</span>
-                </div>
+                        }
 
-                {/* CHART GRID - 2x2 grid */}
-                <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-2 gap-2">
-                    {CHART_CONFIGS.map((cfg, i) => {
+                        /* ── cells 1..4: the 4 MA charts, unchanged internal logic ── */
+                        const i = gridIdx - 1;
+                        const cfg = CHART_CONFIGS[i];
+                        const gridCol = chartGridColClass(gridIdx);
                         const Icon = cfg.icon;
                         const hover = hoverValues[i];
                         const isVisible = seriesVisible[i] !== false;
@@ -740,9 +925,10 @@ function MarketBreadthContent() {
 
                         return (
                             <div
-                                key={cfg.key}
+                                key={gridIdx}
                                 ref={(el) => { cardRefs.current[i] = el; }}
                                 className={[
+                                    gridCol,
                                     "bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col transition-all duration-200",
                                     isFS
                                         ? "fixed inset-0 z-[200] rounded-none"

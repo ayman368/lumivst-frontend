@@ -1000,7 +1000,7 @@ export default function PortfolioPage() {
                       {col === "Sym" ? (
                         <ActionMenu pos={pos}
                           onEdit={() => setEditingPos({ id: pos.id, name: pos.name, qty: pos.qty, buy_price: pos.cost, total_cost: pos.cost * pos.qty, stop_price: pos.stopPrice, entry_date: pos.entryDate, portfolio_name: pos.pfl })}
-                          onAdd={() => setAddingPos({ id: pos.id, symbol: pos.sym, add_qty: "", add_price: pos.last, add_date: new Date().toISOString().slice(0, 10) })}
+                          onAdd={() => setAddingPos({ id: pos.id, symbol: pos.sym, add_qty: "", add_total_cost: "", add_price: pos.last, add_date: new Date().toISOString().slice(0, 10) })}
                           onSell={() => setSellingPos({ id: pos.id, symbol: pos.sym, max_qty: pos.qty, sell_qty: "", sell_price: pos.last, sell_date: new Date().toISOString().slice(0, 10) })}
                           onClose={() => setClosingPos({ id: pos.id, symbol: pos.sym, name: pos.name, qty: pos.qty, cost: pos.cost, sell_price: pos.last, exit_date: new Date().toISOString().slice(0, 10) })}
                           onDelete={() => setConfirmState({ type: "delete", positionId: pos.id, symbol: pos.sym, name: pos.name })}
@@ -1065,9 +1065,30 @@ export default function PortfolioPage() {
       {addingPos && (
         <ModalShell title="Add Shares" subtitle={`Scale in — ${addingPos.symbol}`} accentColor="bg-emerald-500" onClose={() => setAddingPos(null)}>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Quantity to Add"><input type="number" className={inputCls} placeholder="0" value={addingPos.add_qty} onChange={e => setAddingPos({ ...addingPos, add_qty: e.target.value })} /></Field>
-              <Field label="Buy Price (SAR)"><input type="number" className={inputCls} value={addingPos.add_price} onChange={e => setAddingPos({ ...addingPos, add_price: e.target.value })} /></Field>
+            <div className="grid grid-cols-3 gap-4">
+              <Field label="Quantity to Add">
+                <input type="number" className={inputCls} placeholder="0" value={addingPos.add_qty}
+                  onChange={e => {
+                    const qty = e.target.value;
+                    const add_price = Number(qty) > 0 && Number(addingPos.add_total_cost) > 0
+                      ? Number((Number(addingPos.add_total_cost) / Number(qty)).toFixed(4))
+                      : addingPos.add_price;
+                    setAddingPos({ ...addingPos, add_qty: qty, add_price });
+                  }} />
+              </Field>
+              <Field label="Total Cost (SAR)">
+                <input type="number" className={inputCls} placeholder="0.00" value={addingPos.add_total_cost}
+                  onChange={e => {
+                    const total_cost = e.target.value;
+                    const add_price = Number(addingPos.add_qty) > 0 && Number(total_cost) > 0
+                      ? Number((Number(total_cost) / Number(addingPos.add_qty)).toFixed(4))
+                      : addingPos.add_price;
+                    setAddingPos({ ...addingPos, add_total_cost: total_cost, add_price });
+                  }} />
+              </Field>
+              <Field label="Avg. Price" hint="Auto-calculated">
+                <input type="number" disabled className={disabledInputCls} value={addingPos.add_price} />
+              </Field>
             </div>
             <Field label="Trade Date"><input type="date" className={inputCls} value={addingPos.add_date} onChange={e => setAddingPos({ ...addingPos, add_date: e.target.value })} /></Field>
             {addingPos.add_qty && addingPos.add_price && (

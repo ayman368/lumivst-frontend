@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import BreadthTabs from '../stocks/market-breadth/_components/BreadthTabs';
+import TasiIndexChart from '../stocks/market-breadth/_components/TasiIndexChart';
 import {
   createChart,
   ColorType,
@@ -85,7 +86,22 @@ const CHART_CONFIGS = [
   },
 ];
 
+// تغيير عدد المخططات إلى 4 (TASI + 3 Minervini = 4)
 const CHART_COUNT = CHART_CONFIGS.length;
+
+/* ─── تغيير توزيع الشبكة: 2 في الأعلى و 2 في الأسفل ─── */
+// أول مخططين (تاسي و 1M) يأخذون عرض 3 أعمدة من أصل 6
+// آخر مخططين (4M و 5MW) يأخذون عرض 3 أعمدة من أصل 6
+const GRID_COL_HALF = 'col-span-3'; // نصف العرض
+const HALF_CHART_COUNT = 2; // أول مخططين في الصف الأول
+
+function chartGridColClass(gridIdx: number): string {
+  // جميع المخططات الأربعة تأخذ نفس العرض (نصف الشبكة)
+  return GRID_COL_HALF;
+}
+
+// +1 لأننا نضيف تاسي = 4 مخططات إجمالاً
+const GRID_ITEM_COUNT = CHART_COUNT + 1;
 
 const PERIOD_DAYS: Record<string, number | null> = {
   '5D': 5,
@@ -189,11 +205,28 @@ export default function MinerviniTrendPage() {
   const avg50SeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>(Array(CHART_COUNT).fill(null));
   const avg200SeriesRef = useRef<(ISeriesApi<'Area'> | null)[]>(Array(CHART_COUNT).fill(null));
   const isSyncing = useRef(false);
+  const isSyncingCrosshair = useRef(false);
   const isRestoringRef = useRef(false);
   const savedRangeRef = useRef<any>(null);
   const fetchStarted = useRef(false);
   const hoverRafRef = useRef<number | null>(null);
   const pendingHoverRef = useRef<Record<number, HoverEntry>>({});
+
+  const tasiChartRef = useRef<IChartApi | null>(null);
+
+  const handleTasiReady = useCallback((chart: IChartApi, _series: ISeriesApi<"Area">) => {
+    tasiChartRef.current = chart;
+
+    chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      if (!range || isSyncing.current || isRestoringRef.current) return;
+      isSyncing.current = true;
+      chartsRef.current.forEach((c) => {
+        if (c) try { c.timeScale().setVisibleLogicalRange(range); } catch { }
+      });
+      setTimeout(() => { isSyncing.current = false; }, 0);
+    });
+  }, []);
+
   const seriesVisibleRef = useRef(seriesVisible);
   seriesVisibleRef.current = seriesVisible;
 
@@ -300,7 +333,7 @@ export default function MinerviniTrendPage() {
         fixRightEdge: true,
       },
       crosshair: {
-        mode: CrosshairMode.Normal,
+        mode: CrosshairMode.Magnet,
         vertLine: {
           width: 1 as any,
           color: '#CBD5E1',
@@ -364,7 +397,10 @@ export default function MinerviniTrendPage() {
           priceLineVisible: false,
         });
         avg50Series.setData(
-          chartData.map((d) => ({ time: d.time, value: (d[avg50Key] as number | null) ?? null })) as any
+          chartData.map((d) => {
+            const v = d[avg50Key] as number | null;
+            return v != null ? { time: d.time, value: v } : { time: d.time };
+          }) as any
         );
         avg50SeriesRef.current[i] = avg50Series;
       }
@@ -385,7 +421,10 @@ export default function MinerviniTrendPage() {
           priceLineVisible: false,
         });
         avg200Series.setData(
-          chartData.map((d) => ({ time: d.time, value: (d[avg200Key] as number | null) ?? null })) as any
+          chartData.map((d) => {
+            const v = d[avg200Key] as number | null;
+            return v != null ? { time: d.time, value: v } : { time: d.time };
+          }) as any
         );
         avg200SeriesRef.current[i] = avg200Series;
       }
@@ -398,6 +437,10 @@ export default function MinerviniTrendPage() {
         chartsRef.current.forEach((c, j) => {
           if (j !== i) c.timeScale().setVisibleLogicalRange(range);
         });
+        // Also sync to TASI chart
+        if (tasiChartRef.current) {
+          try { tasiChartRef.current.timeScale().setVisibleLogicalRange(range); } catch { }
+        }
         setTimeout(() => { isSyncing.current = false; }, 0);
         try {
           const newRange = chartsRef.current[0].timeScale().getVisibleLogicalRange();
@@ -410,43 +453,73 @@ export default function MinerviniTrendPage() {
       chart.subscribeCrosshairMove((param) => {
         const mainS = mainSeriesRef.current[i];
 
-        let entry: HoverEntry = { value: null, time: null };
-
-        if (param.point && param.time && mainS) {
-          const raw = param.seriesData.get(mainS);
-          const timeStr =
-            typeof param.time === 'string'
-              ? param.time
-              : typeof param.time === 'number'
-                ? new Date((param.time as number) * 1000).toISOString().slice(0, 10)
-                : `${(param.time as any).year}-${String((param.time as any).month).padStart(2, '0')}-${String((param.time as any).day).padStart(2, '0')}`;
-          entry = {
-            value: raw && 'value' in raw ? (raw as any).value : null,
-            time: timeStr,
-          };
+        if (!param.point || !param.time || !mainS) {
+          if (isSyncingCrosshair.current) return;
+          isSyncingCrosshair.current = true;
+          const emptyEntry: HoverEntry = { value: null, time: null };
+          const cleared: Record<number, HoverEntry> = {};
+          chartsRef.current.forEach((c, j) => {
+            cleared[j] = emptyEntry;
+            if (c && c !== chart) { try { c.clearCrosshairPosition(); } catch { } }
+          });
+          pendingHoverRef.current = cleared;
+          if (hoverRafRef.current === null) {
+            hoverRafRef.current = requestAnimationFrame(() => {
+              setHoverValues({ ...pendingHoverRef.current });
+              hoverRafRef.current = null;
+            });
+          }
+          isSyncingCrosshair.current = false;
+          return;
         }
 
+        const raw = param.seriesData.get(mainS);
+        const timeStr =
+          typeof param.time === 'string'
+            ? param.time
+            : typeof param.time === 'number'
+              ? new Date((param.time as number) * 1000).toISOString().slice(0, 10)
+              : `${(param.time as any).year}-${String((param.time as any).month).padStart(2, '0')}-${String((param.time as any).day).padStart(2, '0')}`;
+
+        const entry: HoverEntry = {
+          value: raw && 'value' in raw ? (raw as any).value : null,
+          time: timeStr,
+        };
+
         pendingHoverRef.current = { ...pendingHoverRef.current, [i]: entry };
+
+        if (!isSyncingCrosshair.current) {
+          isSyncingCrosshair.current = true;
+
+          const dataItem = chartData.find(d => d.time === timeStr);
+
+          chartsRef.current.forEach((targetChart, j) => {
+            if (j === i) return;
+            const targetSeries = mainSeriesRef.current[j];
+            if (!targetSeries) return;
+            try {
+              if (dataItem) {
+                const price = dataItem[CHART_CONFIGS[j].key] as number;
+                targetChart.setCrosshairPosition(price, param.time!, targetSeries);
+
+                // Manually update hover state for the synced chart
+                pendingHoverRef.current[j] = {
+                  value: price,
+                  time: timeStr,
+                };
+              }
+            } catch { }
+          });
+
+          isSyncingCrosshair.current = false;
+        }
+
         if (hoverRafRef.current === null) {
           hoverRafRef.current = requestAnimationFrame(() => {
             setHoverValues({ ...pendingHoverRef.current });
             hoverRafRef.current = null;
           });
         }
-
-        chartsRef.current.forEach((targetChart, j) => {
-          if (j === i) return;
-          const targetSeries = mainSeriesRef.current[j];
-          if (!param.point || !param.time || !targetSeries) {
-            try { targetChart.clearCrosshairPosition(); } catch { }
-            return;
-          }
-          try {
-            const price = targetSeries.coordinateToPrice(param.point.y);
-            if (price !== null)
-              targetChart.setCrosshairPosition(price, param.time, targetSeries);
-          } catch { }
-        });
       });
     });
 
@@ -497,7 +570,11 @@ export default function MinerviniTrendPage() {
     return () => {
       if (hoverRafRef.current !== null) { cancelAnimationFrame(hoverRafRef.current); hoverRafRef.current = null; }
       ro.disconnect();
-      chartsRef.current.forEach((c) => c.remove());
+      chartsRef.current.forEach((c) => {
+        if (c) {
+          try { c.remove(); } catch { }
+        }
+      });
       chartsRef.current = [];
     };
   }, [chartData, selectedAverages]);
@@ -605,164 +682,106 @@ export default function MinerviniTrendPage() {
 
   return (
     <div className="w-full h-screen flex flex-col bg-slate-50 overflow-hidden mb-12" style={{ fontFamily: '"DM Sans", sans-serif' }}>
-      <BreadthTabs />
+      <BreadthTabs>
+        <div className="flex items-center gap-2.5 flex-shrink-0 mr-2">
 
-      <header className="bg-white border-b border-slate-200 flex-shrink-0 z-50" style={{ boxShadow: '0 1px 3px rgba(15,23,42,0.04)' }}>
-        <div className="w-full px-5 h-[60px] flex items-center justify-between gap-6">
-
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <div className="w-[34px] h-[34px] bg-slate-50 border border-slate-200 rounded-[9px] flex items-center justify-center flex-shrink-0">
-              <svg width="16" height="16" viewBox="0 0 20 18" fill="none">
-                <polyline points="1,14 6,8 10,11 14,4 19,7" fill="none" stroke="#4472C4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-[14px] font-bold text-slate-900 tracking-tight m-0">Minervini Trend</h1>
-                <span className="text-slate-300">/</span>
-                <span className="text-[12px] text-slate-500">Screener Analysis</span>
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded ml-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block"
-                    style={{ opacity: tick % 2 === 0 ? 1 : 0.25, transition: 'opacity 0.5s ease' }} />
-                  Live
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400 mt-0.5 leading-none">Historical stock count per Minervini screener over time</p>
-            </div>
+          <div className="flex bg-slate-50 border border-slate-200 p-0.5 rounded-[9px] gap-0.5">
+            {['5D', '1M', '6M', '1Y', '5Y', '10Y', 'ALL'].map((p) => (
+              <button key={p} onClick={() => setPeriod(p)} disabled={loading}
+                className={['px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all border-none cursor-pointer',
+                  period === p ? 'bg-white text-slate-900 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700',
+                  loading ? 'opacity-50' : ''].join(' ')}>
+                {p}
+              </button>
+            ))}
           </div>
 
-          <div className="flex items-center gap-2.5">
-
-            <div className="flex bg-slate-50 border border-slate-200 p-0.5 rounded-[9px] gap-0.5">
-              {['5D', '1M', '6M', '1Y', '5Y', '10Y', 'ALL'].map((p) => (
-                <button key={p} onClick={() => setPeriod(p)} disabled={loading}
-                  className={['px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all border-none cursor-pointer',
-                    period === p ? 'bg-white text-slate-900 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700',
-                    loading ? 'opacity-50' : ''].join(' ')}>
-                  {p}
-                </button>
-              ))}
-            </div>
-
-            <label className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-[9px] px-2.5 py-1.5 text-[11px] text-slate-600">
-                <span className="text-slate-400">From</span>
-                <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="bg-transparent border-none outline-none text-[11px] text-slate-700"
-                />
-            </label>
-
-            <label className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-[9px] px-2.5 py-1.5 text-[11px] text-slate-600">
-                <span className="text-slate-400">To</span>
-                <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="bg-transparent border-none outline-none text-[11px] text-slate-700"
-                />
-            </label>
-
-            <button
-                onClick={() => {
-                    setStartDate('');
-                    setEndDate('');
-                }}
-                className="px-2.5 py-1.5 rounded-[9px] border border-slate-200 bg-white text-[11px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
-            >
-                Clear
-            </button>
-
-            <div className="flex items-center bg-slate-50 border border-slate-200 rounded-[9px] px-3.5 py-2 gap-4">
-              {CHART_CONFIGS.map((cfg, i) => {
-                const val = latest ? latest[cfg.key] : 0;
-                return (
-                  <div key={cfg.key} className={i > 0 ? 'pl-4 border-l border-slate-100' : ''}>
-                    <div className="flex items-center gap-1 mb-0.5">
-                      <span className="w-[6px] h-[6px] rounded-[2px] inline-block flex-shrink-0" style={{ background: cfg.lineColor }} />
-                      <span className="text-[9px] text-slate-400 font-medium tracking-wide">{cfg.badge}</span>
-                    </div>
-                    <div className="flex items-baseline gap-0.5">
-                      <span className="text-[18px] font-bold text-slate-900 leading-none tracking-tight">{val}</span>
-                      <span className="text-[10px] text-slate-400">stk</span>
-                    </div>
-                  </div>
-                );
-              })}
-              {dateRange && (
-                <div className="pl-4 border-l border-slate-100 flex items-center gap-1.5">
-                  <Calendar size={10} className="text-slate-400" />
-                  <div>
-                    <div className="text-[9px] text-slate-400 font-medium tracking-wide">RANGE</div>
-                    <div className="text-[10px] font-semibold text-slate-600">{data[0].time} — {data[data.length - 1].time}</div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <button onClick={fitAll} title="Fit all charts"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-medium text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
-              <Scan size={13} />
-              Fit All
-            </button>
-
-            <MinerviniExportButton
-              data={data}
-              period={period}
-              captureRef={pageRef}
+          <label className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-[9px] px-2.5 py-1.5 text-[11px] text-slate-600">
+            <span className="text-slate-400">From</span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="bg-transparent border-none outline-none text-[11px] text-slate-700"
             />
+          </label>
 
-            {exportOpen && (
-              <div className="absolute top-[calc(100%+6px)] right-0 min-w-[210px] bg-white border border-slate-200 rounded-xl overflow-hidden z-[999]"
-                style={{ boxShadow: '0 8px 24px rgba(15,23,42,0.10)' }}>
-                <div className="px-3.5 py-2 text-[10px] text-slate-400 uppercase tracking-widest font-semibold border-b border-slate-100">Export as</div>
-                {[
-                  { icon: <FileText size={13} color="#B02040" />, bg: '#FEF2F2', label: 'PDF Report', sub: 'Full page with all charts', action: exportPDF },
-                  { icon: <ImgIcon size={13} color="#4338CA" />, bg: '#EEF2FF', label: 'PNG Image', sub: 'Screenshot of the dashboard', action: exportImage },
-                  null,
-                  { icon: <Table2 size={13} color="#166534" />, bg: '#F0FFF4', label: 'Excel / CSV', sub: 'Raw trend data table', action: exportExcel },
-                ].map((item, idx) =>
-                  item === null ? (
-                    <div key={idx} className="h-px bg-slate-100 mx-3.5 my-1" />
-                  ) : (
-                    <button key={idx} onClick={item.action}
-                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 hover:bg-slate-50 transition-colors text-left cursor-pointer border-none bg-transparent">
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: item.bg }}>{item.icon}</div>
-                      <div>
-                        <div className="text-[13px] font-medium text-slate-800">{item.label}</div>
-                        <div className="text-[11px] text-slate-400">{item.sub}</div>
-                      </div>
-                    </button>
-                  )
-                )}
-                <div className="px-3.5 pb-3">
-                  <div className="text-[10px] text-slate-400 bg-slate-50 rounded-md px-2.5 py-1.5 leading-relaxed">Exports all 3 Minervini trend charts</div>
-                </div>
-              </div>
-            )}
+          <label className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-[9px] px-2.5 py-1.5 text-[11px] text-slate-600">
+            <span className="text-slate-400">To</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="bg-transparent border-none outline-none text-[11px] text-slate-700"
+            />
+          </label>
 
-            {exportStatus && (
-              <div className="absolute top-[calc(100%+6px)] right-0 flex items-center gap-2 px-3.5 py-2.5 bg-white border border-slate-200 rounded-lg z-[1000] text-xs text-slate-800 whitespace-nowrap"
-                style={{ boxShadow: '0 4px 12px rgba(15,23,42,0.08)' }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0F7A5A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                {exportStatus}
+          <button
+            onClick={() => {
+              setStartDate('');
+              setEndDate('');
+            }}
+            className="px-2.5 py-1.5 rounded-[9px] border border-slate-200 bg-white text-[11px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+          >
+            Clear
+          </button>
+
+          <button onClick={fitAll} title="Fit all charts"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-medium text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
+            <Scan size={13} />
+            Fit All
+          </button>
+
+          <MinerviniExportButton
+            data={data}
+            period={period}
+            captureRef={pageRef}
+          />
+
+          {exportOpen && (
+            <div className="absolute top-[calc(100%+6px)] right-0 min-w-[210px] bg-white border border-slate-200 rounded-xl overflow-hidden z-[999]"
+              style={{ boxShadow: '0 8px 24px rgba(15,23,42,0.10)' }}>
+              <div className="px-3.5 py-2 text-[10px] text-slate-400 uppercase tracking-widest font-semibold border-b border-slate-100">Export as</div>
+              {[
+                { icon: <FileText size={13} color="#B02040" />, bg: '#FEF2F2', label: 'PDF Report', sub: 'Full page with all charts', action: exportPDF },
+                { icon: <ImgIcon size={13} color="#4338CA" />, bg: '#EEF2FF', label: 'PNG Image', sub: 'Screenshot of the dashboard', action: exportImage },
+                null,
+                { icon: <Table2 size={13} color="#166534" />, bg: '#F0FFF4', label: 'Excel / CSV', sub: 'Raw trend data table', action: exportExcel },
+              ].map((item, idx) =>
+                item === null ? (
+                  <div key={idx} className="h-px bg-slate-100 mx-3.5 my-1" />
+                ) : (
+                  <button key={idx} onClick={item.action}
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 hover:bg-slate-50 transition-colors text-left cursor-pointer border-none bg-transparent">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: item.bg }}>{item.icon}</div>
+                    <div>
+                      <div className="text-[13px] font-medium text-slate-800">{item.label}</div>
+                      <div className="text-[11px] text-slate-400">{item.sub}</div>
+                    </div>
+                  </button>
+                )
+              )}
+              <div className="px-3.5 pb-3">
+                <div className="text-[10px] text-slate-400 bg-slate-50 rounded-md px-2.5 py-1.5 leading-relaxed">Exports all 3 Minervini trend charts</div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {exportStatus && (
+            <div className="absolute top-[calc(100%+6px)] right-0 flex items-center gap-2 px-3.5 py-2.5 bg-white border border-slate-200 rounded-lg z-[1000] text-xs text-slate-800 whitespace-nowrap"
+              style={{ boxShadow: '0 4px 12px rgba(15,23,42,0.08)' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0F7A5A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              {exportStatus}
+            </div>
+          )}
         </div>
+      </BreadthTabs>
 
-        <div className="h-[2px]" style={{
-          background: 'linear-gradient(90deg, #4472C4 0%, #ED7D31 50%, #70AD47 100%)',
-          opacity: 0.4,
-        }} />
-      </header>
+      <main ref={pageRef} className="flex-1 min-h-0 flex flex-col w-full px-2 pt-1 pb-1 overflow-auto" style={{ flex: '1 1 0' }}>
 
-      <main ref={pageRef} className="flex-1 min-h-0 flex flex-col w-full px-4 pt-2 pb-2 overflow-hidden">
-
-        <div className="bg-white border border-slate-200 rounded-[9px] px-4 py-2 flex justify-between items-center mb-2 flex-shrink-0"
+        <div className="bg-white border border-slate-200 rounded-[9px] px-4 py-2 flex justify-between items-center mb-2 flex-shrink-0 flex-wrap gap-2"
           style={{ boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
           <div className="flex items-center gap-4 flex-wrap">
             {CHART_CONFIGS.map((cfg, i) => {
@@ -785,287 +804,172 @@ export default function MinerviniTrendPage() {
           <span className="text-[10px] text-slate-300 flex-shrink-0">{latest?.time || '—'}</span>
         </div>
 
-        <div className="flex-1 min-h-0 flex flex-col gap-2 relative overflow-hidden">
-          <div className="grid grid-cols-2 gap-2 flex-1 min-h-0">
-            {CHART_CONFIGS.slice(0, 2).map((cfg, idx) => {
-              const i = idx;
-              const Icon = cfg.icon;
-              const isVisible = seriesVisible[i] !== false;
-              const isFS = fullscreenIdx === i;
-              const hover = hoverValues[i];
-
-              const displayVal = hover?.value != null
-                ? hover.value.toLocaleString()
-                : latest ? latest[cfg.key].toLocaleString() : '—';
-
-              const numVal = latest ? latest[cfg.key] : 0;
-              const prev = data.length > 1 ? data[data.length - 2][cfg.key] : numVal;
-              const delta = Math.abs(numVal - prev);
-              const isUp = numVal >= prev;
-              const maxVal = Math.max(...data.map((d) => d[cfg.key]), 1);
-              const pct = Math.round((numVal / maxVal) * 100);
-
+        {/* ─── تغيير توزيع الشبكة: 2 في الأعلى و 2 في الأسفل ─── */}
+        <div
+          className="flex-1 min-h-0 grid grid-cols-6 gap-2"
+          style={{ gridTemplateRows: 'repeat(2, minmax(0, 1fr))' }}
+        >
+          {Array.from({ length: GRID_ITEM_COUNT }, (_, gridIdx) => {
+            /* ── cell 0: TASI Index ── */
+            if (gridIdx === 0) {
+              const gridCol = chartGridColClass(gridIdx);
               return (
-                <div key={cfg.key}
-                  ref={(el) => { cardRefs.current[i] = el; }}
-                  className={[
-                    "bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col transition-all duration-200",
-                    isFS
-                      ? "fixed inset-0 z-[200] rounded-none"
-                      : "relative min-h-0",
-                  ].join(" ")}
-                  style={{ borderLeft: `3px solid ${cfg.lineColor}`, boxShadow: isFS ? '0 0 0 4px rgba(0,0,0,0.15)' : '0 1px 3px rgba(15,23,42,0.05)' }}
+                <div
+                  key="tasi-chart"
+                  className={`${gridCol} bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col relative min-h-0 h-full`}
+                  style={{ boxShadow: '0 1px 3px rgba(15,23,42,0.05)' }}
                 >
-                  <div className="px-4 pt-2.5 pb-1.5 flex justify-between items-start flex-shrink-0">
-                    <div className="flex items-center gap-2">
-                      <div className="w-[30px] h-[30px] rounded-[8px] flex items-center justify-center flex-shrink-0" style={{ background: cfg.accentLight }}>
-                        <Icon size={14} color={cfg.lineColor} strokeWidth={2} />
-                      </div>
-                      <div>
-                        <div className="text-[12px] font-semibold text-slate-900 tracking-tight leading-none">{cfg.label} Trend</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5 tracking-wide leading-none">{cfg.sublabel}</div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-0.5">
-                      {isVisible && (
-                        <>
-                          <div className="flex items-baseline gap-0.5">
-                            <span className="text-[22px] font-bold leading-none tracking-tight"
-                              style={{ color: hover?.value != null ? cfg.lineColor : '#0F172A' }}>
-                              {displayVal}
-                            </span>
-                            <span className="text-[11px] text-slate-400 font-medium ml-0.5">stocks</span>
-                          </div>
-                          {hover?.time ? (
-                            <span className="text-[10px] text-slate-400 font-medium">{hover.time}</span>
-                          ) : (
-                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded tracking-wide ${isUp ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}>
-                              {isUp ? '▲' : '▼'} {delta}
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="px-4 pb-1.5 flex-shrink-0">
-                    <div className="flex justify-between mb-0.5">
-                      <span className="text-[9px] text-slate-300 uppercase tracking-widest font-medium">0</span>
-                      <span className="text-[9px] text-slate-300 uppercase tracking-widest font-medium">MAX · {maxVal}</span>
-                    </div>
-                    <div className="h-[4px] bg-slate-100 rounded-full relative overflow-hidden">
-                      <div className="absolute left-0 top-0 bottom-0 rounded-full transition-all duration-700"
-                        style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${cfg.lineColor}44, ${cfg.lineColor})` }} />
-                      {[25, 50, 75].map((t) => (
-                        <div key={t} className="absolute top-0 bottom-0 w-px bg-white/70 z-10" style={{ left: `${t}%` }} />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="px-3 py-1 flex items-center gap-1 border-y border-slate-100 flex-shrink-0">
-                    <div className="flex-1" />
-
-                    {(() => {
-                      const selectedSet = selectedAverages[i] || new Set<string>();
-                      const isAvg50 = selectedSet.has('avg50');
-                      const isAvg200 = selectedSet.has('avg200');
-                      return (
-                        <>
-                          <button onClick={() => toggleAvgKey(i, 'avg50')}
-                            className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border whitespace-nowrap"
-                            style={{ borderColor: isAvg50 ? AVG50_COLOR : '#E2E8F0', background: isAvg50 ? AVG50_COLOR : 'transparent', color: isAvg50 ? '#FFFFFF' : '#64748B' }}>
-                            AVG 50
-                          </button>
-
-                          <button onClick={() => toggleAvgKey(i, 'avg200')}
-                            className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border whitespace-nowrap"
-                            style={{ borderColor: isAvg200 ? AVG200_COLOR : '#E2E8F0', background: isAvg200 ? AVG200_COLOR : 'transparent', color: isAvg200 ? '#FFFFFF' : '#64748B' }}>
-                            AVG 200
-                          </button>
-                        </>
-                      );
-                    })()}
-
-                    <button onClick={() => setSeriesVisible((prev) => ({ ...prev, [i]: !prev[i] }))}
-                      title={isVisible ? 'Hide series' : 'Show series'}
-                      className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border flex items-center gap-1"
-                      style={{
-                        borderColor: !isVisible ? cfg.lineColor : '#E2E8F0',
-                        background: !isVisible ? cfg.lineColor : 'transparent',
-                        color: !isVisible ? '#FFFFFF' : '#64748B',
-                      }}>
-                      {isVisible ? <Eye size={9} /> : <EyeOff size={9} />}
-                      <span>Data</span>
-                    </button>
-
-                    <button onClick={() => chartsRef.current[i]?.timeScale().fitContent()}
-                      title="Fit to data"
-                      className="w-[24px] h-[24px] flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer bg-transparent">
-                      <Scan size={10} />
-                    </button>
-
-                    <button onClick={() => handleFullscreen(i)}
-                      className="w-[24px] h-[24px] flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer bg-transparent">
-                      {isFS ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
-                    </button>
-                  </div>
-
-                  <div className="flex-1 min-h-0 relative" style={{ minHeight: 0 }}>
-                    <div ref={(el) => { canvasRefs.current[i] = el; }} style={{ position: 'absolute', inset: 0 }} />
-                  </div>
-
-                  <div className="px-4 py-1 border-t border-slate-50 flex justify-between items-center flex-shrink-0">
-                    <span className="text-[9px] text-slate-300 leading-relaxed line-clamp-1">{cfg.desc}</span>
-                    <span className="text-[9px] text-slate-300 ml-3 flex-shrink-0 font-medium">
-                      {data.length.toLocaleString()} obs
-                      {chartData.length < data.length ? ` · chart ${chartData.length}` : ''}
-                    </span>
-                  </div>
+                  <TasiIndexChart
+                    period={period}
+                    startDate={startDate}
+                    endDate={endDate}
+                    onChartReady={handleTasiReady}
+                  />
                 </div>
               );
-            })}
-          </div>
+            }
 
-          <div className="flex-1 min-h-0">
-            {CHART_CONFIGS.slice(2, 3).map((cfg, idx) => {
-              const i = idx + 2;
-              const Icon = cfg.icon;
-              const isVisible = seriesVisible[i] !== false;
-              const isFS = fullscreenIdx === i;
-              const hover = hoverValues[i];
+            /* ── cells 1..3: المخططات الثلاثة Minervini ── */
+            const i = gridIdx - 1;
+            const cfg = CHART_CONFIGS[i];
+            const gridCol = chartGridColClass(gridIdx);
+            const Icon = cfg.icon;
+            const isVisible = seriesVisible[i] !== false;
+            const isFS = fullscreenIdx === i;
+            const hover = hoverValues[i];
 
-              const displayVal = hover?.value != null
-                ? hover.value.toLocaleString()
-                : latest ? latest[cfg.key].toLocaleString() : '—';
+            const displayVal = hover?.value != null
+              ? hover.value.toLocaleString()
+              : latest ? latest[cfg.key].toLocaleString() : '—';
 
-              const numVal = latest ? latest[cfg.key] : 0;
-              const prev = data.length > 1 ? data[data.length - 2][cfg.key] : numVal;
-              const delta = Math.abs(numVal - prev);
-              const isUp = numVal >= prev;
-              const maxVal = Math.max(...data.map((d) => d[cfg.key]), 1);
-              const pct = Math.round((numVal / maxVal) * 100);
+            const numVal = latest ? latest[cfg.key] : 0;
+            const prev = data.length > 1 ? data[data.length - 2][cfg.key] : numVal;
+            const delta = Math.abs(numVal - prev);
+            const isUp = numVal >= prev;
+            const maxVal = Math.max(...data.map((d) => d[cfg.key]), 1);
+            const pct = Math.round((numVal / maxVal) * 100);
 
-              return (
-                <div key={cfg.key}
-                  ref={(el) => { cardRefs.current[i] = el; }}
-                  className={[
-                    "bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col transition-all duration-200 h-full",
-                    isFS
-                      ? "fixed inset-0 z-[200] rounded-none"
-                      : "relative min-h-0",
-                  ].join(" ")}
-                  style={{ borderLeft: `3px solid ${cfg.lineColor}`, boxShadow: isFS ? '0 0 0 4px rgba(0,0,0,0.15)' : '0 1px 3px rgba(15,23,42,0.05)' }}
-                >
-                  <div className="px-4 pt-2.5 pb-1.5 flex justify-between items-start flex-shrink-0">
-                    <div className="flex items-center gap-2">
-                      <div className="w-[30px] h-[30px] rounded-[8px] flex items-center justify-center flex-shrink-0" style={{ background: cfg.accentLight }}>
-                        <Icon size={14} color={cfg.lineColor} strokeWidth={2} />
-                      </div>
-                      <div>
-                        <div className="text-[12px] font-semibold text-slate-900 tracking-tight leading-none">{cfg.label} Trend</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5 tracking-wide leading-none">{cfg.sublabel}</div>
-                      </div>
+            return (
+              <div key={gridIdx}
+                ref={(el) => { cardRefs.current[i] = el; }}
+                className={[
+                  gridCol,
+                  "bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col transition-all duration-200 h-full",
+                  isFS
+                    ? "fixed inset-0 z-[200] rounded-none"
+                    : "relative min-h-0",
+                ].join(" ")}
+                style={{ borderLeft: `3px solid ${cfg.lineColor}`, boxShadow: isFS ? '0 0 0 4px rgba(0,0,0,0.15)' : '0 1px 3px rgba(15,23,42,0.05)' }}
+              >
+                <div className="px-4 pt-2.5 pb-1.5 flex justify-between items-start flex-shrink-0">
+                  <div className="flex items-center gap-2">
+                    <div className="w-[30px] h-[30px] rounded-[8px] flex items-center justify-center flex-shrink-0" style={{ background: cfg.accentLight }}>
+                      <Icon size={14} color={cfg.lineColor} strokeWidth={2} />
                     </div>
-
-                    <div className="flex flex-col items-end gap-0.5">
-                      {isVisible && (
-                        <>
-                          <div className="flex items-baseline gap-0.5">
-                            <span className="text-[22px] font-bold leading-none tracking-tight"
-                              style={{ color: hover?.value != null ? cfg.lineColor : '#0F172A' }}>
-                              {displayVal}
-                            </span>
-                            <span className="text-[11px] text-slate-400 font-medium ml-0.5">stocks</span>
-                          </div>
-                          {hover?.time ? (
-                            <span className="text-[10px] text-slate-400 font-medium">{hover.time}</span>
-                          ) : (
-                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded tracking-wide ${isUp ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}>
-                              {isUp ? '▲' : '▼'} {delta}
-                            </span>
-                          )}
-                        </>
-                      )}
+                    <div>
+                      <div className="text-[12px] font-semibold text-slate-900 tracking-tight leading-none">{cfg.label} Trend</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5 tracking-wide leading-none">{cfg.sublabel}</div>
                     </div>
                   </div>
 
-                  <div className="px-4 pb-1.5 flex-shrink-0">
-                    <div className="flex justify-between mb-0.5">
-                      <span className="text-[9px] text-slate-300 uppercase tracking-widest font-medium">0</span>
-                      <span className="text-[9px] text-slate-300 uppercase tracking-widest font-medium">MAX · {maxVal}</span>
-                    </div>
-                    <div className="h-[4px] bg-slate-100 rounded-full relative overflow-hidden">
-                      <div className="absolute left-0 top-0 bottom-0 rounded-full transition-all duration-700"
-                        style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${cfg.lineColor}44, ${cfg.lineColor})` }} />
-                      {[25, 50, 75].map((t) => (
-                        <div key={t} className="absolute top-0 bottom-0 w-px bg-white/70 z-10" style={{ left: `${t}%` }} />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="px-3 py-1 flex items-center gap-1 border-y border-slate-100 flex-shrink-0">
-                    <div className="flex-1" />
-                    {(() => {
-                      const selectedSet = selectedAverages[i] || new Set<string>();
-                      const isAvg50 = selectedSet.has('avg50');
-                      const isAvg200 = selectedSet.has('avg200');
-                      return (
-                        <>
-                          <button onClick={() => toggleAvgKey(i, 'avg50')}
-                            className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border whitespace-nowrap"
-                            style={{ borderColor: isAvg50 ? AVG50_COLOR : '#E2E8F0', background: isAvg50 ? AVG50_COLOR : 'transparent', color: isAvg50 ? '#FFFFFF' : '#64748B' }}>
-                            AVG 50
-                          </button>
-
-                          <button onClick={() => toggleAvgKey(i, 'avg200')}
-                            className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border whitespace-nowrap"
-                            style={{ borderColor: isAvg200 ? AVG200_COLOR : '#E2E8F0', background: isAvg200 ? AVG200_COLOR : 'transparent', color: isAvg200 ? '#FFFFFF' : '#64748B' }}>
-                            AVG 200
-                          </button>
-                        </>
-                      );
-                    })()}
-
-                    <button onClick={() => setSeriesVisible((prev) => ({ ...prev, [i]: !prev[i] }))}
-                      title={isVisible ? 'Hide series' : 'Show series'}
-                      className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border flex items-center gap-1"
-                      style={{
-                        borderColor: !isVisible ? cfg.lineColor : '#E2E8F0',
-                        background: !isVisible ? cfg.lineColor : 'transparent',
-                        color: !isVisible ? '#FFFFFF' : '#64748B',
-                      }}>
-                      {isVisible ? <Eye size={9} /> : <EyeOff size={9} />}
-                      <span>Data</span>
-                    </button>
-
-                    <button onClick={() => chartsRef.current[i]?.timeScale().fitContent()}
-                      title="Fit to data"
-                      className="w-[24px] h-[24px] flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer bg-transparent">
-                      <Scan size={10} />
-                    </button>
-
-                    <button onClick={() => handleFullscreen(i)}
-                      className="w-[24px] h-[24px] flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer bg-transparent">
-                      {isFS ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
-                    </button>
-                  </div>
-
-                  <div className="flex-1 min-h-0 relative" style={{ minHeight: 0 }}>
-                    <div ref={(el) => { canvasRefs.current[i] = el; }} style={{ position: 'absolute', inset: 0 }} />
-                  </div>
-
-                  <div className="px-4 py-1 border-t border-slate-50 flex justify-between items-center flex-shrink-0">
-                    <span className="text-[9px] text-slate-300 leading-relaxed line-clamp-1">{cfg.desc}</span>
-                    <span className="text-[9px] text-slate-300 ml-3 flex-shrink-0 font-medium">
-                      {data.length.toLocaleString()} obs
-                      {chartData.length < data.length ? ` · chart ${chartData.length}` : ''}
-                    </span>
+                  <div className="flex flex-col items-end gap-0.5">
+                    {isVisible && (
+                      <>
+                        <div className="flex items-baseline gap-0.5">
+                          <span className="text-[22px] font-bold leading-none tracking-tight"
+                            style={{ color: hover?.value != null ? cfg.lineColor : '#0F172A' }}>
+                            {displayVal}
+                          </span>
+                          <span className="text-[11px] text-slate-400 font-medium ml-0.5">stocks</span>
+                        </div>
+                        {hover?.time ? (
+                          <span className="text-[10px] text-slate-400 font-medium">{hover.time}</span>
+                        ) : (
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded tracking-wide ${isUp ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}>
+                            {isUp ? '▲' : '▼'} {delta}
+                          </span>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+
+                <div className="px-4 pb-1.5 flex-shrink-0">
+                  <div className="flex justify-between mb-0.5">
+                    <span className="text-[9px] text-slate-300 uppercase tracking-widest font-medium">0</span>
+                    <span className="text-[9px] text-slate-300 uppercase tracking-widest font-medium">MAX · {maxVal}</span>
+                  </div>
+                  <div className="h-[4px] bg-slate-100 rounded-full relative overflow-hidden">
+                    <div className="absolute left-0 top-0 bottom-0 rounded-full transition-all duration-700"
+                      style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${cfg.lineColor}44, ${cfg.lineColor})` }} />
+                    {[25, 50, 75].map((t) => (
+                      <div key={t} className="absolute top-0 bottom-0 w-px bg-white/70 z-10" style={{ left: `${t}%` }} />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="px-3 py-1 flex items-center gap-1 border-y border-slate-100 flex-shrink-0">
+                  <div className="flex-1" />
+
+                  {(() => {
+                    const selectedSet = selectedAverages[i] || new Set<string>();
+                    const isAvg50 = selectedSet.has('avg50');
+                    const isAvg200 = selectedSet.has('avg200');
+                    return (
+                      <>
+                        <button onClick={() => toggleAvgKey(i, 'avg50')}
+                          className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border whitespace-nowrap"
+                          style={{ borderColor: isAvg50 ? AVG50_COLOR : '#E2E8F0', background: isAvg50 ? AVG50_COLOR : 'transparent', color: isAvg50 ? '#FFFFFF' : '#64748B' }}>
+                          AVG 50
+                        </button>
+
+                        <button onClick={() => toggleAvgKey(i, 'avg200')}
+                          className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border whitespace-nowrap"
+                          style={{ borderColor: isAvg200 ? AVG200_COLOR : '#E2E8F0', background: isAvg200 ? AVG200_COLOR : 'transparent', color: isAvg200 ? '#FFFFFF' : '#64748B' }}>
+                          AVG 200
+                        </button>
+                      </>
+                    );
+                  })()}
+
+                  <button onClick={() => setSeriesVisible((prev) => ({ ...prev, [i]: !prev[i] }))}
+                    title={isVisible ? 'Hide series' : 'Show series'}
+                    className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border flex items-center gap-1"
+                    style={{
+                      borderColor: !isVisible ? cfg.lineColor : '#E2E8F0',
+                      background: !isVisible ? cfg.lineColor : 'transparent',
+                      color: !isVisible ? '#FFFFFF' : '#64748B',
+                    }}>
+                    {isVisible ? <Eye size={9} /> : <EyeOff size={9} />}
+                    <span>Data</span>
+                  </button>
+
+                  <button onClick={() => chartsRef.current[i]?.timeScale().fitContent()}
+                    title="Fit to data"
+                    className="w-[24px] h-[24px] flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer bg-transparent">
+                    <Scan size={10} />
+                  </button>
+
+                  <button onClick={() => handleFullscreen(i)}
+                    className="w-[24px] h-[24px] flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer bg-transparent">
+                    {isFS ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
+                  </button>
+                </div>
+
+                <div className="flex-1 min-h-0 relative" style={{ minHeight: 0 }}>
+                  <div ref={(el) => { canvasRefs.current[i] = el; }} style={{ position: 'absolute', inset: 0 }} />
+                </div>
+
+                <div className="px-4 py-1 border-t border-slate-50 flex justify-between items-center flex-shrink-0">
+                  <span className="text-[9px] text-slate-300 leading-relaxed line-clamp-1">{cfg.desc}</span>
+                  <span className="text-[9px] text-slate-300 ml-3 flex-shrink-0 font-medium">
+                    {data.length.toLocaleString()} obs
+                    {chartData.length < data.length ? ` · chart ${chartData.length}` : ''}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         <div className="mt-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg flex justify-between items-center text-[9px] text-slate-300 tracking-wide flex-shrink-0">

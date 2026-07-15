@@ -19,5 +19,5 @@ export function simpleMovingAverage(values: number[], window: number): (number |
 export function seriesMovingAverage<T extends { time: string }>(data: T[], accessor: (d: T) => number, window: number) {
     const vals = data.map(accessor);
     const ma = simpleMovingAverage(vals, window);
-    return data.map((d, i) => ({ time: d.time, value: ma[i] }));
+    return data.map((d, i) => ma[i] != null ? { time: d.time, value: ma[i] as number } : { time: d.time });
 }
