@@ -191,6 +191,11 @@ export default function MinerviniTrendPage() {
   const [endDate, setEndDate] = useState('');
   const [seriesVisible, setSeriesVisible] = useState<Record<number, boolean>>({ 0: true, 1: true, 2: true });
   const [selectedAverages, setSelectedAverages] = useState<Record<number, Set<string>>>({});
+  // ─── جديد: حالة موحدة لأزرار AVG 50 / AVG 200 اللي بتتحكم في كل المخططات مرة واحدة ───
+  const [globalAvg, setGlobalAvg] = useState<{ avg50: boolean; avg200: boolean }>({
+    avg50: false,
+    avg200: false,
+  });
   const [fullscreenIdx, setFullscreenIdx] = useState<number | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
@@ -212,11 +217,16 @@ export default function MinerviniTrendPage() {
   const hoverRafRef = useRef<number | null>(null);
   const pendingHoverRef = useRef<Record<number, HoverEntry>>({});
 
+  // ─── مراجع خاصة بمزامنة TASI مع باقي المخططات ───
   const tasiChartRef = useRef<IChartApi | null>(null);
+  const tasiSeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
+  const chartDataRef = useRef<TrendDataPoint[]>([]);
 
-  const handleTasiReady = useCallback((chart: IChartApi, _series: ISeriesApi<"Area">) => {
+  const handleTasiReady = useCallback((chart: IChartApi, series: ISeriesApi<"Area">) => {
     tasiChartRef.current = chart;
+    tasiSeriesRef.current = series;
 
+    // مزامنة الـ range (زوم/سكرول) - موجودة أصلاً
     chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
       if (!range || isSyncing.current || isRestoringRef.current) return;
       isSyncing.current = true;
@@ -224,6 +234,60 @@ export default function MinerviniTrendPage() {
         if (c) try { c.timeScale().setVisibleLogicalRange(range); } catch { }
       });
       setTimeout(() => { isSyncing.current = false; }, 0);
+    });
+
+    // ─── جديد: مزامنة الـ crosshair لما الماوس يتحرك فوق TASI ───
+    chart.subscribeCrosshairMove((param) => {
+      if (!param.point || !param.time) {
+        if (isSyncingCrosshair.current) return;
+        isSyncingCrosshair.current = true;
+        const emptyEntry: HoverEntry = { value: null, time: null };
+        const cleared: Record<number, HoverEntry> = {};
+        chartsRef.current.forEach((c, j) => {
+          cleared[j] = emptyEntry;
+          if (c) { try { c.clearCrosshairPosition(); } catch { } }
+        });
+        pendingHoverRef.current = cleared;
+        if (hoverRafRef.current === null) {
+          hoverRafRef.current = requestAnimationFrame(() => {
+            setHoverValues({ ...pendingHoverRef.current });
+            hoverRafRef.current = null;
+          });
+        }
+        isSyncingCrosshair.current = false;
+        return;
+      }
+
+      const timeStr =
+        typeof param.time === 'string'
+          ? param.time
+          : typeof param.time === 'number'
+            ? new Date((param.time as number) * 1000).toISOString().slice(0, 10)
+            : `${(param.time as any).year}-${String((param.time as any).month).padStart(2, '0')}-${String((param.time as any).day).padStart(2, '0')}`;
+
+      if (isSyncingCrosshair.current) return;
+      isSyncingCrosshair.current = true;
+
+      const dataItem = chartDataRef.current.find((d) => d.time === timeStr);
+
+      chartsRef.current.forEach((targetChart, j) => {
+        const targetSeries = mainSeriesRef.current[j];
+        if (!targetChart || !targetSeries || !dataItem) return;
+        try {
+          const price = dataItem[CHART_CONFIGS[j].key] as number;
+          targetChart.setCrosshairPosition(price, param.time!, targetSeries);
+          pendingHoverRef.current[j] = { value: price, time: timeStr };
+        } catch { }
+      });
+
+      isSyncingCrosshair.current = false;
+
+      if (hoverRafRef.current === null) {
+        hoverRafRef.current = requestAnimationFrame(() => {
+          setHoverValues({ ...pendingHoverRef.current });
+          hoverRafRef.current = null;
+        });
+      }
     });
   }, []);
 
@@ -274,6 +338,9 @@ export default function MinerviniTrendPage() {
 
   const chartData = useMemo(() => enrichWithMovingAverages(downsample(data, MAX_CHART_POINTS)), [data]);
 
+  // إبقاء نسخة حديثة من chartData في مرجع، عشان يقدر handleTasiReady يقرأها بدون ما يعيد الاشتراك
+  useEffect(() => { chartDataRef.current = chartData; }, [chartData]);
+
   const toggleAvgKey = (index: number, key: string) => {
     setSelectedAverages((prev) => {
       const next = { ...prev };
@@ -282,6 +349,24 @@ export default function MinerviniTrendPage() {
       else current.add(key);
       next[index] = current;
       return next;
+    });
+  };
+
+  // ─── جديد: تفعيل/تعطيل AVG 50 أو AVG 200 على كل المخططات مرة واحدة ───
+  const toggleGlobalAvg = (key: 'avg50' | 'avg200') => {
+    setGlobalAvg((prev) => {
+      const nextEnabled = !prev[key];
+      setSelectedAverages((prevSel) => {
+        const updated: Record<number, Set<string>> = {};
+        for (let idx = 0; idx < CHART_COUNT; idx += 1) {
+          const current = new Set(prevSel[idx] ?? []);
+          if (nextEnabled) current.add(key);
+          else current.delete(key);
+          updated[idx] = current;
+        }
+        return updated;
+      });
+      return { ...prev, [key]: nextEnabled };
     });
   };
 
@@ -463,6 +548,8 @@ export default function MinerviniTrendPage() {
             if (c && c !== chart) { try { c.clearCrosshairPosition(); } catch { } }
           });
           pendingHoverRef.current = cleared;
+          // مسح الـ crosshair من TASI برضو لما نخرج من أي مخطط تاني
+          if (tasiChartRef.current) { try { tasiChartRef.current.clearCrosshairPosition(); } catch { } }
           if (hoverRafRef.current === null) {
             hoverRafRef.current = requestAnimationFrame(() => {
               setHoverValues({ ...pendingHoverRef.current });
@@ -510,6 +597,19 @@ export default function MinerviniTrendPage() {
               }
             } catch { }
           });
+
+          // ─── جديد: مزامنة الـ crosshair مع TASI باستخدام بيانات TASI الحقيقية ───
+          if (tasiChartRef.current && tasiSeriesRef.current) {
+            try {
+              const tasiData = (tasiSeriesRef.current as any).data?.() ?? [];
+              const tasiPoint = Array.isArray(tasiData)
+                ? tasiData.find((d: any) => d.time === param.time || d.time === timeStr)
+                : null;
+              if (tasiPoint && 'value' in tasiPoint) {
+                tasiChartRef.current.setCrosshairPosition((tasiPoint as any).value, param.time!, tasiSeriesRef.current);
+              }
+            } catch { }
+          }
 
           isSyncingCrosshair.current = false;
         }
@@ -685,6 +785,30 @@ export default function MinerviniTrendPage() {
       <BreadthTabs>
         <div className="flex items-center gap-2.5 flex-shrink-0 mr-2">
 
+          {/* ─── جديد: أزرار AVG 50 / AVG 200 الموحدة لكل المخططات ─── */}
+          <div className="flex bg-slate-50 border border-slate-200 p-0.5 rounded-[9px] gap-0.5">
+            <button
+              onClick={() => toggleGlobalAvg('avg50')}
+              className="px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all border-none cursor-pointer"
+              style={{
+                background: globalAvg.avg50 ? AVG50_COLOR : 'transparent',
+                color: globalAvg.avg50 ? '#FFFFFF' : '#64748B',
+              }}
+            >
+              AVG 50
+            </button>
+            <button
+              onClick={() => toggleGlobalAvg('avg200')}
+              className="px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all border-none cursor-pointer"
+              style={{
+                background: globalAvg.avg200 ? AVG200_COLOR : 'transparent',
+                color: globalAvg.avg200 ? '#FFFFFF' : '#64748B',
+              }}
+            >
+              AVG 200
+            </button>
+          </div>
+
           <div className="flex bg-slate-50 border border-slate-200 p-0.5 rounded-[9px] gap-0.5">
             {['5D', '1M', '6M', '1Y', '5Y', '10Y', 'ALL'].map((p) => (
               <button key={p} onClick={() => setPeriod(p)} disabled={loading}
@@ -824,6 +948,8 @@ export default function MinerviniTrendPage() {
                     startDate={startDate}
                     endDate={endDate}
                     onChartReady={handleTasiReady}
+                    globalAvg50={globalAvg.avg50}
+                    globalAvg200={globalAvg.avg200}
                   />
                 </div>
               );

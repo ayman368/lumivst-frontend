@@ -16,6 +16,8 @@ interface TasiIndexChartProps {
     startDate?: string;
     endDate?: string;
     onChartReady?: (chart: IChartApi, series: ISeriesApi<"Area">) => void;
+    globalAvg50?: boolean;
+    globalAvg200?: boolean;
 }
 
 const PERIOD_DAYS: Record<string, number | null> = {
@@ -31,7 +33,7 @@ const PERIOD_DAYS: Record<string, number | null> = {
 const AVG50_COLOR = '#E02020';
 const AVG200_COLOR = '#1A1A1A';
 
-export default function TasiIndexChart({ period, startDate, endDate, onChartReady }: TasiIndexChartProps) {
+export default function TasiIndexChart({ period, startDate, endDate, onChartReady, globalAvg50, globalAvg200 }: TasiIndexChartProps) {
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const cardRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
@@ -45,6 +47,15 @@ export default function TasiIndexChart({ period, startDate, endDate, onChartRead
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [hoverTime, setHoverTime] = useState<string | null>(null);
     const [hoverValue, setHoverValue] = useState<number | null>(null);
+
+    // Sync global averages
+    useEffect(() => {
+        if (globalAvg50 !== undefined) setShowAvg50(globalAvg50);
+    }, [globalAvg50]);
+
+    useEffect(() => {
+        if (globalAvg200 !== undefined) setShowAvg200(globalAvg200);
+    }, [globalAvg200]);
 
     // Fetch ALL data once
     useEffect(() => {

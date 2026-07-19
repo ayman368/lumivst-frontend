@@ -240,6 +240,27 @@ const TOTAL_CHART_COUNT = MA_CHART_COUNT + EXTRA_PANELS.length + MINERVINI_CHART
 // 9 (3×3) + 2 = 11 → rows of 3, 3, 3, 2.
 const GRID_ITEM_COUNT = TOTAL_CHART_COUNT + 1;
 
+/* ── Helper: resolve the AVG50 / AVG200 selectedAverages keys for any chart index.
+   Used by the per-chart toggle buttons AND by the new global AVG50/AVG200 toggles,
+   so both stay perfectly in sync (same key strings). ── */
+function getAvgKeysForIndex(i: number): { avg50Key: string; avg200Key: string } {
+    if (i < MA_CHART_COUNT) {
+        const cfg = CHART_CONFIGS[i];
+        return { avg50Key: cfg.avgKeys[0], avg200Key: cfg.avgKeys[1] };
+    }
+    const extraIdx = i - MA_CHART_COUNT;
+    if (extraIdx < EXTRA_PANELS.length) {
+        const panel = EXTRA_PANELS[extraIdx];
+        return { avg50Key: `avg50_${panel.kind}`, avg200Key: `avg200_${panel.kind}` };
+    }
+    const minIdx = i - MA_CHART_COUNT - EXTRA_PANELS.length;
+    if (minIdx >= 0 && minIdx < MINERVINI_CONFIGS.length) {
+        const cfg = MINERVINI_CONFIGS[minIdx];
+        return { avg50Key: `avg50_${cfg.key}`, avg200Key: `avg200_${cfg.key}` };
+    }
+    return { avg50Key: '', avg200Key: '' };
+}
+
 /* ─── Component ─────────────────────────────────────────────────────────── */
 
 function MarketBreadthContent() {
@@ -271,6 +292,10 @@ function MarketBreadthContent() {
     const [adShowPercent, setAdShowPercent] = useState(false);
     const [hoverValues, setHoverValues] = useState<Record<number, HoverEntry>>({});
 
+    /* ── global AVG 50 / AVG 200 toggles — apply across every chart at once ── */
+    const [globalAvg50, setGlobalAvg50] = useState(false);
+    const [globalAvg200, setGlobalAvg200] = useState(false);
+
     /* ── refs ── */
     const pageRef = useRef<HTMLDivElement>(null);
     const isRestoringRef = useRef(false);
@@ -290,9 +315,11 @@ function MarketBreadthContent() {
     const lastValueUpdateRef = useRef(false);
 
     const tasiChartRef = useRef<IChartApi | null>(null);
+    const tasiSeriesRef = useRef<ISeriesApi<'Area'> | null>(null); // ← جديد: نحتفظ بسيريز تاسي عشان نقدر نقرأ منه ونزامن معاه
 
-    const handleTasiReady = useCallback((chart: IChartApi, _series: ISeriesApi<"Area">) => {
+    const handleTasiReady = useCallback((chart: IChartApi, series: ISeriesApi<"Area">) => {
         tasiChartRef.current = chart;
+        tasiSeriesRef.current = series; // ← جديد
 
         chart.timeScale().subscribeVisibleTimeRangeChange((range) => {
             if (!range || isSyncing.current || isRestoringRef.current) return;
@@ -301,6 +328,75 @@ function MarketBreadthContent() {
                 if (c) try { c.timeScale().setVisibleRange(range); } catch { }
             });
             setTimeout(() => { isSyncing.current = false; }, 0);
+        });
+
+        /* ── جديد: مزامنة crosshair من تاسي → باقي الشارتات ── */
+        chart.subscribeCrosshairMove((param) => {
+            if (isSyncingCrosshair.current) return; // ده سنك جاي من شارت تاني، متعملش دورة
+
+            /* مفيش hover حالي (الماوس خرج من الشارت) */
+            if (!param.point || !param.time) {
+                isSyncingCrosshair.current = true;
+                chartsRef.current.forEach((c) => {
+                    if (c) try { c.clearCrosshairPosition(); } catch { }
+                });
+                isSyncingCrosshair.current = false;
+                return;
+            }
+
+            const timeStr =
+                typeof param.time === 'string'
+                    ? param.time
+                    : typeof param.time === 'number'
+                        ? String(param.time)
+                        : `${(param.time as any).year}-${String((param.time as any).month).padStart(2, '0')}-${String((param.time as any).day).padStart(2, '0')}`;
+
+            isSyncingCrosshair.current = true;
+            const updatedEntries: Record<number, HoverEntry> = {};
+
+            chartsRef.current.forEach((targetChart, j) => {
+                if (!targetChart) return;
+                const targetSeries = mainSeriesRef.current[j];
+                if (!targetSeries) return;
+                try {
+                    const seriesData: any[] = targetSeries.data() as any[];
+                    const item = seriesData.find((d) => d.time === timeStr);
+                    if (item && item.value != null) {
+                        targetChart.setCrosshairPosition(item.value, param.time!, targetSeries);
+
+                        let secondary: number | null = null;
+                        const secSeries = secondarySeriesRef.current[j];
+                        if (secSeries) {
+                            const secItem: any = (secSeries.data() as any[]).find((d) => d.time === timeStr);
+                            if (secItem) secondary = secItem.value;
+                        }
+                        let avg50: number | null = null;
+                        const avg50S = avg50SeriesRef.current[j];
+                        if (avg50S) {
+                            const a: any = (avg50S.data() as any[]).find((d) => d.time === timeStr);
+                            if (a) avg50 = a.value;
+                        }
+                        let avg200: number | null = null;
+                        const avg200S = avg200SeriesRef.current[j];
+                        if (avg200S) {
+                            const a: any = (avg200S.data() as any[]).find((d) => d.time === timeStr);
+                            if (a) avg200 = a.value;
+                        }
+
+                        updatedEntries[j] = { main: item.value, secondary, avg50, avg200, time: timeStr };
+                    }
+                } catch { }
+            });
+
+            pendingHoverRef.current = { ...pendingHoverRef.current, ...updatedEntries };
+            isSyncingCrosshair.current = false;
+
+            if (hoverRafRef.current === null) {
+                hoverRafRef.current = requestAnimationFrame(() => {
+                    setHoverValues({ ...pendingHoverRef.current });
+                    hoverRafRef.current = null;
+                });
+            }
         });
     }, []);
 
@@ -317,15 +413,6 @@ function MarketBreadthContent() {
     useEffect(() => {
         const controllers: AbortController[] = [];
         let cancelled = false;
-
-        /**
-         * Strategy (like Bloomberg/TradingView):
-         *  Phase 1 — Try the bundled /dashboard endpoint with a SHORT timeout (15s).
-         *            On warm cache this returns instantly with all 4 datasets.
-         *  Phase 2 — If phase 1 fails (cold cache → timeout/ECONNRESET),
-         *            fire 4 individual lightweight requests in parallel.
-         *            Each chart renders as soon as its data arrives (progressive).
-         */
 
         function sortAndDedupeByTime<T extends { time: string }>(items: T[]): T[] {
             const map = new Map<string, T>();
@@ -358,7 +445,6 @@ function MarketBreadthContent() {
                 }))
             );
 
-        // ── helper: fetch with timeout, retry, and per-section state ──
         const fetchWithRetry = async (
             url: string, timeoutMs: number, retries: number,
             signal?: AbortSignal,
@@ -367,7 +453,6 @@ function MarketBreadthContent() {
                 const ctrl = new AbortController();
                 controllers.push(ctrl);
                 const tid = setTimeout(() => ctrl.abort(), timeoutMs);
-                // link parent signal
                 if (signal) signal.addEventListener('abort', () => ctrl.abort(), { once: true });
                 try {
                     const res = await fetch(url, { signal: ctrl.signal });
@@ -376,9 +461,9 @@ function MarketBreadthContent() {
                     return await res.json();
                 } catch (e: any) {
                     clearTimeout(tid);
-                    if (e.name === 'AbortError' && signal?.aborted) throw e; // parent cancelled
+                    if (e.name === 'AbortError' && signal?.aborted) throw e;
                     if (attempt === retries) throw e;
-                    await new Promise((r) => setTimeout(r, 800)); // brief pause before retry
+                    await new Promise((r) => setTimeout(r, 800));
                 }
             }
         };
@@ -392,19 +477,14 @@ function MarketBreadthContent() {
         }
         const dashUrl = `${API_BASE_URL}/api/market-breadth/dashboard?${params.toString()}`;
 
-        // Reset all sections to loading
         setSectionLoading({ ma: true, ad: true, alhussain: true, trend: true });
         setSectionError({ ma: null, ad: null, alhussain: null, trend: null });
 
         const run = async () => {
-            // ═══════════════════════════════════════════════════════
-            // PHASE 1 — fast dashboard attempt (15s timeout, 0 retries)
-            // ═══════════════════════════════════════════════════════
             try {
                 const json = await fetchWithRetry(dashUrl, 15_000, 0);
                 if (cancelled) return;
 
-                // Dashboard returned successfully (cache hit or fast cold)
                 const maData = json.ma_breadth?.data || [];
                 const adItems = transformAD(json.ad_rating?.data || []);
                 const alhItems = transformAlh(json.alhussain?.data || []);
@@ -416,16 +496,11 @@ function MarketBreadthContent() {
                 setTrendData(trendItems);
                 setSectionLoading({ ma: false, ad: false, alhussain: false, trend: false });
                 setSectionError({ ma: null, ad: null, alhussain: null, trend: null });
-                return; // all done
+                return;
             } catch {
-                // Dashboard failed (cold cache timeout) → fall through to phase 2
                 if (cancelled) return;
             }
 
-            // ═══════════════════════════════════════════════════════
-            // PHASE 2 — parallel individual requests (60s each, 1 retry)
-            //           each section renders independently as it arrives
-            // ═══════════════════════════════════════════════════════
             const indParams = new URLSearchParams();
             if (period) indParams.set('period', period);
             if (startDate) indParams.set('start_date', startDate);
@@ -434,7 +509,6 @@ function MarketBreadthContent() {
                 indParams.set('approval_with_controls', shariahSelected.join(','));
             }
 
-            // MA Breadth (from pre-aggregated table — fast)
             const fetchMA = async () => {
                 try {
                     const json = await fetchWithRetry(
@@ -451,7 +525,6 @@ function MarketBreadthContent() {
                 }
             };
 
-            // A/D Rating
             const fetchAD = async () => {
                 try {
                     const json = await fetchWithRetry(
@@ -468,7 +541,6 @@ function MarketBreadthContent() {
                 }
             };
 
-            // Alhussain
             const fetchAlh = async () => {
                 try {
                     const json = await fetchWithRetry(
@@ -485,17 +557,13 @@ function MarketBreadthContent() {
                 }
             };
 
-            // Screener Trend (from screener_daily_trend_counts — fast)
             const fetchTrend = async () => {
                 try {
-                    // Use the dashboard endpoint one more time but with short data
-                    // Use the new /screener-trend endpoint
                     const json = await fetchWithRetry(
                         `${API_BASE_URL}/api/market-breadth/screener-trend?${indParams.toString()}&limit=3000`,
                         60_000, 1,
                     );
                     if (cancelled) return;
-                    // Extract only trend from the response
                     const trendItems = transformTrend(json?.data || []);
                     if (trendItems.length) setTrendData(trendItems);
                     setSectionError((p) => ({ ...p, trend: null }));
@@ -506,7 +574,6 @@ function MarketBreadthContent() {
                 }
             };
 
-            // Fire all 4 in parallel — each updates its own section independently
             await Promise.allSettled([fetchMA(), fetchAD(), fetchAlh(), fetchTrend()]);
         };
 
@@ -518,7 +585,6 @@ function MarketBreadthContent() {
         };
     }, [period, startDate, endDate, shariahSelected]);
 
-    // دالة مساعدة لتحديث آخر قيمة على الشارت
     const updateLastValues = useCallback(() => {
         if (!data.length || lastValueUpdateRef.current) return;
 
@@ -529,7 +595,6 @@ function MarketBreadthContent() {
             const mainSeries = mainSeriesRef.current[i];
             if (mainSeries && latest) {
                 try {
-                    // تحديث قيمة آخر يوم للخط الرئيسي
                     (mainSeries as any).update({
                         time: latest.time,
                         value: latest[cfg.key] as number,
@@ -537,7 +602,6 @@ function MarketBreadthContent() {
                 } catch (e) { }
             }
 
-            // تحديث قيمة آخر يوم لـ AVG 50
             const avg50Series = avg50SeriesRef.current[i];
             if (avg50Series && latest) {
                 try {
@@ -549,7 +613,6 @@ function MarketBreadthContent() {
                 } catch (e) { }
             }
 
-            // تحديث قيمة آخر يوم لـ AVG 200
             const avg200Series = avg200SeriesRef.current[i];
             if (avg200Series && latest) {
                 try {
@@ -721,7 +784,6 @@ function MarketBreadthContent() {
             );
             mainSeriesRef.current[i] = series;
 
-            // ── PriceLine ثابت لآخر قيمة (لا يتأثر بالـ crosshair أبداً) ──
             const lastVal = data[data.length - 1]?.[cfg.key] as number;
             if (lastVal != null && !isNaN(lastVal)) {
                 series.createPriceLine({
@@ -900,7 +962,6 @@ function MarketBreadthContent() {
             );
             mainSeriesRef.current[i] = series;
 
-            // add moving average overlays for Minervini charts when toggled
             const selSet = selectedAverages[i] || new Set<string>();
             const mv50Key = `avg50_${cfg.key}`;
             const mv200Key = `avg200_${cfg.key}`;
@@ -951,7 +1012,6 @@ function MarketBreadthContent() {
                 chartsRef.current.forEach((c, j) => {
                     if (j !== i && c) c.timeScale().setVisibleRange(range);
                 });
-                // Also sync to TASI chart
                 if (tasiChartRef.current) {
                     try { tasiChartRef.current.timeScale().setVisibleRange(range); } catch { }
                 }
@@ -976,7 +1036,7 @@ function MarketBreadthContent() {
 
                 /* ── mouse left / no data → clear everything ── */
                 if (!param.point || !param.time || !mainS) {
-                    if (isSyncingCrosshair.current) return;   // triggered by our own clear – ignore
+                    if (isSyncingCrosshair.current) return;
                     isSyncingCrosshair.current = true;
                     const emptyEntry: HoverEntry = { main: null, secondary: null, avg50: null, avg200: null, time: null };
                     const cleared: Record<number, HoverEntry> = {};
@@ -984,6 +1044,9 @@ function MarketBreadthContent() {
                         cleared[j] = emptyEntry;
                         if (c && c !== chart) { try { c.clearCrosshairPosition(); } catch { } }
                     });
+                    if (tasiChartRef.current && tasiChartRef.current !== (chart as any)) {
+                        try { tasiChartRef.current.clearCrosshairPosition(); } catch { }
+                    }
                     pendingHoverRef.current = cleared;
                     if (hoverRafRef.current === null) {
                         hoverRafRef.current = requestAnimationFrame(() => {
@@ -1022,9 +1085,6 @@ function MarketBreadthContent() {
                 if (!isSyncingCrosshair.current) {
                     isSyncingCrosshair.current = true;
 
-                    // Build a lookup of correct prices for each target chart at this time.
-                    // Each chart section reads from a different data source, so we look up
-                    // the value from the right array + key for each chart index.
                     chartsRef.current.forEach((targetChart, j) => {
                         if (j === i || !targetChart) return;
                         const targetSeries = mainSeriesRef.current[j];
@@ -1035,7 +1095,6 @@ function MarketBreadthContent() {
                             let avg50: number | null = null;
                             let avg200: number | null = null;
 
-                            // MA charts (indices 0..3)
                             if (j < MA_CHART_COUNT && data.length > 0) {
                                 const item = data.find(d => d.time === timeStr);
                                 if (item) {
@@ -1044,7 +1103,6 @@ function MarketBreadthContent() {
                                     avg200 = item[CHART_CONFIGS[j].avgKeys[1]] as number;
                                 }
                             }
-                            // Extra panels: AD Rating (index 4), Alhussain (index 5)
                             else if (j === MA_CHART_COUNT && adData.length > 0) {
                                 const item = adData.find(d => d.time === timeStr);
                                 if (item) {
@@ -1056,7 +1114,6 @@ function MarketBreadthContent() {
                                 const item = alhussainData.find(d => d.time === timeStr);
                                 if (item) price = item.count;
                             }
-                            // Minervini charts (indices 6..9)
                             else if (j >= MA_CHART_COUNT + EXTRA_PANELS.length && trendData.length > 0) {
                                 const minIdx = j - MA_CHART_COUNT - EXTRA_PANELS.length;
                                 if (minIdx >= 0 && minIdx < MINERVINI_CONFIGS.length) {
@@ -1084,11 +1141,24 @@ function MarketBreadthContent() {
                         } catch { }
                     });
 
+                    /* ── جديد: مزامنة crosshair لشارت تاسي كمان ── */
+                    if (tasiChartRef.current && tasiSeriesRef.current) {
+                        try {
+                            const tasiData: any[] = tasiSeriesRef.current.data() as any[];
+                            const tasiItem = tasiData.find((d) => d.time === timeStr);
+                            if (tasiItem && tasiItem.value != null) {
+                                tasiChartRef.current.setCrosshairPosition(
+                                    tasiItem.value,
+                                    param.time!,
+                                    tasiSeriesRef.current
+                                );
+                            }
+                        } catch { }
+                    }
+
                     isSyncingCrosshair.current = false;
                 }
 
-                // If this callback was triggered by sync, still update hoverValues
-                // so the header shows the correct value for THIS chart at hover time.
                 if (hoverRafRef.current === null) {
                     hoverRafRef.current = requestAnimationFrame(() => {
                         setHoverValues({ ...pendingHoverRef.current });
@@ -1097,8 +1167,6 @@ function MarketBreadthContent() {
                 }
             });
         });
-
-        // `mouseleave` handled natively via `param.point === undefined` in `subscribeCrosshairMove`
 
         /* ── ResizeObserver ── */
         const ro = new ResizeObserver(() => {
@@ -1151,8 +1219,6 @@ function MarketBreadthContent() {
             });
         }
 
-        // بعد أن تستقر كل العمليات (fitContent, setVisibleLogicalRange, crosshair sync)
-        // نمسح أي crosshair عالق حتى يعود Y-axis label لعرض آخر قيمة حقيقية
         setTimeout(() => {
             chartsRef.current.forEach((c) => {
                 if (c) try { c.clearCrosshairPosition(); } catch { }
@@ -1164,7 +1230,6 @@ function MarketBreadthContent() {
                 cancelAnimationFrame(hoverRafRef.current);
                 hoverRafRef.current = null;
             }
-            // No DOM leave handlers to cleanup
             ro.disconnect();
             chartsRef.current.forEach((c) => {
                 if (c) {
@@ -1210,7 +1275,7 @@ function MarketBreadthContent() {
         chartsRef.current.forEach((c) => c.timeScale().fitContent());
     };
 
-    /* ── toggle avg overlay ── */
+    /* ── toggle avg overlay (per-chart button) ── */
     const toggleAvgKey = (chartIdx: number, key: string) => {
         setSelectedAverages((prev) => {
             const current = new Set(prev[chartIdx] || []);
@@ -1220,17 +1285,63 @@ function MarketBreadthContent() {
         });
     };
 
+    /* ── global toggle: turns AVG50 (or AVG200) on/off across EVERY chart at once ── */
+    const toggleGlobalAvg = (which: 'avg50' | 'avg200') => {
+        const setter = which === 'avg50' ? setGlobalAvg50 : setGlobalAvg200;
+        setter((prev) => {
+            const next = !prev;
+            setSelectedAverages((prevSel) => {
+                const updated: Record<number, Set<string>> = { ...prevSel };
+                for (let i = 0; i < TOTAL_CHART_COUNT; i++) {
+                    const { avg50Key, avg200Key } = getAvgKeysForIndex(i);
+                    const key = which === 'avg50' ? avg50Key : avg200Key;
+                    if (!key) continue;
+                    const currentSet = new Set(updated[i] || []);
+                    if (next) currentSet.add(key);
+                    else currentSet.delete(key);
+                    updated[i] = currentSet;
+                }
+                return updated;
+            });
+            return next;
+        });
+    };
+
     /* ── extra controls for Shariah bar ── */
     const extraControls = (
         <div className="flex items-center gap-2.5 mr-2">
-            {/* period selector */}
+            {/* ── Global AVG 50 / AVG 200 toggles — applies to every chart at once ── */}
+            <div className="flex bg-slate-100 border border-slate-200 p-0.5 rounded-[9px] gap-0.5">
+                <button
+                    onClick={() => toggleGlobalAvg('avg50')}
+                    title="Show/hide AVG 50 on every chart"
+                    className="px-2.5 py-1 rounded-md text-[10px] font-bold transition-all border-none cursor-pointer"
+                    style={{
+                        background: globalAvg50 ? AVG50_COLOR : 'transparent',
+                        color: globalAvg50 ? '#FFFFFF' : '#64748B',
+                    }}
+                >
+                    AVG 50
+                </button>
+                <button
+                    onClick={() => toggleGlobalAvg('avg200')}
+                    title="Show/hide AVG 200 on every chart"
+                    className="px-2.5 py-1 rounded-md text-[10px] font-bold transition-all border-none cursor-pointer"
+                    style={{
+                        background: globalAvg200 ? AVG200_COLOR : 'transparent',
+                        color: globalAvg200 ? '#FFFFFF' : '#64748B',
+                    }}
+                >
+                    AVG 200
+                </button>
+            </div>
+
             <div className="flex bg-slate-100 border border-slate-200 p-0.5 rounded-[9px] gap-0.5">
                 {['5D', '1M', '6M', '1Y', '5Y', '10Y', 'ALL'].map((p) => (
                     <button
                         key={p}
                         onClick={() => {
                             setPeriod(p);
-                            // custom date range and preset period are mutually exclusive
                             setStartDate('');
                             setEndDate('');
                         }}
@@ -1253,7 +1364,6 @@ function MarketBreadthContent() {
                     value={startDate}
                     onChange={(e) => {
                         setStartDate(e.target.value);
-                        // picking a custom date clears the active period preset
                         if (e.target.value) setPeriod('');
                     }}
                     className="bg-transparent border-none outline-none text-[10px] font-medium text-slate-700"
@@ -1267,7 +1377,6 @@ function MarketBreadthContent() {
                     value={endDate}
                     onChange={(e) => {
                         setEndDate(e.target.value);
-                        // picking a custom date clears the active period preset
                         if (e.target.value) setPeriod('');
                     }}
                     className="bg-transparent border-none outline-none text-[10px] font-medium text-slate-700"
@@ -1278,7 +1387,6 @@ function MarketBreadthContent() {
                 onClick={() => {
                     setStartDate('');
                     setEndDate('');
-                    // restore a sane default so the grid isn't left with no filter at all
                     setPeriod('ALL');
                 }}
                 className="px-2 py-1 rounded-[9px] border border-slate-200 bg-white text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
@@ -1286,7 +1394,6 @@ function MarketBreadthContent() {
                 CLEAR
             </button>
 
-            {/* fit all */}
             <button
                 onClick={fitAll}
                 title="Fit all charts to data"
@@ -1296,7 +1403,6 @@ function MarketBreadthContent() {
                 FIT ALL
             </button>
 
-            {/* export */}
             <ExportButton
                 data={data as any}
                 adData={adData}
@@ -1324,15 +1430,12 @@ function MarketBreadthContent() {
             </BreadthTabs>
 
             <ShariahFilterBar variant="light" />
-            {/* ── Main ───────────────────────────────────────────────────── */}
             <main ref={pageRef} className="flex-1 min-h-0 flex flex-col w-full px-2 pt-1 pb-1 overflow-auto" style={{ flex: '1 1 0' }}>
-                {/* CHART GRID — TASI + 10 breadth charts = 11 cells, rows: 3-3-3-2 */}
                 <div
                     className="flex-1 min-h-0 w-full grid grid-cols-6 gap-1.5"
                     style={{ gridTemplateRows: 'repeat(4, minmax(0, 1fr))', height: '100%' }}
                 >
                     {Array.from({ length: GRID_ITEM_COUNT }, (_, gridIdx) => {
-                        /* ── cell 0: TASI Index ── */
                         if (gridIdx === 0) {
                             const gridCol = chartGridColClass(gridIdx);
                             return (
@@ -1346,12 +1449,13 @@ function MarketBreadthContent() {
                                         startDate={startDate}
                                         endDate={endDate}
                                         onChartReady={handleTasiReady}
+                                        globalAvg50={globalAvg50}
+                                        globalAvg200={globalAvg200}
                                     />
                                 </div>
                             );
                         }
 
-                        /* ── cells 1..10: the 10 breadth charts, unchanged internal logic ── */
                         const i = gridIdx - 1;
                         const isMa = i < MA_CHART_COUNT;
                         const isExtra = !isMa && i < MA_CHART_COUNT + EXTRA_PANELS.length;

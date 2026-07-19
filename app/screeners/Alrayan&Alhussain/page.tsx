@@ -21,6 +21,7 @@ import {
     MouseEventParams,
     LineStyle,
     LineSeries,
+    LogicalRange,
 } from 'lightweight-charts';
 
 import { API_BASE_URL } from '@/lib/api/config';
@@ -138,17 +139,34 @@ function addMovingAverages(items: TrendPoint[], baseKey: 'alhussain' | 'alrayan'
 
 interface ChartHandle {
     chart: IChartApi;
-    series: Map<string, ISeriesApi<'Line'>>;
+    series: Map<string, ISeriesApi<any>>;
+}
+
+interface ChartSubscription {
+    chart: IChartApi;
+    rangeHandler: (range: LogicalRange | null) => void;
+    crosshairHandler: (param: MouseEventParams) => void;
 }
 
 function useChartSync() {
     const chartsRef = useRef<Map<string, ChartHandle>>(new Map());
+    const subsRef = useRef<Map<string, ChartSubscription>>(new Map());
     const isSyncingRef = useRef(false);
+    const tasiHandleRef = useRef<ChartHandle | null>(null);
+
+    const cleanupSubscription = useCallback((id: string) => {
+        const sub = subsRef.current.get(id);
+        if (!sub) return;
+        try { sub.chart.timeScale().unsubscribeVisibleLogicalRangeChange(sub.rangeHandler); } catch { }
+        try { sub.chart.unsubscribeCrosshairMove(sub.crosshairHandler); } catch { }
+        subsRef.current.delete(id);
+    }, []);
 
     const register = useCallback((id: string, handle: ChartHandle) => {
+        cleanupSubscription(id);
         chartsRef.current.set(id, handle);
 
-        handle.chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+        const rangeHandler = (range: LogicalRange | null) => {
             if (isSyncingRef.current || !range) return;
             isSyncingRef.current = true;
             chartsRef.current.forEach((other, otherId) => {
@@ -157,43 +175,127 @@ function useChartSync() {
                 }
             });
             isSyncingRef.current = false;
-        });
+        };
 
-        handle.chart.subscribeCrosshairMove((param: MouseEventParams) => {
+        const crosshairHandler = (param: MouseEventParams) => {
             if (isSyncingRef.current) return;
             isSyncingRef.current = true;
+
+            const timeStr = param.time
+                ? typeof param.time === 'string'
+                    ? param.time
+                    : typeof param.time === 'number'
+                        ? String(param.time)
+                        : `${(param.time as any).year}-${String((param.time as any).month).padStart(2, '0')}-${String((param.time as any).day).padStart(2, '0')}`
+                : null;
+
             chartsRef.current.forEach((other, otherId) => {
-                if (otherId !== id) {
-                    if (param.time === undefined || param.point === undefined) {
-                        try { other.chart.clearCrosshairPosition(); } catch { }
-                    } else {
-                        const firstSeries = other.series.values().next().value;
-                        if (firstSeries) {
-                            try {
-                                // Use the actual series data value at this time
-                                // instead of coordinateToPrice which gives wrong
-                                // values when charts have different Y scales.
-                                const seriesData = param.seriesData?.get(firstSeries);
-                                const price = seriesData && 'value' in seriesData
-                                    ? (seriesData as any).value
-                                    : firstSeries.coordinateToPrice(param.point.y);
-                                if (price !== null) {
-                                    other.chart.setCrosshairPosition(price, param.time, firstSeries);
-                                }
-                            } catch { }
-                        }
+                if (otherId === id) return;
+
+                if (param.time === undefined || param.point === undefined) {
+                    try { other.chart.clearCrosshairPosition(); } catch { }
+                } else {
+                    const firstSeries = other.series.values().next().value;
+                    if (firstSeries && timeStr) {
+                        try {
+                            const otherData: any[] = firstSeries.data() as any[];
+                            const otherItem = otherData.find((d) => d.time === timeStr);
+                            if (otherItem && otherItem.value != null) {
+                                other.chart.setCrosshairPosition(
+                                    otherItem.value,
+                                    param.time,
+                                    firstSeries
+                                );
+                            }
+                        } catch { }
                     }
                 }
             });
+
             isSyncingRef.current = false;
-        });
-    }, []);
+        };
+
+        handle.chart.timeScale().subscribeVisibleLogicalRangeChange(rangeHandler);
+        handle.chart.subscribeCrosshairMove(crosshairHandler);
+
+        subsRef.current.set(id, { chart: handle.chart, rangeHandler, crosshairHandler });
+    }, [cleanupSubscription]);
+
+    const registerTasi = useCallback((chart: IChartApi, series: ISeriesApi<any>) => {
+        cleanupSubscription('tasi');
+
+        const handle: ChartHandle = {
+            chart,
+            series: new Map([['tasi', series]]),
+        };
+
+        tasiHandleRef.current = handle;
+        chartsRef.current.set('tasi', handle);
+
+        const rangeHandler = (range: LogicalRange | null) => {
+            if (isSyncingRef.current || !range) return;
+            isSyncingRef.current = true;
+            chartsRef.current.forEach((other, otherId) => {
+                if (otherId !== 'tasi') {
+                    try { other.chart.timeScale().setVisibleLogicalRange(range); } catch { }
+                }
+            });
+            isSyncingRef.current = false;
+        };
+
+        const crosshairHandler = (param: MouseEventParams) => {
+            if (isSyncingRef.current) return;
+            isSyncingRef.current = true;
+
+            const timeStr = param.time
+                ? typeof param.time === 'string'
+                    ? param.time
+                    : typeof param.time === 'number'
+                        ? String(param.time)
+                        : `${(param.time as any).year}-${String((param.time as any).month).padStart(2, '0')}-${String((param.time as any).day).padStart(2, '0')}`
+                : null;
+
+            chartsRef.current.forEach((other, otherId) => {
+                if (otherId === 'tasi') return;
+
+                if (param.time === undefined || param.point === undefined) {
+                    try { other.chart.clearCrosshairPosition(); } catch { }
+                } else {
+                    const firstSeries = other.series.values().next().value;
+                    if (firstSeries && timeStr) {
+                        try {
+                            const otherData: any[] = firstSeries.data() as any[];
+                            const otherItem = otherData.find((d) => d.time === timeStr);
+                            if (otherItem && otherItem.value != null) {
+                                other.chart.setCrosshairPosition(
+                                    otherItem.value,
+                                    param.time,
+                                    firstSeries
+                                );
+                            }
+                        } catch { }
+                    }
+                }
+            });
+
+            isSyncingRef.current = false;
+        };
+
+        chart.timeScale().subscribeVisibleLogicalRangeChange(rangeHandler);
+        chart.subscribeCrosshairMove(crosshairHandler);
+
+        subsRef.current.set('tasi', { chart, rangeHandler, crosshairHandler });
+    }, [cleanupSubscription]);
 
     const unregister = useCallback((id: string) => {
+        cleanupSubscription(id);
         chartsRef.current.delete(id);
-    }, []);
+        if (id === 'tasi') {
+            tasiHandleRef.current = null;
+        }
+    }, [cleanupSubscription]);
 
-    return { register, unregister };
+    return { register, unregister, registerTasi };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -278,12 +380,17 @@ interface ChartPanelProps {
     viewMode?: ViewMode;
     onViewModeChange?: (v: ViewMode) => void;
     showViewToggle?: boolean;
+    /** Global AVG 50 toggle — when provided, drives visibility of every line whose id contains "avg50" */
+    avg50Global?: boolean;
+    /** Global AVG 200 toggle — when provided, drives visibility of every line whose id contains "avg200" */
+    avg200Global?: boolean;
 }
 
 function ChartPanel({
     chartId, title, subtitle, accentColor, conditions, count, icon,
     data, lines, loading, sync,
     viewMode, onViewModeChange, showViewToggle,
+    avg50Global, avg200Global,
 }: ChartPanelProps) {
     const [fullscreen, setFullscreen] = useState(false);
     const [hoverValues, setHoverValues] = useState<HoverValue[]>([]);
@@ -354,7 +461,6 @@ function ChartPanel({
             seriesMap.set(l.id, series);
         });
 
-        // MAs are now handled directly by the lines array provided by the parent.
         seriesRef.current = seriesMap;
 
         chart.subscribeCrosshairMove((param: MouseEventParams) => {
@@ -412,6 +518,32 @@ function ChartPanel({
             chartRef.current.timeScale().fitContent();
         }
     }, [data, lines, seriesVisible]);
+
+    // ── Global AVG 50 toggle: switch on/off every line whose id references avg50 ──
+    useEffect(() => {
+        if (avg50Global === undefined) return;
+        setSeriesVisible(prev => {
+            const next = { ...prev };
+            lines.forEach(l => {
+                if (/avg50/i.test(l.id)) next[l.id] = avg50Global;
+            });
+            return next;
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [avg50Global]);
+
+    // ── Global AVG 200 toggle: switch on/off every line whose id references avg200 ──
+    useEffect(() => {
+        if (avg200Global === undefined) return;
+        setSeriesVisible(prev => {
+            const next = { ...prev };
+            lines.forEach(l => {
+                if (/avg200/i.test(l.id)) next[l.id] = avg200Global;
+            });
+            return next;
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [avg200Global]);
 
     // Re-fit on fullscreen toggle
     useEffect(() => {
@@ -602,6 +734,9 @@ function CombinedDashboardContent() {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [adViewMode, setAdViewMode] = useState<ViewMode>('count');
+    // ── Global moving-average toggles, applied across every chart ──
+    const [avg50Enabled, setAvg50Enabled] = useState(false);
+    const [avg200Enabled, setAvg200Enabled] = useState(false);
     const dashRef = useRef<HTMLDivElement>(null);
     const sync = useChartSync();
 
@@ -772,6 +907,10 @@ function CombinedDashboardContent() {
         },
     ], [adViewMode]);
 
+    const handleTasiChartReady = useCallback((chart: IChartApi, series: ISeriesApi<any>) => {
+        sync.registerTasi(chart, series);
+    }, [sync]);
+
     return (
         <div style={{
             width: '100%',
@@ -820,7 +959,41 @@ function CombinedDashboardContent() {
                         </button>
                     </div>
 
-                    {/* Period selector */}
+                    {/* ── Global AVG 50 / AVG 200 toggles — apply across every chart ── */}
+                    <div style={{
+                        display: 'flex', gap: 3, background: '#F1F5F9',
+                        borderRadius: 10, padding: 3, border: '1px solid #E2E8F0',
+                    }}>
+                        <button
+                            onClick={() => setAvg50Enabled(v => !v)}
+                            style={{
+                                padding: '4px 11px', borderRadius: 8,
+                                fontSize: 11, fontWeight: 700,
+                                background: avg50Enabled ? '#38BDF8' : 'transparent',
+                                color: avg50Enabled ? '#fff' : '#9CA3AF',
+                                border: 'none', cursor: 'pointer',
+                                boxShadow: avg50Enabled ? '0 1px 4px rgba(56,189,248,0.35)' : 'none',
+                                transition: 'all 0.15s',
+                            }}
+                        >
+                            AVG 50
+                        </button>
+                        <button
+                            onClick={() => setAvg200Enabled(v => !v)}
+                            style={{
+                                padding: '4px 11px', borderRadius: 8,
+                                fontSize: 11, fontWeight: 700,
+                                background: avg200Enabled ? '#F59E0B' : 'transparent',
+                                color: avg200Enabled ? '#fff' : '#9CA3AF',
+                                border: 'none', cursor: 'pointer',
+                                boxShadow: avg200Enabled ? '0 1px 4px rgba(245,158,11,0.35)' : 'none',
+                                transition: 'all 0.15s',
+                            }}
+                        >
+                            AVG 200
+                        </button>
+                    </div>
+
                     <div style={{
                         display: 'flex', gap: 3, background: '#F1F5F9',
                         borderRadius: 10, padding: 3, border: '1px solid #E2E8F0',
@@ -883,9 +1056,9 @@ function CombinedDashboardContent() {
                         period={period}
                         startDate={startDate}
                         endDate={endDate}
-                        onChartReady={(chart, series) => {
-                            sync.register('tasi', { chart, series: new Map([['tasi', series as any]]) });
-                        }}
+                        onChartReady={handleTasiChartReady}
+                        globalAvg50={avg50Enabled}
+                        globalAvg200={avg200Enabled}
                     />
                 </motion.div>
 
@@ -907,6 +1080,8 @@ function CombinedDashboardContent() {
                         ]}
                         loading={loading}
                         sync={sync}
+                        avg50Global={avg50Enabled}
+                        avg200Global={avg200Enabled}
                     />
                 </motion.div>
 
@@ -928,6 +1103,8 @@ function CombinedDashboardContent() {
                         ]}
                         loading={loading}
                         sync={sync}
+                        avg50Global={avg50Enabled}
+                        avg200Global={avg200Enabled}
                     />
                 </motion.div>
 
@@ -946,6 +1123,8 @@ function CombinedDashboardContent() {
                         viewMode={adViewMode}
                         onViewModeChange={setAdViewMode}
                         showViewToggle
+                        avg50Global={avg50Enabled}
+                        avg200Global={avg200Enabled}
                     />
                 </motion.div>
             </div>

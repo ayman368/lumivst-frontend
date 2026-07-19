@@ -140,6 +140,11 @@ function MarketBreadthContent() {
     const [refreshKey, setRefreshKey] = useState(0);
     const [selectedAverages, setSelectedAverages] =
         useState<Record<number, Set<string>>>({});
+    // ─── حالة موحدة لأزرار AVG 50 / AVG 200 اللي بتتحكم في كل المخططات مرة واحدة ───
+    const [globalAvg, setGlobalAvg] = useState<{ avg50: boolean; avg200: boolean }>({
+        avg50: false,
+        avg200: false,
+    });
     const [seriesVisible, setSeriesVisible] =
         useState<Record<number, boolean>>({ 0: true, 1: true, 2: true, 3: true });
     const [fullscreenIdx, setFullscreenIdx] = useState<number | null>(null);
@@ -162,19 +167,17 @@ function MarketBreadthContent() {
     const lastValueUpdateRef = useRef(false);
 
     // ── NEW: guards against the "phantom crosshair on mount" bug ──
-    // lightweight-charts fires an initial subscribeCrosshairMove event
-    // immediately if the cursor already happens to be resting over the
-    // canvas when the chart is (re)created. Before that point there has
-    // been no genuine user interaction, so any crosshair event must be
-    // ignored until we explicitly flip this flag to true — which we only
-    // do once ALL charts are built AND the zoom/range restore + fitContent
-    // sequence has fully settled (not on a fixed timer, which can race).
     const chartsReadyRef = useRef(false);
 
     const tasiChartRef = useRef<IChartApi | null>(null);
+    const tasiSeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
 
-    const handleTasiReady = useCallback((chart: IChartApi, _series: ISeriesApi<"Area">) => {
+    const dataRef = useRef<BreadthItem[]>([]);
+    useEffect(() => { dataRef.current = data; }, [data]);
+
+    const handleTasiReady = useCallback((chart: IChartApi, series: ISeriesApi<"Area">) => {
         tasiChartRef.current = chart;
+        tasiSeriesRef.current = series;
 
         chart.timeScale().subscribeVisibleTimeRangeChange((range) => {
             if (!range || isSyncing.current || isRestoringRef.current) return;
@@ -184,6 +187,67 @@ function MarketBreadthContent() {
             });
             setTimeout(() => { isSyncing.current = false; }, 0);
         });
+
+        chart.subscribeCrosshairMove((param) => {
+            if (!chartsReadyRef.current) return;
+            if (isSyncingCrosshair.current) return;
+
+            if (!param.point || !param.time) {
+                isSyncingCrosshair.current = true;
+                chartsRef.current.forEach((c) => {
+                    if (c) try { c.clearCrosshairPosition(); } catch { }
+                });
+                isSyncingCrosshair.current = false;
+
+                const emptyEntry: HoverEntry = { main: null, avg50: null, avg200: null, time: null };
+                const cleared: Record<number, HoverEntry> = {};
+                chartsRef.current.forEach((_, j) => { cleared[j] = emptyEntry; });
+                pendingHoverRef.current = cleared;
+                if (hoverRafRef.current === null) {
+                    hoverRafRef.current = requestAnimationFrame(() => {
+                        setHoverValues({ ...pendingHoverRef.current });
+                        hoverRafRef.current = null;
+                    });
+                }
+                return;
+            }
+
+            const timeStr =
+                typeof param.time === 'string'
+                    ? param.time
+                    : typeof param.time === 'number'
+                        ? String(param.time)
+                        : `${(param.time as any).year}-${String((param.time as any).month).padStart(2, '0')}-${String((param.time as any).day).padStart(2, '0')}`;
+
+            isSyncingCrosshair.current = true;
+
+            const dataItem = dataRef.current.find((d) => d.time === timeStr);
+
+            chartsRef.current.forEach((targetChart, j) => {
+                const targetSeries = mainSeriesRef.current[j];
+                if (!targetChart || !targetSeries || !dataItem) return;
+                try {
+                    const price = dataItem[CHART_CONFIGS[j].key] as number;
+                    targetChart.setCrosshairPosition(price, param.time!, targetSeries);
+
+                    pendingHoverRef.current[j] = {
+                        main: price,
+                        avg50: dataItem[CHART_CONFIGS[j].avgKeys[0]] as number | null,
+                        avg200: dataItem[CHART_CONFIGS[j].avgKeys[1]] as number | null,
+                        time: timeStr,
+                    };
+                } catch { }
+            });
+
+            isSyncingCrosshair.current = false;
+
+            if (hoverRafRef.current === null) {
+                hoverRafRef.current = requestAnimationFrame(() => {
+                    setHoverValues({ ...pendingHoverRef.current });
+                    hoverRafRef.current = null;
+                });
+            }
+        });
     }, []);
 
     const hoverRafRef = useRef<number | null>(null);
@@ -192,13 +256,11 @@ function MarketBreadthContent() {
     const seriesVisibleRef = useRef(seriesVisible);
     seriesVisibleRef.current = seriesVisible;
 
-    /* ── tick for live dot ── */
     useEffect(() => {
         const id = setInterval(() => setTick((t) => t + 1), 1400);
         return () => clearInterval(id);
     }, []);
 
-    /* ── fetch data ── */
     useEffect(() => {
         async function fetchData() {
             try {
@@ -224,7 +286,6 @@ function MarketBreadthContent() {
         fetchData();
     }, [period, startDate, endDate, refreshKey]);
 
-    // دالة مساعدة لتحديث آخر قيمة على الشارت
     const updateLastValues = useCallback(() => {
         if (!data.length || lastValueUpdateRef.current) return;
 
@@ -235,17 +296,13 @@ function MarketBreadthContent() {
             const mainSeries = mainSeriesRef.current[i];
             if (mainSeries && latest) {
                 try {
-                    // تحديث قيمة آخر يوم للخط الرئيسي
                     (mainSeries as any).update({
                         time: latest.time,
                         value: latest[cfg.key] as number,
                     });
-                } catch (e) {
-                    // تجاهل الأخطاء
-                }
+                } catch (e) { }
             }
 
-            // تحديث قيمة آخر يوم لـ AVG 50
             const avg50Series = avg50SeriesRef.current[i];
             if (avg50Series && latest) {
                 try {
@@ -254,12 +311,9 @@ function MarketBreadthContent() {
                         time: latest.time,
                         value: latest[avg50Key] as number,
                     });
-                } catch (e) {
-                    // تجاهل الأخطاء
-                }
+                } catch (e) { }
             }
 
-            // تحديث قيمة آخر يوم لـ AVG 200
             const avg200Series = avg200SeriesRef.current[i];
             if (avg200Series && latest) {
                 try {
@@ -268,9 +322,7 @@ function MarketBreadthContent() {
                         time: latest.time,
                         value: latest[avg200Key] as number,
                     });
-                } catch (e) {
-                    // تجاهل الأخطاء
-                }
+                } catch (e) { }
             }
         });
 
@@ -279,12 +331,37 @@ function MarketBreadthContent() {
         }, 100);
     }, [data]);
 
-    /* ── build / rebuild charts ── */
+    const toggleAvgKey = (chartIdx: number, key: string) => {
+        setSelectedAverages((prev) => {
+            const current = new Set(prev[chartIdx] || []);
+            if (current.has(key)) current.delete(key);
+            else current.add(key);
+            return { ...prev, [chartIdx]: current };
+        });
+    };
+
+    // ─── تفعيل/تعطيل AVG 50 أو AVG 200 على كل المخططات الأربعة مرة واحدة ───
+    const toggleGlobalAvg = (which: 'avg50' | 'avg200') => {
+        setGlobalAvg((prev) => {
+            const nextEnabled = !prev[which];
+            setSelectedAverages((prevSel) => {
+                const updated: Record<number, Set<string>> = {};
+                CHART_CONFIGS.forEach((cfg, idx) => {
+                    const key = which === 'avg50' ? cfg.avgKeys[0] : cfg.avgKeys[1];
+                    const current = new Set(prevSel[idx] ?? []);
+                    if (nextEnabled) current.add(key);
+                    else current.delete(key);
+                    updated[idx] = current;
+                });
+                return updated;
+            });
+            return { ...prev, [which]: nextEnabled };
+        });
+    };
+
     useEffect(() => {
         if (data.length === 0) return;
 
-        // block every crosshair event (real or phantom) until the whole
-        // build + zoom-restore sequence below has fully settled
         chartsReadyRef.current = false;
 
         if (chartsRef.current.length > 0 && !isRestoringRef.current) {
@@ -368,17 +445,13 @@ function MarketBreadthContent() {
                     crosshairMarkerRadius: 3,
                     crosshairMarkerBorderColor: AVG200_COLOR,
                     crosshairMarkerBackgroundColor: '#FFFFFF',
-                    // ── تعديل: إظهار آخر قيمة لـ AVG 200 على محور Y ──
                     lastValueVisible: true,
                     priceFormat: {
                         type: 'custom',
                         formatter: (value: number) => `${value.toFixed(1)}%`,
                     },
-                    // ── تعديل: تفعيل خط السعر الأفقي لتوضيح مكان آخر قيمة ──
-                    priceLineVisible: true,
-                    priceLineColor: AVG200_COLOR,
-                    priceLineWidth: 1 as any,
-                    priceLineStyle: 2,
+                    // ── الخط المنقط في نص الشارت كان بسبب priceLineVisible: true هنا — اتشال عشان يبقى شكله زي باقي الصفحات ──
+                    priceLineVisible: false,
                 });
                 avg200Series.setData(
                     data.map((item) => ({
@@ -401,17 +474,13 @@ function MarketBreadthContent() {
                     crosshairMarkerRadius: 3,
                     crosshairMarkerBorderColor: AVG50_COLOR,
                     crosshairMarkerBackgroundColor: '#FFFFFF',
-                    // ── تعديل: إظهار آخر قيمة لـ AVG 50 على محور Y ──
                     lastValueVisible: true,
                     priceFormat: {
                         type: 'custom',
                         formatter: (value: number) => `${value.toFixed(1)}%`,
                     },
-                    // ── تعديل: تفعيل خط السعر الأفقي لتوضيح مكان آخر قيمة ──
-                    priceLineVisible: true,
-                    priceLineColor: AVG50_COLOR,
-                    priceLineWidth: 1 as any,
-                    priceLineStyle: 2,
+                    // ── نفس التعديل هنا كمان ──
+                    priceLineVisible: false,
                 });
                 avg50Series.setData(
                     data.map((item) => ({
@@ -444,7 +513,6 @@ function MarketBreadthContent() {
             );
             mainSeriesRef.current[i] = series;
 
-            // ── PriceLine ثابت لآخر قيمة (لا يتأثر بالـ crosshair أبداً) ──
             const lastVal = data[data.length - 1]?.[cfg.key] as number;
             if (lastVal != null && !isNaN(lastVal)) {
                 series.createPriceLine({
@@ -457,7 +525,7 @@ function MarketBreadthContent() {
                 });
             }
 
-            [20, 50, 80].forEach((level) =>
+            [20, 80].forEach((level) =>
                 series.createPriceLine({
                     price: level,
                     color: '#E2E8F0',
@@ -468,9 +536,6 @@ function MarketBreadthContent() {
             );
         });
 
-        // لا نحتاج updateLastValues هنا - البيانات الصحيحة موجودة بالفعل في الـ series
-
-        /* ── sync time-scale (time-based, not index-based) ── */
         chartsRef.current.forEach((chart, i) => {
             chart.timeScale().subscribeVisibleTimeRangeChange((range) => {
                 if (!range || isSyncing.current || isRestoringRef.current) return;
@@ -478,7 +543,6 @@ function MarketBreadthContent() {
                 chartsRef.current.forEach((c, j) => {
                     if (j !== i) try { c.timeScale().setVisibleRange(range); } catch { }
                 });
-                // Also sync to TASI chart
                 if (tasiChartRef.current) {
                     try { tasiChartRef.current.timeScale().setVisibleRange(range); } catch { }
                 }
@@ -492,25 +556,16 @@ function MarketBreadthContent() {
             });
         });
 
-        /* ── crosshair sync + hover ── */
         chartsRef.current.forEach((chart, i) => {
             chart.subscribeCrosshairMove((param) => {
-                // Ignore any crosshair event — real or phantom — until the
-                // charts have fully finished building, zoom-restoring and
-                // fitting content. This is what stops the "value changes by
-                // itself right after load" bug: lightweight-charts can fire
-                // a crosshair event on mount if the mouse cursor is already
-                // resting over the canvas, and without this guard that
-                // phantom event would get propagated to every other chart.
                 if (!chartsReadyRef.current) return;
 
                 const mainS = mainSeriesRef.current[i];
                 const avg50S = avg50SeriesRef.current[i];
                 const avg200S = avg200SeriesRef.current[i];
 
-                /* ── mouse left / no data → clear everything ── */
                 if (!param.point || !param.time || !mainS) {
-                    if (isSyncingCrosshair.current) return;   // triggered by our own clear – ignore
+                    if (isSyncingCrosshair.current) return;
                     isSyncingCrosshair.current = true;
                     const emptyEntry: HoverEntry = { main: null, avg50: null, avg200: null, time: null };
                     const cleared: Record<number, HoverEntry> = {};
@@ -518,6 +573,9 @@ function MarketBreadthContent() {
                         cleared[j] = emptyEntry;
                         if (c && c !== chart) { try { c.clearCrosshairPosition(); } catch { } }
                     });
+                    if (tasiChartRef.current) {
+                        try { tasiChartRef.current.clearCrosshairPosition(); } catch { }
+                    }
                     pendingHoverRef.current = cleared;
                     if (hoverRafRef.current === null) {
                         hoverRafRef.current = requestAnimationFrame(() => {
@@ -529,7 +587,6 @@ function MarketBreadthContent() {
                     return;
                 }
 
-                /* ── valid hover → extract values ── */
                 const mainVal = param.seriesData.get(mainS);
                 const avg50Val = avg50S ? param.seriesData.get(avg50S) : null;
                 const avg200Val = avg200S ? param.seriesData.get(avg200S) : null;
@@ -550,13 +607,9 @@ function MarketBreadthContent() {
 
                 pendingHoverRef.current = { ...pendingHoverRef.current, [i]: entry };
 
-                /* ── sync crosshair to other charts (only from real mouse, not from our own sync) ── */
                 if (!isSyncingCrosshair.current) {
                     isSyncingCrosshair.current = true;
 
-                    // Look up the data row for this time so we can place crosshairs at the
-                    // CORRECT price on each target chart (coordinateToPrice is wrong
-                    // because charts have different Y scales).
                     const dataItem = data.find(d => d.time === timeStr);
 
                     chartsRef.current.forEach((targetChart, j) => {
@@ -568,8 +621,6 @@ function MarketBreadthContent() {
                                 const price = dataItem[CHART_CONFIGS[j].key] as number;
                                 targetChart.setCrosshairPosition(price, param.time!, targetSeries);
 
-                                // Manually update hover state for the synced chart 
-                                // since setCrosshairPosition won't have param.point to trigger it.
                                 pendingHoverRef.current[j] = {
                                     main: price,
                                     avg50: dataItem[CHART_CONFIGS[j].avgKeys[0]] as number | null,
@@ -580,11 +631,23 @@ function MarketBreadthContent() {
                         } catch { }
                     });
 
+                    if (tasiChartRef.current && tasiSeriesRef.current) {
+                        try {
+                            const tasiData: any[] = tasiSeriesRef.current.data() as any[];
+                            const tasiItem = tasiData.find((d) => d.time === timeStr);
+                            if (tasiItem && tasiItem.value != null) {
+                                tasiChartRef.current.setCrosshairPosition(
+                                    tasiItem.value,
+                                    param.time!,
+                                    tasiSeriesRef.current
+                                );
+                            }
+                        } catch { }
+                    }
+
                     isSyncingCrosshair.current = false;
                 }
 
-                // If this callback was triggered by sync, still update hoverValues
-                // so the header shows the correct value for THIS chart at hover time.
                 if (hoverRafRef.current === null) {
                     hoverRafRef.current = requestAnimationFrame(() => {
                         setHoverValues({ ...pendingHoverRef.current });
@@ -594,9 +657,6 @@ function MarketBreadthContent() {
             });
         });
 
-        // `mouseleave` handled natively via `param.point === undefined` in `subscribeCrosshairMove`
-
-        /* ── ResizeObserver ── */
         const ro = new ResizeObserver(() => {
             chartsRef.current.forEach((chart, i) => {
                 const el = canvasRefs.current[i];
@@ -607,17 +667,12 @@ function MarketBreadthContent() {
                     chart.applyOptions({ width: w, height: h });
                 }
             });
-            // Any resize — caused by a late-loading web font, an image,
-            // a sidebar toggle, or any other layout shift elsewhere on the
-            // page — invalidates whatever pixel position the crosshair was
-            // last anchored to. Without this, the library can re-project
-            // that stale pixel onto the newly-resized chart and silently
-            // swap the axis label to a wrong value with no user interaction
-            // at all. Defensively clear on every resize so the axis label
-            // always falls back to the true last value.
             chartsRef.current.forEach((c) => {
                 if (c) try { c.clearCrosshairPosition(); } catch { }
             });
+            if (tasiChartRef.current) {
+                try { tasiChartRef.current.clearCrosshairPosition(); } catch { }
+            }
             if (hoverRafRef.current === null) {
                 const emptyEntry: HoverEntry = { main: null, avg50: null, avg200: null, time: null };
                 const cleared: Record<number, HoverEntry> = {};
@@ -631,10 +686,6 @@ function MarketBreadthContent() {
         });
         canvasRefs.current.forEach((el) => { if (el) ro.observe(el); });
 
-        /* Restore zoom, THEN flip chartsReadyRef.current = true once everything
-           has settled — this replaces the old fixed setTimeout(300) hack, which
-           could race against fitContent()/setVisibleLogicalRange() on slower
-           layouts and leave stale crosshair state on screen. */
         const rangeToRestore = savedRangeRef.current;
         if (rangeToRestore) {
             isRestoringRef.current = true;
@@ -646,12 +697,12 @@ function MarketBreadthContent() {
                     });
                     setTimeout(() => {
                         isRestoringRef.current = false;
-                        // defensively clear any crosshair state that may have
-                        // accumulated while we were still building/restoring,
-                        // THEN allow real user interaction to take over.
                         chartsRef.current.forEach((c) => {
                             if (c) try { c.clearCrosshairPosition(); } catch { }
                         });
+                        if (tasiChartRef.current) {
+                            try { tasiChartRef.current.clearCrosshairPosition(); } catch { }
+                        }
                         chartsReadyRef.current = true;
                     }, 100);
                 });
@@ -663,6 +714,9 @@ function MarketBreadthContent() {
                     chartsRef.current.forEach((c) => {
                         if (c) try { c.clearCrosshairPosition(); } catch { }
                     });
+                    if (tasiChartRef.current) {
+                        try { tasiChartRef.current.clearCrosshairPosition(); } catch { }
+                    }
                     chartsReadyRef.current = true;
                 });
             });
@@ -674,7 +728,6 @@ function MarketBreadthContent() {
                 cancelAnimationFrame(hoverRafRef.current);
                 hoverRafRef.current = null;
             }
-            // No DOM leave handlers to cleanup
             ro.disconnect();
             chartsRef.current.forEach((c) => {
                 if (c) {
@@ -686,10 +739,8 @@ function MarketBreadthContent() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data, selectedAverages]);
 
-    /* ── reset saved range on period change ── */
     useEffect(() => { savedRangeRef.current = null; }, [period]);
 
-    /* ── toggle visibility without rebuild ── */
     useEffect(() => {
         Object.entries(seriesVisible).forEach(([idx, vis]) => {
             const s = mainSeriesRef.current[Number(idx)];
@@ -697,7 +748,6 @@ function MarketBreadthContent() {
         });
     }, [seriesVisible]);
 
-    /* ── fullscreen ── */
     const handleFullscreen = (i: number) => {
         const el = cardRefs.current[i];
         if (!el) return;
@@ -714,23 +764,10 @@ function MarketBreadthContent() {
         return () => document.removeEventListener('fullscreenchange', onChange);
     }, []);
 
-    /* ── fit all ── */
     const fitAll = () => {
         savedRangeRef.current = null;
         chartsRef.current.forEach((c) => c.timeScale().fitContent());
     };
-
-    /* ── toggle avg overlay ── */
-    const toggleAvgKey = (chartIdx: number, key: string) => {
-        setSelectedAverages((prev) => {
-            const current = new Set(prev[chartIdx] || []);
-            if (current.has(key)) current.delete(key);
-            else current.add(key);
-            return { ...prev, [chartIdx]: current };
-        });
-    };
-
-    /* ─── Loading / Error ──────────────────────────────────────────────── */
 
     if (loading && data.length === 0)
         return (
@@ -778,15 +815,37 @@ function MarketBreadthContent() {
         >
             <BreadthTabs>
                 <div className="flex items-center gap-2.5 min-w-0 overflow-x-auto flex-shrink mr-2">
-                    {/* period selector */}
                     <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                        {/* ─── أزرار AVG 50 / AVG 200 الموحدة لكل المخططات الأربعة ─── */}
+                        <div className="flex bg-slate-50 border border-slate-200 p-0.5 rounded-[9px] gap-0.5 flex-shrink-0">
+                            <button
+                                onClick={() => toggleGlobalAvg('avg50')}
+                                className="px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all border-none cursor-pointer whitespace-nowrap"
+                                style={{
+                                    background: globalAvg.avg50 ? AVG50_COLOR : 'transparent',
+                                    color: globalAvg.avg50 ? '#FFFFFF' : '#64748B',
+                                }}
+                            >
+                                AVG 50
+                            </button>
+                            <button
+                                onClick={() => toggleGlobalAvg('avg200')}
+                                className="px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all border-none cursor-pointer whitespace-nowrap"
+                                style={{
+                                    background: globalAvg.avg200 ? AVG200_COLOR : 'transparent',
+                                    color: globalAvg.avg200 ? '#FFFFFF' : '#64748B',
+                                }}
+                            >
+                                AVG 200
+                            </button>
+                        </div>
+
                         <div className="flex bg-slate-50 border border-slate-200 p-0.5 rounded-[9px] gap-0.5 flex-shrink-0">
                             {['5D', '1M', '6M', '1Y', '5Y', '10Y', 'ALL'].map((p) => (
                                 <button
                                     key={p}
                                     onClick={() => {
                                         setPeriod(p);
-                                        // custom date range and preset period are mutually exclusive
                                         setStartDate('');
                                         setEndDate('');
                                     }}
@@ -809,7 +868,6 @@ function MarketBreadthContent() {
                                 value={startDate}
                                 onChange={(e) => {
                                     setStartDate(e.target.value);
-                                    // picking a custom date clears the active period preset
                                     if (e.target.value) setPeriod('');
                                 }}
                                 className="bg-transparent border-none outline-none text-[11px] text-slate-700"
@@ -823,7 +881,6 @@ function MarketBreadthContent() {
                                 value={endDate}
                                 onChange={(e) => {
                                     setEndDate(e.target.value);
-                                    // picking a custom date clears the active period preset
                                     if (e.target.value) setPeriod('');
                                 }}
                                 className="bg-transparent border-none outline-none text-[11px] text-slate-700"
@@ -834,7 +891,6 @@ function MarketBreadthContent() {
                             onClick={() => {
                                 setStartDate('');
                                 setEndDate('');
-                                // restore a sane default so the grid isn't left with no filter at all
                                 setPeriod('ALL');
                             }}
                             className="px-2.5 py-1.5 rounded-[9px] border border-slate-200 bg-white text-[11px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
@@ -843,7 +899,6 @@ function MarketBreadthContent() {
                         </button>
                     </div>
 
-                    {/* fit all */}
                     <button
                         onClick={fitAll}
                         title="Fit all charts to data"
@@ -853,7 +908,6 @@ function MarketBreadthContent() {
                         Fit All
                     </button>
 
-                    {/* export button */}
                     <div className="flex-shrink-0 mr-2">
                         <MarketBreadthExportButton
                             data={data}
@@ -863,16 +917,13 @@ function MarketBreadthContent() {
                     </div>
                 </div>
             </BreadthTabs>
-            {/* ── Main ── */}
             <main ref={pageRef} className="flex-1 min-h-0 flex flex-col w-full px-2 pt-1 pb-1 overflow-auto" style={{ flex: '1 1 0' }}>
 
-                {/* CHART GRID — TASI + 4 MA charts = 5 cells, rows: 3-2 */}
                 <div
                     className="flex-1 min-h-0 grid grid-cols-6 gap-2"
                     style={{ gridTemplateRows: 'repeat(2, minmax(0, 1fr))' }}
                 >
                     {Array.from({ length: GRID_ITEM_COUNT }, (_, gridIdx) => {
-                        /* ── cell 0: TASI Index ── */
                         if (gridIdx === 0) {
                             const gridCol = chartGridColClass(gridIdx);
                             return (
@@ -886,12 +937,13 @@ function MarketBreadthContent() {
                                         startDate={startDate}
                                         endDate={endDate}
                                         onChartReady={handleTasiReady}
+                                        globalAvg50={globalAvg.avg50}
+                                        globalAvg200={globalAvg.avg200}
                                     />
                                 </div>
                             );
                         }
 
-                        /* ── cells 1..4: the 4 MA charts, unchanged internal logic ── */
                         const i = gridIdx - 1;
                         const cfg = CHART_CONFIGS[i];
                         const gridCol = chartGridColClass(gridIdx);
@@ -936,7 +988,6 @@ function MarketBreadthContent() {
                                 ].join(" ")}
                                 style={{ borderLeft: `3px solid ${cfg.lineColor}`, boxShadow: '0 1px 3px rgba(15,23,42,0.05)' }}
                             >
-                                {/* card header */}
                                 <div className="px-4 pt-2.5 pb-1.5 flex justify-between items-start flex-shrink-0 flex-wrap gap-2">
                                     <div className="flex items-center gap-2">
                                         <div className="w-[30px] h-[30px] rounded-[8px] flex items-center justify-center flex-shrink-0" style={{ background: cfg.accentLight }}>
@@ -977,7 +1028,6 @@ function MarketBreadthContent() {
                                     </div>
                                 </div>
 
-                                {/* progress bar */}
                                 <div className="px-4 pb-1.5 flex-shrink-0">
                                     <div className="flex justify-between mb-0.5">
                                         <span className="text-[9px] text-slate-300 uppercase tracking-widest font-medium">OVERSOLD · 30</span>
@@ -1001,7 +1051,6 @@ function MarketBreadthContent() {
                                     </div>
                                 </div>
 
-                                {/* button row */}
                                 <div className="px-3 py-1 flex items-center gap-1 border-y border-slate-100 flex-shrink-0 flex-wrap">
                                     <button onClick={() => toggleAvgKey(i, avg50Key)}
                                         className="px-2 py-0.5 rounded text-[9px] font-semibold tracking-wide transition-all cursor-pointer border whitespace-nowrap"
@@ -1050,12 +1099,10 @@ function MarketBreadthContent() {
                                     </button>
                                 </div>
 
-                                {/* chart canvas */}
                                 <div className="flex-1 min-h-0 p-1">
                                     <div ref={(el) => { canvasRefs.current[i] = el; }} className="w-full h-full" />
                                 </div>
 
-                                {/* footer */}
                                 <div className="px-4 py-1 border-t border-slate-50 flex justify-between items-center flex-shrink-0">
                                     <span className="text-[9px] text-slate-300 leading-relaxed line-clamp-1">{cfg.desc}</span>
                                     <span className="text-[9px] text-slate-300 ml-3 flex-shrink-0 font-medium">{data.length.toLocaleString()} obs</span>
@@ -1065,7 +1112,6 @@ function MarketBreadthContent() {
                     })}
                 </div>
 
-                {/* footer strip */}
                 <div className="mt-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg flex justify-between items-center text-[9px] text-slate-300 tracking-wide flex-shrink-0 flex-wrap gap-2">
                     <div className="flex items-center gap-1.5">
                         <Radio size={9} color="#CBD5E1" />
