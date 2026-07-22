@@ -120,6 +120,26 @@ const SESSION_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const AVG50_COLOR = '#38BDF8';
 const AVG200_COLOR = '#F59E0B';
 
+/* ── نفس الفورماتر المستخدم في TasiIndexChart عشان شكل تاريخ الـ crosshair
+   يبقى موحّد في كل المخططات (زي TradingView: اسم اليوم + رقم اليوم + اسم الشهر + السنة، من غير توقيت) ── */
+function formatCrosshairTime(time: any): string {
+  let date: Date;
+  if (typeof time === 'string') {
+    date = new Date(time);
+  } else if (typeof time === 'number') {
+    date = new Date(time * 1000);
+  } else if (time && typeof time === 'object') {
+    date = new Date(time.year, time.month - 1, time.day);
+  } else {
+    return '';
+  }
+  if (isNaN(date.getTime())) return String(time);
+
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+}
+
 function downsample(data: TrendDataPoint[], max: number): TrendDataPoint[] {
   if (data.length <= max) return data;
   const step = Math.ceil(data.length / max);
@@ -401,6 +421,10 @@ export default function MinerviniTrendPage() {
         textColor: '#94A3B8',
         fontFamily: '"DM Sans", "Geist", sans-serif',
         fontSize: 10,
+      },
+      /* ── شكل تاريخ الـ crosshair بالظبط زي TASI/TradingView (من غير توقيت) ── */
+      localization: {
+        timeFormatter: formatCrosshairTime,
       },
       grid: {
         vertLines: { color: '#F1F4F8' },

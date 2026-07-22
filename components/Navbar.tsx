@@ -192,7 +192,7 @@ export default function Navbar() {
       href: '/screeners',
       items: [
         { en: 'Fundamental', href: '/screeners/fundamental' },
-        { en: 'Technical Screener', href: '/technical-screener' },
+        { en: 'Technical', href: '/technical-screener' },
         {
           en: 'My Screeners', href: '#',
           items: [
@@ -218,7 +218,7 @@ export default function Navbar() {
                 { en: 'Trend - 5 Months', href: '/screeners?tab=trend-5-months' },
                 { en: 'Trend - 5 Month Wide', href: '/screeners?tab=trend-5-months-wide' },
                 { en: 'Power Play', href: '/screeners?tab=power-play' },
-                { en: 'Minervini Trend', href: '/minervini-trend' },
+                // { en: 'Minervini Trend', href: '/minervini-trend' },
               ],
             },
             {
@@ -226,8 +226,8 @@ export default function Navbar() {
               items: [
                 { en: 'RSI', href: '/screeners/rsi' },
                 { en: 'Alrayan', href: '/screeners/alrayan' },
-                { en: 'Alhussain', href: '/screeners/alhussain' },
-                { en: 'A/D Rating', href: '/screeners/ad-rating' },
+                // { en: 'Alhussain', href: '/screeners/alhussain' },
+                // { en: 'A/D Rating', href: '/screeners/ad-rating' },
               ],
             },
             {
@@ -248,14 +248,25 @@ export default function Navbar() {
       items: [
         { en: 'My Watchlist', href: '/watchlist' },
         {
-          en: 'RS', href: '#',
+          en: 'Relative Strength', href: '#',
           items: [
-            { en: 'RS Analysis', href: '/rs-analysis' },
-            { en: 'RS Line Indicators', href: '/rs-line' },
-            { en: 'Market Overview', href: '/watchlist?tab=Overview' },
-            { en: 'RS Matrix', href: '/watchlist?tab=RS Matrix' },
-            { en: 'Matrix Chart', href: '/watchlist?tab=Matrix Chart' },
-            { en: 'RS Screener', href: '/watchlist?tab=RS Screener' },
+            {
+              en: 'RS Rating', href: '#',
+              items: [
+                { en: 'Market Overview', href: '/watchlist?tab=Overview' },
+                { en: 'RS Matrix', href: '/watchlist?tab=RS Matrix' },
+                { en: 'Matrix Chart', href: '/watchlist?tab=Matrix Chart' },
+                { en: 'RS Screener', href: '/watchlist?tab=RS Screener' },
+                { en: 'RS Analysis', href: '/rs-analysis' },
+                { en: 'New Highs', href: '/screeners/new-highs' },
+              ],
+            },
+            {
+              en: 'RS Line', href: '#',
+              items: [
+                { en: 'RS Line Indicators', href: '/rs-line' },
+              ],
+            },
           ],
         },
       ],
@@ -279,14 +290,26 @@ export default function Navbar() {
       en: 'Market',
       href: '/market',
       items: [
-        { en: 'Economy', href: '/market/economy' },
-        { en: 'US Market', href: '/market/us' },
+        {
+          en: 'Economy', href: '#',
+          items: [
+            { en: 'Valuation', href: '/valuation' },
+          ]
+        },
+        {
+          en: 'US Market', href: '#',
+          items: [
+            { en: 'NAAIM Exposure Index', href: '/naaim' },
+            { en: 'Weekly Study', href: '/weekly-study' },
+          ]
+        },
         {
           en: 'Saudi Market', href: '#',
           items: [
             { en: 'Market Reports', href: '/market-reports' },
             { en: 'Market Breadth', href: '/stocks/market-breadth' },
             { en: 'Market Pulse', href: '/market-pulse' },
+            { en: 'Weekly Update', href: '/weekly-update' },
           ],
         },
         {
@@ -317,17 +340,7 @@ export default function Navbar() {
         { en: 'Risk Calculator', href: '/risk-calculator' },
         { en: 'RBAF', href: '/rbaf' },
         { en: 'Monthly Tracker', href: '/monthly-tracker' },
-        { en: 'Weekly Study', href: '/weekly-study' },
-      ],
-    },
-    new_pages: {
-      en: 'Screener',
-      href: '/Screener_Analytics',
-      items: [
-        { en: 'Percent_of_Stocks_Above_MA', href: '/Percent_of_Stocks_Above_MA' },
-        { en: 'Alrayan&Alhussain', href: '/screeners/Alrayan&Alhussain' },
-        { en: 'Valuation', href: '/valuation' },
-        { en: 'Weekly Update', href: '/weekly-update' },
+
       ],
     },
   }

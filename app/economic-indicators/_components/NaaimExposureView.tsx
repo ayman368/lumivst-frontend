@@ -204,7 +204,7 @@ export default function NaaimExposureView() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="max-w-[1440px] mx-auto px-8 py-6 space-y-4">
       {/* ── Header row: Current Number + Last Quarter ── */}
       {latestError ? (
         <div className="text-red-500 bg-red-50 p-3 rounded-lg text-sm">{latestError}</div>

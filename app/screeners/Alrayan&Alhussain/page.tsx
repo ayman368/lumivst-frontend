@@ -96,6 +96,27 @@ const ALRAYAN_CONDITIONS = [
 // Utilities
 // ─────────────────────────────────────────────────────────────────────────────
 
+/* ── نفس الفورماتر المستخدم في صفحة market-breadth و TasiIndexChart، عشان
+   شكل تاريخ الـ crosshair يبقى موحّد في كل شارتات المنصّة (زي TradingView،
+   من غير توقيت) ── */
+function formatCrosshairTime(time: any): string {
+    let date: Date;
+    if (typeof time === 'string') {
+        date = new Date(time);
+    } else if (typeof time === 'number') {
+        date = new Date(time * 1000);
+    } else if (time && typeof time === 'object') {
+        date = new Date(time.year, time.month - 1, time.day);
+    } else {
+        return '';
+    }
+    if (isNaN(date.getTime())) return String(time);
+
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+}
+
 function filterByPeriod(items: TrendPoint[], period: PeriodKey): TrendPoint[] {
     const days = PERIOD_DAYS[period];
     if (!days) return items;
@@ -419,6 +440,11 @@ function ChartPanel({
                 fontSize: 9,
                 fontFamily: 'system-ui, -apple-system, sans-serif',
             },
+            /* ── شكل تاريخ الـ crosshair بالظبط زي TradingView (من غير توقيت)،
+               نفس الفورماتر المستخدم في باقي شارتات المنصّة ── */
+            localization: {
+                timeFormatter: formatCrosshairTime,
+            },
             grid: {
                 vertLines: { color: '#F0F0F0' },
                 horzLines: { color: '#F0F0F0' },
@@ -477,7 +503,8 @@ function ChartPanel({
                 vals.push({ name: l.name, color: l.color, value: d ? (d.value as number) : null });
             });
             setHoverValues(vals);
-            setHoverLabel(String(param.time));
+            // نفس فورمات التاريخ الموحّد بدل الـ raw time string
+            setHoverLabel(formatCrosshairTime(param.time));
         });
 
         sync.register(chartId, { chart, series: seriesMap });

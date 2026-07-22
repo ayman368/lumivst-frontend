@@ -688,13 +688,12 @@ function SectorAnalyticsSection({ report }: any) {
             <tr>
               <th rowSpan={2} style={{ ...TH, backgroundColor: '#fff', color: C.tableText, textAlign: 'left', textTransform: 'none', borderRight: `1px solid ${C.border}` }}>Sector Name</th>
               <th rowSpan={2} style={{ ...TH, backgroundColor: '#fff', color: C.tableText, textAlign: 'center', textTransform: 'none', borderRight: `1px solid ${C.border}` }}>Weekly<br/>% Return</th>
-              <th colSpan={3} style={{ ...TH, backgroundColor: '#fff', color: C.tableText, textAlign: 'center', textTransform: 'none', borderRight: `1px solid ${C.border}`, borderBottom: 'none' }}>Trend Direction</th>
+              <th colSpan={2} style={{ ...TH, backgroundColor: '#fff', color: C.tableText, textAlign: 'center', textTransform: 'none', borderRight: `1px solid ${C.border}`, borderBottom: 'none' }}>Trend Direction</th>
               <th rowSpan={2} style={{ ...TH, backgroundColor: '#fff', color: C.tableText, textAlign: 'center', textTransform: 'none', borderRight: `1px solid ${C.border}` }}>Trend<br/>Rank</th>
               <th rowSpan={2} style={{ ...TH, backgroundColor: '#fff', color: C.tableText, textAlign: 'center', textTransform: 'none', borderRight: `1px solid ${C.border}` }}>% Below<br/>250-Day High</th>
               <th rowSpan={2} style={{ ...TH, backgroundColor: '#fff', color: C.tableText, textAlign: 'center', textTransform: 'none' }}>Days Since Last<br/>250-Day High</th>
             </tr>
             <tr>
-              <th style={{ ...TH, backgroundColor: '#fff', color: C.tableText, textAlign: 'center', textTransform: 'none', borderRight: `1px solid ${C.border}` }}>Daily</th>
               <th style={{ ...TH, backgroundColor: '#fff', color: C.tableText, textAlign: 'center', textTransform: 'none', borderRight: `1px solid ${C.border}` }}>Weekly</th>
               <th style={{ ...TH, backgroundColor: '#fff', color: C.tableText, textAlign: 'center', textTransform: 'none', borderRight: `1px solid ${C.border}` }}>Monthly</th>
             </tr>
@@ -713,7 +712,6 @@ function SectorAnalyticsSection({ report }: any) {
                   <td style={{ ...TD, textAlign: 'center', fontWeight: 700, color: row.weekly_return >= 0 ? C.bull : C.bear, borderRight: `1px solid ${C.border}` }}>
                     {row.weekly_return >= 0 ? '+' : ''}{Number(row.weekly_return).toFixed(1)}
                   </td>
-                  <td style={{ ...TD, textAlign: 'center', backgroundColor: getBg(row.trend_daily), color: '#fff', borderRight: '1px solid #fff' }}>{row.trend_daily}</td>
                   <td style={{ ...TD, textAlign: 'center', backgroundColor: getBg(row.trend_weekly), color: '#fff', borderRight: '1px solid #fff' }}>{row.trend_weekly}</td>
                   <td style={{ ...TD, textAlign: 'center', backgroundColor: getBg(row.trend_monthly), color: '#fff', borderRight: `1px solid ${C.border}` }}>{row.trend_monthly}</td>
                   <td style={{ ...TD, textAlign: 'center', borderRight: `1px solid ${C.border}` }}>{row.trend_rank}</td>

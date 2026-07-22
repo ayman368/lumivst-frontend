@@ -57,6 +57,27 @@ type HoverEntry = {
 const AVG50_COLOR = '#E02020';
 const AVG200_COLOR = '#1A1A1A';
 
+/* ── نفس الفورماتر المستخدم في باقي صفحات المنصّة (market-breadth، TasiIndexChart،
+   combined-dashboard) عشان شكل تاريخ الـ crosshair يبقى موحّد في كل مكان
+   (زي TradingView، من غير توقيت) ── */
+function formatCrosshairTime(time: any): string {
+    let date: Date;
+    if (typeof time === 'string') {
+        date = new Date(time);
+    } else if (typeof time === 'number') {
+        date = new Date(time * 1000);
+    } else if (time && typeof time === 'object') {
+        date = new Date(time.year, time.month - 1, time.day);
+    } else {
+        return '';
+    }
+    if (isNaN(date.getTime())) return String(time);
+
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+}
+
 const CHART_CONFIGS = [
     {
         key: 'pct_above_20' as const,
@@ -385,6 +406,10 @@ function MarketBreadthContent() {
                 textColor: '#94A3B8',
                 fontFamily: '"DM Sans", "Geist", sans-serif',
                 fontSize: 10,
+            },
+            /* ── شكل تاريخ الـ crosshair بالظبط زي TradingView (من غير توقيت) ── */
+            localization: {
+                timeFormatter: formatCrosshairTime,
             },
             grid: {
                 vertLines: { color: '#F1F4F8' },
