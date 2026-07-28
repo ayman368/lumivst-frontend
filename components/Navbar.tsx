@@ -55,6 +55,49 @@ function DropdownItem({
   onClose: () => void
 }) {
   const [open, setOpen] = useState(false)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [])
+
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+    setOpen(true)
+  }
+
+  const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
+    const relatedTarget = e.relatedTarget as Node | null
+
+    // If relatedTarget is null or we're moving to a non-node element, close after delay
+    if (!relatedTarget || !(relatedTarget instanceof Node)) {
+      timeoutRef.current = setTimeout(() => {
+        setOpen(false)
+      }, 150)
+      return
+    }
+
+    const currentTarget = e.currentTarget
+    const nestedPanel = currentTarget.querySelector('.nested-panel')
+
+    // If mouse is moving to the nested panel, don't close
+    if (nestedPanel && nestedPanel.contains(relatedTarget)) {
+      return
+    }
+
+    // Delay closing to allow mouse to reach nested panel
+    timeoutRef.current = setTimeout(() => {
+      setOpen(false)
+    }, 150)
+  }
 
   if (!item.items) {
     return (
@@ -71,8 +114,8 @@ function DropdownItem({
   return (
     <div
       className="relative"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <button
         className="flex w-full items-center justify-between gap-6 px-4 py-2.5 text-[13px] text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors duration-150 cursor-pointer border-none bg-transparent"
@@ -85,7 +128,7 @@ function DropdownItem({
       {/* Nested flyout panel */}
       {/* pl-1 + left-[calc(100%-4px)] → bridge the gap so mouseLeave doesn't fire mid-travel */}
       <div
-        className="absolute top-0 z-[1010] min-w-[200px]"
+        className="nested-panel absolute top-0 z-[1010] min-w-[200px]"
         style={{
           left: 'calc(100% - 4px)',
           paddingLeft: '4px',
@@ -94,6 +137,37 @@ function DropdownItem({
           transform: open ? 'translateX(0)' : 'translateX(-6px)',
           transition: 'opacity 0.15s ease, transform 0.15s ease',
           pointerEvents: open ? 'auto' : 'none',
+        }}
+        onMouseEnter={() => {
+          // Keep open when hovering over nested panel
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current)
+            timeoutRef.current = null
+          }
+          setOpen(true)
+        }}
+        onMouseLeave={(e) => {
+          const relatedTarget = e.relatedTarget as Node | null
+
+          // If relatedTarget is null or we're moving to a non-node element, close after delay
+          if (!relatedTarget || !(relatedTarget instanceof Node)) {
+            timeoutRef.current = setTimeout(() => {
+              setOpen(false)
+            }, 150)
+            return
+          }
+
+          const currentTarget = e.currentTarget
+          const parentElement = currentTarget.parentElement?.parentElement
+
+          // If moving back to parent button, keep open
+          if (parentElement && parentElement.contains(relatedTarget)) {
+            return
+          }
+
+          timeoutRef.current = setTimeout(() => {
+            setOpen(false)
+          }, 150)
         }}
       >
         <div
@@ -173,6 +247,7 @@ export default function Navbar() {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const navRef = useRef<HTMLDivElement>(null)
   const userMenuRef = useRef<HTMLDivElement>(null)
+  const dropdownTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const { user, logout } = useAuth()
 
   // ── Menu data ────────────────────────────────
@@ -246,7 +321,7 @@ export default function Navbar() {
       en: 'Watchlist',
       href: '/watchlist',
       items: [
-        { en: 'My Watchlist', href: '/watchlist' },
+        // { en: 'My Watchlist', href: '/watchlist' },
         {
           en: 'Relative Strength', href: '#',
           items: [
@@ -310,6 +385,7 @@ export default function Navbar() {
             { en: 'Market Breadth', href: '/stocks/market-breadth' },
             { en: 'Market Pulse', href: '/market-pulse' },
             { en: 'Weekly Update', href: '/weekly-update' },
+            { en: 'Saudi Analytics', href: '/saudi-analytics' },
           ],
         },
         {
@@ -361,12 +437,55 @@ export default function Navbar() {
     }
   }
 
+  // ── Dropdown handlers with timeout ──────────
+  const handleDropdownEnter = useCallback((key: string) => {
+    if (dropdownTimeoutRef.current) {
+      clearTimeout(dropdownTimeoutRef.current)
+      dropdownTimeoutRef.current = null
+    }
+    setActiveDropdown(key)
+  }, [])
+
+  const handleDropdownLeave = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const relatedTarget = e.relatedTarget as Node | null
+
+    // If relatedTarget is null or we're moving to a non-node element, close after delay
+    if (!relatedTarget || !(relatedTarget instanceof Node)) {
+      dropdownTimeoutRef.current = setTimeout(() => {
+        setActiveDropdown(null)
+      }, 150)
+      return
+    }
+
+    const currentTarget = e.currentTarget
+    const dropdownPanel = currentTarget.querySelector('.dropdown-panel')
+
+    // If mouse is moving to the dropdown panel, don't close
+    if (dropdownPanel && dropdownPanel.contains(relatedTarget)) {
+      return
+    }
+
+    // Delay closing to allow mouse to reach dropdown panel
+    dropdownTimeoutRef.current = setTimeout(() => {
+      setActiveDropdown(null)
+    }, 150)
+  }, [])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (dropdownTimeoutRef.current) {
+        clearTimeout(dropdownTimeoutRef.current)
+      }
+    }
+  }, [])
+
   // Close on outside click
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (navRef.current && !navRef.current.contains(e.target as Node)) {
         setActiveDropdown(null)
-        setMobileOpen(false)
+        // Don't close mobile menu here - let user close it manually or through closeAll
       }
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setShowUserMenu(false)
@@ -405,8 +524,8 @@ export default function Navbar() {
             <div
               key={key}
               className="relative h-full flex items-center"
-              onMouseEnter={() => setActiveDropdown(key)}
-              onMouseLeave={() => setActiveDropdown(null)}
+              onMouseEnter={() => handleDropdownEnter(key)}
+              onMouseLeave={handleDropdownLeave}
             >
               <button
                 type="button"
@@ -428,7 +547,7 @@ export default function Navbar() {
               {/* Dropdown panel */}
               {/* pt-1 + top-[calc(100%-4px)] → bridge the gap so mouseLeave doesn't fire mid-travel */}
               <div
-                className="absolute left-0 min-w-[200px] z-[1001]"
+                className="dropdown-panel absolute left-0 min-w-[200px] z-[1001]"
                 style={{
                   top: 'calc(100% - 4px)',
                   paddingTop: '4px',
@@ -437,6 +556,37 @@ export default function Navbar() {
                   transform: activeDropdown === key ? 'translateY(0)' : 'translateY(-8px)',
                   transition: 'opacity 0.18s ease, transform 0.18s ease',
                   pointerEvents: activeDropdown === key ? 'auto' : 'none',
+                }}
+                onMouseEnter={() => {
+                  // Keep dropdown open when hovering over the panel
+                  if (dropdownTimeoutRef.current) {
+                    clearTimeout(dropdownTimeoutRef.current)
+                    dropdownTimeoutRef.current = null
+                  }
+                  setActiveDropdown(key)
+                }}
+                onMouseLeave={(e) => {
+                  const relatedTarget = e.relatedTarget as Node | null
+
+                  // If relatedTarget is null or we're moving to a non-node element, close after delay
+                  if (!relatedTarget || !(relatedTarget instanceof Node)) {
+                    dropdownTimeoutRef.current = setTimeout(() => {
+                      setActiveDropdown(null)
+                    }, 150)
+                    return
+                  }
+
+                  const currentTarget = e.currentTarget
+                  const parentElement = currentTarget.parentElement?.parentElement
+
+                  // If moving back to parent button, keep open
+                  if (parentElement && parentElement.contains(relatedTarget)) {
+                    return
+                  }
+
+                  dropdownTimeoutRef.current = setTimeout(() => {
+                    setActiveDropdown(null)
+                  }, 150)
                 }}
               >
                 <div

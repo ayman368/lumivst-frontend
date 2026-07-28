@@ -231,6 +231,14 @@ const initialFilterState: FilterState = {
     rs_1w_gt_4w: 'any',
     rs_3m_gt_6m: 'any',
     rs_6m_gt_1y: 'any',
+    // === RS Line Metrics Filters ===
+    rs_line_min: '', rs_line_max: '',
+    rs_ma1_min: '', rs_ma1_max: '',
+    rs_ma2_min: '', rs_ma2_max: '',
+    rs_direction: [],
+    rs_position: [],
+    rs_signal_today: [],
+    rsnhbp_today: [],
 };
 export default function StockScreenerPage() {
     const { stocks, metadata, loading, error, setStocks, setMetadata, setLoading, setError, refetch } = useStocks();
@@ -360,6 +368,16 @@ export default function StockScreenerPage() {
         { key: 'rs_rating_3_months_ago', label: 'RS 3M Ago', visibleKey: 'rs_rating_3_months_ago' },
         { key: 'rs_rating_6_months_ago', label: 'RS 6M Ago', visibleKey: 'rs_rating_6_months_ago' },
         { key: 'rs_rating_1_year_ago', label: 'RS 1Y Ago', visibleKey: 'rs_rating_1_year_ago' },
+        // RS Line Metrics
+        { key: 'rs_line', label: 'RS Line', visibleKey: 'rs_line' },
+        { key: 'rs_ma1', label: 'RS MA1 (EMA8)', visibleKey: 'rs_ma1' },
+        { key: 'rs_ma2', label: 'RS MA2 (SMA50)', visibleKey: 'rs_ma2' },
+        { key: 'rs_direction', label: 'RS Direction', visibleKey: 'rs_direction' },
+        { key: 'rs_position', label: 'RS Position', visibleKey: 'rs_position' },
+        { key: 'rs_signal_today', label: 'RS Signal Today', visibleKey: 'rs_signal_today' },
+        { key: 'rsnhbp_today', label: 'RSNHBP', visibleKey: 'rsnhbp_today' },
+        { key: 'last_bull_cross', label: 'Last Bull Cross', visibleKey: 'last_bull_cross' },
+        { key: 'last_bear_cross', label: 'Last Bear Cross', visibleKey: 'last_bear_cross' },
         // Industry Group Metrics
         { key: 'ind_group_rank', label: 'Ind Group Rank', visibleKey: 'ind_group_rank' },
         { key: 'ind_group_rank_1_week_ago', label: 'Ind Group Last Week', visibleKey: 'ind_group_rank_1_week_ago' },
@@ -425,6 +443,8 @@ export default function StockScreenerPage() {
         }
     }, [filters]);
     const clearAllFilters = useCallback(() => { setFilters(initialFilterState); }, []);
+    
+
     useEffect(() => {
         // Data is now entirely fetched and mapped by useStocks()
         // No need to duplicate the fetch logic here.
@@ -485,6 +505,15 @@ export default function StockScreenerPage() {
         addCheckboxFilter('Sector RS', 'sector_rs');
         addCheckboxFilter('Industry RS', 'industry_rs');
         addCheckboxFilter('Sub Industry RS', 'sub_industry_rs');
+
+        // RS Line Metrics
+        addRangeFilter('RS Line', 'rs_line_min', 'rs_line_max');
+        addRangeFilter('RS MA1', 'rs_ma1_min', 'rs_ma1_max');
+        addRangeFilter('RS MA2', 'rs_ma2_min', 'rs_ma2_max');
+        addCheckboxFilter('RS Direction', 'rs_direction');
+        addCheckboxFilter('RS Position', 'rs_position');
+        addCheckboxFilter('RS Signal Today', 'rs_signal_today');
+        addCheckboxFilter('RSNHBP', 'rsnhbp_today');
 
         // Price & Volume
         addRangeFilter('Price', 'price_min', 'price_max');
@@ -706,6 +735,24 @@ export default function StockScreenerPage() {
             if (!checkCheckbox(stock.sector_rs, filters.sector_rs)) return false;
             if (!checkCheckbox(stock.industry_rs, filters.industry_rs)) return false;
             if (!checkCheckbox(stock.sub_industry_rs, filters.sub_industry_rs)) return false;
+
+            // RS Line Metrics Filters
+            if (!checkRange(stock.rs_line, 'rs_line_min', 'rs_line_max')) return false;
+            if (!checkRange(stock.rs_ma1, 'rs_ma1_min', 'rs_ma1_max')) return false;
+            if (!checkRange(stock.rs_ma2, 'rs_ma2_min', 'rs_ma2_max')) return false;
+            if (filters.rs_direction && filters.rs_direction.length > 0) {
+                if (!stock.rs_direction || !filters.rs_direction.includes(stock.rs_direction)) return false;
+            }
+            if (filters.rs_position && filters.rs_position.length > 0) {
+                if (!stock.rs_position || !filters.rs_position.includes(stock.rs_position)) return false;
+            }
+            if (filters.rs_signal_today && filters.rs_signal_today.length > 0) {
+                if (!stock.rs_signal_today || !filters.rs_signal_today.includes(stock.rs_signal_today)) return false;
+            }
+            if (filters.rsnhbp_today && filters.rsnhbp_today.length > 0) {
+                const stockVal = stock.rsnhbp_today ? 'Yes' : 'No';
+                if (!filters.rsnhbp_today.includes(stockVal)) return false;
+            }
 
             if (filters.approval_with_controls.length > 0 && !filters.approval_with_controls.includes(stock.approval_with_controls || '')) return false;
             if (!checkRange(stock.purge_amount, 'purge_amount_min', 'purge_amount_max')) return false;
@@ -1260,6 +1307,15 @@ export default function StockScreenerPage() {
                                                         }
                                                         break;
                                                     }
+                                                    case 'rs_line': content = <span className="font-medium text-gray-900">{stock.rs_line != null ? stock.rs_line.toFixed(4) : '-'}</span>; break;
+                                                    case 'rs_ma1': content = <span className="text-gray-900">{stock.rs_ma1 != null ? stock.rs_ma1.toFixed(4) : '-'}</span>; break;
+                                                    case 'rs_ma2': content = <span className="text-gray-900">{stock.rs_ma2 != null ? stock.rs_ma2.toFixed(4) : '-'}</span>; break;
+                                                    case 'rs_direction': content = <span className={`font-semibold ${stock.rs_direction === 'up' ? 'text-green-600' : stock.rs_direction === 'down' ? 'text-red-600' : 'text-gray-500'}`}>{stock.rs_direction === 'up' ? '▲ Up' : stock.rs_direction === 'down' ? '▼ Down' : '-'}</span>; break;
+                                                    case 'rs_position': content = <span className={`text-xs px-1.5 py-0.5 rounded ${stock.rs_position === 'above_ma' ? 'bg-green-100 text-green-800' : stock.rs_position === 'below_ma' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{stock.rs_position === 'above_ma' ? 'Above MA' : stock.rs_position === 'below_ma' ? 'Below MA' : '-'}</span>; break;
+                                                    case 'rs_signal_today': content = <span className={`text-xs px-1.5 py-0.5 rounded ${stock.rs_signal_today === 'bullish_cross' ? 'bg-blue-100 text-blue-800 font-bold' : stock.rs_signal_today === 'bearish_cross' ? 'bg-orange-100 text-orange-800 font-bold' : ''}`}>{stock.rs_signal_today === 'bullish_cross' ? 'Bull Cross' : stock.rs_signal_today === 'bearish_cross' ? 'Bear Cross' : '-'}</span>; break;
+                                                    case 'rsnhbp_today': content = <span className={`font-bold ${stock.rsnhbp_today ? 'text-pink-600' : 'text-gray-400'}`}>{stock.rsnhbp_today ? 'Yes' : 'No'}</span>; break;
+                                                    case 'last_bull_cross': content = <span className="text-gray-600">{stock.last_bull_cross || '-'}</span>; break;
+                                                    case 'last_bear_cross': content = <span className="text-gray-600">{stock.last_bear_cross || '-'}</span>; break;
                                                     default: {
                                                         const techVal = (stock as any)[col.key];
                                                         if (techVal === null || techVal === undefined || techVal === '') content = <span className="text-gray-400">-</span>;

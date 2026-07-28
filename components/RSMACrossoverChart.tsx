@@ -146,7 +146,7 @@ export default function RSMACrossoverChart({
           method: "POST",
           headers: { "Content-Type": "application/json", "x-csrf-token": "1" },
           credentials: "include",
-          body: JSON.stringify({ symbol, benchmark, start_date: startDate, ma1_type: ma1Type, ma1_period: ma1Period, ma2_type: ma2Type, ma2_period: ma2Period }),
+          body: JSON.stringify({ symbol, benchmark, start_date: startDate, ma1_type: ma1Type, ma1_period: ma1Period, ma2_type: ma2Type, ma2_period: ma2Period, scale_factor: 3000 }),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json: RSLineResponse = await res.json();

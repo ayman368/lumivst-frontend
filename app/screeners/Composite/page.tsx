@@ -397,9 +397,9 @@ export default function CompositePage() {
 
       const desiredOrder = [
         'Trend - 5 Months',
+        'Trend - 4 Months',
         'Trend - 2 Months',
         'Trend - 1 Month',
-        'Trend - 4 Months',
         'Trend - 5 Months Wide',
         'Alhussain',
         'Alrayan',

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import html2canvas from 'html2canvas'; // 1. استيراد المكتبة
 import { API_BASE_URL } from '@/lib/api/config';
 import { authFetch } from '@/lib/api/authFetch';
@@ -31,6 +31,15 @@ export default function MatrixChart() {
     const [gridStyles, setGridStyles] = useState({ col1: '50%', col2: '50%', row1: '50%', row2: '50%' });
     const [hoveredStock, setHoveredStock] = useState<{ stock: StockRS; x: number; y: number; movedFrom?: string } | null>(null);
     const [iscapturing, setIsCapturing] = useState(false); // لحالة الزر أثناء التصوير
+
+    const searchParams = useSearchParams();
+
+    // لو الصفحة اتفتحت من Puppeteer للـ PDF، فعّل وضع التصوير تلقائياً
+    useEffect(() => {
+        if (searchParams.get('reportMode') === 'true') {
+            setIsCapturing(true);
+        }
+    }, [searchParams]);
 
     // 2. مرجع للعنصر المراد تصويره — أصبح الآن على <main> فقط (بدون الهيدر)
     const chartRef = useRef<HTMLDivElement>(null);
@@ -64,17 +73,30 @@ export default function MatrixChart() {
         }
     };
 
+    // انتظار فريم للتأكد إن التخطيط (layout) اتحدث فعلاً في الـ DOM قبل التصوير
+    const waitForLayout = () =>
+        new Promise<void>((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        });
+
     // دالة التقاط الصورة
     const captureImage = async () => {
         if (!chartRef.current) return;
 
+        // 3. نفعل وضع "التصوير": كل مربع هياخد ارتفاعه الحقيقي على قد محتواه بس
+        //    (مفيش مساحة فاضية) بدل الارتفاع الثابت المقسوم بالنسبة
         setIsCapturing(true);
+
         try {
-            // ننتظر قليلاً للتأكد من اختفاء أي Tooltip أو تأثيرات حركية
+            // ننتظر رندر إضافي عشان التخطيط الجديد (fit-content) يستقر فعليًا
+            await waitForLayout();
+
             const canvas = await html2canvas(chartRef.current, {
                 useCORS: true, // للسماح بالصور من روابط خارجية إذا وجدت
-                backgroundColor: "#ffffff",
+                backgroundColor: '#ffffff',
                 scale: 2, // جودة أعلى (Retina)
+                windowWidth: chartRef.current.scrollWidth,
+                windowHeight: chartRef.current.scrollHeight,
             });
 
             const link = document.createElement('a');
@@ -82,8 +104,9 @@ export default function MatrixChart() {
             link.href = canvas.toDataURL('image/png');
             link.click();
         } catch (err) {
-            console.error("Failed to capture image:", err);
+            console.error('Failed to capture image:', err);
         } finally {
+            // نرجع الشكل الطبيعي (matrix chart) تاني على الشاشة
             setIsCapturing(false);
         }
     };
@@ -102,6 +125,8 @@ export default function MatrixChart() {
     const neutral = filteredStocks.filter(s => s.rs_rating >= 70 && s.rs_rating < 80).sort((a, b) => b.rs_rating - a.rs_rating);
     const weak = filteredStocks.filter(s => s.rs_rating < 70).sort((a, b) => b.rs_rating - a.rs_rating);
 
+    // هذه النسب تُستخدم فقط في وضع العرض العادي (غير وضع التصوير)
+    // كل عمود مستقل بارتفاعه عن التاني، فمفيش مربع بيتمدد بسبب جاره
     const calculateGridDimensions = (allStocks: StockRS[]) => {
         const nStrong = allStocks.filter(s => s.rs_rating >= 90).length;
         const nImprove = allStocks.filter(s => s.rs_rating >= 80 && s.rs_rating < 90).length;
@@ -133,8 +158,9 @@ export default function MatrixChart() {
     const getPct = (count: number) => ((count / totalCount) * 100).toFixed(1) + '%';
 
     return (
-        /* أزلنا الـ ref من هنا حتى لا يشمل الهيدر */
-        <div className="h-screen flex flex-col bg-white overflow-hidden font-sans text-[#333]">
+        // 4. لما نبقى بنصور، لازم نشيل h-screen و overflow-hidden من الحاوية الرئيسية
+        //    عشان لو المحتوى بقى أطول من الشاشة (نادر بعد التقليم) ميتقصّش
+        <div className={`flex flex-col bg-white font-sans text-[#333] ${iscapturing ? '' : 'h-screen overflow-hidden'}`}>
             <header className="h-[60px] bg-[#1e222d] border-b border-[#2a2e39] flex items-center justify-between px-5 shrink-0 z-50">
                 <h1 className="text-white text-[1.3rem] font-bold"> RS Matrix Chart</h1>
                 <div className="flex gap-2 bg-white/5 p-1 rounded-lg">
@@ -150,66 +176,88 @@ export default function MatrixChart() {
                 </div>
             </header>
 
-            {/* أضفنا الـ ref هنا فقط، ليشمل المصفوفة دون الهيدر */}
+            {/*
+              5. بدل CSS Grid (اللي بيفرض نفس ارتفاع الصف على الخليتين جنب بعض)،
+              بقينا نستخدم Flex بعمودين. كل عمود فيه صفين فوق بعض، وكل صف بارتفاعه
+              الخاص المستقل عن العمود التاني. وده اللي بيمنع الفراغات.
+            */}
             <main
+                id="matrix-chart-main"
                 ref={chartRef}
-                className="flex-1 grid w-full bg-white transition-all duration-500 ease-in-out"
+                className={`flex w-full bg-white ${iscapturing ? '' : 'flex-1 transition-all duration-500 ease-in-out'}`}
                 style={{
-                    gridTemplateColumns: `${gridStyles.col1} ${gridStyles.col2}`,
-                    gridTemplateRows: `${gridStyles.row1} ${gridStyles.row2}`
+                    height: iscapturing ? 'auto' : undefined,
                 }}
             >
-                <Quadrant
-                    id="q-neutral"
-                    title="NEUTRAL (70 - 79)"
-                    watermark="NEUTRAL"
-                    list={neutral}
-                    bgColor="#fff3e0"
-                    percentage={getPct(neutral.length)}
-                    dotColor="#e65100"
-                    onHover={setHoveredStock}
-                    onLeave={() => setHoveredStock(null)}
-                    router={router}
-                />
+                {/* العمود الأيسر: NEUTRAL فوق WEAK */}
+                <div
+                    className="flex flex-col"
+                    style={{ width: gridStyles.col1 }}
+                >
+                    <Quadrant
+                        id="q-neutral"
+                        title="NEUTRAL (70 - 79)"
+                        watermark="NEUTRAL"
+                        list={neutral}
+                        bgColor="#fff3e0"
+                        percentage={getPct(neutral.length)}
+                        dotColor="#e65100"
+                        onHover={setHoveredStock}
+                        onLeave={() => setHoveredStock(null)}
+                        router={router}
+                        heightPct={gridStyles.row1}
+                        capturing={iscapturing}
+                    />
+                    <Quadrant
+                        id="q-weak"
+                        title="WEAK (< 70)"
+                        watermark="WEAK"
+                        list={weak}
+                        bgColor="#ffcdd2"
+                        percentage={getPct(weak.length)}
+                        dotColor="#c62828"
+                        onHover={setHoveredStock}
+                        onLeave={() => setHoveredStock(null)}
+                        router={router}
+                        heightPct={gridStyles.row2}
+                        capturing={iscapturing}
+                    />
+                </div>
 
-                <Quadrant
-                    id="q-strong"
-                    title="STRONG (>= 90)"
-                    watermark="STRONG"
-                    list={strong}
-                    bgColor="#e8f5e9"
-                    percentage={getPct(strong.length)}
-                    dotColor="#2e7d32"
-                    onHover={setHoveredStock}
-                    onLeave={() => setHoveredStock(null)}
-                    router={router}
-                />
-
-                <Quadrant
-                    id="q-weak"
-                    title="WEAK (< 70)"
-                    watermark="WEAK"
-                    list={weak}
-                    bgColor="#ffcdd2"
-                    percentage={getPct(weak.length)}
-                    dotColor="#c62828"
-                    onHover={setHoveredStock}
-                    onLeave={() => setHoveredStock(null)}
-                    router={router}
-                />
-
-                <Quadrant
-                    id="q-improve"
-                    title="IMPROVE (80 - 89)"
-                    watermark="IMPROVE"
-                    list={improve}
-                    bgColor="#e1f5fe"
-                    percentage={getPct(improve.length)}
-                    dotColor="#0277bd"
-                    onHover={setHoveredStock}
-                    onLeave={() => setHoveredStock(null)}
-                    router={router}
-                />
+                {/* العمود الأيمن: STRONG فوق IMPROVE */}
+                <div
+                    className="flex flex-col"
+                    style={{ width: gridStyles.col2 }}
+                >
+                    <Quadrant
+                        id="q-strong"
+                        title="STRONG (>= 90)"
+                        watermark="STRONG"
+                        list={strong}
+                        bgColor="#e8f5e9"
+                        percentage={getPct(strong.length)}
+                        dotColor="#2e7d32"
+                        onHover={setHoveredStock}
+                        onLeave={() => setHoveredStock(null)}
+                        router={router}
+                        heightPct={gridStyles.row1}
+                        capturing={iscapturing}
+                    />
+                    <Quadrant
+                        id="q-improve"
+                        title="IMPROVE (80 - 89)"
+                        watermark="IMPROVE"
+                        list={improve}
+                        bgColor="#e1f5fe"
+                        percentage={getPct(improve.length)}
+                        dotColor="#0277bd"
+                        onHover={setHoveredStock}
+                        onLeave={() => setHoveredStock(null)}
+                        router={router}
+                        heightPct={gridStyles.row2}
+                        capturing={iscapturing}
+                    />
+                </div>
             </main>
 
             {/* Custom Tooltip - لن يظهر في الصورة لأنه خارج الـ chartRef أو يتم التقاطه بسرعة */}
@@ -234,7 +282,7 @@ export default function MatrixChart() {
     );
 }
 
-// ... كود مكون Quadrant يبقى كما هو ...
+// ... كود مكون Quadrant ...
 interface QuadrantProps {
     id: string;
     title: string;
@@ -246,14 +294,24 @@ interface QuadrantProps {
     onHover: (data: { stock: StockRS; x: number; y: number; movedFrom?: string }) => void;
     onLeave: () => void;
     router: any;
+    heightPct: string; // الارتفاع النسبي في وضع العرض العادي (مثال: "45%")
+    capturing: boolean; // هل احنا في وضع التصوير دلوقتي؟
 }
 
-function Quadrant({ id, title, watermark, list, bgColor, percentage, dotColor, onHover, onLeave, router }: QuadrantProps) {
+function Quadrant({ id, title, watermark, list, bgColor, percentage, dotColor, onHover, onLeave, router, heightPct, capturing }: QuadrantProps) {
     return (
         <div
             id={id}
-            className="relative p-[25px_15px_15px_15px] overflow-y-auto overflow-x-hidden flex flex-wrap content-start border border-black/[0.08]"
-            style={{ backgroundColor: bgColor }}
+            // في وضع العرض العادي: ارتفاع ثابت بالنسبة + overflow-y-auto (سكرول لو المحتوى أطول)
+            // في وضع التصوير: ارتفاع auto يتقلص على قد المحتوى فعليًا + overflow visible (بدون قص)
+            className={`relative p-[25px_15px_15px_15px] flex flex-wrap content-start border border-black/[0.08] ${capturing ? 'overflow-visible' : 'overflow-y-auto overflow-x-hidden'
+                }`}
+            style={{
+                backgroundColor: bgColor,
+                height: capturing ? 'auto' : heightPct,
+                minHeight: capturing ? undefined : heightPct,
+                transition: capturing ? undefined : 'height 0.5s ease-in-out',
+            }}
         >
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[3rem] font-[900] uppercase text-black/10 pointer-events-none z-0 text-center leading-[1.2]">
                 {watermark}

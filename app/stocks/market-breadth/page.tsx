@@ -1331,10 +1331,11 @@ function MarketBreadthContent() {
         });
     };
 
-    /* ── extra controls for Shariah bar ── */
+    /* ── extra controls for Shariah bar ──
+       الترتيب المطلوب: AVG 50/200 → الفترات → From/To → Clear → Fit All → Export ── */
     const extraControls = (
         <div className="flex items-center gap-2.5 mr-2">
-            {/* ── Global AVG 50 / AVG 200 toggles — applies to every chart at once ── */}
+            {/* ── Global AVG 50 / AVG 200 toggles — أول عنصر ── */}
             <div className="flex bg-slate-100 border border-slate-200 p-0.5 rounded-[9px] gap-0.5">
                 <button
                     onClick={() => toggleGlobalAvg('avg50')}
@@ -1360,6 +1361,7 @@ function MarketBreadthContent() {
                 </button>
             </div>
 
+            {/* ── الفترات — تاني عنصر ── */}
             <div className="flex bg-slate-100 border border-slate-200 p-0.5 rounded-[9px] gap-0.5">
                 {['5D', '1M', '6M', '1Y', '5Y', '10Y', 'ALL'].map((p) => (
                     <button
@@ -1381,6 +1383,7 @@ function MarketBreadthContent() {
                 ))}
             </div>
 
+            {/* ── From / To — تالت عنصر ── */}
             <label className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-[9px] px-2 py-1 text-[10px] text-slate-600">
                 <span className="text-slate-400 font-medium">From</span>
                 <input
@@ -1407,6 +1410,7 @@ function MarketBreadthContent() {
                 />
             </label>
 
+            {/* ── Clear — رابع عنصر ── */}
             <button
                 onClick={() => {
                     setStartDate('');
@@ -1418,6 +1422,7 @@ function MarketBreadthContent() {
                 CLEAR
             </button>
 
+            {/* ── Fit All — خامس عنصر ── */}
             <button
                 onClick={fitAll}
                 title="Fit all charts to data"
@@ -1427,6 +1432,7 @@ function MarketBreadthContent() {
                 FIT ALL
             </button>
 
+            {/* ── Export — آخر عنصر ── */}
             <ExportButton
                 data={data as any}
                 adData={adData}
@@ -1614,7 +1620,16 @@ function MarketBreadthContent() {
                                 </div>
 
                                 <div className="px-2 py-0.5 flex items-center gap-1 border-y border-slate-100 flex-shrink-0">
-                                    <span className="text-[8px] font-bold text-slate-400 px-1">{badge}</span>
+                                    {isExtra && panel?.kind === 'ad-count' && (
+                                        <>
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                            <span className="text-[8px] text-slate-400">A</span>
+                                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 ml-1" />
+                                            <span className="text-[8px] text-slate-400">D</span>
+                                        </>
+                                    )}
+                                    <div className="flex-1" />
+                                    {hover?.time && <span className="text-[8px] text-slate-400">{hover.time}</span>}
                                     {(isMa || isMinervini || isExtra) && (
                                         <>
                                             <button onClick={() => toggleAvgKey(i, avg50Key)}
@@ -1629,16 +1644,6 @@ function MarketBreadthContent() {
                                             </button>
                                         </>
                                     )}
-                                    {isExtra && panel?.kind === 'ad-count' && (
-                                        <>
-                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                            <span className="text-[8px] text-slate-400">A</span>
-                                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 ml-1" />
-                                            <span className="text-[8px] text-slate-400">D</span>
-                                        </>
-                                    )}
-                                    <div className="flex-1" />
-                                    {hover?.time && <span className="text-[8px] text-slate-400">{hover.time}</span>}
                                     {panel?.kind === 'ad-count' && (
                                         <button
                                             type="button"
@@ -1654,6 +1659,19 @@ function MarketBreadthContent() {
                                             {adShowPercent ? <Hash size={9} /> : <Percent size={9} />}
                                         </button>
                                     )}
+                                    <button
+                                        type="button"
+                                        onClick={() => setSeriesVisible((prev) => ({ ...prev, [i]: !isVisible }))}
+                                        title={isVisible ? 'Hide original data' : 'Show original data'}
+                                        className="w-[20px] h-[20px] flex items-center justify-center rounded border cursor-pointer transition-colors"
+                                        style={{
+                                            borderColor: !isVisible ? lineColor : '#E2E8F0',
+                                            background: !isVisible ? lineColor : 'transparent',
+                                            color: !isVisible ? '#FFFFFF' : '#64748B',
+                                        }}
+                                    >
+                                        {isVisible ? <Eye size={9} /> : <EyeOff size={9} />}
+                                    </button>
                                     <button onClick={() => handleFullscreen(i)}
                                         className="w-[20px] h-[20px] flex items-center justify-center rounded border border-slate-200 cursor-pointer bg-transparent">
                                         {isFS ? <Minimize2 size={9} /> : <Maximize2 size={9} />}

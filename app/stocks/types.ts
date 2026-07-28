@@ -211,6 +211,16 @@ export interface Stock {
     ind_group_percent_above_ma150?: number;
     ind_group_count_above_ma200?: number;
     ind_group_percent_above_ma200?: number;
+    // === RS Line Metrics ===
+    rs_line?: number;
+    rs_ma1?: number;
+    rs_ma2?: number;
+    rs_direction?: string;
+    rs_position?: string;
+    rs_signal_today?: string;
+    rsnhbp_today?: boolean;
+    last_bull_cross?: string;
+    last_bear_cross?: string;
 }
 
 export type QuickFilterType = '' | 'top_gainers' | 'top_losers' | 'most_active_volume' | 'most_active_value';
@@ -538,4 +548,13 @@ export interface FilterState {
     ind_group_percent_above_ma150_min: string; ind_group_percent_above_ma150_max: string;
     ind_group_count_above_ma200_min: string; ind_group_count_above_ma200_max: string;
     ind_group_percent_above_ma200_min: string; ind_group_percent_above_ma200_max: string;
+
+    // === RS Line Metrics Filters ===
+    rs_line_min: string; rs_line_max: string;
+    rs_ma1_min: string; rs_ma1_max: string;
+    rs_ma2_min: string; rs_ma2_max: string;
+    rs_direction: string[];
+    rs_position: string[];
+    rs_signal_today: string[];
+    rsnhbp_today: string[];
 }

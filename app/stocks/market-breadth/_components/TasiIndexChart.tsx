@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { createChart, ColorType, IChartApi, ISeriesApi, CrosshairMode, AreaSeries, LineSeries } from 'lightweight-charts';
-import { Maximize2, Minimize2, TrendingUp, Eye, EyeOff, Scan } from 'lucide-react';
+import { Maximize2, Minimize2, TrendingUp, Eye, EyeOff } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/api/config';
 import { seriesMovingAverage } from '@/lib/movingAverage';
 
@@ -341,9 +341,11 @@ export default function TasiIndexChart({ period, startDate, endDate, onChartRead
                 </div>
             </div>
 
-            {/* ── toolbar: نفس ارتفاع وأحجام أزرار باقي كروت الـ market-breadth ── */}
+            {/* ── toolbar: نفس ارتفاع وأحجام أزرار باقي كروت الـ market-breadth ──
+               AVG50 / AVG200 / Data كلهم على اليمين، من غير badge نصي جنبهم ── */}
             <div className="px-2 py-0.5 flex items-center gap-1 border-y border-slate-100 flex-shrink-0">
-                <span className="text-[8px] font-bold text-slate-400 px-1">TASI</span>
+                <div className="flex-1" />
+                {hoverTime && <span className="text-[8px] text-slate-400">{hoverTime}</span>}
 
                 <button onClick={() => setShowAvg50(!showAvg50)}
                     className="px-1.5 py-0.5 rounded text-[8px] font-semibold cursor-pointer border"
@@ -366,15 +368,6 @@ export default function TasiIndexChart({ period, startDate, endDate, onChartRead
                         color: !seriesVisible ? '#FFFFFF' : '#64748B',
                     }}>
                     {seriesVisible ? <Eye size={8} /> : <EyeOff size={8} />}
-                </button>
-
-                <div className="flex-1" />
-                {hoverTime && <span className="text-[8px] text-slate-400">{hoverTime}</span>}
-
-                <button onClick={() => chartRef.current?.timeScale().fitContent()}
-                    title="Fit to data"
-                    className="w-[20px] h-[20px] flex items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer bg-transparent">
-                    <Scan size={9} />
                 </button>
 
                 <button onClick={handleFullscreen}

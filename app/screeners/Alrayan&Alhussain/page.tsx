@@ -10,7 +10,7 @@ import React, {
 import BreadthTabs from '../../stocks/market-breadth/_components/BreadthTabs';
 import TasiIndexChart from '../../stocks/market-breadth/_components/TasiIndexChart';
 import { motion } from 'framer-motion';
-import { Activity, Maximize2, Minimize2, Target, TrendingUp, BarChart2, Info } from 'lucide-react';
+import { Activity, Maximize2, Minimize2, Target, TrendingUp, BarChart2, Info, ScanLine } from 'lucide-react';
 import {
     createChart,
     IChartApi,
@@ -316,7 +316,14 @@ function useChartSync() {
         }
     }, [cleanupSubscription]);
 
-    return { register, unregister, registerTasi };
+    // ── Fit-all: re-fit every registered chart's visible range to its content ──
+    const fitAll = useCallback(() => {
+        chartsRef.current.forEach((handle) => {
+            try { handle.chart.timeScale().fitContent(); } catch { }
+        });
+    }, []);
+
+    return { register, unregister, registerTasi, fitAll };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -954,39 +961,7 @@ function CombinedDashboardContent() {
                     display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 16,
                     flexWrap: 'wrap'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 9, padding: '5px 10px', minWidth: 140 }}>
-                            <span style={{ fontSize: 10, color: '#64748B', fontWeight: 700 }}>From</span>
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                style={{ border: 'none', background: 'transparent', fontSize: 11, color: '#0F172A', outline: 'none', width: '100%', minWidth: 90, cursor: 'pointer' }}
-                            />
-                        </label>
-
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 9, padding: '5px 10px', minWidth: 140 }}>
-                            <span style={{ fontSize: 10, color: '#64748B', fontWeight: 700 }}>To</span>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
-                                style={{ border: 'none', background: 'transparent', fontSize: 11, color: '#0F172A', outline: 'none', width: '100%', minWidth: 90, cursor: 'pointer' }}
-                            />
-                        </label>
-
-                        <button
-                            onClick={() => {
-                                setStartDate('');
-                                setEndDate('');
-                            }}
-                            style={{ padding: '5px 9px', borderRadius: 9, border: '1px solid #E2E8F0', background: '#fff', color: '#475569', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
-                        >
-                            Clear
-                        </button>
-                    </div>
-
-                    {/* ── Global AVG 50 / AVG 200 toggles — apply across every chart ── */}
+                    {/* ── Global AVG 50 / AVG 200 toggles — أول عنصر ── */}
                     <div style={{
                         display: 'flex', gap: 3, background: '#F1F5F9',
                         borderRadius: 10, padding: 3, border: '1px solid #E2E8F0',
@@ -1021,6 +996,7 @@ function CombinedDashboardContent() {
                         </button>
                     </div>
 
+                    {/* ── الفترات — تاني عنصر ── */}
                     <div style={{
                         display: 'flex', gap: 3, background: '#F1F5F9',
                         borderRadius: 10, padding: 3, border: '1px solid #E2E8F0',
@@ -1040,6 +1016,54 @@ function CombinedDashboardContent() {
                         ))}
                     </div>
 
+                    {/* ── From / To / Clear — تالت عنصر ── */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 9, padding: '5px 10px', minWidth: 140 }}>
+                            <span style={{ fontSize: 10, color: '#64748B', fontWeight: 700 }}>From</span>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                style={{ border: 'none', background: 'transparent', fontSize: 11, color: '#0F172A', outline: 'none', width: '100%', minWidth: 90, cursor: 'pointer' }}
+                            />
+                        </label>
+
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 9, padding: '5px 10px', minWidth: 140 }}>
+                            <span style={{ fontSize: 10, color: '#64748B', fontWeight: 700 }}>To</span>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                style={{ border: 'none', background: 'transparent', fontSize: 11, color: '#0F172A', outline: 'none', width: '100%', minWidth: 90, cursor: 'pointer' }}
+                            />
+                        </label>
+
+                        <button
+                            onClick={() => {
+                                setStartDate('');
+                                setEndDate('');
+                            }}
+                            style={{ padding: '5px 9px', borderRadius: 9, border: '1px solid #E2E8F0', background: '#fff', color: '#475569', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                        >
+                            Clear
+                        </button>
+                    </div>
+
+                    {/* ── Fit All — رابع عنصر: يرجع كل الشارتات المتزامنة لعرض كل الداتا ── */}
+                    <button
+                        onClick={() => sync.fitAll()}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            padding: '6px 12px', borderRadius: 9,
+                            border: '1px solid #E2E8F0', background: '#fff',
+                            color: '#475569', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                        }}
+                    >
+                        <ScanLine size={12} />
+                        Fit All
+                    </button>
+
+                    {/* ── Export — آخر عنصر ── */}
                     <ChartExportButton
                         captureRef={dashRef as React.RefObject<HTMLElement>}
                         period={period}
@@ -1050,7 +1074,7 @@ function CombinedDashboardContent() {
             </BreadthTabs>
 
             {/* Charts Grid — 2×2 يشمل TASI */}
-            <div
+            <main
                 ref={dashRef}
                 style={{
                     flex: 1, minHeight: 0,
@@ -1154,7 +1178,7 @@ function CombinedDashboardContent() {
                         avg200Global={avg200Enabled}
                     />
                 </motion.div>
-            </div>
+            </main>
 
             <style>{`
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

@@ -140,6 +140,12 @@ const DEFAULT_STOCK_FILTERS: StockFilterState = {
     sparkline_trend: 'all',
 };
 
+// Raw Shariah status value (as returned by buildShariahMap / approval_with_controls)
+// that qualifies as "compliant" for the automated report. Keep this in sync with
+// the raw Arabic values in lib/watchlist/shariah.ts — this is NOT the
+// formatShariahApproval() display value.
+const SHARIAH_COMPLIANT_RAW = 'متوافقة مع الضوابط';
+
 const RS_MOMENTUM_OPTIONS = [
     { key: 'full_chain', label: 'RS > 1W > 4W > 3M > 6M > 1Y', check: (s: StockSummary) => (s.rs_rating ?? 0) > (s.rs_rating_1_week_ago ?? 0) && (s.rs_rating_1_week_ago ?? 0) > (s.rs_rating_4_weeks_ago ?? 0) && (s.rs_rating_4_weeks_ago ?? 0) > (s.rs_rating_3_months_ago ?? 0) && (s.rs_rating_3_months_ago ?? 0) > (s.rs_rating_6_months_ago ?? 0) && (s.rs_rating_6_months_ago ?? 0) > (s.rs_rating_1_year_ago ?? 0) },
     { key: 'rs_gt_1w', label: 'RS > 1W', check: (s: StockSummary) => (s.rs_rating ?? 0) > (s.rs_rating_1_week_ago ?? 0) },
@@ -299,6 +305,10 @@ function useIndustryGroups() {
     // FIX #3: Add isMounted ref to prevent memory leaks
     const isMountedRef = useRef(true);
 
+    // ── Report generation state ────────────────────────────────────────────
+    const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+    const reportExpandTriggeredRef = useRef(false);
+
     useEffect(() => {
         isMountedRef.current = true;
         return () => {
@@ -327,6 +337,15 @@ function useIndustryGroups() {
 
     useEffect(() => {
         const params = filtersToParams(filters, stockFilters, rsMomentumFilters);
+        // Preserve ?autoReport=true across filter-driven URL rewrites. Without this,
+        // generateReport() (which changes filters/stockFilters) causes this effect to
+        // strip autoReport from the URL before exportData('pdf') gets a chance to read
+        // it, so the jsPDF output falls back to doc.save() instead of populating
+        // window.__REPORT_PDF_BASE64__ for the Puppeteer-driven report route.
+        if (typeof window !== 'undefined') {
+            const currentAutoReport = new URLSearchParams(window.location.search).get('autoReport');
+            if (currentAutoReport === 'true') params.set('autoReport', 'true');
+        }
         const query = params.toString();
         router.replace(`${pathname}${query ? `?${query}` : ''}`, { scroll: false });
     }, [filters, stockFilters, rsMomentumFilters, router, pathname]);
@@ -385,9 +404,14 @@ function useIndustryGroups() {
                 const stocks = await res.json();
                 if (!isMountedRef.current) return; // Check again after async operation
                 setStocksCache(prev => ({ ...prev, [groupName]: stocks }));
+            } else {
+                setStocksCache(prev => ({ ...prev, [groupName]: [] }));
             }
         } catch (err) {
-            if (isMountedRef.current) console.error(`Failed to fetch stocks for ${groupName}`, err);
+            if (isMountedRef.current) {
+                console.error(`Failed to fetch stocks for ${groupName}`, err);
+                setStocksCache(prev => ({ ...prev, [groupName]: [] }));
+            }
         } finally {
             if (isMountedRef.current) {
                 loadingStocksRef.current.delete(groupName);
@@ -649,6 +673,80 @@ function useIndustryGroups() {
         router.replace(pathname, { scroll: false });
     }, [router, pathname]);
 
+    // ── Automated "Install Report PDF" preset ────────────────────────────────
+    // Applies, in one shot, the exact filter/sort combo requested for the report:
+    //   1) Sort by Industry Group Rank ascending (priority 1)
+    //   2) Sort by Change vs Last Week ascending (priority 2)
+    //   3) Min RS Rating = 70
+    //   4) Sparkline Trend = Rising
+    //   5) Shariah Status = Compliant (متوافقة مع الضوابط) only
+    // Then expands all groups so the PDF export (triggered separately, once
+    // everything has finished loading) reflects exactly this view.
+    const generateReport = useCallback(() => {
+        setFiltersState(DEFAULT_FILTERS);
+        setSortConfigs([
+            { key: 'rank', direction: 'asc' },
+            { key: 'change_vs_last_week', direction: 'asc' },
+        ]);
+        setStockSortConfigs({});
+        setRsMomentumFilters([]);
+        setStockFiltersState({
+            ...DEFAULT_STOCK_FILTERS,
+            rs_rating_min: '70',
+            sparkline_trend: 'rising',
+            approval_with_controls: shariahOptions.includes(SHARIAH_COMPLIANT_RAW)
+                ? [SHARIAH_COMPLIANT_RAW]
+                : [],
+        });
+        reportExpandTriggeredRef.current = false;
+        setIsGeneratingReport(true);
+    }, [shariahOptions]);
+
+    // Once the report preset has produced filtered groups, auto-expand them all
+    // (mirrors the manual "Expand All Groups" action).
+    useEffect(() => {
+        if (isGeneratingReport && !reportExpandTriggeredRef.current && filteredData.length > 0) {
+            reportExpandTriggeredRef.current = true;
+            expandAllGroups();
+        }
+    }, [isGeneratingReport, filteredData, expandAllGroups]);
+
+    // Keep a ref to the latest generateReport/data so the mount-once effect
+    // below can always call the freshest version without needing to list them
+    // as dependencies (an effect that depends on a value which changes async
+    // can have its cleanup cancel a pending call before it ever fires).
+    const generateReportRef = useRef(generateReport);
+    useEffect(() => { generateReportRef.current = generateReport; }, [generateReport]);
+    const dataRef = useRef(data);
+    useEffect(() => { dataRef.current = data; }, [data]);
+
+    // Auto-trigger the report preset if requested by Puppeteer via ?autoReport=true.
+    // Runs exactly once per page load (empty dependency array) and reads the URL
+    // directly via window.location.search instead of the reactive useSearchParams()
+    // hook, so nothing (URL syncs, filter changes, async state updates) can ever
+    // re-run this effect and cancel the pending trigger. Instead of guessing a
+    // fixed delay, it polls until the industry-groups data has actually loaded
+    // (capped at 10s as a safety net) before calling generateReport().
+    const autoReportTriggeredRef = useRef(false);
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const initialAutoReport = new URLSearchParams(window.location.search).get('autoReport');
+        if (initialAutoReport !== 'true' || autoReportTriggeredRef.current) return;
+        autoReportTriggeredRef.current = true;
+
+        let attempts = 0;
+        const maxAttempts = 40; // 40 * 250ms = 10s safety cap
+        const poll = setInterval(() => {
+            attempts++;
+            const ready = dataRef.current.length > 0;
+            if (ready || attempts >= maxAttempts) {
+                clearInterval(poll);
+                generateReportRef.current();
+            }
+        }, 250);
+    }, []);
+
     return {
         data, isLoading, error, stats,
         filters, setFilters,
@@ -662,6 +760,7 @@ function useIndustryGroups() {
         filterOptions, activeFilters,
         clearFilter, clearAllFilters,
         shariahOptions,
+        isGeneratingReport, setIsGeneratingReport, generateReport,
     };
 }
 
@@ -1002,6 +1101,32 @@ function IndustryGroupsContent() {
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [collapseSignal, setCollapseSignal] = useState(0);
 
+    const [isGeneratingWeeklyRoutine, setIsGeneratingWeeklyRoutine] = useState(false);
+    const handleGenerateWeeklyRoutine = async () => {
+        setIsGeneratingWeeklyRoutine(true);
+        try {
+            const res = await fetch('/api/generate-weekly-report', {
+                method: 'POST',
+            });
+            if (!res.ok) throw new Error('Failed to generate PDF');
+            
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Weekly_Routine_${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error(err);
+            alert('Failed to generate PDF');
+        } finally {
+            setIsGeneratingWeeklyRoutine(false);
+        }
+    };
+
     const {
         data, isLoading, error, stats,
         filters, setFilters,
@@ -1015,7 +1140,10 @@ function IndustryGroupsContent() {
         filterOptions, activeFilters,
         clearFilter, clearAllFilters,
         shariahOptions,
+        isGeneratingReport, setIsGeneratingReport, generateReport,
     } = useIndustryGroups();
+    // (clearAllFilters and collapseAllGroups are already destructured above and
+    // reused here to reset the view after the report PDF has been generated.)
 
     const handleRowKeyDown = useCallback((e: React.KeyboardEvent, groupName: string) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -1030,95 +1158,112 @@ function IndustryGroupsContent() {
         const { groupHeaders, groupRows, stockHeaders, RS_KEYS } = buildExport(filteredData, expandedGroups, stocksCache, getFilteredStocks);
 
         if (format === 'pdf') {
-            import('jspdf').then(({ default: jsPDF }) => {
-                import('jspdf-autotable').then(({ default: autoTable }) => {
-                    const doc = new jsPDF({ orientation: 'landscape' });
-                    const pageWidth = doc.internal.pageSize.getWidth();
+            import('jspdf').then(jsPDF => {
+                import('jspdf-autotable').then(autoTable => {
+                    try {
+                        const doc = new jsPDF.default({ orientation: 'landscape' });
+                        const pageWidth = doc.internal.pageSize.getWidth();
 
-                    let hasAnyExpandedGroup = false;
-                    let currentY = 20; // تتبع الـ Y الحالية يدوياً
+                        let hasAnyExpandedGroup = false;
+                        let currentY = 20; // تتبع الـ Y الحالية يدوياً
 
-                    // FIX #8a & #8b: Iterate only over expanded groups that have stocks loaded
-                    for (const group of filteredData) {
-                        if (!expandedGroups.has(group.industry_group)) continue;
-                        if (!stocksCache[group.industry_group]) continue;
+                        // FIX #8a & #8b: Iterate only over expanded groups that have stocks loaded
+                        for (const group of filteredData) {
+                            if (!expandedGroups.has(group.industry_group)) continue;
+                            if (!stocksCache[group.industry_group]) continue;
 
-                        const stocks = getFilteredStocks(group.industry_group);
-                        if (stocks.length === 0) continue;
+                            const stocks = getFilteredStocks(group.industry_group);
+                            if (stocks.length === 0) continue;
 
-                        hasAnyExpandedGroup = true;
+                            hasAnyExpandedGroup = true;
 
-                        // التحقق من وجود مساحة كافية في الصفحة الحالية
-                        if (currentY > 250) {
-                            doc.addPage();
-                            currentY = 20;
+                            // التحقق من وجود مساحة كافية في الصفحة الحالية (للهيدر + رأس الجدول + صف واحد على الأقل)
+                            const pageHeight = doc.internal.pageSize.getHeight();
+                            if (currentY + 35 > pageHeight) {
+                                doc.addPage();
+                                currentY = 20;
+                            }
+
+                            // FIX #8c: Add styled group header
+                            doc.setFillColor(52, 73, 94);
+                            doc.setDrawColor(52, 73, 94);
+                            doc.setFontSize(12);
+                            doc.setFont('helvetica', 'bold');
+                            doc.setTextColor(255, 255, 255);
+                            doc.rect(14, currentY, pageWidth - 28, 10, 'F');
+                            doc.text(`${group.industry_group} (Rank: ${group.rank})`, 18, currentY + 7);
+
+                            currentY += 12; // زيادة الـ Y بعد الهيدر
+
+                            // Stock sub-table
+                            const sRows = stocks.map(stock => [
+                                stock.symbol, stock.company_name, stock.rs_rating ?? '-', stock.rs_rating_1_week_ago ?? '-',
+                                stock.rs_rating_4_weeks_ago ?? '-', stock.rs_rating_3_months_ago ?? '-',
+                                stock.rs_rating_6_months_ago ?? '-', stock.rs_rating_1_year_ago ?? '-',
+                                stock.industry, stock.sub_industry,
+                                formatShariahApproval(stock.approval_with_controls), formatPurgeAmount(stock.purge_amount), formatMarginable(stock.marginable_percent),
+                            ]);
+
+                            autoTable.default(doc, {
+                                startY: currentY,
+                                head: [stockHeaders],
+                                body: sRows,
+                                theme: 'striped',
+                                styles: { fontSize: 8 },
+                                headStyles: { fillColor: [41, 128, 185] },
+                                didParseCell: (data) => {
+                                    if (data.section !== 'body' || data.column.index < 2 || data.column.index > 7) return;
+                                    const stock = stocks[data.row.index];
+                                    if (!stock) return;
+                                    const rsKey = RS_KEYS[data.column.index - 2];
+                                    const value = stock[rsKey] as number | null | undefined;
+                                    if (value == null) return;
+                                    const { rowMin, rowMax } = getRSRowExtremes(stock);
+                                    const [r, g, b] = getRSRgb(value, rowMin, rowMax);
+                                    data.cell.styles.fillColor = [r, g, b];
+                                    data.cell.styles.fontStyle = 'bold';
+                                    data.cell.styles.halign = 'center';
+                                    const range = rowMax - rowMin;
+                                    const pct = range === 0 ? 0.5 : (value - rowMin) / range;
+                                    data.cell.styles.textColor = pct < 0.25 || pct > 0.72 ? [255, 255, 255] : [26, 26, 26];
+                                },
+                            });
+
+                            // تحديث الـ Y الحالية بعد الجدول
+                            const lastAutoTable = (doc as any).lastAutoTable;
+                            if (lastAutoTable) {
+                                currentY = lastAutoTable.finalY + 10; // إضافة مسافة 10 وحدات بين المجموعات
+                            } else {
+                                currentY += 10;
+                            }
                         }
 
-                        // FIX #8c: Add styled group header
-                        doc.setFillColor(52, 73, 94);
-                        doc.setDrawColor(52, 73, 94);
-                        doc.setFontSize(12);
-                        doc.setFont('helvetica', 'bold');
-                        doc.setTextColor(255, 255, 255);
-                        doc.rect(14, currentY, pageWidth - 28, 10, 'F');
-                        doc.text(`${group.industry_group} (Rank: ${group.rank})`, 18, currentY + 7);
+                        // FIX #8d: Show message if no groups are expanded
+                        if (!hasAnyExpandedGroup) {
+                            doc.setFontSize(12);
+                            doc.setFont('helvetica', 'normal');
+                            doc.setTextColor(0, 0, 0);
+                            doc.text('No expanded groups to export. Please expand at least one industry group before exporting.', 14, 20);
+                        }
 
-                        currentY += 12; // زيادة الـ Y بعد الهيدر
-
-                        // Stock sub-table
-                        const sRows = stocks.map(stock => [
-                            stock.symbol, stock.company_name, stock.rs_rating ?? '-', stock.rs_rating_1_week_ago ?? '-',
-                            stock.rs_rating_4_weeks_ago ?? '-', stock.rs_rating_3_months_ago ?? '-',
-                            stock.rs_rating_6_months_ago ?? '-', stock.rs_rating_1_year_ago ?? '-',
-                            stock.industry, stock.sub_industry,
-                            formatShariahApproval(stock.approval_with_controls), formatPurgeAmount(stock.purge_amount), formatMarginable(stock.marginable_percent),
-                        ]);
-
-                        autoTable(doc, {
-                            startY: currentY,
-                            head: [stockHeaders],
-                            body: sRows,
-                            theme: 'striped',
-                            styles: { fontSize: 8 },
-                            headStyles: { fillColor: [41, 128, 185] },
-                            didParseCell: (data) => {
-                                if (data.section !== 'body' || data.column.index < 2 || data.column.index > 7) return;
-                                const stock = stocks[data.row.index];
-                                if (!stock) return;
-                                const rsKey = RS_KEYS[data.column.index - 2];
-                                const value = stock[rsKey] as number | null | undefined;
-                                if (value == null) return;
-                                const { rowMin, rowMax } = getRSRowExtremes(stock);
-                                const [r, g, b] = getRSRgb(value, rowMin, rowMax);
-                                data.cell.styles.fillColor = [r, g, b];
-                                data.cell.styles.fontStyle = 'bold';
-                                data.cell.styles.halign = 'center';
-                                const range = rowMax - rowMin;
-                                const pct = range === 0 ? 0.5 : (value - rowMin) / range;
-                                data.cell.styles.textColor = pct < 0.25 || pct > 0.72 ? [255, 255, 255] : [26, 26, 26];
-                            },
-                        });
-
-                        // تحديث الـ Y الحالية بعد الجدول
-                        const lastAutoTable = (doc as any).lastAutoTable;
-                        if (lastAutoTable) {
-                            currentY = lastAutoTable.finalY + 10; // إضافة مسافة 10 وحدات بين المجموعات
+                        // FIX #8e: Updated filename
+                        const searchParams = new URLSearchParams(window.location.search);
+                        if (searchParams.get('autoReport') === 'true') {
+                            (window as any).__REPORT_PDF_BASE64__ = doc.output('datauristring');
                         } else {
-                            currentY += 10;
+                            doc.save(`industry_groups_stocks_${new Date().toISOString().split('T')[0]}.pdf`);
                         }
+                    } catch (err) {
+                        console.error('jsPDF execution error', err);
+                        (window as any).__REPORT_PDF_BASE64__ = 'ERROR';
                     }
-
-                    // FIX #8d: Show message if no groups are expanded
-                    if (!hasAnyExpandedGroup) {
-                        doc.setFontSize(12);
-                        doc.setFont('helvetica', 'normal');
-                        doc.setTextColor(0, 0, 0);
-                        doc.text('No expanded groups to export. Please expand at least one industry group before exporting.', 14, 20);
-                    }
-
-                    // FIX #8e: Updated filename
-                    doc.save(`industry_groups_stocks_${new Date().toISOString().split('T')[0]}.pdf`);
+                }).catch(err => {
+                    console.error('Failed to load jspdf-autotable', err);
+                    (window as any).__REPORT_PDF_BASE64__ = 'ERROR';
                 });
+            }).catch(err => {
+                console.error('Failed to load jspdf', err);
+                (window as any).__REPORT_PDF_BASE64__ = 'ERROR';
             });
             return;
         }
@@ -1162,6 +1307,31 @@ function IndustryGroupsContent() {
         XLSX.utils.book_append_sheet(wb, ws, 'Industry Groups');
         XLSX.writeFile(wb, `industry_groups_${new Date().toISOString().split('T')[0]}.${format}`);
     }, [filteredData, expandedGroups, stocksCache, getFilteredStocks]);
+
+    // ── Auto-trigger the PDF export once the report preset has fully expanded
+    // and loaded every group's stocks. Runs only while isGeneratingReport is true.
+    // Once the PDF is generated, reset every filter/sort back to default so the
+    // report preset doesn't linger in the UI or the URL.
+    useEffect(() => {
+        if (!isGeneratingReport || filteredData.length === 0) return;
+
+        const allExpanded = filteredData.every(g => expandedGroups.has(g.industry_group));
+        const allLoaded = filteredData.every(
+            g => stocksCache[g.industry_group] && !loadingStocks.has(g.industry_group)
+        );
+
+        if (allExpanded && allLoaded) {
+            exportData('pdf');
+            setIsGeneratingReport(false);
+
+            // Skip the filter reset if we are in Puppeteer automated mode
+            const searchParams = new URLSearchParams(window.location.search);
+            if (searchParams.get('autoReport') !== 'true') {
+                clearAllFilters();
+                collapseAllGroups();
+            }
+        }
+    }, [isGeneratingReport, filteredData, expandedGroups, stocksCache, loadingStocks, exportData, setIsGeneratingReport, clearAllFilters, collapseAllGroups]);
 
     if (isLoading) return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -1228,6 +1398,26 @@ function IndustryGroupsContent() {
                                 ))}
                             </div>
                         )}
+                        <button
+                            onClick={generateReport}
+                            disabled={isGeneratingReport}
+                            className="w-full mt-2 px-3 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center space-x-2 transition-all"
+                        >
+                            <Download className="w-4 h-4" />
+                            <span>{isGeneratingReport ? 'Generating Report...' : 'Install Report PDF'}</span>
+                        </button>
+                        <button
+                            onClick={handleGenerateWeeklyRoutine}
+                            disabled={isGeneratingWeeklyRoutine}
+                            className="w-full mt-2 px-3 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center space-x-2 transition-all"
+                        >
+                            {isGeneratingWeeklyRoutine ? (
+                                <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                            ) : (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                            )}
+                            <span>{isGeneratingWeeklyRoutine ? 'Generating PDF...' : 'Weekly Routine'}</span>
+                        </button>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">

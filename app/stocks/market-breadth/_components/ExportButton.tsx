@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
@@ -97,13 +98,64 @@ export default function ExportButton({
     const [subMenu, setSubMenu] = useState<'data' | null>(null);
     const [status, setStatus] = useState<string | null>(null);
     const [isWorking, setIsWorking] = useState(false);
+
+    // Position of the dropdown, computed from the trigger button's screen rect.
+    // The menu itself is rendered through a portal straight into <body>, so it can
+    // never be visually clipped by an ancestor's `overflow: hidden`/`overflow-x: auto`
+    // (e.g. a scrollable tabs bar) — which is what was hiding it before even though
+    // `open` was correctly becoming `true`.
+    const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+    const btnRef = useRef<HTMLButtonElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
-    const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
-        if (!menuRef.current?.contains(e.relatedTarget as Node)) {
-            setOpen(false); setSubMenu(null);
-        }
-    };
+    const closeAll = () => { setOpen(false); setSubMenu(null); };
+
+    /* ── recompute position whenever the menu opens, and keep it pinned
+         on scroll/resize while it stays open ── */
+    useLayoutEffect(() => {
+        if (!open) return;
+
+        const updatePos = () => {
+            const rect = btnRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            setMenuPos({
+                top: rect.bottom + 6,
+                left: Math.max(8, rect.right - 320), // 320 = menu minWidth, right-aligned to button
+                width: rect.width,
+            });
+        };
+
+        updatePos();
+        window.addEventListener('scroll', updatePos, true);
+        window.addEventListener('resize', updatePos);
+        return () => {
+            window.removeEventListener('scroll', updatePos, true);
+            window.removeEventListener('resize', updatePos);
+        };
+    }, [open]);
+
+    /* ── click-outside handling (portal content isn't a DOM descendant of the
+         trigger button, so we can't rely on onBlur/relatedTarget containment
+         anymore — a real document-level listener is used instead) ── */
+    useEffect(() => {
+        if (!open) return;
+        const onPointerDown = (e: MouseEvent) => {
+            const target = e.target as Node;
+            if (btnRef.current?.contains(target)) return;
+            if (menuRef.current?.contains(target)) return;
+            closeAll();
+        };
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') closeAll();
+        };
+        document.addEventListener('mousedown', onPointerDown);
+        document.addEventListener('keydown', onKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', onPointerDown);
+            document.removeEventListener('keydown', onKeyDown);
+        };
+    }, [open]);
 
     const notify = (msg: string, isError = false) => {
         setStatus(msg);
@@ -205,7 +257,7 @@ export default function ExportButton({
 
     /* ─── PNG & PDF ─────────────────────────────────────────────────────── */
     const exportPNG = async () => {
-        setOpen(false); setSubMenu(null); setIsWorking(true);
+        closeAll(); setIsWorking(true);
         notify('Capturing screenshot…');
         try {
             const canvas = await captureHighQuality();
@@ -219,7 +271,7 @@ export default function ExportButton({
     };
 
     const exportPDF = async () => {
-        setOpen(false); setSubMenu(null); setIsWorking(true);
+        closeAll(); setIsWorking(true);
         notify('Building PDF…');
         try {
             const canvas = await captureHighQuality();
@@ -388,9 +440,28 @@ export default function ExportButton({
     };
 
     /* ─── Common Helpers ────────────────────────────────────────────────── */
+
+    // Union of every key across every row — NOT just Object.keys(rows[0]).
+    // "All Data Combined" rows have different shapes per date (a date that only
+    // has Alhussain data won't have MA/AD/Minervini keys), so reading columns
+    // from the first row alone silently dropped any column missing on that
+    // particular date from the *entire* export. This walks every row instead.
+    const getAllHeaders = (rows: Record<string, any>[]): string[] => {
+        const seen = new Set<string>();
+        const ordered: string[] = [];
+        rows.forEach((r) => {
+            Object.keys(r).forEach((k) => {
+                if (!seen.has(k)) { seen.add(k); ordered.push(k); }
+            });
+        });
+        // Keep Date first regardless of which row introduced it.
+        const withoutDate = ordered.filter((k) => k !== 'Date');
+        return ordered.includes('Date') ? ['Date', ...withoutDate] : withoutDate;
+    };
+
     const arrayToCSV = (rows: Record<string, any>[]): string => {
         if (!rows.length) return '';
-        const headers = Object.keys(rows[0]);
+        const headers = getAllHeaders(rows);
         return [
             headers.join(','),
             ...rows.map((r) => headers.map((h) => {
@@ -409,7 +480,7 @@ export default function ExportButton({
 
     const tableFromRows = (rows: Record<string, any>[]): string => {
         if (!rows.length) return '  (no data)\n';
-        const keys = Object.keys(rows[0]);
+        const keys = getAllHeaders(rows);
         const widths = keys.map((k) => Math.max(k.length, ...rows.map((r) => String(r[k] ?? '').length)));
         const line = '+' + widths.map((w) => '-'.repeat(w + 2)).join('+') + '+';
         const fmt = (vals: string[]) => '| ' + vals.map((v, i) => v.padEnd(widths[i])).join(' | ') + ' |';
@@ -418,7 +489,7 @@ export default function ExportButton({
 
     /* ─── Export Functions ──────────────────────────────────────────────── */
     const exportCSV = (type: ExportType) => {
-        setOpen(false); setSubMenu(null); notify('Preparing CSV…');
+        closeAll(); notify('Preparing CSV…');
         let rows: Record<string, any>[] = [];
         let label = '';
 
@@ -453,7 +524,7 @@ export default function ExportButton({
     };
 
     const exportTXT = (type: ExportType) => {
-        setOpen(false); setSubMenu(null); notify('Preparing TXT…');
+        closeAll(); notify('Preparing TXT…');
         const header = `TASI Market Breadth Export\nPeriod: ${period} · Generated: ${today()}\n\n`;
         let content = '';
         let label = '';
@@ -489,7 +560,7 @@ export default function ExportButton({
     };
 
     const exportExcel = (type: ExportType) => {
-        setOpen(false); setSubMenu(null); notify('Preparing Excel…');
+        closeAll(); notify('Preparing Excel…');
         const wb = XLSX.utils.book_new();
 
         const addSheet = (rows: Record<string, any>[], name: string, widths: number[]) => {
@@ -576,11 +647,101 @@ export default function ExportButton({
         return acc;
     }, {} as Record<string, typeof DATASETS>);
 
+    /* ─── Menu content (rendered through a portal — see menuPos effect above) ── */
+    const menuContent = open && menuPos && (
+        <div ref={menuRef} style={{ ...S.menu, top: menuPos.top, left: menuPos.left }}>
+            <div style={S.menuLabel}>
+                <span>Export</span>
+                {period !== 'ALL' && <span style={S.periodPill}>{period}</span>}
+            </div>
+
+            <div style={S.menuScroll}>
+                {/* PNG & PDF */}
+                <div style={S.menuItem} onClick={exportPNG}>
+                    <div style={{ ...S.menuIconWrap, background: '#EEF2FF' }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4338CA" strokeWidth="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <polyline points="21 15 16 10 5 21" />
+                        </svg>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <div style={S.menuItemLabel}>PNG Image</div>
+                    </div>
+                </div>
+
+                <div style={S.menuItem} onClick={exportPDF}>
+                    <div style={{ ...S.menuIconWrap, background: '#FEF2F2' }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B02040" strokeWidth="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="16" y1="13" x2="8" y2="13" />
+                            <line x1="16" y1="17" x2="8" y2="17" />
+                        </svg>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <div style={S.menuItemLabel}>PDF Report</div>
+                    </div>
+                </div>
+
+                <div style={S.divider} />
+
+                {/* Data Export Accordion */}
+                <button onClick={() => setSubMenu((s) => (s === 'data' ? null : 'data'))} style={S.menuItem}>
+                    <div style={{ ...S.menuIconWrap, background: '#F0FFF4' }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2">
+                            <ellipse cx="12" cy="5" rx="9" ry="3" />
+                            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                        </svg>
+                    </div>
+                    <div style={{ flex: 1, textAlign: 'left' }}>
+                        <div style={S.menuItemLabel}>Data Export</div>
+                    </div>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2.5"
+                        style={{ transform: subMenu === 'data' ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.15s' }}>
+                        <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                </button>
+
+                {subMenu === 'data' && (
+                    <div style={S.subMenu}>
+                        <div style={S.subHeader}>
+                            <span style={{ flex: 1 }}>Dataset</span>
+                            <span style={S.subColHead}>CSV</span>
+                            <span style={S.subColHead}>XLS</span>
+                            <span style={S.subColHead}>TXT</span>
+                        </div>
+
+                        {Object.entries(groupedDatasets).map(([group, items]) => (
+                            <div key={group}>
+                                <div style={S.groupHeader}>{group}</div>
+                                {items.map(({ key, label }) => (
+                                    <div key={key} style={S.subRow}>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={S.subRowLabel}>{label}</div>
+                                        </div>
+                                        <div style={S.subRowBtns}>
+                                            <SubBtn color="#1560A8" bg="#EEF4FF" hoverBg="#DBEAFE" onClick={() => exportCSV(key)}>CSV</SubBtn>
+                                            <SubBtn color="#166534" bg="#F0FFF4" hoverBg="#D1FAE5" onClick={() => exportExcel(key)}>XLS</SubBtn>
+                                            <SubBtn color="#0369A1" bg="#F0F9FF" hoverBg="#BAE6FD" onClick={() => exportTXT(key)}>TXT</SubBtn>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+
     /* ─── Render ────────────────────────────────────────────────────────── */
     return (
-        <div style={{ position: 'relative', display: 'inline-block' }} onBlur={handleBlur} ref={menuRef} tabIndex={-1}>
+        <div style={{ position: 'relative', display: 'inline-block' }}>
             <button
-                onClick={() => { setOpen((o) => !o); setSubMenu(null); }}
+                ref={btnRef}
+                onClick={() => setOpen((o) => !o)}
                 disabled={isWorking}
                 style={{ ...S.btn, opacity: isWorking ? 0.7 : 1, cursor: isWorking ? 'wait' : 'pointer' }}
             >
@@ -602,93 +763,7 @@ export default function ExportButton({
                 </svg>
             </button>
 
-            {open && (
-                <div style={S.menu}>
-                    <div style={S.menuLabel}>
-                        <span>Export</span>
-                        {period !== 'ALL' && <span style={S.periodPill}>{period}</span>}
-                    </div>
-
-                    <div style={S.menuScroll}>
-                        {/* PNG & PDF */}
-                        <div style={S.menuItem} onClick={exportPNG}>
-                            <div style={{ ...S.menuIconWrap, background: '#EEF2FF' }}>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4338CA" strokeWidth="2">
-                                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                                    <circle cx="8.5" cy="8.5" r="1.5" />
-                                    <polyline points="21 15 16 10 5 21" />
-                                </svg>
-                            </div>
-                            <div style={{ flex: 1 }}>
-                                <div style={S.menuItemLabel}>PNG Image</div>
-                            </div>
-                        </div>
-
-                        <div style={S.menuItem} onClick={exportPDF}>
-                            <div style={{ ...S.menuIconWrap, background: '#FEF2F2' }}>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B02040" strokeWidth="2">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                    <polyline points="14 2 14 8 20 8" />
-                                    <line x1="16" y1="13" x2="8" y2="13" />
-                                    <line x1="16" y1="17" x2="8" y2="17" />
-                                </svg>
-                            </div>
-                            <div style={{ flex: 1 }}>
-                                <div style={S.menuItemLabel}>PDF Report</div>
-                            </div>
-                        </div>
-
-                        <div style={S.divider} />
-
-                        {/* Data Export Accordion */}
-                        <button onClick={() => setSubMenu((s) => (s === 'data' ? null : 'data'))} style={S.menuItem}>
-                            <div style={{ ...S.menuIconWrap, background: '#F0FFF4' }}>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2">
-                                    <ellipse cx="12" cy="5" rx="9" ry="3" />
-                                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-                                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-                                </svg>
-                            </div>
-                            <div style={{ flex: 1, textAlign: 'left' }}>
-                                <div style={S.menuItemLabel}>Data Export</div>
-                            </div>
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2.5"
-                                style={{ transform: subMenu === 'data' ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.15s' }}>
-                                <polyline points="9 18 15 12 9 6" />
-                            </svg>
-                        </button>
-
-                        {subMenu === 'data' && (
-                            <div style={S.subMenu}>
-                                <div style={S.subHeader}>
-                                    <span style={{ flex: 1 }}>Dataset</span>
-                                    <span style={S.subColHead}>CSV</span>
-                                    <span style={S.subColHead}>XLS</span>
-                                    <span style={S.subColHead}>TXT</span>
-                                </div>
-
-                                {Object.entries(groupedDatasets).map(([group, items]) => (
-                                    <div key={group}>
-                                        <div style={S.groupHeader}>{group}</div>
-                                        {items.map(({ key, label }) => (
-                                            <div key={key} style={S.subRow}>
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={S.subRowLabel}>{label}</div>
-                                                </div>
-                                                <div style={S.subRowBtns}>
-                                                    <SubBtn color="#1560A8" bg="#EEF4FF" hoverBg="#DBEAFE" onClick={() => exportCSV(key)}>CSV</SubBtn>
-                                                    <SubBtn color="#166534" bg="#F0FFF4" hoverBg="#D1FAE5" onClick={() => exportExcel(key)}>XLS</SubBtn>
-                                                    <SubBtn color="#0369A1" bg="#F0F9FF" hoverBg="#BAE6FD" onClick={() => exportTXT(key)}>TXT</SubBtn>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
+            {typeof document !== 'undefined' && menuContent && createPortal(menuContent, document.body)}
 
             {status && (
                 <div style={S.toast}>
@@ -748,10 +823,10 @@ const S: Record<string, React.CSSProperties> = {
         cursor: 'pointer',
     },
     menu: {
-        position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+        position: 'fixed',
         minWidth: '320px',
         background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px',
-        zIndex: 999,
+        zIndex: 9999,
         boxShadow: '0 8px 24px rgba(15,23,42,0.12)',
         display: 'flex', flexDirection: 'column',
         maxHeight: '85vh',

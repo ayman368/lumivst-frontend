@@ -92,6 +92,17 @@ export default function useStocks() {
                     sub_industry_rs: rsInfo.sub_industry_rs_rating ?? item.sub_industry_rs ?? '',
                     acc_dis_rating: rsInfo.acc_dis_rating ?? item.acc_dis_rating ?? '',
 
+                    // RS Line Metrics
+                    rs_line: rsInfo.rs_line ?? undefined,
+                    rs_ma1: rsInfo.rs_ma1 ?? undefined,
+                    rs_ma2: rsInfo.rs_ma2 ?? undefined,
+                    rs_direction: rsInfo.rs_direction ?? undefined,
+                    rs_position: rsInfo.rs_position ?? undefined,
+                    rs_signal_today: rsInfo.rs_signal_today ?? undefined,
+                    rsnhbp_today: rsInfo.rsnhbp_today ?? undefined,
+                    last_bull_cross: rsInfo.last_bull_cross ?? undefined,
+                    last_bear_cross: rsInfo.last_bear_cross ?? undefined,
+
                     price_minus_sma_10: techInfo.price_minus_sma_10,
                     price_minus_sma_21: techInfo.price_minus_sma_21,
                     price_minus_sma_50: techInfo.price_minus_sma_50,

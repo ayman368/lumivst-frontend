@@ -113,6 +113,21 @@ export default function FilterSidebar({
                     </div>
                 </FilterAccordion>
 
+                {/* ── RS Line Metrics ───────────────────────────────────────── */}
+                <FilterAccordion title="RS LINE METRICS" collapseSignal={collapseSignal}>
+                    <div className="mb-3">
+                        <RangeFilter label="RS Line" minValue={filters.rs_line_min} maxValue={filters.rs_line_max} onMinChange={(v) => set({ rs_line_min: v })} onMaxChange={(v) => set({ rs_line_max: v })} />
+                        <RangeFilter label="RS MA1 (EMA8)" minValue={filters.rs_ma1_min} maxValue={filters.rs_ma1_max} onMinChange={(v) => set({ rs_ma1_min: v })} onMaxChange={(v) => set({ rs_ma1_max: v })} />
+                        <RangeFilter label="RS MA2 (SMA50)" minValue={filters.rs_ma2_min} maxValue={filters.rs_ma2_max} onMinChange={(v) => set({ rs_ma2_min: v })} onMaxChange={(v) => set({ rs_ma2_max: v })} />
+                    </div>
+                    <div className="border-t border-gray-100 pt-3 mb-3">
+                        <CheckboxGroup label="Direction" options={['Up', 'Down']} selected={filters.rs_direction?.map(d => d === 'up' ? 'Up' : d === 'down' ? 'Down' : d) || []} onChange={(v) => set({ rs_direction: v.map(d => d === 'Up' ? 'up' : d === 'Down' ? 'down' : d) })} />
+                        <CheckboxGroup label="Position vs MA" options={['Above MA', 'Below MA']} selected={filters.rs_position?.map(d => d === 'above_ma' ? 'Above MA' : d === 'below_ma' ? 'Below MA' : d) || []} onChange={(v) => set({ rs_position: v.map(d => d === 'Above MA' ? 'above_ma' : d === 'Below MA' ? 'below_ma' : d) })} />
+                        <CheckboxGroup label="Signal Today" options={['Bull Cross', 'Bear Cross']} selected={filters.rs_signal_today?.map(d => d === 'bullish_cross' ? 'Bull Cross' : d === 'bearish_cross' ? 'Bear Cross' : d) || []} onChange={(v) => set({ rs_signal_today: v.map(d => d === 'Bull Cross' ? 'bullish_cross' : d === 'Bear Cross' ? 'bearish_cross' : d) })} />
+                        <CheckboxGroup label="RSNHBP" options={['Yes', 'No']} selected={filters.rsnhbp_today || []} onChange={(v) => set({ rsnhbp_today: v })} />
+                    </div>
+                </FilterAccordion>
+
                 {/* ── Price & Volume ────────────────────────────────────────── */}
                 <FilterAccordion title="PRICE & VOLUME" collapseSignal={collapseSignal}>
                     <div className="mb-3">

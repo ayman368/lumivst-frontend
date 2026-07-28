@@ -35,7 +35,8 @@ type TabId =
     | 'stamp_filters'
     | 'industry'
     | 'rs_momentum_net_short'
-    | 'industry_group_metrics';
+    | 'industry_group_metrics'
+    | 'rs_line_metrics';
 
 const TABS: { id: TabId; label: string; shortLabel: string }[] = [
     { id: 'quick_view', label: 'Quick View', shortLabel: 'Quick View' },
@@ -49,6 +50,7 @@ const TABS: { id: TabId; label: string; shortLabel: string }[] = [
     { id: 'industry', label: 'Industry / Sector', shortLabel: 'Industry' },
     { id: 'rs_momentum_net_short', label: 'RS Momentum & Net Short', shortLabel: 'RS Momentum' },
     { id: 'industry_group_metrics', label: 'Ind Group Metrics', shortLabel: 'Ind Group Metrics' },
+    { id: 'rs_line_metrics', label: 'RS Line Metrics', shortLabel: 'RS Line' },
 ];
 
 // ─── Stepper input ────────────────────────────────────────────────────────────
@@ -248,6 +250,41 @@ function RatingRow({
                                 ? { background: palette[o], borderColor: palette[o], color: '#fff' }
                                 : { background: '#fff', borderColor: '#e5e7eb', color: '#9ca3af' }
                         }
+                    >
+                        {o}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// ─── Generic toggle row for options ──────────────────────────────────────────
+function ButtonGroupRow({
+    label, options, selected, onChange,
+}: {
+    label: string; options: string[]; selected: string[]; onChange: (v: string[]) => void;
+}) {
+    const toggle = (v: string) =>
+        onChange(selected.includes(v) ? selected.filter(s => s !== v) : [...selected, v]);
+    const active = selected.length > 0;
+
+    return (
+        <div className="flex items-center gap-2 py-[3px] group">
+            <span className={`text-[11px] w-[120px] flex-shrink-0 truncate leading-tight transition-colors
+        ${active ? 'text-blue-700 font-semibold' : 'text-gray-500 group-hover:text-gray-700'}`}>
+                {label}
+            </span>
+            <div className="flex gap-[4px] flex-wrap">
+                {options.map(o => (
+                    <button
+                        key={o}
+                        onClick={() => toggle(o)}
+                        className={`px-2 h-[20px] text-[10px] font-bold rounded-sm border transition-all leading-none
+                            ${selected.includes(o)
+                                ? 'bg-blue-600 border-blue-600 text-white'
+                                : 'bg-white border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                            }`}
                     >
                         {o}
                     </button>
@@ -837,6 +874,24 @@ export default function TopFilterPanel({
                     <RangeRow labelWidth="w-[190px]" label="Ind Group % of stocks > 150MA" minVal={f.ind_group_percent_above_ma150_min} maxVal={f.ind_group_percent_above_ma150_max} onMin={v => s({ ind_group_percent_above_ma150_min: v })} onMax={v => s({ ind_group_percent_above_ma150_max: v })} />
                     <RangeRow labelWidth="w-[190px]" label="Ind Group # of stocks > 200MA" minVal={f.ind_group_count_above_ma200_min} maxVal={f.ind_group_count_above_ma200_max} onMin={v => s({ ind_group_count_above_ma200_min: v })} onMax={v => s({ ind_group_count_above_ma200_max: v })} />
                     <RangeRow labelWidth="w-[190px]" label="Ind Group % of stocks > 200MA" minVal={f.ind_group_percent_above_ma200_min} maxVal={f.ind_group_percent_above_ma200_max} onMin={v => s({ ind_group_percent_above_ma200_min: v })} onMax={v => s({ ind_group_percent_above_ma200_max: v })} />
+                </div>
+            </>
+        ),
+        rs_line_metrics: (
+            <>
+                <div className="flex-shrink-0">
+                    <SectionHead>RS Line Metrics</SectionHead>
+                    <RangeRow label="RS Line" minVal={f.rs_line_min} maxVal={f.rs_line_max} onMin={v => s({ rs_line_min: v })} onMax={v => s({ rs_line_max: v })} />
+                    <RangeRow label="RS MA1 (EMA8)" minVal={f.rs_ma1_min} maxVal={f.rs_ma1_max} onMin={v => s({ rs_ma1_min: v })} onMax={v => s({ rs_ma1_max: v })} />
+                    <RangeRow label="RS MA2 (SMA50)" minVal={f.rs_ma2_min} maxVal={f.rs_ma2_max} onMin={v => s({ rs_ma2_min: v })} onMax={v => s({ rs_ma2_max: v })} />
+                </div>
+                <ColDivider />
+                <div className="flex-shrink-0">
+                    <SectionHead>Trend & Signals</SectionHead>
+                    <ButtonGroupRow label="Direction" options={['Up', 'Down']} selected={f.rs_direction?.map(d => d === 'up' ? 'Up' : d === 'down' ? 'Down' : d) || []} onChange={v => s({ rs_direction: v.map(d => d === 'Up' ? 'up' : d === 'Down' ? 'down' : d) })} />
+                    <ButtonGroupRow label="Position vs MA" options={['Above MA', 'Below MA']} selected={f.rs_position?.map(d => d === 'above_ma' ? 'Above MA' : d === 'below_ma' ? 'Below MA' : d) || []} onChange={v => s({ rs_position: v.map(d => d === 'Above MA' ? 'above_ma' : d === 'Below MA' ? 'below_ma' : d) })} />
+                    <ButtonGroupRow label="Signal Today" options={['Bull Cross', 'Bear Cross']} selected={f.rs_signal_today?.map(d => d === 'bullish_cross' ? 'Bull Cross' : d === 'bearish_cross' ? 'Bear Cross' : d) || []} onChange={v => s({ rs_signal_today: v.map(d => d === 'Bull Cross' ? 'bullish_cross' : d === 'Bear Cross' ? 'bearish_cross' : d) })} />
+                    <ButtonGroupRow label="RSNHBP" options={['Yes', 'No']} selected={f.rsnhbp_today || []} onChange={v => s({ rsnhbp_today: v })} />
                 </div>
             </>
         ),

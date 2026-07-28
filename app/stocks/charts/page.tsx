@@ -212,7 +212,15 @@ const initialFilterState = {
     rs_rating_gt_1w: '',
     rs_1w_gt_4w: '',
     rs_3m_gt_6m: '',
-    rs_6m_gt_1y: ''
+    rs_6m_gt_1y: '',
+    // === RS Line Metrics Filters ===
+    rs_line_min: '', rs_line_max: '',
+    rs_ma1_min: '', rs_ma1_max: '',
+    rs_ma2_min: '', rs_ma2_max: '',
+    rs_direction: [],
+    rs_position: [],
+    rs_signal_today: [],
+    rsnhbp_today: [],
 } as unknown as FilterState;
 export default function StockScreenerPage() {
     const { stocks, metadata, loading, error, setStocks, setMetadata, setLoading, setError, refetch } = useStocks();
@@ -424,6 +432,15 @@ export default function StockScreenerPage() {
         addCheckboxFilter('Industry RS', 'industry_rs');
         addCheckboxFilter('Sub Industry RS', 'sub_industry_rs');
 
+        // RS Line Metrics
+        addRangeFilter('RS Line', 'rs_line_min', 'rs_line_max');
+        addRangeFilter('RS MA1', 'rs_ma1_min', 'rs_ma1_max');
+        addRangeFilter('RS MA2', 'rs_ma2_min', 'rs_ma2_max');
+        addCheckboxFilter('RS Direction', 'rs_direction');
+        addCheckboxFilter('RS Position', 'rs_position');
+        addCheckboxFilter('RS Signal Today', 'rs_signal_today');
+        addCheckboxFilter('RSNHBP', 'rsnhbp_today');
+
         // Price & Volume
         addRangeFilter('Price', 'price_min', 'price_max');
         addRangeFilter('Change', 'change_min', 'change_max');
@@ -608,6 +625,24 @@ export default function StockScreenerPage() {
             if (!checkCheckbox(stock.sector_rs, filters.sector_rs)) return false;
             if (!checkCheckbox(stock.industry_rs, filters.industry_rs)) return false;
             if (!checkCheckbox(stock.sub_industry_rs, filters.sub_industry_rs)) return false;
+            
+            // RS Line Metrics Filters
+            if (!checkRange(stock.rs_line, 'rs_line_min', 'rs_line_max')) return false;
+            if (!checkRange(stock.rs_ma1, 'rs_ma1_min', 'rs_ma1_max')) return false;
+            if (!checkRange(stock.rs_ma2, 'rs_ma2_min', 'rs_ma2_max')) return false;
+            if (filters.rs_direction && filters.rs_direction.length > 0) {
+                if (!stock.rs_direction || !filters.rs_direction.includes(stock.rs_direction)) return false;
+            }
+            if (filters.rs_position && filters.rs_position.length > 0) {
+                if (!stock.rs_position || !filters.rs_position.includes(stock.rs_position)) return false;
+            }
+            if (filters.rs_signal_today && filters.rs_signal_today.length > 0) {
+                if (!stock.rs_signal_today || !filters.rs_signal_today.includes(stock.rs_signal_today)) return false;
+            }
+            if (filters.rsnhbp_today && filters.rsnhbp_today.length > 0) {
+                const stockVal = stock.rsnhbp_today ? 'Yes' : 'No';
+                if (!filters.rsnhbp_today.includes(stockVal)) return false;
+            }
             if (!checkRange(stock.price, 'price_min', 'price_max')) return false;
             if (!checkRange(stock.change, 'change_min', 'change_max', true)) return false;
             if (!checkRange(stock.percent_change, 'percent_change_min', 'percent_change_max', true)) return false;
