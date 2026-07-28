@@ -61,32 +61,33 @@ async function main() {
     });
 
     try {
-        // ── Step 1: Login via the rebh.ai backend API ─────────────────────────
-        // We do a direct API call (not through the browser) to get the auth cookies,
-        // then inject them into every Puppeteer page we open.
-        console.log('🔐 Logging in…');
+        // ── Step 1: Login via UI ────────────────────────────────────────────────
+        console.log('🔐 Logging in via UI…');
         const loginPage = await browser.newPage();
         await loginPage.setViewport({ width: 1920, height: 1080 });
 
-        // Navigate to the site first so cookies are set on the right domain
-        await loginPage.goto(SITE_URL, { waitUntil: 'networkidle2', timeout: 60_000 });
+        await loginPage.goto(`${SITE_URL}/login`, { waitUntil: 'networkidle2', timeout: 60_000 });
 
-        // POST to the backend login endpoint from inside the browser context
-        const loginResult = await loginPage.evaluate(async (backendUrl, email, password) => {
-            const res = await fetch(`${backendUrl}/api/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-csrf-token': '1' },
-                credentials: 'include',
-                body: JSON.stringify({ email, password }),
-            });
-            return { ok: res.ok, status: res.status };
-        }, BACKEND_URL, EMAIL, PASSWORD);
-
-        if (!loginResult.ok) {
-            throw new Error(`Login failed with status ${loginResult.status}. Check SITE_EMAIL / SITE_PASSWORD secrets.`);
+        // Fill login inputs if available or fetch login endpoint
+        try {
+            await loginPage.type('input[type="email"], input[name="email"]', EMAIL);
+            await loginPage.type('input[type="password"], input[name="password"]', PASSWORD);
+            await Promise.all([
+                loginPage.click('button[type="submit"]'),
+                loginPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30_000 }).catch(() => {}),
+            ]);
+        } catch {
+            // Fallback to API fetch inside browser context
+            await loginPage.evaluate(async (backendUrl, email, password) => {
+                await fetch(`${backendUrl}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-csrf-token': '1' },
+                    credentials: 'include',
+                    body: JSON.stringify({ email, password }),
+                });
+            }, BACKEND_URL, EMAIL, PASSWORD);
         }
 
-        // Extract the auth cookies set on the backend domain so we can reuse them
         const backendCookies = await loginPage.cookies();
         await loginPage.close();
         console.log(`✅ Logged in (${backendCookies.length} cookies)`);
@@ -96,7 +97,6 @@ async function main() {
             const page = await browser.newPage();
             await page.setViewport({ width: 1920, height: 1080 });
             if (backendCookies.length > 0) {
-                // Set cookies for both the frontend and backend domains
                 const frontendCookies = backendCookies.map(c => ({ ...c, url: SITE_URL }));
                 const beCookies       = backendCookies.map(c => ({ ...c, url: BACKEND_URL }));
                 await page.setCookie(...frontendCookies, ...beCookies);
@@ -138,9 +138,10 @@ async function main() {
             const page = await openPage();
             try {
                 await page.goto(`${SITE_URL}${path}`, { waitUntil: 'networkidle2', timeout: 120_000 });
+                // Raised timeout to 180s to give full headroom for expanding all ~22 sectors
                 await page.waitForFunction(
                     () => window.__REPORT_PDF_BASE64__ !== undefined,
-                    { timeout: 90_000 },
+                    { timeout: 180_000 },
                 );
                 const dataUri = await page.evaluate(() => window.__REPORT_PDF_BASE64__);
                 if (dataUri === 'ERROR') throw new Error('jsPDF generation failed in browser');
